@@ -17,7 +17,7 @@ use gr::{
 
 fn main() -> Result<()> {
     let home_dir = std::env::var("HOME").unwrap();
-    let config_file = Path::new(&home_dir).join(".config/mr/api");
+    let config_file = Path::new(&home_dir).join(".config/gitar/api");
     let f = File::open(config_file).expect("Unable to open file");
     let cli_options = parse_cli().unwrap_or_else(|| {
         eprintln!("Please specify a subcommand");
