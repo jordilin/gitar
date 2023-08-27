@@ -15,8 +15,6 @@
           inherit system overlays;
         };
         cargoManifest = (pkgs.lib.importTOML ./Cargo.toml).package;
-        source = builtins.readFile ./tests/fail_msg_to_stderr.sh;
-        test_shell_fail_script = pkgs.writeScriptBin "fail_msg_to_stderr.sh" source;
       in
       with pkgs;
       {
