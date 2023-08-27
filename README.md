@@ -81,6 +81,10 @@ gr mr create
 * Confirmation
 * Open a merge request
 
+## Worth a thousand words
+
+[demo.webm](https://github.com/jordilin/gitar/assets/1031376/e0699767-c528-4ff0-9c11-5a01829b93af)
+
 ## Unit tests
 
 JSON responses from Gitlab and Github are verified in the contracts folder.
