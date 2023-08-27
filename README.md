@@ -1,5 +1,18 @@
 # GitAR - Git All Remotes
 
+- [GitAR - Git All Remotes](#gitar---git-all-remotes)
+  - [Installation](#installation)
+  - [Usage](#usage)
+    - [Configuration](#configuration)
+    - [Example open a merge/pull request](#example-open-a-mergepull-request)
+    - [Worth a thousand words](#worth-a-thousand-words)
+  - [Remotes supported](#remotes-supported)
+  - [Operations supported](#operations-supported)
+  - [Not yet supported](#not-yet-supported)
+  - [Unit tests](#unit-tests)
+  - [License](#license)
+
+
 Git multi-remote command line tool. Brings common development operations such as
 opening a pull request down to the shell.
 
@@ -28,17 +41,14 @@ cargo build --release
 ./target/release/gr --help
 ```
 
-## Remotes
+## Usage
 
-Gitlab and Github.
+**WARNING**: Before using, I'd recommend to familiarize yourself in a test git
+repository. Opening a merge request in particular, will fetch, rebase target
+remote branch to your feature local branch before pushing and opening a new
+merge request.
 
-## Operations supported in all remotes
-
-* Open/Merge/List/Close a pull request
-* Browse repository, merge request
-* Clone remote feature branch locally
-
-## Configuration
+### Configuration
 
 Configuration follows a properties file format.
 
@@ -66,7 +76,7 @@ gitlab.mycompany.com.api_token=<your api token>
 ...
 ```
 
-## Opening a merge request with gr
+### Example open a merge/pull request
 
 Create a configuration file with an API read/write token as explained above.
 
@@ -81,9 +91,24 @@ gr mr create
 * Confirmation
 * Open a merge request
 
-## Worth a thousand words
+### Worth a thousand words
 
-[demo.webm](https://github.com/jordilin/gitar/assets/1031376/e0699767-c528-4ff0-9c11-5a01829b93af)
+-[demo.webm](https://github.com/jordilin/gitar/assets/1031376/e0699767-c528-4ff0-9c11-5a01829b93af)
+
+
+## Remotes supported
+
+Gitlab and Github.
+
+## Operations supported
+
+* Open/Merge/List/Close a pull request
+* Browse repository, merge request
+* Clone remote feature branch locally
+
+## Not yet supported
+
+* Target a remote project different than your origin
 
 ## Unit tests
 
