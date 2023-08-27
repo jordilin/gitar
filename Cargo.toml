@@ -22,6 +22,8 @@ open = "5.0.0"
 thiserror = "1.0.40"
 anyhow = "1.0.71"
 
-[dev_dependencies]
+
+[dev-dependencies]
 # disable basic-cookies from httpmock - not needed
 httpmock = { version = "0.6", default_features = false }
+tempfile = "3.8.0"
