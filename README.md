@@ -93,7 +93,7 @@ gr mr create
 
 ### Worth a thousand words
 
-[demo.webm](https://github.com/jordilin/gitar/assets/1031376/e0699767-c528-4ff0-9c11-5a01829b93af)
+[demo.webm](https://github.com/jordilin/gitar/assets/1031376/83a37d6e-e2eb-4b68-978e-816439b2c122)
 
 
 ## Remotes supported
