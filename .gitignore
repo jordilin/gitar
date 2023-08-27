@@ -1,0 +1,10 @@
+/target
+tarpaulin-report.html
+/.cargo-audit-db
+/mutants.out*
+*.code-workspace
+*.code-search
+.DS_Store
+gitlab_token
+github_token
+curl-test.sh

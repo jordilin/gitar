@@ -1,0 +1,42 @@
+[
+  {
+    "access_level": 40,
+    "created_at": "2016-06-14T14:19:20.904Z",
+    "created_by": {
+      "id": 123456,
+      "username": "test_user_0",
+      "name": "Test User 0",
+      "state": "active",
+      "avatar_url": "https://any_url_test.test0",
+      "web_url": "https://any_url_test.test0"
+    },
+    "expires_at": null,
+    "id": 123456,
+    "username": "test_user_0",
+    "name": "Test User 0",
+    "state": "active",
+    "avatar_url": "https://any_url_test.test0",
+    "web_url": "https://any_url_test.test0",
+    "membership_state": "active"
+  },
+  {
+    "access_level": 40,
+    "created_at": "2016-10-27T11:58:49.278Z",
+    "created_by": {
+      "id": 123457,
+      "username": "test_user_1",
+      "name": "Test User 1",
+      "state": "active",
+      "avatar_url": "https://any_url_test.test1",
+      "web_url": "https://any_url_test.test1"
+    },
+    "expires_at": null,
+    "id": 123457,
+    "username": "test_user_1",
+    "name": "Test User 1",
+    "state": "active",
+    "avatar_url": "https://any_url_test.test1",
+    "web_url": "https://any_url_test.test1",
+    "membership_state": "active"
+  }
+]
