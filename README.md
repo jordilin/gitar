@@ -50,7 +50,7 @@ merge request.
 
 ### Configuration
 
-Place your configuration file in a file under `$HOME/.config/gitar/api`.
+Place your configuration information in a file called `$HOME/.config/gitar/api`.
 You'll need to gather a read/write API token from your Gitlab/Github account.
 
 Configuration follows a properties file format.
