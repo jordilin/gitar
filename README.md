@@ -61,13 +61,13 @@ Example configuration file:
 ```
 # Gitlab.com
 gitlab.com.api_token=<your api token>
-gitlab.com.cache_location=/home/<youruser>/.cache/gg
+gitlab.com.cache_location=/home/<youruser>/.cache/gr
 gitlab.com.preferred_assignee_username=<your username>
 gitlab.com.merge_request_description_signature=<your signature, @someone, etc...>
 
 # Github
 github.com.api_token=<your api token>
-github.com.cache_location=/home/<youruser>/.cache/gg
+github.com.cache_location=/home/<youruser>/.cache/gr
 github.com.preferred_assignee_username=<your username>
 # github.com.merge_request_description_signature=@my-team
 
