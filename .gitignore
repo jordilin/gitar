@@ -8,3 +8,4 @@ tarpaulin-report.html
 gitlab_token
 github_token
 curl-test.sh
+result
