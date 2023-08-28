@@ -1,5 +1,5 @@
 {
-  description = "A devShell example";
+  description = "Gitar Nix integration";
 
   inputs = {
     nixpkgs.url      = "github:nixos/nixpkgs/nixos-unstable";
@@ -14,9 +14,12 @@
         pkgs = import nixpkgs {
           inherit system overlays;
         };
+        cargoManifest = (pkgs.lib.importTOML ./Cargo.toml).package;
       in
       with pkgs;
       {
+
+
         devShell = mkShell {
           buildInputs = [
             openssl
@@ -42,12 +45,25 @@
             rustversion=$(rustc --version | awk '{print $2}')
             pythonversion=$(python --version | awk '{print $2}')
             SHELL_NAME="rc-$rustversion|py-$pythonversion"
+            export PATH="./result/bin:$PATH"
           '';
 
           LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
         };
 
-      }
-    );
+       packages = {
+        default = rustPlatform.buildRustPackage {
+          pname = cargoManifest.name;
+          version = cargoManifest.version;
+          src = ./.;
+          nativeBuildInputs = [ pkgconfig openssl ];
+          cargoLock = {
+            lockFile = ./Cargo.lock;
+          };
+          PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+        };
+      };
+    }
+  );
 }
