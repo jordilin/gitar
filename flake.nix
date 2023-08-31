@@ -15,6 +15,10 @@
           inherit system overlays;
         };
         cargoManifest = (pkgs.lib.importTOML ./Cargo.toml).package;
+        rustPlatform = pkgs.makeRustPlatform {
+          cargo = pkgs.rust-bin.stable.latest.minimal;
+          rustc = pkgs.rust-bin.stable.latest.minimal;
+        };
       in
       with pkgs;
       {
