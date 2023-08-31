@@ -115,7 +115,7 @@ pub const LINK_HEADER: &str = "link";
 pub fn parse_link_headers(link: &str) -> PageHeader {
     lazy_static! {
         static ref RE_URL: Regex = Regex::new(r#"<([^>]+)>;\s*rel="([^"]+)""#).unwrap();
-        static ref RE_PAGE_NUMBER: Regex = Regex::new(r#"[^(per_)]page=(\d+)"#).unwrap();
+        static ref RE_PAGE_NUMBER: Regex = Regex::new(r"[^(per_)]page=(\d+)").unwrap();
     }
     let mut page_header = PageHeader::new();
     for cap in RE_URL.captures_iter(link) {
