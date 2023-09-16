@@ -34,6 +34,7 @@ fn main() -> Result<()> {
                 MergeRequestOptions::Create {
                     title,
                     description,
+                    target_branch,
                     noprompt,
                     refresh_cache,
                 } => {
@@ -42,7 +43,14 @@ fn main() -> Result<()> {
                         refresh_cache,
                     ));
                     let remote = get_remote(domain, path, config.clone(), runner)?;
-                    merge_request::open(remote, Arc::new(config), title, description, noprompt)
+                    merge_request::open(
+                        remote,
+                        Arc::new(config),
+                        title,
+                        description,
+                        target_branch,
+                        noprompt,
+                    )
                 }
                 MergeRequestOptions::List {
                     state,
