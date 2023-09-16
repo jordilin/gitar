@@ -25,6 +25,7 @@ pub fn open(
     config: Arc<impl ConfigProperties>,
     title: Option<String>,
     description: Option<String>,
+    target_branch: Option<String>,
     noprompt: bool,
 ) -> Result<()> {
     // data gathering stage. Gather local repo and remote project data.
@@ -52,7 +53,7 @@ pub fn open(
         }
     }
     let source_branch = &repo.current_branch();
-    let target_branch = project.default_branch();
+    let target_branch = &target_branch.unwrap_or(project.default_branch().to_string());
     let title = title.unwrap_or(repo.title().to_string());
     let description = description.unwrap_or(repo.last_commit_message().to_string());
     let preferred_assignee_username = config.preferred_assignee_username().to_string();

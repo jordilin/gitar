@@ -31,6 +31,10 @@ fn merge_request_command() -> Command {
                     arg!(--auto "Do not prompt for confirmation")
                         .action(ArgAction::SetTrue)
                         .required(false),
+                )
+                .arg(
+                    arg!(--"target-branch" <TARGETBRANCH> "Target branch of the merge request instead of default project's upstream branch")
+                        .required(false),
                 ),
         )
         .subcommand(
@@ -105,10 +109,12 @@ pub fn parse_cli() -> Option<CliOptions> {
             Some(("create", sub_matches)) => {
                 let title = sub_matches.get_one::<String>("title");
                 let description = sub_matches.get_one::<String>("description");
+                let target_branch = sub_matches.get_one::<String>("target-branch");
                 let noprompt = sub_matches.get_flag("auto");
                 return Some(CliOptions::MergeRequest(MergeRequestOptions::Create {
                     title: title.as_ref().map(|s| s.to_string()),
                     description: description.as_ref().map(|s| s.to_string()),
+                    target_branch: target_branch.as_ref().map(|s| s.to_string()),
                     noprompt,
                     refresh_cache,
                 }));
@@ -182,6 +188,7 @@ pub enum MergeRequestOptions {
     Create {
         title: Option<String>,
         description: Option<String>,
+        target_branch: Option<String>,
         noprompt: bool,
         refresh_cache: bool,
     },
