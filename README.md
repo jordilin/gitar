@@ -1,5 +1,7 @@
 # GitAR - Git All Remotes
 
+[![Build status](https://github.com/jordilin/gitar/workflows/ci.yml/badge.svg)](https://github.com/jordilin/gitar/actions)
+
 - [GitAR - Git All Remotes](#gitar---git-all-remotes)
   - [Installation](#installation)
   - [Usage](#usage)
@@ -11,7 +13,6 @@
   - [Not yet supported](#not-yet-supported)
   - [Unit tests](#unit-tests)
   - [License](#license)
-
 
 Git multi-remote command line tool. Brings common development operations such as
 opening a pull request down to the shell.
