@@ -1,6 +1,6 @@
 # GitAR - Git All Remotes
 
-[![Build status](https://github.com/jordilin/gitar/workflows/ci/badge.svg)](https://github.com/jordilin/gitar/actions)
+[![Build status](https://github.com/jordilin/gitar/actions/workflows/ci.yml/badge.svg)](https://github.com/jordilin/gitar/actions)
 
 - [GitAR - Git All Remotes](#gitar---git-all-remotes)
   - [Installation](#installation)
