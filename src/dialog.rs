@@ -103,7 +103,7 @@ fn get_description(default_description: &str) -> String {
     let mut description = default_description.to_string();
     let prompt = "Edit description";
     while !confirm(prompt, false) {
-        description = if let Some(entry_msg) = Editor::new().edit(default_description).unwrap() {
+        description = if let Some(entry_msg) = Editor::new().edit(&description).unwrap() {
             entry_msg
         } else {
             "".to_string()
