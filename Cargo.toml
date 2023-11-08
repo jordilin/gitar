@@ -7,23 +7,23 @@ edition = "2021"
 
 [dependencies]
 subprocess = "0.2.9"
-rayon = "1.5.0"
+rayon = "1.8.0"
 # reqwest = {version = "0.11", features = ["blocking", "json"]}
-ureq = { version = "2.7.1", features = ["json"] }
+ureq = { version = "2.8.0", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.64"
+serde_json = "1.0.108"
 lazy_static = "1.4"
-regex = "1.5"
-sha2 = "0.10.2"
-dialoguer = { version = "0.10.4", features = ["fuzzy-select"] }
+regex = "1.10.2"
+sha2 = "0.10.8"
+dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
 console = "0.15.7"
-clap = "4.3"
+clap = "4.4.7"
 open = "5.0.0"
-thiserror = "1.0.40"
-anyhow = "1.0.71"
+thiserror = "1.0.50"
+anyhow = "1.0.75"
 
 
 [dev-dependencies]
 # disable basic-cookies from httpmock - not needed
-httpmock = { version = "0.6", default_features = false }
-tempfile = "3.8.0"
+httpmock = { version = "0.6.8", default_features = false }
+tempfile = "3.8.1"

@@ -61,7 +61,7 @@
           pname = cargoManifest.name;
           version = cargoManifest.version;
           src = ./.;
-          nativeBuildInputs = [ pkgconfig openssl ];
+          nativeBuildInputs = [ pkg-config openssl ];
           cargoLock = {
             lockFile = ./Cargo.lock;
           };
