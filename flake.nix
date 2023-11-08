@@ -27,7 +27,7 @@
         devShell = mkShell {
           buildInputs = [
             openssl
-            pkgconfig
+            pkg-config
             (rust-bin.stable.latest.default.override {
               extensions = [ "rust-src" "llvm-tools-preview" ];
             })
