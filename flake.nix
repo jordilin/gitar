@@ -56,6 +56,8 @@
             python311Packages.black
             # Github actions locally for fast iteration
             act
+            # Github actions linter
+            actionlint
           ] ++ scripts;
           shellHook = ''
             rustc --version
