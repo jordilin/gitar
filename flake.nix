@@ -19,11 +19,22 @@
           cargo = pkgs.rust-bin.stable.latest.minimal;
           rustc = pkgs.rust-bin.stable.latest.minimal;
         };
+        gitcleanbranches = pkgs.writeScriptBin "git-clean-branches" ''
+          # ref: https://gist.github.com/jordilin/08b6fed14b358dcbdf40c485c4daa730
+          git branch -r --merged |
+          grep origin |
+          grep -v '>' |
+          grep -v main |
+          xargs -L1 |
+          cut -d"/" -f2- |
+          xargs git push origin --delete
+        '';
+        scripts = [
+          gitcleanbranches
+        ];
       in
       with pkgs;
       {
-
-
         devShell = mkShell {
           buildInputs = [
             openssl
@@ -45,7 +56,7 @@
             python311Packages.black
             # Github actions locally for fast iteration
             act
-          ];
+          ] ++ scripts;
           shellHook = ''
             rustc --version
             rustversion=$(rustc --version | awk '{print $2}')
