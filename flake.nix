@@ -43,6 +43,8 @@
             just
             python311Packages.requests
             python311Packages.black
+            # Github actions locally for fast iteration
+            act
           ];
           shellHook = ''
             rustc --version
