@@ -46,7 +46,7 @@ fn test_execute_shell_cmd_with_error_cmd_fails_to_stderr() {
     file.set_permissions(perms).unwrap();
     // flush and close file
     drop(file);
-    let cmd = ["sh", "-c", &file_path.to_string_lossy()];
+    let cmd = ["bash", "-c", &file_path.to_string_lossy()];
     let err = runner.run(cmd).unwrap_err();
     assert_eq!(err.to_string(), "This is a failure message");
 }
