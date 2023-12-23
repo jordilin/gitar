@@ -134,16 +134,16 @@ pub fn open(
 /// executed in parallel.
 fn cmds(remote: Arc<dyn Remote>) -> Vec<Cmd<CmdInfo>> {
     let remote_cl = remote.clone();
-    let gitlab_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data() };
-    let gitlab_members_cmd = move || -> Result<CmdInfo> { remote.get_project_members() };
+    let remote_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data() };
+    let remote_members_cmd = move || -> Result<CmdInfo> { remote.get_project_members() };
     let git_status_cmd = || -> Result<CmdInfo> { git::status(&Shell) };
     let git_fetch_cmd = || -> Result<CmdInfo> { git::fetch(&Shell) };
     let git_title_cmd = || -> Result<CmdInfo> { git::last_commit(&Shell) };
     let git_current_branch = || -> Result<CmdInfo> { git::current_branch(&Shell) };
     let git_last_commit_message = || -> Result<CmdInfo> { git::last_commit_message(&Shell) };
     let cmds: Vec<Cmd<CmdInfo>> = vec![
-        Box::new(gitlab_project_cmd),
-        Box::new(gitlab_members_cmd),
+        Box::new(remote_project_cmd),
+        Box::new(remote_members_cmd),
         Box::new(git_status_cmd),
         Box::new(git_fetch_cmd),
         Box::new(git_title_cmd),
