@@ -154,12 +154,12 @@ fn cmds(remote: Arc<dyn Remote>) -> Vec<Cmd<CmdInfo>> {
 }
 
 /// This makes sure we don't push to branches considered to be upstream in most cases.
-pub fn in_feature_branch(current_branch: &str, target_branch: &str) -> Result<()> {
-    if current_branch == target_branch {
+pub fn in_feature_branch(current_branch: &str, upstream_branch: &str) -> Result<()> {
+    if current_branch == upstream_branch {
         let trace = format!(
             "Current branch {} is the same as the upstream \
         remote {}. Please use a feature branch",
-            current_branch, target_branch
+            current_branch, upstream_branch
         );
         return Err(GRError::PreconditionNotMet(trace).into());
     }
@@ -168,8 +168,8 @@ pub fn in_feature_branch(current_branch: &str, target_branch: &str) -> Result<()
     match current_branch {
         "master" | "main" | "develop" => {
             let trace = format!(
-                "Current branch is {}, which can be a release upstream branch. \
-                Please use a different feature branch",
+                "Current branch is {}, which could be a release upstream branch. \
+                Please use a different feature branch name",
                 current_branch
             );
             Err(GRError::PreconditionNotMet(trace).into())
@@ -217,9 +217,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_main_branch_is_not_a_feature_branch() {
-        let current_branch = "main";
-        let target_branch = "main";
+    fn test_current_branch_should_not_be_the_upstream_branch() {
+        let current_branch = "current-branch";
+        let target_branch = "current-branch";
         let result = in_feature_branch(current_branch, target_branch);
         assert!(result.is_err());
     }
@@ -230,5 +230,19 @@ mod tests {
         let target_branch = "main";
         let result = in_feature_branch(current_branch, target_branch);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_feature_branch_is_main_master_or_develop_should_err() {
+        let test_cases = [
+            ("main", "upstream-branch"),
+            ("master", "upstream-branch"),
+            ("develop", "upstream-branch"),
+        ];
+
+        for (current_branch, upstream_branch) in test_cases {
+            let result = in_feature_branch(current_branch, upstream_branch);
+            assert!(result.is_err());
+        }
     }
 }
