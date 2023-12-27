@@ -102,14 +102,14 @@ struct CloseMergeRequest {
 #[derive(Parser)]
 struct BrowseCommand {
     #[clap(subcommand)]
-    pub subcommand: BrowseSubcommand,
+    pub subcommand: Option<BrowseSubcommand>,
 }
 
 #[derive(Parser)]
 enum BrowseSubcommand {
     #[clap(about = "Open the repo using your browser")]
     Repo,
-    #[clap(about = "Open the merge requests using your browser")]
+    #[clap(name = "mr", about = "Open the merge requests using your browser")]
     MergeRequest(MergeRequestBrowse),
 }
 
@@ -161,17 +161,20 @@ pub fn parse_cli() -> Option<CliOptions> {
                 }));
             }
         },
-        Command::Browse(sub_matches) => match sub_matches.subcommand {
-            BrowseSubcommand::Repo => {
-                return Some(CliOptions::Browse(BrowseOptions::Repo));
-            }
-            BrowseSubcommand::MergeRequest(sub_matches) => {
-                if let Some(id) = sub_matches.id {
-                    return Some(CliOptions::Browse(BrowseOptions::MergeRequestId(id)));
+        Command::Browse(sub_matches) => {
+            let br_cmd = sub_matches.subcommand.unwrap_or(BrowseSubcommand::Repo);
+            match br_cmd {
+                BrowseSubcommand::Repo => {
+                    return Some(CliOptions::Browse(BrowseOptions::Repo));
                 }
-                return Some(CliOptions::Browse(BrowseOptions::MergeRequests));
+                BrowseSubcommand::MergeRequest(sub_matches) => {
+                    if let Some(id) = sub_matches.id {
+                        return Some(CliOptions::Browse(BrowseOptions::MergeRequestId(id)));
+                    }
+                    return Some(CliOptions::Browse(BrowseOptions::MergeRequests));
+                }
             }
-        },
+        }
     }
 }
 
