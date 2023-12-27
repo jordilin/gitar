@@ -1,173 +1,180 @@
-use clap::{arg, builder::PossibleValue, value_parser, ArgAction, Command};
-
 use crate::remote::MergeRequestState;
+use clap::{Parser, ValueEnum};
 
-fn cli() -> Command {
-    Command::new("gr")
-        .about("A Github/Gitlab CLI tool")
-        .subcommand_required(true)
-        .arg_required_else_help(true)
-        .arg(
-            arg!(-r --refresh "Refresh the cache")
-                .action(ArgAction::SetTrue)
-                .required(false),
-        )
-        .subcommand(merge_request_command())
-        .subcommand(browse_command())
+#[derive(Parser)]
+#[command(about = "A Github/Gitlab CLI tool")]
+struct Args {
+    #[clap(subcommand)]
+    pub command: Command,
+    /// Refresh the cache
+    #[clap(long, short)]
+    pub refresh: bool,
 }
 
-fn merge_request_command() -> Command {
-    Command::new("mr")
-        .about("Merge request operations")
-        .subcommand(
-            Command::new("create")
-                .about("Creates a merge request")
-                .arg(arg!(--title <TITLE>  "Title of the merge request").required(false))
-                .arg(
-                    arg!(--description <DESCRIPTION> "Description of the merge request")
-                        .required(false),
-                )
-                .arg(
-                    arg!(--auto "Do not prompt for confirmation")
-                        .action(ArgAction::SetTrue)
-                        .required(false),
-                )
-                .arg(
-                    arg!(--"target-branch" <TARGETBRANCH> "Target branch of the merge request instead of default project's upstream branch")
-                        .required(false),
-                ),
-        )
-        .subcommand(
-            Command::new("list").about("List merge requests").arg(
-                arg!(--state <STATE> "State of the merge request")
-                    .value_parser([
-                        PossibleValue::new("opened"),
-                        PossibleValue::new("closed"),
-                        PossibleValue::new("merged"),
-                    ])
-                    .required(true),
-            ),
-        )
-        .subcommand(
-            Command::new("merge").about("Merge a merge request").arg(
-                arg!(<ID> "Id of the merge request")
-                    .value_parser(value_parser!(i64))
-                    .required(true),
-            ),
-        )
-        .subcommand(merge_request_checkout_command())
-        .subcommand(merge_request_close_command())
+#[derive(Parser)]
+enum Command {
+    #[clap(name = "mr", about = "Merge request operations")]
+    MergeRequest(MergeRequestCommand),
+    #[clap(name = "br", about = "Open the remote using your browser")]
+    Browse(BrowseCommand),
 }
 
-fn merge_request_checkout_command() -> Command {
-    Command::new("checkout")
-        .about("Git checkout a merge request branch for review")
-        .arg(
-            arg!(<ID> "Id of the merge request")
-                .value_parser(value_parser!(i64))
-                .required(true),
-        )
+#[derive(Parser)]
+struct MergeRequestCommand {
+    #[clap(subcommand)]
+    pub subcommand: MergeRequestSubcommand,
 }
 
-fn merge_request_close_command() -> Command {
-    Command::new("close").about("Close a merge request").arg(
-        arg!(<ID> "Id of the merge request")
-            .value_parser(value_parser!(i64))
-            .required(true),
-    )
+#[derive(Parser)]
+enum MergeRequestSubcommand {
+    #[clap(about = "Creates a merge request")]
+    Create(CreateMergeRequest),
+    #[clap(about = "List merge requests")]
+    List(ListMergeRequest),
+    #[clap(about = "Merge a merge request")]
+    Merge(MergeMergeRequest),
+    #[clap(about = "Git checkout a merge request branch for review")]
+    Checkout(CheckoutMergeRequest),
+    #[clap(about = "Close a merge request")]
+    Close(CloseMergeRequest),
 }
 
-fn browse_command() -> Command {
-    Command::new("br")
-        .about(
-            "Open the remote using your browser. If no command is specified, it will open the repo",
-        )
-        .subcommand(browse_repo_subcommand())
-        .subcommand(browse_mr_subcommand())
+#[derive(Parser)]
+struct CreateMergeRequest {
+    /// Title of the merge request
+    #[clap(long)]
+    pub title: Option<String>,
+    /// Description of the merge request
+    #[clap(long)]
+    pub description: Option<String>,
+    /// Do not prompt for confirmation
+    #[clap(long)]
+    pub auto: bool,
+    /// Target branch of the merge request instead of default project's upstream branch
+    #[clap(long)]
+    pub target_branch: Option<String>,
 }
 
-fn browse_repo_subcommand() -> Command {
-    Command::new("repo").about("Open the repo using your browser")
+#[derive(ValueEnum, Clone)]
+pub enum MergeRequestStateStateCli {
+    Opened,
+    Closed,
+    Merged,
 }
 
-fn browse_mr_subcommand() -> Command {
-    Command::new("mr")
-        .about("Open the merge requests using your browser")
-        .arg(
-            arg!(<ID> "Open merge/pull request id in the browser")
-                .value_parser(value_parser!(i64))
-                .required(false),
-        )
+impl From<MergeRequestStateStateCli> for MergeRequestState {
+    fn from(state: MergeRequestStateStateCli) -> Self {
+        match state {
+            MergeRequestStateStateCli::Opened => MergeRequestState::Opened,
+            MergeRequestStateStateCli::Closed => MergeRequestState::Closed,
+            MergeRequestStateStateCli::Merged => MergeRequestState::Merged,
+        }
+    }
+}
+
+#[derive(Parser)]
+struct ListMergeRequest {
+    #[clap()]
+    pub state: MergeRequestStateStateCli,
+}
+
+#[derive(Parser)]
+struct MergeMergeRequest {
+    /// Id of the merge request
+    #[clap()]
+    pub id: i64,
+}
+
+#[derive(Parser)]
+struct CheckoutMergeRequest {
+    /// Id of the merge request
+    #[clap()]
+    pub id: i64,
+}
+
+#[derive(Parser)]
+struct CloseMergeRequest {
+    /// Id of the merge request
+    #[clap()]
+    pub id: i64,
+}
+
+#[derive(Parser)]
+struct BrowseCommand {
+    #[clap(subcommand)]
+    pub subcommand: Option<BrowseSubcommand>,
+}
+
+#[derive(Parser)]
+enum BrowseSubcommand {
+    #[clap(about = "Open the repo using your browser")]
+    Repo,
+    #[clap(name = "mr", about = "Open the merge requests using your browser")]
+    MergeRequest(MergeRequestBrowse),
+}
+
+#[derive(Parser)]
+struct MergeRequestBrowse {
+    /// Open merge/pull request id in the browser
+    #[clap()]
+    pub id: Option<i64>,
 }
 
 // Parse cli and return CliOptions
 pub fn parse_cli() -> Option<CliOptions> {
-    let matches = cli().get_matches();
-    let refresh_cache = matches.get_flag("refresh");
-    match matches.subcommand() {
-        Some(("mr", sub_matches)) => match sub_matches.subcommand() {
-            Some(("create", sub_matches)) => {
-                let title = sub_matches.get_one::<String>("title");
-                let description = sub_matches.get_one::<String>("description");
-                let target_branch = sub_matches.get_one::<String>("target-branch");
-                let noprompt = sub_matches.get_flag("auto");
+    let args = Args::parse();
+    let refresh_cache = args.refresh;
+    match args.command {
+        Command::MergeRequest(sub_matches) => match sub_matches.subcommand {
+            MergeRequestSubcommand::Create(sub_matches) => {
+                let title = sub_matches.title;
+                let description = sub_matches.description;
+                let target_branch = sub_matches.target_branch;
+                let noprompt = sub_matches.auto;
                 return Some(CliOptions::MergeRequest(MergeRequestOptions::Create {
-                    title: title.as_ref().map(|s| s.to_string()),
-                    description: description.as_ref().map(|s| s.to_string()),
-                    target_branch: target_branch.as_ref().map(|s| s.to_string()),
+                    title,
+                    description,
+                    target_branch,
                     noprompt,
                     refresh_cache,
                 }));
             }
-            Some(("list", sub_matches)) => {
+            MergeRequestSubcommand::List(sub_matches) => {
                 return Some(CliOptions::MergeRequest(MergeRequestOptions::List {
-                    state: match sub_matches.get_one::<String>("state") {
-                        Some(s) => s.as_str().try_into().unwrap(),
-                        None => {
-                            eprintln!("Please specify a state");
-                            std::process::exit(1);
-                        }
-                    },
+                    state: sub_matches.state.into(),
                     refresh_cache,
                 }));
             }
-            Some(("merge", sub_matches)) => {
+            MergeRequestSubcommand::Merge(sub_matches) => {
                 return Some(CliOptions::MergeRequest(MergeRequestOptions::Merge {
-                    id: *sub_matches
-                        .get_one::<i64>("ID")
-                        .expect("Please specify an id"),
+                    id: sub_matches.id,
                 }));
             }
-            Some(("checkout", sub_matches)) => {
+            MergeRequestSubcommand::Checkout(sub_matches) => {
                 return Some(CliOptions::MergeRequest(MergeRequestOptions::Checkout {
-                    id: *sub_matches
-                        .get_one::<i64>("ID")
-                        .expect("Please specify an id"),
+                    id: sub_matches.id,
                 }));
             }
-            Some(("close", sub_matches)) => {
+            MergeRequestSubcommand::Close(sub_matches) => {
                 return Some(CliOptions::MergeRequest(MergeRequestOptions::Close {
-                    id: *sub_matches
-                        .get_one::<i64>("ID")
-                        .expect("Please specify an id"),
+                    id: sub_matches.id,
                 }));
             }
-            _ => None,
         },
-        Some(("br", sub_matches)) => match sub_matches.subcommand() {
-            Some(("repo", _)) => Some(CliOptions::Browse(BrowseOptions::Repo)),
-            Some(("mr", sub_matches)) => {
-                if let Some(id) = sub_matches.get_one::<i64>("ID") {
-                    return Some(CliOptions::Browse(BrowseOptions::MergeRequestId(*id)));
+        Command::Browse(sub_matches) => {
+            let br_cmd = sub_matches.subcommand.unwrap_or(BrowseSubcommand::Repo);
+            match br_cmd {
+                BrowseSubcommand::Repo => {
+                    return Some(CliOptions::Browse(BrowseOptions::Repo));
                 }
-                Some(CliOptions::Browse(BrowseOptions::MergeRequests))
+                BrowseSubcommand::MergeRequest(sub_matches) => {
+                    if let Some(id) = sub_matches.id {
+                        return Some(CliOptions::Browse(BrowseOptions::MergeRequestId(id)));
+                    }
+                    return Some(CliOptions::Browse(BrowseOptions::MergeRequests));
+                }
             }
-            _ => {
-                // default open remote repo in browser
-                Some(CliOptions::Browse(BrowseOptions::Repo))
-            }
-        },
-        _ => None,
+        }
     }
 }
 
