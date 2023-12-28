@@ -129,36 +129,8 @@ struct MergeRequestBrowse {
 pub fn parse_cli() -> Option<CliOptions> {
     let args = Args::parse();
     match args.command {
-        Command::MergeRequest(sub_matches) => match sub_matches.subcommand {
-            MergeRequestSubcommand::Create(sub_matches) => {
-                Some(CliOptions::MergeRequest(sub_matches.into()))
-            }
-            MergeRequestSubcommand::List(sub_matches) => {
-                Some(CliOptions::MergeRequest(sub_matches.into()))
-            }
-            MergeRequestSubcommand::Merge(sub_matches) => {
-                Some(CliOptions::MergeRequest(sub_matches.into()))
-            }
-            MergeRequestSubcommand::Checkout(sub_matches) => {
-                Some(CliOptions::MergeRequest(sub_matches.into()))
-            }
-            MergeRequestSubcommand::Close(sub_matches) => {
-                Some(CliOptions::MergeRequest(sub_matches.into()))
-            }
-        },
-        Command::Browse(sub_matches) => {
-            let br_cmd = sub_matches.subcommand.unwrap_or(BrowseSubcommand::Repo);
-            match br_cmd {
-                BrowseSubcommand::Repo => Some(CliOptions::Browse(BrowseOptions::Repo)),
-                BrowseSubcommand::MergeRequest(sub_matches) => {
-                    if let Some(id) = sub_matches.id {
-                        return Some(CliOptions::Browse(BrowseOptions::MergeRequestId(id)));
-                    }
-                    Some(CliOptions::Browse(BrowseOptions::MergeRequests))
-                }
-                BrowseSubcommand::Pipelines => Some(CliOptions::Browse(BrowseOptions::Pipelines)),
-            }
-        }
+        Command::MergeRequest(sub_matches) => Some(CliOptions::MergeRequest(sub_matches.into())),
+        Command::Browse(sub_matches) => Some(CliOptions::Browse(sub_matches.into())),
     }
 }
 
@@ -211,6 +183,38 @@ impl From<CheckoutMergeRequest> for MergeRequestOptions {
 impl From<CloseMergeRequest> for MergeRequestOptions {
     fn from(options: CloseMergeRequest) -> Self {
         MergeRequestOptions::Close { id: options.id }
+    }
+}
+
+impl From<MergeRequestCommand> for MergeRequestOptions {
+    fn from(options: MergeRequestCommand) -> Self {
+        match options.subcommand {
+            MergeRequestSubcommand::Create(options) => options.into(),
+            MergeRequestSubcommand::List(options) => options.into(),
+            MergeRequestSubcommand::Merge(options) => options.into(),
+            MergeRequestSubcommand::Checkout(options) => options.into(),
+            MergeRequestSubcommand::Close(options) => options.into(),
+        }
+    }
+}
+
+impl From<MergeRequestBrowse> for BrowseOptions {
+    fn from(options: MergeRequestBrowse) -> Self {
+        match options.id {
+            Some(id) => BrowseOptions::MergeRequestId(id),
+            None => BrowseOptions::MergeRequests,
+        }
+    }
+}
+
+impl From<BrowseCommand> for BrowseOptions {
+    fn from(options: BrowseCommand) -> Self {
+        match options.subcommand {
+            Some(BrowseSubcommand::Repo) => BrowseOptions::Repo,
+            Some(BrowseSubcommand::MergeRequest(options)) => options.into(),
+            Some(BrowseSubcommand::Pipelines) => BrowseOptions::Pipelines,
+            None => BrowseOptions::Repo,
+        }
     }
 }
 
