@@ -158,6 +158,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             BrowseOptions::Repo => base_url,
             BrowseOptions::MergeRequests => format!("{}/pulls", base_url),
             BrowseOptions::MergeRequestId(id) => format!("{}/pull/{}", base_url, id),
+            BrowseOptions::Pipelines => format!("{}/actions", base_url),
         }
     }
 }

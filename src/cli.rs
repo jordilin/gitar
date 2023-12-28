@@ -111,6 +111,8 @@ enum BrowseSubcommand {
     Repo,
     #[clap(name = "mr", about = "Open the merge requests using your browser")]
     MergeRequest(MergeRequestBrowse),
+    #[clap(name = "pp", about = "Open the ci/cd pipelines using your browser")]
+    Pipelines,
 }
 
 #[derive(Parser)]
@@ -173,6 +175,9 @@ pub fn parse_cli() -> Option<CliOptions> {
                     }
                     return Some(CliOptions::Browse(BrowseOptions::MergeRequests));
                 }
+                BrowseSubcommand::Pipelines => {
+                    return Some(CliOptions::Browse(BrowseOptions::Pipelines));
+                }
             }
         }
     }
@@ -188,7 +193,7 @@ pub enum BrowseOptions {
     Repo,
     MergeRequests,
     MergeRequestId(i64),
-    // TODO Pipelines/Actions, close MRs
+    Pipelines,
 }
 
 pub enum MergeRequestOptions {

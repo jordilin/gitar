@@ -101,6 +101,11 @@ fn main() -> Result<()> {
                         remote.get_url(BrowseOptions::MergeRequestId(id)),
                     )?)
                 }
+                BrowseOptions::Pipelines => {
+                    let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
+                    let remote = get_remote(domain, path, config, runner)?;
+                    Ok(open::that(remote.get_url(BrowseOptions::Pipelines))?)
+                }
             }
         }
     }
