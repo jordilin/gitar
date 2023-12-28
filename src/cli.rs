@@ -147,6 +147,10 @@ pub enum BrowseOptions {
     Pipelines,
 }
 
+// From impls - private clap structs to public domain structs
+// Mainly to avoid propagating clap further down the stack as changes in the
+// clap API could break other parts of the code.
+
 impl From<CreateMergeRequest> for MergeRequestOptions {
     fn from(options: CreateMergeRequest) -> Self {
         MergeRequestOptions::Create {
@@ -213,6 +217,7 @@ impl From<BrowseCommand> for BrowseOptions {
             Some(BrowseSubcommand::Repo) => BrowseOptions::Repo,
             Some(BrowseSubcommand::MergeRequest(options)) => options.into(),
             Some(BrowseSubcommand::Pipelines) => BrowseOptions::Pipelines,
+            // defaults to open repo in browser
             None => BrowseOptions::Repo,
         }
     }
