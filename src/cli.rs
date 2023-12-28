@@ -131,37 +131,32 @@ pub fn parse_cli() -> Option<CliOptions> {
     match args.command {
         Command::MergeRequest(sub_matches) => match sub_matches.subcommand {
             MergeRequestSubcommand::Create(sub_matches) => {
-                return Some(CliOptions::MergeRequest(sub_matches.into()));
+                Some(CliOptions::MergeRequest(sub_matches.into()))
             }
             MergeRequestSubcommand::List(sub_matches) => {
-                return Some(CliOptions::MergeRequest(sub_matches.into()));
+                Some(CliOptions::MergeRequest(sub_matches.into()))
             }
             MergeRequestSubcommand::Merge(sub_matches) => {
-                return Some(CliOptions::MergeRequest(sub_matches.into()));
+                Some(CliOptions::MergeRequest(sub_matches.into()))
             }
-
             MergeRequestSubcommand::Checkout(sub_matches) => {
-                return Some(CliOptions::MergeRequest(sub_matches.into()));
+                Some(CliOptions::MergeRequest(sub_matches.into()))
             }
             MergeRequestSubcommand::Close(sub_matches) => {
-                return Some(CliOptions::MergeRequest(sub_matches.into()));
+                Some(CliOptions::MergeRequest(sub_matches.into()))
             }
         },
         Command::Browse(sub_matches) => {
             let br_cmd = sub_matches.subcommand.unwrap_or(BrowseSubcommand::Repo);
             match br_cmd {
-                BrowseSubcommand::Repo => {
-                    return Some(CliOptions::Browse(BrowseOptions::Repo));
-                }
+                BrowseSubcommand::Repo => Some(CliOptions::Browse(BrowseOptions::Repo)),
                 BrowseSubcommand::MergeRequest(sub_matches) => {
                     if let Some(id) = sub_matches.id {
                         return Some(CliOptions::Browse(BrowseOptions::MergeRequestId(id)));
                     }
-                    return Some(CliOptions::Browse(BrowseOptions::MergeRequests));
+                    Some(CliOptions::Browse(BrowseOptions::MergeRequests))
                 }
-                BrowseSubcommand::Pipelines => {
-                    return Some(CliOptions::Browse(BrowseOptions::Pipelines));
-                }
+                BrowseSubcommand::Pipelines => Some(CliOptions::Browse(BrowseOptions::Pipelines)),
             }
         }
     }
