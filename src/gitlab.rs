@@ -1,4 +1,4 @@
-use crate::api_traits::{MergeRequest, Remote, RemoteProject};
+use crate::api_traits::{MergeRequest, Pipeline, Remote, RemoteProject};
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
 use crate::error;
@@ -282,6 +282,16 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
             BrowseOptions::MergeRequestId(id) => format!("{}/merge_requests/{}", base_url, id),
             BrowseOptions::Pipelines => format!("{}/pipelines", base_url),
         }
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> Pipeline for Gitlab<R> {
+    fn list_pipeline(&self) -> Result<CmdInfo> {
+        todo!();
+    }
+
+    fn get_pipeline(&self, _id: i64) -> Result<CmdInfo> {
+        todo!();
     }
 }
 

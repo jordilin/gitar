@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 use crate::api_traits::MergeRequest;
+use crate::api_traits::Pipeline;
 use crate::api_traits::Remote;
 use crate::api_traits::RemoteProject;
 use crate::cli::BrowseOptions;
@@ -363,6 +364,16 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
     }
 
     fn close(&self, _id: i64) -> Result<MergeRequestResponse> {
+        todo!()
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> Pipeline for Github<R> {
+    fn list_pipeline(&self) -> Result<CmdInfo> {
+        todo!();
+    }
+
+    fn get_pipeline(&self, _id: i64) -> Result<CmdInfo> {
         todo!()
     }
 }

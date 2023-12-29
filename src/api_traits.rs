@@ -21,4 +21,9 @@ pub trait RemoteProject {
     fn get_url(&self, option: BrowseOptions) -> String;
 }
 
-pub trait Remote: RemoteProject + MergeRequest + Send + Sync + 'static {}
+pub trait Pipeline {
+    fn list_pipeline(&self) -> Result<CmdInfo>;
+    fn get_pipeline(&self, id: i64) -> Result<CmdInfo>;
+}
+
+pub trait Remote: RemoteProject + MergeRequest + Pipeline + Send + Sync + 'static {}
