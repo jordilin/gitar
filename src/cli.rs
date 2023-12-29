@@ -6,9 +6,6 @@ use clap::{Parser, ValueEnum};
 struct Args {
     #[clap(subcommand)]
     pub command: Command,
-    /// Refresh the cache
-    #[clap(long, short)]
-    pub refresh: bool,
 }
 
 #[derive(Parser)]
@@ -53,6 +50,9 @@ struct CreateMergeRequest {
     /// Target branch of the merge request instead of default project's upstream branch
     #[clap(long)]
     pub target_branch: Option<String>,
+    /// Refresh the cache
+    #[clap(long, short)]
+    pub refresh: bool,
 }
 
 #[derive(ValueEnum, Clone)]
@@ -76,6 +76,9 @@ impl From<MergeRequestStateStateCli> for MergeRequestState {
 struct ListMergeRequest {
     #[clap()]
     pub state: MergeRequestStateStateCli,
+    /// Refresh the cache
+    #[clap(long, short)]
+    pub refresh: bool,
 }
 
 #[derive(Parser)]
@@ -125,61 +128,9 @@ struct MergeRequestBrowse {
 // Parse cli and return CliOptions
 pub fn parse_cli() -> Option<CliOptions> {
     let args = Args::parse();
-    let refresh_cache = args.refresh;
     match args.command {
-        Command::MergeRequest(sub_matches) => match sub_matches.subcommand {
-            MergeRequestSubcommand::Create(sub_matches) => {
-                let title = sub_matches.title;
-                let description = sub_matches.description;
-                let target_branch = sub_matches.target_branch;
-                let noprompt = sub_matches.auto;
-                return Some(CliOptions::MergeRequest(MergeRequestOptions::Create {
-                    title,
-                    description,
-                    target_branch,
-                    noprompt,
-                    refresh_cache,
-                }));
-            }
-            MergeRequestSubcommand::List(sub_matches) => {
-                return Some(CliOptions::MergeRequest(MergeRequestOptions::List {
-                    state: sub_matches.state.into(),
-                    refresh_cache,
-                }));
-            }
-            MergeRequestSubcommand::Merge(sub_matches) => {
-                return Some(CliOptions::MergeRequest(MergeRequestOptions::Merge {
-                    id: sub_matches.id,
-                }));
-            }
-            MergeRequestSubcommand::Checkout(sub_matches) => {
-                return Some(CliOptions::MergeRequest(MergeRequestOptions::Checkout {
-                    id: sub_matches.id,
-                }));
-            }
-            MergeRequestSubcommand::Close(sub_matches) => {
-                return Some(CliOptions::MergeRequest(MergeRequestOptions::Close {
-                    id: sub_matches.id,
-                }));
-            }
-        },
-        Command::Browse(sub_matches) => {
-            let br_cmd = sub_matches.subcommand.unwrap_or(BrowseSubcommand::Repo);
-            match br_cmd {
-                BrowseSubcommand::Repo => {
-                    return Some(CliOptions::Browse(BrowseOptions::Repo));
-                }
-                BrowseSubcommand::MergeRequest(sub_matches) => {
-                    if let Some(id) = sub_matches.id {
-                        return Some(CliOptions::Browse(BrowseOptions::MergeRequestId(id)));
-                    }
-                    return Some(CliOptions::Browse(BrowseOptions::MergeRequests));
-                }
-                BrowseSubcommand::Pipelines => {
-                    return Some(CliOptions::Browse(BrowseOptions::Pipelines));
-                }
-            }
-        }
+        Command::MergeRequest(sub_matches) => Some(CliOptions::MergeRequest(sub_matches.into())),
+        Command::Browse(sub_matches) => Some(CliOptions::Browse(sub_matches.into())),
     }
 }
 
@@ -194,6 +145,82 @@ pub enum BrowseOptions {
     MergeRequests,
     MergeRequestId(i64),
     Pipelines,
+}
+
+// From impls - private clap structs to public domain structs
+// Mainly to avoid propagating clap further down the stack as changes in the
+// clap API could break other parts of the code.
+
+impl From<CreateMergeRequest> for MergeRequestOptions {
+    fn from(options: CreateMergeRequest) -> Self {
+        MergeRequestOptions::Create {
+            title: options.title,
+            description: options.description,
+            target_branch: options.target_branch,
+            noprompt: options.auto,
+            refresh_cache: options.refresh,
+        }
+    }
+}
+
+impl From<ListMergeRequest> for MergeRequestOptions {
+    fn from(options: ListMergeRequest) -> Self {
+        MergeRequestOptions::List {
+            state: options.state.into(),
+            refresh_cache: options.refresh,
+        }
+    }
+}
+
+impl From<MergeMergeRequest> for MergeRequestOptions {
+    fn from(options: MergeMergeRequest) -> Self {
+        MergeRequestOptions::Merge { id: options.id }
+    }
+}
+
+impl From<CheckoutMergeRequest> for MergeRequestOptions {
+    fn from(options: CheckoutMergeRequest) -> Self {
+        MergeRequestOptions::Checkout { id: options.id }
+    }
+}
+
+impl From<CloseMergeRequest> for MergeRequestOptions {
+    fn from(options: CloseMergeRequest) -> Self {
+        MergeRequestOptions::Close { id: options.id }
+    }
+}
+
+impl From<MergeRequestCommand> for MergeRequestOptions {
+    fn from(options: MergeRequestCommand) -> Self {
+        match options.subcommand {
+            MergeRequestSubcommand::Create(options) => options.into(),
+            MergeRequestSubcommand::List(options) => options.into(),
+            MergeRequestSubcommand::Merge(options) => options.into(),
+            MergeRequestSubcommand::Checkout(options) => options.into(),
+            MergeRequestSubcommand::Close(options) => options.into(),
+        }
+    }
+}
+
+impl From<MergeRequestBrowse> for BrowseOptions {
+    fn from(options: MergeRequestBrowse) -> Self {
+        match options.id {
+            Some(id) => BrowseOptions::MergeRequestId(id),
+            None => BrowseOptions::MergeRequests,
+        }
+    }
+}
+
+impl From<BrowseCommand> for BrowseOptions {
+    fn from(options: BrowseCommand) -> Self {
+        match options.subcommand {
+            Some(BrowseSubcommand::Repo) => BrowseOptions::Repo,
+            Some(BrowseSubcommand::MergeRequest(options)) => options.into(),
+            Some(BrowseSubcommand::Pipelines) => BrowseOptions::Pipelines,
+            // defaults to open repo in browser
+            None => BrowseOptions::Repo,
+        }
+    }
 }
 
 pub enum MergeRequestOptions {
