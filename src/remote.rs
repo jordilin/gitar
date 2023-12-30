@@ -1,5 +1,14 @@
 use std::fmt::{self, Display, Formatter};
 
+use crate::api_traits::Remote;
+use crate::config::Config;
+use crate::error;
+use crate::github::Github;
+use crate::gitlab::Gitlab;
+use crate::io::{HttpRunner, Response};
+use crate::Result;
+use std::sync::Arc;
+
 #[derive(Debug, Default, PartialEq)]
 pub struct Project {
     id: i64,
@@ -74,7 +83,7 @@ pub enum MergeRequestState {
 impl TryFrom<&str> for MergeRequestState {
     type Error = String;
 
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
+    fn try_from(s: &str) -> std::result::Result<Self, Self::Error> {
         match s {
             "opened" => Ok(MergeRequestState::Opened),
             "closed" => Ok(MergeRequestState::Closed),
@@ -216,6 +225,25 @@ impl Display for Pipeline {
             self.web_url, self.branch, self.sha, self.created_at, self.status
         )
     }
+}
+
+pub fn get<T: HttpRunner<Response = Response> + Send + Sync + 'static>(
+    domain: String,
+    path: String,
+    config: Config,
+    runner: Arc<T>,
+) -> Result<Arc<dyn Remote>> {
+    let github_domain_regex = regex::Regex::new(r"^github").unwrap();
+    let gitlab_domain_regex = regex::Regex::new(r"^gitlab").unwrap();
+
+    let remote: Arc<dyn Remote> = if github_domain_regex.is_match(&domain) {
+        Arc::new(Github::new(config, &domain, &path, runner))
+    } else if gitlab_domain_regex.is_match(&domain) {
+        Arc::new(Gitlab::new(config, &domain, &path, runner))
+    } else {
+        return Err(error::gen(format!("Unsupported domain: {}", &domain)));
+    };
+    Ok(remote)
 }
 
 #[cfg(test)]

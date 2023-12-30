@@ -15,12 +15,74 @@ use crate::dialog;
 
 use crate::git;
 
+use crate::cache::filesystem::FileCache;
+use crate::cli::MergeRequestOptions;
+use crate::config::Config;
+use crate::http;
 use crate::io::CmdInfo;
+use crate::remote;
 use crate::Cmd;
 use crate::Result;
 
+pub fn execute(
+    options: MergeRequestOptions,
+    config: Config,
+    domain: String,
+    path: String,
+) -> Result<()> {
+    match options {
+        MergeRequestOptions::Create {
+            title,
+            description,
+            target_branch,
+            noprompt,
+            refresh_cache,
+        } => {
+            let runner = Arc::new(http::Client::new(
+                FileCache::new(config.clone()),
+                refresh_cache,
+            ));
+            let remote = remote::get(domain, path, config.clone(), runner)?;
+            open(
+                remote,
+                Arc::new(config),
+                title,
+                description,
+                target_branch,
+                noprompt,
+            )
+        }
+        MergeRequestOptions::List {
+            state,
+            refresh_cache,
+        } => {
+            let runner = Arc::new(http::Client::new(
+                FileCache::new(config.clone()),
+                refresh_cache,
+            ));
+            let remote = remote::get(domain, path, config, runner)?;
+            list(remote, state)
+        }
+        MergeRequestOptions::Merge { id } => {
+            let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
+            let remote = remote::get(domain, path, config, runner)?;
+            merge(remote, id)
+        }
+        MergeRequestOptions::Checkout { id } => {
+            let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
+            let remote = remote::get(domain, path, config, runner)?;
+            checkout(remote, id)
+        }
+        MergeRequestOptions::Close { id } => {
+            let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
+            let remote = remote::get(domain, path, config, runner)?;
+            close(remote, id)
+        }
+    }
+}
+
 /// Open a merge request.
-pub fn open(
+fn open(
     remote: Arc<dyn Remote>,
     config: Arc<impl ConfigProperties>,
     title: Option<String>,
@@ -154,7 +216,7 @@ fn cmds(remote: Arc<dyn Remote>) -> Vec<Cmd<CmdInfo>> {
 }
 
 /// This makes sure we don't push to branches considered to be upstream in most cases.
-pub fn in_feature_branch(current_branch: &str, upstream_branch: &str) -> Result<()> {
+fn in_feature_branch(current_branch: &str, upstream_branch: &str) -> Result<()> {
     if current_branch == upstream_branch {
         let trace = format!(
             "Current branch {} is the same as the upstream \
@@ -178,7 +240,7 @@ pub fn in_feature_branch(current_branch: &str, upstream_branch: &str) -> Result<
     }
 }
 
-pub fn list(remote: Arc<dyn Remote>, state: MergeRequestState) -> Result<()> {
+fn list(remote: Arc<dyn Remote>, state: MergeRequestState) -> Result<()> {
     let merge_requests = remote.list(state)?;
     if merge_requests.is_empty() {
         println!("No merge requests found.");
@@ -194,19 +256,19 @@ pub fn list(remote: Arc<dyn Remote>, state: MergeRequestState) -> Result<()> {
     Ok(())
 }
 
-pub fn merge(remote: Arc<dyn Remote>, merge_request_id: i64) -> Result<()> {
+fn merge(remote: Arc<dyn Remote>, merge_request_id: i64) -> Result<()> {
     let merge_request = remote.merge(merge_request_id)?;
     println!("Merge request merged: {}", merge_request.web_url);
     Ok(())
 }
 
-pub fn checkout(remote: Arc<dyn Remote>, id: i64) -> Result<()> {
+fn checkout(remote: Arc<dyn Remote>, id: i64) -> Result<()> {
     let merge_request = remote.get(id)?;
     git::fetch(&Shell)?;
     git::checkout(&Shell, &merge_request.source_branch)
 }
 
-pub fn close(remote: Arc<dyn Remote>, id: i64) -> Result<()> {
+fn close(remote: Arc<dyn Remote>, id: i64) -> Result<()> {
     let merge_request = remote.close(id)?;
     println!("Merge request closed: {}", merge_request.web_url);
     Ok(())
