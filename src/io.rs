@@ -1,6 +1,6 @@
 use crate::{
     http::Request,
-    remote::{Member, MergeRequestResponse, Pipeline, Project},
+    remote::{Member, MergeRequestResponse, Project},
     Result,
 };
 use regex::Regex;
@@ -32,7 +32,6 @@ pub enum CmdInfo {
     MergeRequest(MergeRequestResponse),
     MergeRequestsList(Vec<MergeRequestResponse>),
     OutgoingCommits(String),
-    Pipelines(Vec<Pipeline>),
     Ignore,
     Exit,
 }
