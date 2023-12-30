@@ -1,16 +1,11 @@
 use std::{fs::File, path::Path, sync::Arc};
 
 use gr::{
-    api_traits::Remote,
     cache::filesystem::FileCache,
     cli::{parse_cli, BrowseOptions, CliOptions, MergeRequestOptions, PipelineOptions},
-    config::Config,
-    error, git,
-    github::Github,
-    gitlab::Gitlab,
-    http,
-    io::{CmdInfo, HttpRunner, Response},
-    merge_request,
+    error, git, http,
+    io::CmdInfo,
+    merge_request, remote,
     shell::Shell,
     Result,
 };
@@ -40,7 +35,7 @@ fn main() -> Result<()> {
                     FileCache::new(config.clone()),
                     refresh_cache,
                 ));
-                let remote = get_remote(domain, path, config.clone(), runner)?;
+                let remote = remote::get(domain, path, config.clone(), runner)?;
                 merge_request::open(
                     remote,
                     Arc::new(config),
@@ -58,22 +53,22 @@ fn main() -> Result<()> {
                     FileCache::new(config.clone()),
                     refresh_cache,
                 ));
-                let remote = get_remote(domain, path, config, runner)?;
+                let remote = remote::get(domain, path, config, runner)?;
                 merge_request::list(remote, state)
             }
             MergeRequestOptions::Merge { id } => {
                 let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                let remote = get_remote(domain, path, config, runner)?;
+                let remote = remote::get(domain, path, config, runner)?;
                 merge_request::merge(remote, id)
             }
             MergeRequestOptions::Checkout { id } => {
                 let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                let remote = get_remote(domain, path, config, runner)?;
+                let remote = remote::get(domain, path, config, runner)?;
                 merge_request::checkout(remote, id)
             }
             MergeRequestOptions::Close { id } => {
                 let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                let remote = get_remote(domain, path, config, runner)?;
+                let remote = remote::get(domain, path, config, runner)?;
                 merge_request::close(remote, id)
             }
         },
@@ -89,19 +84,19 @@ fn main() -> Result<()> {
                 }
                 BrowseOptions::MergeRequests => {
                     let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                    let remote = get_remote(domain, path, config, runner)?;
+                    let remote = remote::get(domain, path, config, runner)?;
                     Ok(open::that(remote.get_url(BrowseOptions::MergeRequests))?)
                 }
                 BrowseOptions::MergeRequestId(id) => {
                     let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                    let remote = get_remote(domain, path, config, runner)?;
+                    let remote = remote::get(domain, path, config, runner)?;
                     Ok(open::that(
                         remote.get_url(BrowseOptions::MergeRequestId(id)),
                     )?)
                 }
                 BrowseOptions::Pipelines => {
                     let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                    let remote = get_remote(domain, path, config, runner)?;
+                    let remote = remote::get(domain, path, config, runner)?;
                     Ok(open::that(remote.get_url(BrowseOptions::Pipelines))?)
                 }
             }
@@ -112,7 +107,7 @@ fn main() -> Result<()> {
                     FileCache::new(config.clone()),
                     refresh_cache,
                 ));
-                let remote = get_remote(domain, path, config, runner)?;
+                let remote = remote::get(domain, path, config, runner)?;
                 let pipelines = remote.list_pipelines()?;
                 if pipelines.is_empty() {
                     println!("No pipelines found.");
@@ -126,23 +121,4 @@ fn main() -> Result<()> {
             }
         },
     }
-}
-
-fn get_remote<T: HttpRunner<Response = Response> + Send + Sync + 'static>(
-    domain: String,
-    path: String,
-    config: Config,
-    runner: Arc<T>,
-) -> Result<Arc<dyn Remote>> {
-    let github_domain_regex = regex::Regex::new(r"^github").unwrap();
-    let gitlab_domain_regex = regex::Regex::new(r"^gitlab").unwrap();
-
-    let remote: Arc<dyn Remote> = if github_domain_regex.is_match(&domain) {
-        Arc::new(Github::new(config, &domain, &path, runner))
-    } else if gitlab_domain_regex.is_match(&domain) {
-        Arc::new(Gitlab::new(config, &domain, &path, runner))
-    } else {
-        return Err(error::gen(format!("Unsupported domain: {}", &domain)));
-    };
-    Ok(remote)
 }
