@@ -90,9 +90,25 @@ def create_merge_request_api():
     return data, data_conflict
 
 
+def list_pipelines_api():
+    # https://docs.gitlab.com/ee/api/pipelines.html
+    url = "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines"
+    headers = {"PRIVATE-TOKEN": PRIVATE_TOKEN}
+    response = requests.get(url, headers=headers)
+    data = response.json()[0]
+    if args.persist:
+        persist_contract("list_pipelines.json", data)
+    return data
+
+
 def get_contract_json(name):
     with open("contracts/gitlab/{}".format(name)) as fh:
-        return json.load(fh)
+        data_json = json.load(fh)
+        if type(data_json) == list:
+            # gather one element from list. We just need to verify keys and
+            # types of values.
+            return data_json[0]
+        return data_json
 
 
 def _verify_all_keys_exist(expected, actual):
@@ -167,6 +183,11 @@ if __name__ == "__main__":
             "merge request API contract",
             get_contract_json("merge_request.json"),
             get_contract_json("merge_request_conflict.json"),
+        ),
+        TestAPI(
+            list_pipelines_api,
+            "list pipelines API contract",
+            get_contract_json("list_pipelines.json"),
         ),
     ]
     if not validate_responses(testcases):

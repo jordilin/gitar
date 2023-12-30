@@ -14,6 +14,8 @@ enum Command {
     MergeRequest(MergeRequestCommand),
     #[clap(name = "br", about = "Open the remote using your browser")]
     Browse(BrowseCommand),
+    #[clap(name = "pp", about = "CI/CD Pipeline operations")]
+    Pipeline(PipelineCommand),
 }
 
 #[derive(Parser)]
@@ -119,6 +121,21 @@ enum BrowseSubcommand {
 }
 
 #[derive(Parser)]
+struct PipelineCommand {
+    #[clap(subcommand)]
+    pub subcommand: Option<PipelineSubcommand>,
+    /// Refresh the cache
+    #[clap(long, short)]
+    pub refresh: bool,
+}
+
+#[derive(Parser)]
+enum PipelineSubcommand {
+    #[clap(about = "List pipelines")]
+    List,
+}
+
+#[derive(Parser)]
 struct MergeRequestBrowse {
     /// Open merge/pull request id in the browser
     #[clap()]
@@ -131,12 +148,14 @@ pub fn parse_cli() -> Option<CliOptions> {
     match args.command {
         Command::MergeRequest(sub_matches) => Some(CliOptions::MergeRequest(sub_matches.into())),
         Command::Browse(sub_matches) => Some(CliOptions::Browse(sub_matches.into())),
+        Command::Pipeline(sub_matches) => Some(CliOptions::Pipeline(sub_matches.into())),
     }
 }
 
 pub enum CliOptions {
     MergeRequest(MergeRequestOptions),
     Browse(BrowseOptions),
+    Pipeline(PipelineOptions),
 }
 
 pub enum BrowseOptions {
@@ -145,6 +164,10 @@ pub enum BrowseOptions {
     MergeRequests,
     MergeRequestId(i64),
     Pipelines,
+}
+
+pub enum PipelineOptions {
+    List { refresh_cache: bool },
 }
 
 // From impls - private clap structs to public domain structs
@@ -219,6 +242,20 @@ impl From<BrowseCommand> for BrowseOptions {
             Some(BrowseSubcommand::Pipelines) => BrowseOptions::Pipelines,
             // defaults to open repo in browser
             None => BrowseOptions::Repo,
+        }
+    }
+}
+
+impl From<PipelineCommand> for PipelineOptions {
+    fn from(options: PipelineCommand) -> Self {
+        match options.subcommand {
+            Some(PipelineSubcommand::List) => PipelineOptions::List {
+                refresh_cache: options.refresh,
+            },
+            // defaults to list all pipelines
+            None => PipelineOptions::List {
+                refresh_cache: options.refresh,
+            },
         }
     }
 }

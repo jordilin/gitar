@@ -187,6 +187,37 @@ impl MergeRequestArgs {
     }
 }
 
+#[derive(Debug)]
+pub struct Pipeline {
+    status: String,
+    web_url: String,
+    branch: String,
+    sha: String,
+    created_at: String,
+}
+
+impl Pipeline {
+    pub fn new(status: &str, web_url: &str, branch: &str, sha: &str, created_at: &str) -> Self {
+        Pipeline {
+            status: status.to_string(),
+            web_url: web_url.to_string(),
+            branch: branch.to_string(),
+            sha: sha.to_string(),
+            created_at: created_at.to_string(),
+        }
+    }
+}
+
+impl Display for Pipeline {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} | {} | {} | {} | {}",
+            self.web_url, self.branch, self.sha, self.created_at, self.status
+        )
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
