@@ -1,12 +1,11 @@
-use std::{fs::File, path::Path, sync::Arc};
+use std::{fs::File, path::Path};
 
 use gr::{
-    cache::filesystem::FileCache,
-    cicd,
-    cli::{parse_cli, BrowseOptions, CliOptions},
-    error, git, http,
+    browse, cicd,
+    cli::{parse_cli, CliOptions},
+    error, git,
     io::CmdInfo,
-    merge_request, remote,
+    merge_request,
     shell::Shell,
     Result,
 };
@@ -28,31 +27,7 @@ fn main() -> Result<()> {
         CliOptions::Browse(options) => {
             // Use default config for browsing - does not require auth.
             let config = gr::config::Config::default();
-            match options {
-                BrowseOptions::Repo => {
-                    // No need to contact the remote object, domain and path already
-                    // computed.
-                    let remote_url = format!("https://{}/{}", domain, path);
-                    Ok(open::that(remote_url)?)
-                }
-                BrowseOptions::MergeRequests => {
-                    let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                    let remote = remote::get(domain, path, config, runner)?;
-                    Ok(open::that(remote.get_url(BrowseOptions::MergeRequests))?)
-                }
-                BrowseOptions::MergeRequestId(id) => {
-                    let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                    let remote = remote::get(domain, path, config, runner)?;
-                    Ok(open::that(
-                        remote.get_url(BrowseOptions::MergeRequestId(id)),
-                    )?)
-                }
-                BrowseOptions::Pipelines => {
-                    let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                    let remote = remote::get(domain, path, config, runner)?;
-                    Ok(open::that(remote.get_url(BrowseOptions::Pipelines))?)
-                }
-            }
+            browse::execute(options, config, domain, path)
         }
         CliOptions::Pipeline(options) => cicd::execute(options, config, domain, path),
     }
