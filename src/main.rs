@@ -3,7 +3,7 @@ use std::{fs::File, path::Path, sync::Arc};
 use gr::{
     cache::filesystem::FileCache,
     cicd,
-    cli::{parse_cli, BrowseOptions, CliOptions, MergeRequestOptions},
+    cli::{parse_cli, BrowseOptions, CliOptions},
     error, git, http,
     io::CmdInfo,
     merge_request, remote,
@@ -24,55 +24,7 @@ fn main() -> Result<()> {
     };
     let config = gr::config::Config::new(f, &domain).expect("Unable to read config");
     match cli_options {
-        CliOptions::MergeRequest(mr_options) => match mr_options {
-            MergeRequestOptions::Create {
-                title,
-                description,
-                target_branch,
-                noprompt,
-                refresh_cache,
-            } => {
-                let runner = Arc::new(http::Client::new(
-                    FileCache::new(config.clone()),
-                    refresh_cache,
-                ));
-                let remote = remote::get(domain, path, config.clone(), runner)?;
-                merge_request::open(
-                    remote,
-                    Arc::new(config),
-                    title,
-                    description,
-                    target_branch,
-                    noprompt,
-                )
-            }
-            MergeRequestOptions::List {
-                state,
-                refresh_cache,
-            } => {
-                let runner = Arc::new(http::Client::new(
-                    FileCache::new(config.clone()),
-                    refresh_cache,
-                ));
-                let remote = remote::get(domain, path, config, runner)?;
-                merge_request::list(remote, state)
-            }
-            MergeRequestOptions::Merge { id } => {
-                let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                let remote = remote::get(domain, path, config, runner)?;
-                merge_request::merge(remote, id)
-            }
-            MergeRequestOptions::Checkout { id } => {
-                let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                let remote = remote::get(domain, path, config, runner)?;
-                merge_request::checkout(remote, id)
-            }
-            MergeRequestOptions::Close { id } => {
-                let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                let remote = remote::get(domain, path, config, runner)?;
-                merge_request::close(remote, id)
-            }
-        },
+        CliOptions::MergeRequest(options) => merge_request::execute(options, config, domain, path),
         CliOptions::Browse(options) => {
             // Use default config for browsing - does not require auth.
             let config = gr::config::Config::default();
