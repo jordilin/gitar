@@ -2,7 +2,8 @@ use std::{fs::File, path::Path, sync::Arc};
 
 use gr::{
     cache::filesystem::FileCache,
-    cli::{parse_cli, BrowseOptions, CliOptions, MergeRequestOptions, PipelineOptions},
+    cicd,
+    cli::{parse_cli, BrowseOptions, CliOptions, MergeRequestOptions},
     error, git, http,
     io::CmdInfo,
     merge_request, remote,
@@ -101,24 +102,6 @@ fn main() -> Result<()> {
                 }
             }
         }
-        CliOptions::Pipeline(options) => match options {
-            PipelineOptions::List { refresh_cache } => {
-                let runner = Arc::new(http::Client::new(
-                    FileCache::new(config.clone()),
-                    refresh_cache,
-                ));
-                let remote = remote::get(domain, path, config, runner)?;
-                let pipelines = remote.list_pipelines()?;
-                if pipelines.is_empty() {
-                    println!("No pipelines found.");
-                    return Ok(());
-                }
-                println!("URL | Branch | SHA | Created at | Status");
-                for pipeline in pipelines {
-                    println!("{}", pipeline);
-                }
-                Ok(())
-            }
-        },
+        CliOptions::Pipeline(options) => cicd::execute(options, config, domain, path),
     }
 }

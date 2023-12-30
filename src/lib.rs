@@ -1,6 +1,7 @@
 pub mod api_defaults;
 pub mod api_traits;
 pub mod cache;
+pub mod cicd;
 pub mod cli;
 pub mod config;
 pub mod dialog;
