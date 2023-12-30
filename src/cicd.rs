@@ -1,10 +1,7 @@
-use crate::cache::filesystem::FileCache;
 use crate::cli::PipelineOptions;
 use crate::config::Config;
-use crate::http;
 use crate::remote;
 use crate::Result;
-use std::sync::Arc;
 
 pub fn execute(
     options: PipelineOptions,
@@ -14,11 +11,7 @@ pub fn execute(
 ) -> Result<()> {
     match options {
         PipelineOptions::List { refresh_cache } => {
-            let runner = Arc::new(http::Client::new(
-                FileCache::new(config.clone()),
-                refresh_cache,
-            ));
-            let remote = remote::get(domain, path, config, runner)?;
+            let remote = remote::get(domain, path, config, refresh_cache)?;
             let pipelines = remote.list_pipelines()?;
             if pipelines.is_empty() {
                 println!("No pipelines found.");

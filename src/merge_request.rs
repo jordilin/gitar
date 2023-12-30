@@ -15,10 +15,8 @@ use crate::dialog;
 
 use crate::git;
 
-use crate::cache::filesystem::FileCache;
 use crate::cli::MergeRequestOptions;
 use crate::config::Config;
-use crate::http;
 use crate::io::CmdInfo;
 use crate::remote;
 use crate::Cmd;
@@ -38,11 +36,7 @@ pub fn execute(
             noprompt,
             refresh_cache,
         } => {
-            let runner = Arc::new(http::Client::new(
-                FileCache::new(config.clone()),
-                refresh_cache,
-            ));
-            let remote = remote::get(domain, path, config.clone(), runner)?;
+            let remote = remote::get(domain, path, config.clone(), refresh_cache)?;
             open(
                 remote,
                 Arc::new(config),
@@ -56,26 +50,19 @@ pub fn execute(
             state,
             refresh_cache,
         } => {
-            let runner = Arc::new(http::Client::new(
-                FileCache::new(config.clone()),
-                refresh_cache,
-            ));
-            let remote = remote::get(domain, path, config, runner)?;
+            let remote = remote::get(domain, path, config, refresh_cache)?;
             list(remote, state)
         }
         MergeRequestOptions::Merge { id } => {
-            let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-            let remote = remote::get(domain, path, config, runner)?;
+            let remote = remote::get(domain, path, config, false)?;
             merge(remote, id)
         }
         MergeRequestOptions::Checkout { id } => {
-            let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-            let remote = remote::get(domain, path, config, runner)?;
+            let remote = remote::get(domain, path, config, false)?;
             checkout(remote, id)
         }
         MergeRequestOptions::Close { id } => {
-            let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-            let remote = remote::get(domain, path, config, runner)?;
+            let remote = remote::get(domain, path, config, false)?;
             close(remote, id)
         }
     }
