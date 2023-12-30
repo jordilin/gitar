@@ -3,7 +3,7 @@ use std::{fs::File, path::Path, sync::Arc};
 use gr::{
     api_traits::Remote,
     cache::filesystem::FileCache,
-    cli::{parse_cli, BrowseOptions, CliOptions, MergeRequestOptions},
+    cli::{parse_cli, BrowseOptions, CliOptions, MergeRequestOptions, PipelineOptions},
     config::Config,
     error, git,
     github::Github,
@@ -26,61 +26,59 @@ fn main() -> Result<()> {
     let CmdInfo::RemoteUrl { domain, path } = git::remote_url(&Shell)? else {
         return Err(error::gen("No remote url found. Please set a remote url."));
     };
-
+    let config = gr::config::Config::new(f, &domain).expect("Unable to read config");
     match cli_options {
-        CliOptions::MergeRequest(mr_options) => {
-            let config = gr::config::Config::new(f, &domain).expect("Unable to read config");
-            match mr_options {
-                MergeRequestOptions::Create {
+        CliOptions::MergeRequest(mr_options) => match mr_options {
+            MergeRequestOptions::Create {
+                title,
+                description,
+                target_branch,
+                noprompt,
+                refresh_cache,
+            } => {
+                let runner = Arc::new(http::Client::new(
+                    FileCache::new(config.clone()),
+                    refresh_cache,
+                ));
+                let remote = get_remote(domain, path, config.clone(), runner)?;
+                merge_request::open(
+                    remote,
+                    Arc::new(config),
                     title,
                     description,
                     target_branch,
                     noprompt,
-                    refresh_cache,
-                } => {
-                    let runner = Arc::new(http::Client::new(
-                        FileCache::new(config.clone()),
-                        refresh_cache,
-                    ));
-                    let remote = get_remote(domain, path, config.clone(), runner)?;
-                    merge_request::open(
-                        remote,
-                        Arc::new(config),
-                        title,
-                        description,
-                        target_branch,
-                        noprompt,
-                    )
-                }
-                MergeRequestOptions::List {
-                    state,
-                    refresh_cache,
-                } => {
-                    let runner = Arc::new(http::Client::new(
-                        FileCache::new(config.clone()),
-                        refresh_cache,
-                    ));
-                    let remote = get_remote(domain, path, config, runner)?;
-                    merge_request::list(remote, state)
-                }
-                MergeRequestOptions::Merge { id } => {
-                    let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                    let remote = get_remote(domain, path, config, runner)?;
-                    merge_request::merge(remote, id)
-                }
-                MergeRequestOptions::Checkout { id } => {
-                    let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                    let remote = get_remote(domain, path, config, runner)?;
-                    merge_request::checkout(remote, id)
-                }
-                MergeRequestOptions::Close { id } => {
-                    let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
-                    let remote = get_remote(domain, path, config, runner)?;
-                    merge_request::close(remote, id)
-                }
+                )
             }
-        }
+            MergeRequestOptions::List {
+                state,
+                refresh_cache,
+            } => {
+                let runner = Arc::new(http::Client::new(
+                    FileCache::new(config.clone()),
+                    refresh_cache,
+                ));
+                let remote = get_remote(domain, path, config, runner)?;
+                merge_request::list(remote, state)
+            }
+            MergeRequestOptions::Merge { id } => {
+                let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
+                let remote = get_remote(domain, path, config, runner)?;
+                merge_request::merge(remote, id)
+            }
+            MergeRequestOptions::Checkout { id } => {
+                let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
+                let remote = get_remote(domain, path, config, runner)?;
+                merge_request::checkout(remote, id)
+            }
+            MergeRequestOptions::Close { id } => {
+                let runner = Arc::new(http::Client::new(FileCache::new(config.clone()), false));
+                let remote = get_remote(domain, path, config, runner)?;
+                merge_request::close(remote, id)
+            }
+        },
         CliOptions::Browse(options) => {
+            // Use default config for browsing - does not require auth.
             let config = gr::config::Config::default();
             match options {
                 BrowseOptions::Repo => {
@@ -108,6 +106,24 @@ fn main() -> Result<()> {
                 }
             }
         }
+        CliOptions::Pipeline(options) => match options {
+            PipelineOptions::List { refresh_cache } => {
+                let runner = Arc::new(http::Client::new(
+                    FileCache::new(config.clone()),
+                    refresh_cache,
+                ));
+                let remote = get_remote(domain, path, config, runner)?;
+                let pipelines = remote.list_pipelines()?;
+                if pipelines.is_empty() {
+                    println!("No pipelines found.");
+                    return Ok(());
+                }
+                for pipeline in pipelines {
+                    println!("{}", pipeline);
+                }
+                Ok(())
+            }
+        },
     }
 }
 
