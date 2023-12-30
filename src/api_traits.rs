@@ -1,7 +1,7 @@
 use crate::{
     cli::BrowseOptions,
     io::CmdInfo,
-    remote::{MergeRequestArgs, MergeRequestResponse, MergeRequestState},
+    remote::{MergeRequestArgs, MergeRequestResponse, MergeRequestState, Pipeline},
     Result,
 };
 
@@ -21,9 +21,9 @@ pub trait RemoteProject {
     fn get_url(&self, option: BrowseOptions) -> String;
 }
 
-pub trait Pipeline {
-    fn list_pipeline(&self) -> Result<CmdInfo>;
-    fn get_pipeline(&self, id: i64) -> Result<CmdInfo>;
+pub trait Cicd {
+    fn list_pipelines(&self) -> Result<Vec<Pipeline>>;
+    fn get_pipeline(&self, id: i64) -> Result<Pipeline>;
 }
 
-pub trait Remote: RemoteProject + MergeRequest + Pipeline + Send + Sync + 'static {}
+pub trait Remote: RemoteProject + MergeRequest + Cicd + Send + Sync + 'static {}

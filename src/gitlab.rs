@@ -1,15 +1,13 @@
-use crate::api_traits::{MergeRequest, Pipeline, Remote, RemoteProject};
+use crate::api_traits::{Cicd, MergeRequest, Remote, RemoteProject};
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
-use crate::error;
-use crate::error::AddContext;
-use crate::http::Paginator;
-use crate::http::{self, Request};
+use crate::error::{self, AddContext};
+use crate::http::{self, Paginator, Request};
 use crate::io::Response;
 use crate::io::{CmdInfo, HttpRunner};
-use crate::remote::Project;
-use crate::remote::{Member, MergeRequestState};
-use crate::remote::{MergeRequestArgs, MergeRequestResponse};
+use crate::remote::{
+    Member, MergeRequestArgs, MergeRequestResponse, MergeRequestState, Pipeline, Project,
+};
 use crate::Result;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -285,12 +283,39 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> Pipeline for Gitlab<R> {
-    fn list_pipeline(&self) -> Result<CmdInfo> {
-        todo!();
+impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
+    fn list_pipelines(&self) -> Result<Vec<Pipeline>> {
+        let url = format!("{}/pipelines", self.rest_api_basepath());
+        let mut request: Request<()> = http::Request::new(&url, http::Method::GET);
+        request.set_header("PRIVATE-TOKEN", self.api_token());
+        let paginator = Paginator::new(&self.runner, request, &url);
+        paginator
+            .map(|response| {
+                let response = response?;
+                if response.status != 200 {
+                    return Err(error::gen(format!(
+                        "Failed to get project pipelines from GitLab: {}",
+                        response.body
+                    )));
+                }
+                let mut pipelines = Vec::new();
+                let pipelines_data: Vec<serde_json::Value> = serde_json::from_str(&response.body)?;
+                for pipeline_data in pipelines_data {
+                    let status = pipeline_data["status"].as_str().unwrap();
+                    let branch = pipeline_data["ref"].as_str().unwrap();
+                    let sha = pipeline_data["sha"].as_str().unwrap();
+                    let web_url = pipeline_data["web_url"].as_str().unwrap();
+                    let created_at = pipeline_data["created_at"].as_str().unwrap();
+                    let pipeline = Pipeline::new(status, web_url, branch, sha, created_at);
+                    pipelines.push(pipeline);
+                }
+                Ok(pipelines)
+            })
+            .collect::<Result<Vec<Vec<Pipeline>>>>()
+            .map(|pipelines| pipelines.into_iter().flatten().collect())
     }
 
-    fn get_pipeline(&self, _id: i64) -> Result<CmdInfo> {
+    fn get_pipeline(&self, _id: i64) -> Result<Pipeline> {
         todo!();
     }
 }
@@ -398,5 +423,56 @@ mod test {
         let gitlab = Gitlab::new(config, &domain, &path, client);
 
         assert!(gitlab.open(mr_args).is_ok());
+    }
+
+    #[test]
+    fn test_list_pipelines_ok() {
+        let config = config();
+
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::new()
+            .with_status(200)
+            .with_body(get_contract(ContractType::Gitlab, "list_pipelines.json"));
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+
+        let pipelines = gitlab.list_pipelines().unwrap();
+
+        assert_eq!(2, pipelines.len());
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines",
+            *client.url(),
+        );
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+    }
+
+    #[test]
+    fn test_list_pipelines_error() {
+        let config = config();
+
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::new().with_status(400);
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab = Gitlab::new(config, &domain, &path, client);
+
+        assert!(gitlab.list_pipelines().is_err());
+    }
+
+    #[test]
+    fn test_no_pipelines() {
+        let config = config();
+
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::new()
+            .with_status(200)
+            .with_body(get_contract(ContractType::Gitlab, "no_pipelines.json"));
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+
+        let pipelines = gitlab.list_pipelines().unwrap();
+        assert_eq!(0, pipelines.len());
     }
 }

@@ -1,7 +1,7 @@
 use serde::Serialize;
 
+use crate::api_traits::Cicd;
 use crate::api_traits::MergeRequest;
-use crate::api_traits::Pipeline;
 use crate::api_traits::Remote;
 use crate::api_traits::RemoteProject;
 use crate::cli::BrowseOptions;
@@ -17,6 +17,7 @@ use crate::remote::Member;
 use crate::remote::MergeRequestArgs;
 use crate::remote::MergeRequestResponse;
 use crate::remote::MergeRequestState;
+use crate::remote::Pipeline;
 use crate::remote::Project;
 use crate::Result;
 use std::collections::HashMap;
@@ -368,12 +369,12 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> Pipeline for Github<R> {
-    fn list_pipeline(&self) -> Result<CmdInfo> {
-        todo!();
+impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
+    fn list_pipelines(&self) -> Result<Vec<Pipeline>> {
+        todo!()
     }
 
-    fn get_pipeline(&self, _id: i64) -> Result<CmdInfo> {
+    fn get_pipeline(&self, _id: i64) -> Result<Pipeline> {
         todo!()
     }
 }
