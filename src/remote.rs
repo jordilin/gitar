@@ -1,12 +1,12 @@
 use std::fmt::{self, Display, Formatter};
 
 use crate::api_traits::Remote;
+use crate::cache::filesystem::FileCache;
 use crate::config::Config;
-use crate::error;
 use crate::github::Github;
 use crate::gitlab::Gitlab;
-use crate::io::{HttpRunner, Response};
 use crate::Result;
+use crate::{error, http};
 use std::sync::Arc;
 
 #[derive(Debug, Default, PartialEq)]
@@ -227,12 +227,16 @@ impl Display for Pipeline {
     }
 }
 
-pub fn get<T: HttpRunner<Response = Response> + Send + Sync + 'static>(
+pub fn get(
     domain: String,
     path: String,
     config: Config,
-    runner: Arc<T>,
+    refresh_cache: bool,
 ) -> Result<Arc<dyn Remote>> {
+    let runner = Arc::new(http::Client::new(
+        FileCache::new(config.clone()),
+        refresh_cache,
+    ));
     let github_domain_regex = regex::Regex::new(r"^github").unwrap();
     let gitlab_domain_regex = regex::Regex::new(r"^gitlab").unwrap();
 
