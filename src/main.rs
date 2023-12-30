@@ -118,6 +118,7 @@ fn main() -> Result<()> {
                     println!("No pipelines found.");
                     return Ok(());
                 }
+                println!("URL | Branch | SHA | Created at | Status");
                 for pipeline in pipelines {
                     println!("{}", pipeline);
                 }
