@@ -99,7 +99,7 @@ pub mod utils {
         fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response> {
             self.url.replace(cmd.url().to_string());
             self.headers.replace(cmd.headers().clone());
-            self.api_operation.replace(cmd.api_operation.clone());
+            self.api_operation.replace(cmd.api_operation().clone());
             let response = self.responses.borrow_mut().pop().unwrap();
             match response.status() {
                 // 409 Conflict - Merge request already exists.

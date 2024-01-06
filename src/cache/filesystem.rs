@@ -5,6 +5,7 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use sha2::{Digest, Sha256};
 
 use crate::cache::Cache;
+use crate::http::Resource;
 use crate::io::{self, Response};
 
 use super::CacheState;
@@ -81,9 +82,9 @@ impl<C: ConfigProperties> FileCache<C> {
     }
 }
 
-impl<C: ConfigProperties> Cache for FileCache<C> {
-    fn get(&self, key: &str) -> Result<CacheState> {
-        let path = self.get_cache_file(key);
+impl<C: ConfigProperties> Cache<Resource> for FileCache<C> {
+    fn get(&self, key: &Resource) -> Result<CacheState> {
+        let path = self.get_cache_file(&key.url);
         if let Ok(f) = File::open(path) {
             let mut f = BufReader::new(f);
             self.get_cache_data(&mut f)
@@ -92,8 +93,8 @@ impl<C: ConfigProperties> Cache for FileCache<C> {
         }
     }
 
-    fn set(&self, key: &str, value: &Response) -> Result<()> {
-        let path = self.get_cache_file(key);
+    fn set(&self, key: &Resource, value: &Response) -> Result<()> {
+        let path = self.get_cache_file(&key.url);
         let f = File::create(path)?;
         let f = BufWriter::new(f);
         self.persist_cache_data(value, f)?;
