@@ -1,4 +1,4 @@
-use crate::api_traits::{Cicd, MergeRequest, Remote, RemoteProject};
+use crate::api_traits::{ApiOperation, Cicd, MergeRequest, Remote, RemoteProject};
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
 use crate::error::{self, AddContext};
@@ -61,7 +61,9 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
             args.remove_source_branch().to_string(),
         );
         let url = format!("{}/merge_requests", self.rest_api_basepath());
-        let mut request = http::Request::new(&url, http::Method::POST).with_body(body);
+        let mut request = http::Request::new(&url, http::Method::POST)
+            .with_api_operation(ApiOperation::MergeRequest)
+            .with_body(body);
         request.set_header("PRIVATE-TOKEN", self.api_token());
         let response = self.runner.run(&mut request)?;
         // if status code is 409, it means that the merge request already
@@ -113,7 +115,8 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
             self.rest_api_basepath(),
             state
         );
-        let mut request: Request<()> = http::Request::new(url, http::Method::GET);
+        let mut request: Request<()> = http::Request::new(url, http::Method::GET)
+            .with_api_operation(ApiOperation::MergeRequest);
         request.set_header("PRIVATE-TOKEN", self.api_token());
         let paginator = Paginator::new(&self.runner, request, url);
         paginator
@@ -151,7 +154,8 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     fn merge(&self, id: i64) -> Result<MergeRequestResponse> {
         // PUT /projects/:id/merge_requests/:merge_request_iid/merge
         let url = format!("{}/merge_requests/{}/merge", self.rest_api_basepath(), id);
-        let mut request: Request<()> = http::Request::new(&url, http::Method::PUT);
+        let mut request: Request<()> = http::Request::new(&url, http::Method::PUT)
+            .with_api_operation(ApiOperation::MergeRequest);
         request.set_header("PRIVATE-TOKEN", self.api_token());
         let response = self.runner.run(&mut request)?;
         if response.status != 200 {
@@ -173,7 +177,8 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     fn get(&self, id: i64) -> Result<MergeRequestResponse> {
         // GET /projects/:id/merge_requests/:merge_request_iid
         let url = format!("{}/merge_requests/{}", self.rest_api_basepath(), id);
-        let mut request: Request<()> = http::Request::new(&url, http::Method::GET);
+        let mut request: Request<()> = http::Request::new(&url, http::Method::GET)
+            .with_api_operation(ApiOperation::MergeRequest);
         request.set_header("PRIVATE-TOKEN", self.api_token());
         let response = self.runner.run(&mut request)?;
         if response.status != 200 {
@@ -197,7 +202,9 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         let mut body = HashMap::new();
         body.insert("state_event".to_string(), "close".to_string());
         let mut request: Request<HashMap<String, String>> =
-            http::Request::new(&url, http::Method::PUT).with_body(body);
+            http::Request::new(&url, http::Method::PUT)
+                .with_api_operation(ApiOperation::MergeRequest)
+                .with_body(body);
         request.set_header("PRIVATE-TOKEN", self.api_token());
         let response = self.runner.run(&mut request)?;
         if response.status != 200 {
@@ -220,7 +227,8 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
 impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
     fn get_project_data(&self) -> Result<CmdInfo> {
         let mut request: Request<()> =
-            http::Request::new(self.rest_api_basepath(), http::Method::GET);
+            http::Request::new(self.rest_api_basepath(), http::Method::GET)
+                .with_api_operation(ApiOperation::Project);
         request.set_header("PRIVATE-TOKEN", self.api_token());
         let response = self.runner.run(&mut request).err_context(&format!(
             "Failed to get remote project data API URL: {}",
@@ -241,7 +249,8 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
 
     fn get_project_members(&self) -> Result<CmdInfo> {
         let url = format!("{}/members/all", self.rest_api_basepath());
-        let mut request: Request<()> = http::Request::new(&url, http::Method::GET);
+        let mut request: Request<()> =
+            http::Request::new(&url, http::Method::GET).with_api_operation(ApiOperation::Project);
         request.set_header("PRIVATE-TOKEN", self.api_token());
         let paginator = Paginator::new(&self.runner, request, &url);
         let members_data = paginator
@@ -286,7 +295,8 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
 impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
     fn list_pipelines(&self) -> Result<Vec<Pipeline>> {
         let url = format!("{}/pipelines", self.rest_api_basepath());
-        let mut request: Request<()> = http::Request::new(&url, http::Method::GET);
+        let mut request: Request<()> =
+            http::Request::new(&url, http::Method::GET).with_api_operation(ApiOperation::Pipeline);
         request.set_header("PRIVATE-TOKEN", self.api_token());
         let paginator = Paginator::new(&self.runner, request, &url);
         paginator
@@ -347,6 +357,7 @@ mod test {
             client.url().to_string(),
         );
         assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
     }
 
     #[test]
@@ -371,6 +382,7 @@ mod test {
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/members/all",
             *client.url(),
         );
+        assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
     }
 
     #[test]
@@ -391,6 +403,10 @@ mod test {
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests",
             *client.url(),
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
         );
     }
 
@@ -445,6 +461,7 @@ mod test {
             *client.url(),
         );
         assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
     }
 
     #[test]

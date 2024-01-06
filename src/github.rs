@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::api_traits::ApiOperation;
 use crate::api_traits::Cicd;
 use crate::api_traits::MergeRequest;
 use crate::api_traits::Remote;
@@ -47,37 +48,48 @@ impl<R> Github<R> {
         }
     }
 
-    fn http_request<T>(&self, url: &str, body: Option<T>, method: http::Method) -> http::Request<T>
+    fn http_request<T>(
+        &self,
+        url: &str,
+        body: Option<T>,
+        method: http::Method,
+        api_operation: ApiOperation,
+    ) -> http::Request<T>
     where
         T: Serialize,
     {
         match method {
             http::Method::GET => {
-                let mut request = http::Request::new(url, http::Method::GET);
+                let mut request =
+                    http::Request::new(url, http::Method::GET).with_api_operation(api_operation);
                 let headers = self.request_headers();
                 request.set_headers(headers);
                 request
             }
             http::Method::POST => {
-                let mut request =
-                    http::Request::new(url, http::Method::POST).with_body(body.unwrap());
+                let mut request = http::Request::new(url, http::Method::POST)
+                    .with_api_operation(api_operation)
+                    .with_body(body.unwrap());
                 let headers = self.request_headers();
                 request.set_headers(headers);
                 request
             }
             http::Method::PUT => {
                 let mut request = if let Some(body) = body {
-                    http::Request::new(url, http::Method::PUT).with_body(body)
-                } else {
                     http::Request::new(url, http::Method::PUT)
+                        .with_api_operation(api_operation)
+                        .with_body(body)
+                } else {
+                    http::Request::new(url, http::Method::PUT).with_api_operation(api_operation)
                 };
                 let headers = self.request_headers();
                 request.set_headers(headers);
                 request
             }
             http::Method::PATCH => {
-                let mut request =
-                    http::Request::new(url, http::Method::PATCH).with_body(body.unwrap());
+                let mut request = http::Request::new(url, http::Method::PATCH)
+                    .with_api_operation(api_operation)
+                    .with_body(body.unwrap());
                 let headers = self.request_headers();
                 request.set_headers(headers);
                 request
@@ -101,7 +113,8 @@ impl<R> Github<R> {
 impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
     fn get_project_data(&self) -> Result<CmdInfo> {
         let url = format!("{}/repos/{}", self.rest_api_basepath, self.path);
-        let mut request: http::Request<()> = self.http_request(&url, None, GET);
+        let mut request: http::Request<()> =
+            self.http_request(&url, None, GET, ApiOperation::Project);
         let response = self.runner.run(&mut request)?;
         if response.status != 200 {
             return Err(error::gen(format!(
@@ -124,7 +137,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             "{}/repos/{}/contributors",
             self.rest_api_basepath, self.path
         );
-        let request: http::Request<()> = self.http_request(url, None, GET);
+        let request: http::Request<()> = self.http_request(url, None, GET, ApiOperation::Project);
         let paginator = Paginator::new(&self.runner, request, url);
         let members_data = paginator
             .map(|response| {
@@ -173,7 +186,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         body.insert("title", args.title().to_string());
         body.insert("body", args.description().to_string());
         let mr_url = format!("{}/repos/{}/pulls", self.rest_api_basepath, self.path);
-        let mut request = self.http_request(&mr_url, Some(body), POST);
+        let mut request = self.http_request(&mr_url, Some(body), POST, ApiOperation::MergeRequest);
         match self.runner.run(&mut request) {
             Ok(response) => {
                 // 422 - pull request already exists.
@@ -221,8 +234,12 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                     let mut body: HashMap<&str, &Vec<&str>> = HashMap::new();
                     let assignees = vec![args.username()];
                     body.insert("assignees", &assignees);
-                    self.runner
-                        .run(&mut self.http_request(&issues_url, Some(body), PATCH))?;
+                    self.runner.run(&mut self.http_request(
+                        &issues_url,
+                        Some(body),
+                        PATCH,
+                        ApiOperation::MergeRequest,
+                    ))?;
                     return Ok(MergeRequestResponse::new(
                         merge_request_json["id"].as_i64().unwrap(),
                         merge_request_json["html_url"].to_string().trim_matches('"'),
@@ -236,7 +253,8 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                 // namespace:branch
                 let remote_pr_branch = format!("{}:{}", self.path, args.source_branch());
                 let existing_mr_url = format!("{}?head={}", mr_url, remote_pr_branch);
-                let mut request: http::Request<()> = self.http_request(&existing_mr_url, None, GET);
+                let mut request: http::Request<()> =
+                    self.http_request(&existing_mr_url, None, GET, ApiOperation::MergeRequest);
                 // let client = http::Client::new(NoCache);
                 let response = self.runner.run(&mut request)?;
                 let merge_requests_json: Vec<serde_json::Value> =
@@ -276,7 +294,8 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                 )
             }
         };
-        let request: http::Request<()> = self.http_request(&url, None, GET);
+        let request: http::Request<()> =
+            self.http_request(&url, None, GET, ApiOperation::MergeRequest);
         let paginator = Paginator::new(&self.runner, request, &url);
         paginator
             .map(|response| {
@@ -317,7 +336,8 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             "{}/repos/{}/pulls/{}/merge",
             self.rest_api_basepath, self.path, id
         );
-        let mut request: http::Request<()> = self.http_request(&url, None, PUT);
+        let mut request: http::Request<()> =
+            self.http_request(&url, None, PUT, ApiOperation::MergeRequest);
         let response = self.runner.run(&mut request)?;
         if response.status != 200 {
             return Err(error::gen(format!(
@@ -350,7 +370,8 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             "{}/repos/{}/pulls/{}",
             self.rest_api_basepath, self.path, id
         );
-        let mut request: http::Request<()> = self.http_request(&url, None, GET);
+        let mut request: http::Request<()> =
+            self.http_request(&url, None, GET, ApiOperation::MergeRequest);
         let response = self.runner.run(&mut request)?;
         let merge_request_json: serde_json::Value = serde_json::from_str(&response.body)?;
         Ok(MergeRequestResponse::new(
@@ -407,6 +428,10 @@ mod test {
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/issues/1",
             *client.url(),
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
         );
     }
 

@@ -1,6 +1,6 @@
 #[cfg(test)]
 pub mod utils {
-    use crate::{config::ConfigProperties, error};
+    use crate::{api_traits::ApiOperation, config::ConfigProperties, error};
     use serde::Serialize;
 
     use crate::{
@@ -44,6 +44,7 @@ pub mod utils {
         cmd: RefCell<String>,
         headers: RefCell<HashMap<String, String>>,
         url: RefCell<String>,
+        pub api_operation: RefCell<Option<ApiOperation>>,
     }
 
     impl MockRunner {
@@ -53,6 +54,7 @@ pub mod utils {
                 cmd: RefCell::new(String::new()),
                 headers: RefCell::new(HashMap::new()),
                 url: RefCell::new(String::new()),
+                api_operation: RefCell::new(None),
             }
         }
 
@@ -97,6 +99,7 @@ pub mod utils {
         fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response> {
             self.url.replace(cmd.url().to_string());
             self.headers.replace(cmd.headers().clone());
+            self.api_operation.replace(cmd.api_operation.clone());
             let response = self.responses.borrow_mut().pop().unwrap();
             match response.status() {
                 // 409 Conflict - Merge request already exists.

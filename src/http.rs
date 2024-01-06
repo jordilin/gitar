@@ -1,4 +1,5 @@
 use crate::api_defaults::REST_API_MAX_PAGES;
+use crate::api_traits::ApiOperation;
 use crate::cache::{Cache, CacheState};
 use crate::io::{HttpRunner, Response};
 use crate::Result;
@@ -103,6 +104,7 @@ pub struct Request<T> {
     headers: HashMap<String, String>,
     url: String,
     method: Method,
+    pub(crate) api_operation: Option<ApiOperation>,
 }
 
 impl<T> Request<T> {
@@ -112,7 +114,13 @@ impl<T> Request<T> {
             headers: HashMap::new(),
             url: url.to_string(),
             method,
+            api_operation: None,
         }
+    }
+
+    pub fn with_api_operation(mut self, api_operation: ApiOperation) -> Self {
+        self.api_operation = Some(api_operation);
+        self
     }
 
     pub fn with_body(mut self, body: T) -> Self {

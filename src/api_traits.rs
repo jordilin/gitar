@@ -26,4 +26,18 @@ pub trait Cicd {
     fn get_pipeline(&self, id: i64) -> Result<Pipeline>;
 }
 
+/// Types of API resources attached to a request. The request will carry this
+/// information so we can decide if we need to use the cache or not based on
+/// global configuration.
+/// This is for read requests only, so that would be list merge_requests, list
+/// pipelines, get one merge request information, etc...
+#[derive(Clone, Debug, PartialEq)]
+pub enum ApiOperation {
+    MergeRequest,
+    Pipeline,
+    // Project members, project data such as default upstream branch, project
+    // id, etc...any metadata related to the project.
+    Project,
+}
+
 pub trait Remote: RemoteProject + MergeRequest + Cicd + Send + Sync + 'static {}
