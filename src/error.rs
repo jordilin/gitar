@@ -5,6 +5,8 @@ use thiserror::Error;
 pub enum GRError {
     #[error("Precondition not met error: {0}")]
     PreconditionNotMet(String),
+    #[error("Configuration error: {0}")]
+    ConfigurationError(String),
 }
 
 pub trait AddContext<T, E>: Context<T, E> {
