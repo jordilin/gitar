@@ -108,7 +108,7 @@ impl Resource {
     fn new(url: &str, api_operation: Option<ApiOperation>) -> Self {
         Resource {
             url: url.to_string(),
-            api_operation: api_operation,
+            api_operation,
         }
     }
 }

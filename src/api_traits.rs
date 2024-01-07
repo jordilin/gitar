@@ -31,7 +31,7 @@ pub trait Cicd {
 /// global configuration.
 /// This is for read requests only, so that would be list merge_requests, list
 /// pipelines, get one merge request information, etc...
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum ApiOperation {
     MergeRequest,
     Pipeline,
