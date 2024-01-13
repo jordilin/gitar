@@ -34,7 +34,7 @@ impl<C: ConfigProperties> FileCache<C> {
         format!("{}/{:x}", location, hash)
     }
 
-    fn get_cache_data(&self, mut reader: impl BufRead) -> Result<CacheState> {
+    fn get_cache_data(&self, mut reader: impl BufRead) -> Result<Response> {
         let mut link_header = String::new();
         reader.read_line(&mut link_header)?;
         let link_header = link_header.trim();
@@ -63,7 +63,7 @@ impl<C: ConfigProperties> FileCache<C> {
             .with_body(body.to_string())
             .with_headers(headers)
             .with_status(status_code);
-        Ok(CacheState::Fresh(response))
+        Ok(response)
     }
 
     fn persist_cache_data(&self, value: &Response, mut f: BufWriter<File>) -> Result<()> {
@@ -101,11 +101,12 @@ impl<C: ConfigProperties> Cache<Resource> for FileCache<C> {
     fn get(&self, key: &Resource) -> Result<CacheState> {
         let path = self.get_cache_file(&key.url);
         if let Ok(f) = File::open(&path) {
-            if self.expired(key, path)? {
-                return Ok(CacheState::None);
-            }
             let mut f = BufReader::new(f);
-            self.get_cache_data(&mut f)
+            let response = self.get_cache_data(&mut f)?;
+            if self.expired(key, path)? {
+                return Ok(CacheState::Stale(response));
+            }
+            Ok(CacheState::Fresh(response))
         } else {
             Ok(CacheState::None)
         }
@@ -181,21 +182,17 @@ mod tests {
         "#;
         let reader = std::io::Cursor::new(cached_data);
         let fc = FileCache::new(ConfigMock::new());
-        let cache_data = fc.get_cache_data(reader).unwrap();
-        match cache_data {
-            CacheState::Fresh(response) => {
-                assert_eq!(200, response.status);
-                assert_eq!(
+        let response = fc.get_cache_data(reader).unwrap();
+
+        assert_eq!(200, response.status);
+        assert_eq!(
                     "<https://gitlab.com/api/v4/projects/jordilin%2Fmr/merge_requests?per_page=100&page=2>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fmr/merge_requests?per_page=100&page=1>; rel=\"first\", <https://gitlab.com/api/v4/projects/jordilin%2Fmr/merge_requests?per_page=100&page=2>; rel=\"last\"",
                     response.headers.as_ref().unwrap().get(io::LINK_HEADER).unwrap()
                 );
-                assert_eq!(
+        assert_eq!(
                     "{\"name\":\"385db2892449a18ca075c40344e6e9b418e3b16c\",\"path\":\"tooling/cli:385db2892449a18ca075c40344e6e9b418e3b16c\",\"location\":\"localhost:4567/tooling/cli:385db2892449a18ca075c40344e6e9b418e3b16c\",\"revision\":\"791d4b6a13f90f0e48dd68fa1c758b79a6936f3854139eb01c9f251eded7c98d\",\"short_revision\":\"791d4b6a1\",\"digest\":\"sha256:41c70f2fcb036dfc6ca7da19b25cb660055268221b9d5db666bdbc7ad1ca2029\",\"created_at\":\"2022-06-29T15:56:01.580+00:00\",\"total_size\":2819312",
                     response.body
                 );
-            }
-            _ => panic!("Expected a fresh cache state"),
-        }
     }
 
     fn mock_file_mtime_elapsed(m_time: u64) -> Result<Seconds> {
