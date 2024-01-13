@@ -95,6 +95,10 @@ Cache expiration configuration has three keys:
   project. This information does not change often, so a long expiration is fine.
 - `<domain>`.cache_api_pipeline_expiration: List pipelines, get a pipeline, etc...
 
+The values for these keys can accept any number followed by `s` for seconds, `m`
+for minutes, `h` for hours, `d` for days. For example, `5m` means 5 minutes,
+`5d` means 5 days, `0s` means immediate expiration.
+
 If omitted, the default is immediate expiration, so read operations are always
 pulled from the remote.
 
