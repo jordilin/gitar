@@ -8,9 +8,9 @@ use crate::Result;
 pub use inmemory::InMemoryCache;
 pub use nocache::NoCache;
 
-pub trait Cache {
-    fn get(&self, key: &str) -> Result<CacheState>;
-    fn set(&self, key: &str, value: &Response) -> Result<()>;
+pub trait Cache<K = String> {
+    fn get(&self, key: &K) -> Result<CacheState>;
+    fn set(&self, key: &K, value: &Response) -> Result<()>;
 }
 
 pub enum CacheState {

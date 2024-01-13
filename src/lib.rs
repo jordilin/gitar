@@ -17,7 +17,9 @@ pub mod merge_request;
 pub mod remote;
 pub mod shell;
 pub mod test;
+pub mod time;
 pub type Result<T> = anyhow::Result<T>;
+pub type Error = anyhow::Error;
 pub type Cmd<T> = Box<dyn Fn() -> Result<T> + Send + Sync>;
 
 #[macro_use]

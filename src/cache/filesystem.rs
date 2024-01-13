@@ -5,13 +5,15 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use sha2::{Digest, Sha256};
 
 use crate::cache::Cache;
+use crate::http::Resource;
 use crate::io::{self, Response};
+use crate::time::Seconds;
 
 use super::CacheState;
 
 use crate::config::ConfigProperties;
 
-use crate::error;
+use crate::error::{self, AddContext, GRError};
 use crate::Result;
 
 pub struct FileCache<C> {
@@ -32,7 +34,7 @@ impl<C: ConfigProperties> FileCache<C> {
         format!("{}/{:x}", location, hash)
     }
 
-    fn get_cache_data(&self, mut reader: impl BufRead) -> Result<CacheState> {
+    fn get_cache_data(&self, mut reader: impl BufRead) -> Result<Response> {
         let mut link_header = String::new();
         reader.read_line(&mut link_header)?;
         let link_header = link_header.trim();
@@ -61,7 +63,7 @@ impl<C: ConfigProperties> FileCache<C> {
             .with_body(body.to_string())
             .with_headers(headers)
             .with_status(status_code);
-        Ok(CacheState::Fresh(response))
+        Ok(response)
     }
 
     fn persist_cache_data(&self, value: &Response, mut f: BufWriter<File>) -> Result<()> {
@@ -79,26 +81,61 @@ impl<C: ConfigProperties> FileCache<C> {
         f.write_all(value.body.as_bytes())?;
         Ok(())
     }
+
+    fn expired(&self, key: &Resource, path: String) -> Result<bool> {
+        let cache_expiration = self
+            .config
+            .get_cache_expiration(&key.api_operation.as_ref().unwrap())
+            .try_into()
+            .err_context(GRError::ConfigurationError(format!(
+                "Cannot retrieve cache expiration time. \
+                 Check your configuration file and make sure the key \
+                 <domain>.cache_api_{}_expiration has a valid time format.",
+                &key.api_operation.as_ref().unwrap()
+            )))?;
+        expired(|| get_file_mtime_elapsed(path.as_str()), cache_expiration)
+    }
 }
 
-impl<C: ConfigProperties> Cache for FileCache<C> {
-    fn get(&self, key: &str) -> Result<CacheState> {
-        let path = self.get_cache_file(key);
-        if let Ok(f) = File::open(path) {
+impl<C: ConfigProperties> Cache<Resource> for FileCache<C> {
+    fn get(&self, key: &Resource) -> Result<CacheState> {
+        let path = self.get_cache_file(&key.url);
+        if let Ok(f) = File::open(&path) {
             let mut f = BufReader::new(f);
-            self.get_cache_data(&mut f)
+            let response = self.get_cache_data(&mut f)?;
+            if self.expired(key, path)? {
+                return Ok(CacheState::Stale(response));
+            }
+            Ok(CacheState::Fresh(response))
         } else {
             Ok(CacheState::None)
         }
     }
 
-    fn set(&self, key: &str, value: &Response) -> Result<()> {
-        let path = self.get_cache_file(key);
+    fn set(&self, key: &Resource, value: &Response) -> Result<()> {
+        let path = self.get_cache_file(&key.url);
         let f = File::create(path)?;
         let f = BufWriter::new(f);
         self.persist_cache_data(value, f)?;
         Ok(())
     }
+}
+
+fn expired<F: Fn() -> Result<Seconds>>(
+    get_file_mtime_elapsed: F,
+    refresh_every: Seconds,
+) -> Result<bool> {
+    let elapsed = get_file_mtime_elapsed()?;
+    if elapsed >= refresh_every {
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn get_file_mtime_elapsed(path: &str) -> Result<Seconds> {
+    let metadata = std::fs::metadata(path)?;
+    let mtime = metadata.modified()?.elapsed()?.as_secs();
+    Ok(Seconds::new(mtime))
 }
 
 // test
@@ -145,20 +182,44 @@ mod tests {
         "#;
         let reader = std::io::Cursor::new(cached_data);
         let fc = FileCache::new(ConfigMock::new());
-        let cache_data = fc.get_cache_data(reader).unwrap();
-        match cache_data {
-            CacheState::Fresh(response) => {
-                assert_eq!(200, response.status);
-                assert_eq!(
+        let response = fc.get_cache_data(reader).unwrap();
+
+        assert_eq!(200, response.status);
+        assert_eq!(
                     "<https://gitlab.com/api/v4/projects/jordilin%2Fmr/merge_requests?per_page=100&page=2>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fmr/merge_requests?per_page=100&page=1>; rel=\"first\", <https://gitlab.com/api/v4/projects/jordilin%2Fmr/merge_requests?per_page=100&page=2>; rel=\"last\"",
                     response.headers.as_ref().unwrap().get(io::LINK_HEADER).unwrap()
                 );
-                assert_eq!(
+        assert_eq!(
                     "{\"name\":\"385db2892449a18ca075c40344e6e9b418e3b16c\",\"path\":\"tooling/cli:385db2892449a18ca075c40344e6e9b418e3b16c\",\"location\":\"localhost:4567/tooling/cli:385db2892449a18ca075c40344e6e9b418e3b16c\",\"revision\":\"791d4b6a13f90f0e48dd68fa1c758b79a6936f3854139eb01c9f251eded7c98d\",\"short_revision\":\"791d4b6a1\",\"digest\":\"sha256:41c70f2fcb036dfc6ca7da19b25cb660055268221b9d5db666bdbc7ad1ca2029\",\"created_at\":\"2022-06-29T15:56:01.580+00:00\",\"total_size\":2819312",
                     response.body
                 );
-            }
-            _ => panic!("Expected a fresh cache state"),
-        }
+    }
+
+    fn mock_file_mtime_elapsed(m_time: u64) -> Result<Seconds> {
+        Ok(Seconds::new(m_time))
+    }
+
+    #[test]
+    fn test_expired_cache_beyond_refresh_time() {
+        assert!(expired(|| mock_file_mtime_elapsed(500), Seconds::new(300)).unwrap())
+    }
+
+    #[test]
+    fn test_expired_diff_now_and_cache_same_as_refresh() {
+        assert!(expired(|| mock_file_mtime_elapsed(300), Seconds::new(300)).unwrap())
+    }
+
+    #[test]
+    fn test_not_expired_diff_now_and_cache_less_than_refresh() {
+        assert!(!expired(|| mock_file_mtime_elapsed(100), Seconds::new(1000)).unwrap())
+    }
+
+    #[test]
+    fn test_expired_get_m_time_result_err() {
+        assert!(expired(
+            || Err(error::gen("Could not get file mtime")),
+            Seconds::new(1000)
+        )
+        .is_err())
     }
 }

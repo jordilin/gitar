@@ -1,4 +1,5 @@
 use crate::api_defaults::REST_API_MAX_PAGES;
+use crate::api_traits::ApiOperation;
 use crate::cache::{Cache, CacheState};
 use crate::io::{HttpRunner, Response};
 use crate::Result;
@@ -98,11 +99,25 @@ impl<C> Client<C> {
     }
 }
 
+pub struct Resource {
+    pub url: String,
+    pub api_operation: Option<ApiOperation>,
+}
+
+impl Resource {
+    fn new(url: &str, api_operation: Option<ApiOperation>) -> Self {
+        Resource {
+            url: url.to_string(),
+            api_operation,
+        }
+    }
+}
+
 pub struct Request<T> {
     body: Option<T>,
     headers: HashMap<String, String>,
-    url: String,
     method: Method,
+    pub resource: Resource,
 }
 
 impl<T> Request<T> {
@@ -110,9 +125,18 @@ impl<T> Request<T> {
         Request {
             body: None,
             headers: HashMap::new(),
-            url: url.to_string(),
             method,
+            resource: Resource::new(url, None),
         }
+    }
+
+    pub fn with_api_operation(mut self, api_operation: ApiOperation) -> Self {
+        self.resource.api_operation = Some(api_operation);
+        self
+    }
+
+    pub fn api_operation(&self) -> &Option<ApiOperation> {
+        &self.resource.api_operation
     }
 
     pub fn with_body(mut self, body: T) -> Self {
@@ -129,11 +153,11 @@ impl<T> Request<T> {
     }
 
     pub fn set_url(&mut self, url: &str) {
-        self.url = url.to_string();
+        self.resource.url = url.to_string();
     }
 
     pub fn url(&self) -> &str {
-        &self.url
+        &self.resource.url
     }
 
     pub fn headers(&self) -> &HashMap<String, String> {
@@ -148,7 +172,7 @@ pub enum Method {
     PATCH,
 }
 
-impl<C: Cache> HttpRunner for Client<C> {
+impl<C: Cache<Resource>> HttpRunner for Client<C> {
     type Response = Response;
 
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response> {
@@ -156,7 +180,7 @@ impl<C: Cache> HttpRunner for Client<C> {
             Method::GET => {
                 let mut default_response = Response::new();
                 if !self.refresh_cache {
-                    match self.cache.get(&cmd.url) {
+                    match self.cache.get(&cmd.resource) {
                         Ok(CacheState::Fresh(response)) => return Ok(response),
                         Ok(CacheState::Stale(response)) => {
                             default_response = response;
@@ -176,7 +200,7 @@ impl<C: Cache> HttpRunner for Client<C> {
                     // Not modified return the cached response.
                     return Ok(default_response);
                 }
-                self.cache.set(&cmd.url, &response).unwrap();
+                self.cache.set(&cmd.resource, &response).unwrap();
                 Ok(response)
             }
             Method::POST => {

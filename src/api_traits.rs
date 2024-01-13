@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{
     cli::BrowseOptions,
     io::CmdInfo,
@@ -24,6 +26,30 @@ pub trait RemoteProject {
 pub trait Cicd {
     fn list_pipelines(&self) -> Result<Vec<Pipeline>>;
     fn get_pipeline(&self, id: i64) -> Result<Pipeline>;
+}
+
+/// Types of API resources attached to a request. The request will carry this
+/// information so we can decide if we need to use the cache or not based on
+/// global configuration.
+/// This is for read requests only, so that would be list merge_requests, list
+/// pipelines, get one merge request information, etc...
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
+pub enum ApiOperation {
+    MergeRequest,
+    Pipeline,
+    // Project members, project data such as default upstream branch, project
+    // id, etc...any metadata related to the project.
+    Project,
+}
+
+impl Display for ApiOperation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ApiOperation::MergeRequest => write!(f, "merge_request"),
+            ApiOperation::Pipeline => write!(f, "pipeline"),
+            ApiOperation::Project => write!(f, "project"),
+        }
+    }
 }
 
 pub trait Remote: RemoteProject + MergeRequest + Cicd + Send + Sync + 'static {}

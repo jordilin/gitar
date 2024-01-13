@@ -68,6 +68,13 @@ gitlab.com.api_token=<your api token>
 gitlab.com.cache_location=/home/<youruser>/.cache/gr
 gitlab.com.preferred_assignee_username=<your username>
 gitlab.com.merge_request_description_signature=<your signature, @someone, etc...>
+# Expire read merge requests in 5 minutes
+gitlab.com.cache_api_merge_request_expiration=5m
+# Expire read project metadata, members of a project in 5 days
+gitlab.com.cache_api_project_expiration=5d
+# Pipelines are read often, change often, so expire immediately.
+gitlab.com.cache_api_pipeline_expiration=0s
+
 
 # Github
 github.com.api_token=<your api token>
@@ -79,6 +86,21 @@ github.com.preferred_assignee_username=<your username>
 gitlab.mycompany.com.api_token=<your api token>
 ...
 ```
+
+Cache expiration configuration has three keys:
+
+- `<domain>`.cache_api_merge_request_expiration: List merge_requests, get a
+  merge request, etc... Any read operation involving merge/pull requests.
+- `<domain>`.cache_api_project_expiration: Get project metadata, members of a
+  project. This information does not change often, so a long expiration is fine.
+- `<domain>`.cache_api_pipeline_expiration: List pipelines, get a pipeline, etc...
+
+The values for these keys can accept any number followed by `s` for seconds, `m`
+for minutes, `h` for hours, `d` for days. For example, `5m` means 5 minutes,
+`5d` means 5 days, `0s` means immediate expiration.
+
+If omitted, the default is immediate expiration, so read operations are always
+pulled from the remote.
 
 ### Example open a merge/pull request
 

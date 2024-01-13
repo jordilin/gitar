@@ -1,5 +1,6 @@
 //! Config file parsing and validation.
 
+use crate::api_traits::ApiOperation;
 use crate::error;
 use crate::Result;
 use std::sync::Arc;
@@ -14,6 +15,9 @@ pub trait ConfigProperties {
     fn merge_request_description_signature(&self) -> &str {
         ""
     }
+    fn get_cache_expiration(&self, _api_operation: &ApiOperation) -> &str {
+        ""
+    }
 }
 
 #[derive(Clone, Default)]
@@ -22,6 +26,7 @@ pub struct Config {
     cache_location: String,
     preferred_assignee_username: String,
     merge_request_description_signature: String,
+    cache_expirations: HashMap<ApiOperation, String>,
 }
 
 impl Config {
@@ -49,12 +54,43 @@ impl Config {
         let merge_request_description_signature = domain_config_data
             .get("merge_request_description_signature")
             .unwrap_or(&default_merge_request_description_signature);
+        let cache_expirations = Config::cache_expirations(domain_config_data);
+
         Ok(Config {
             api_token: api_token.to_string(),
             cache_location: cache_location.to_string(),
             preferred_assignee_username: preferred_assignee_username.to_string(),
             merge_request_description_signature: merge_request_description_signature.to_string(),
+            cache_expirations,
         })
+    }
+
+    fn cache_expirations(
+        domain_config_data: &HashMap<String, String>,
+    ) -> HashMap<ApiOperation, String> {
+        let mut cache_expirations: HashMap<ApiOperation, String> = HashMap::new();
+        cache_expirations.insert(
+            ApiOperation::MergeRequest,
+            domain_config_data
+                .get("cache_api_merge_request_expiration")
+                .unwrap_or(&"".to_string())
+                .to_string(),
+        );
+        cache_expirations.insert(
+            ApiOperation::Pipeline,
+            domain_config_data
+                .get("cache_api_pipeline_expiration")
+                .unwrap_or(&"".to_string())
+                .to_string(),
+        );
+        cache_expirations.insert(
+            ApiOperation::Project,
+            domain_config_data
+                .get("cache_api_project_expiration")
+                .unwrap_or(&"".to_string())
+                .to_string(),
+        );
+        cache_expirations
     }
 
     fn parse<T: Read>(
@@ -112,6 +148,14 @@ impl ConfigProperties for Config {
     fn merge_request_description_signature(&self) -> &str {
         &self.merge_request_description_signature
     }
+
+    fn get_cache_expiration(&self, api_operation: &ApiOperation) -> &str {
+        let expiration = self.cache_expirations.get(&api_operation);
+        match expiration {
+            Some(expiration) => expiration,
+            None => "",
+        }
+    }
 }
 
 impl ConfigProperties for Arc<Config> {
@@ -129,6 +173,10 @@ impl ConfigProperties for Arc<Config> {
 
     fn merge_request_description_signature(&self) -> &str {
         &self.merge_request_description_signature
+    }
+
+    fn get_cache_expiration(&self, _api_operation: &ApiOperation) -> &str {
+        ""
     }
 }
 
@@ -218,5 +266,40 @@ mod test {
             "- devops team :-)",
             config.merge_request_description_signature()
         );
+    }
+
+    #[test]
+    fn test_config_cache_api_expirations() {
+        let config_data = r#"
+        github.com.api_token=1234
+        github.com.cache_location=/home/user/.config/mr_cache
+        github.com.preferred_assignee_username=jordilin
+        github.com.merge_request_description_signature=- devops team :-)
+        github.com.cache_api_merge_request_expiration=2h
+        github.com.cache_api_pipeline_expiration=1h
+        github.com.cache_api_project_expiration=3h"#;
+        let domain = "github.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Config::new(reader, domain).unwrap();
+        assert_eq!(
+            "2h",
+            config.get_cache_expiration(&ApiOperation::MergeRequest)
+        );
+        assert_eq!("1h", config.get_cache_expiration(&ApiOperation::Pipeline));
+        assert_eq!("3h", config.get_cache_expiration(&ApiOperation::Project));
+    }
+
+    #[test]
+    fn test_config_cache_api_expiration_default() {
+        let config_data = r#"
+        github.com.api_token=1234
+        github.com.cache_location=/home/user/.config/mr_cache
+        github.com.preferred_assignee_username=jordilin
+        github.com.merge_request_description_signature=- devops team :-)
+        "#;
+        let domain = "github.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Config::new(reader, domain).unwrap();
+        assert_eq!("", config.get_cache_expiration(&ApiOperation::MergeRequest));
     }
 }

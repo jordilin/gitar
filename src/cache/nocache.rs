@@ -5,11 +5,11 @@ use crate::Result;
 
 pub struct NoCache;
 
-impl Cache for NoCache {
-    fn get(&self, _key: &str) -> Result<CacheState> {
+impl<K> Cache<K> for NoCache {
+    fn get(&self, _key: &K) -> Result<CacheState> {
         Ok(CacheState::None)
     }
-    fn set(&self, _key: &str, _value: &Response) -> Result<()> {
+    fn set(&self, _key: &K, _value: &Response) -> Result<()> {
         Ok(())
     }
 }
