@@ -35,9 +35,8 @@ impl<C: ConfigProperties> FileCache<C> {
     }
 
     fn get_cache_data(&self, mut reader: impl BufRead) -> Result<Response> {
-        let mut link_header = String::new();
-        reader.read_line(&mut link_header)?;
-        let link_header = link_header.trim();
+        let mut headers = String::new();
+        reader.read_line(&mut headers)?;
         let mut status_code = String::new();
         reader.read_line(&mut status_code)?;
         let status_code = status_code.trim();
@@ -57,24 +56,17 @@ impl<C: ConfigProperties> FileCache<C> {
         let mut body = String::new();
         reader.read_line(&mut body)?;
         let body = body.trim();
-        let mut headers = HashMap::new();
-        headers.insert(io::LINK_HEADER.to_string(), link_header.to_string());
+        let headers_map = serde_json::from_str::<HashMap<String, String>>(&headers)?;
         let response = io::Response::new()
             .with_body(body.to_string())
-            .with_headers(headers)
+            .with_headers(headers_map)
             .with_status(status_code);
         Ok(response)
     }
 
     fn persist_cache_data(&self, value: &Response, mut f: BufWriter<File>) -> Result<()> {
-        let default_link_header = String::from("");
-        let links = value
-            .headers
-            .as_ref()
-            .unwrap()
-            .get(io::LINK_HEADER)
-            .unwrap_or(&default_link_header);
-        f.write_all(links.as_bytes())?;
+        let headers = value.headers.as_ref().unwrap();
+        f.write_all(serde_json::to_string(headers).unwrap().as_bytes())?;
         f.write_all(b"\n")?;
         f.write_all(value.status.to_string().as_bytes())?;
         f.write_all(b"\n")?;
@@ -176,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_get_cache_data() {
-        let cached_data = r#"<https://gitlab.com/api/v4/projects/jordilin%2Fmr/merge_requests?per_page=100&page=2>; rel="next", <https://gitlab.com/api/v4/projects/jordilin%2Fmr/merge_requests?per_page=100&page=1>; rel="first", <https://gitlab.com/api/v4/projects/jordilin%2Fmr/merge_requests?per_page=100&page=2>; rel="last"
+        let cached_data = r#"{"vary":"Accept-Encoding","cache-control":"max-age=0, private, must-revalidate","server":"nginx","transfer-encoding":"chunked","x-content-type-options":"nosniff","etag":"W/\"9ef5b79701ae0a753b6f08dc9229cdb6\"","x-per-page":"20","date":"Sat, 13 Jan 2024 19:50:23 GMT","connection":"keep-alive","x-next-page":"","x-runtime":"0.050489","content-type":"application/json","x-total-pages":"2","strict-transport-security":"max-age=63072000","referrer-policy":"strict-origin-when-cross-origin","x-prev-page":"1","x-request-id":"01HM260622PFEYAHAZQQWNT1WG","x-total":"22","x-page":"2","link":"<http://gitlab-web/api/v4/projects/tooling%2Fcli/members/all?id=tooling%2Fcli&page=1&per_page=20>; rel=\"prev\", <http://gitlab-web/api/v4/projects/tooling%2Fcli/members/all?id=tooling%2Fcli&page=1&per_page=20>; rel=\"first\", <http://gitlab-web/api/v4/projects/tooling%2Fcli/members/all?id=tooling%2Fcli&page=2&per_page=20>; rel=\"last\"","x-frame-options":"SAMEORIGIN"}
         200
         {"name":"385db2892449a18ca075c40344e6e9b418e3b16c","path":"tooling/cli:385db2892449a18ca075c40344e6e9b418e3b16c","location":"localhost:4567/tooling/cli:385db2892449a18ca075c40344e6e9b418e3b16c","revision":"791d4b6a13f90f0e48dd68fa1c758b79a6936f3854139eb01c9f251eded7c98d","short_revision":"791d4b6a1","digest":"sha256:41c70f2fcb036dfc6ca7da19b25cb660055268221b9d5db666bdbc7ad1ca2029","created_at":"2022-06-29T15:56:01.580+00:00","total_size":2819312
         "#;
@@ -186,7 +178,7 @@ mod tests {
 
         assert_eq!(200, response.status);
         assert_eq!(
-                    "<https://gitlab.com/api/v4/projects/jordilin%2Fmr/merge_requests?per_page=100&page=2>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fmr/merge_requests?per_page=100&page=1>; rel=\"first\", <https://gitlab.com/api/v4/projects/jordilin%2Fmr/merge_requests?per_page=100&page=2>; rel=\"last\"",
+                    "<http://gitlab-web/api/v4/projects/tooling%2Fcli/members/all?id=tooling%2Fcli&page=1&per_page=20>; rel=\"prev\", <http://gitlab-web/api/v4/projects/tooling%2Fcli/members/all?id=tooling%2Fcli&page=1&per_page=20>; rel=\"first\", <http://gitlab-web/api/v4/projects/tooling%2Fcli/members/all?id=tooling%2Fcli&page=2&per_page=20>; rel=\"last\"",
                     response.headers.as_ref().unwrap().get(io::LINK_HEADER).unwrap()
                 );
         assert_eq!(
