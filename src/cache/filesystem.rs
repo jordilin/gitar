@@ -7,6 +7,7 @@ use sha2::{Digest, Sha256};
 use crate::cache::Cache;
 use crate::http::Resource;
 use crate::io::{self, Response};
+use crate::time::{self, Seconds};
 
 use super::CacheState;
 
@@ -80,12 +81,23 @@ impl<C: ConfigProperties> FileCache<C> {
         f.write_all(value.body.as_bytes())?;
         Ok(())
     }
+
+    fn expired(&self, key: &Resource, path: String) -> Result<bool> {
+        let cache_expiration = time::string_to_seconds(
+            self.config
+                .get_cache_expiration(&key.api_operation.as_ref().unwrap()),
+        )?;
+        expired(|| get_file_mtime_elapsed(path.as_str()), cache_expiration)
+    }
 }
 
 impl<C: ConfigProperties> Cache<Resource> for FileCache<C> {
     fn get(&self, key: &Resource) -> Result<CacheState> {
         let path = self.get_cache_file(&key.url);
-        if let Ok(f) = File::open(path) {
+        if let Ok(f) = File::open(&path) {
+            if self.expired(key, path)? {
+                return Ok(CacheState::None);
+            }
             let mut f = BufReader::new(f);
             self.get_cache_data(&mut f)
         } else {
@@ -100,6 +112,23 @@ impl<C: ConfigProperties> Cache<Resource> for FileCache<C> {
         self.persist_cache_data(value, f)?;
         Ok(())
     }
+}
+
+fn expired<F: Fn() -> Result<Seconds>>(
+    get_file_mtime_elapsed: F,
+    refresh_every: Seconds,
+) -> Result<bool> {
+    let elapsed = get_file_mtime_elapsed()?;
+    if elapsed >= refresh_every {
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn get_file_mtime_elapsed(path: &str) -> Result<Seconds> {
+    let metadata = std::fs::metadata(path)?;
+    let mtime = metadata.modified()?.elapsed()?.as_secs();
+    Ok(Seconds::new(mtime))
 }
 
 // test
@@ -161,5 +190,33 @@ mod tests {
             }
             _ => panic!("Expected a fresh cache state"),
         }
+    }
+
+    fn mock_file_mtime_elapsed(m_time: u64) -> Result<Seconds> {
+        Ok(Seconds::new(m_time))
+    }
+
+    #[test]
+    fn test_expired_cache_beyond_refresh_time() {
+        assert!(expired(|| mock_file_mtime_elapsed(500), Seconds::new(300)).unwrap())
+    }
+
+    #[test]
+    fn test_expired_diff_now_and_cache_same_as_refresh() {
+        assert!(expired(|| mock_file_mtime_elapsed(300), Seconds::new(300)).unwrap())
+    }
+
+    #[test]
+    fn test_not_expired_diff_now_and_cache_less_than_refresh() {
+        assert!(!expired(|| mock_file_mtime_elapsed(100), Seconds::new(1000)).unwrap())
+    }
+
+    #[test]
+    fn test_expired_get_m_time_result_err() {
+        assert!(expired(
+            || Err(error::gen("Could not get file mtime")),
+            Seconds::new(1000)
+        )
+        .is_err())
     }
 }

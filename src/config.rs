@@ -15,7 +15,7 @@ pub trait ConfigProperties {
     fn merge_request_description_signature(&self) -> &str {
         ""
     }
-    fn get_cache_expiration(&self, _api_operation: ApiOperation) -> &str {
+    fn get_cache_expiration(&self, _api_operation: &ApiOperation) -> &str {
         ""
     }
 }
@@ -149,7 +149,7 @@ impl ConfigProperties for Config {
         &self.merge_request_description_signature
     }
 
-    fn get_cache_expiration(&self, api_operation: ApiOperation) -> &str {
+    fn get_cache_expiration(&self, api_operation: &ApiOperation) -> &str {
         let expiration = self.cache_expirations.get(&api_operation);
         match expiration {
             Some(expiration) => expiration,
@@ -175,7 +175,7 @@ impl ConfigProperties for Arc<Config> {
         &self.merge_request_description_signature
     }
 
-    fn get_cache_expiration(&self, _api_operation: ApiOperation) -> &str {
+    fn get_cache_expiration(&self, _api_operation: &ApiOperation) -> &str {
         ""
     }
 }
@@ -283,10 +283,10 @@ mod test {
         let config = Config::new(reader, domain).unwrap();
         assert_eq!(
             "2h",
-            config.get_cache_expiration(ApiOperation::MergeRequest)
+            config.get_cache_expiration(&ApiOperation::MergeRequest)
         );
-        assert_eq!("1h", config.get_cache_expiration(ApiOperation::Pipeline));
-        assert_eq!("3h", config.get_cache_expiration(ApiOperation::Project));
+        assert_eq!("1h", config.get_cache_expiration(&ApiOperation::Pipeline));
+        assert_eq!("3h", config.get_cache_expiration(&ApiOperation::Project));
     }
 
     #[test]
@@ -300,6 +300,6 @@ mod test {
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Config::new(reader, domain).unwrap();
-        assert_eq!("", config.get_cache_expiration(ApiOperation::MergeRequest));
+        assert_eq!("", config.get_cache_expiration(&ApiOperation::MergeRequest));
     }
 }

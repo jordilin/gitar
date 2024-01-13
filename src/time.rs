@@ -3,6 +3,7 @@
 use crate::error::GRError;
 use crate::Result;
 use std;
+use std::ops::{Deref, Sub};
 
 enum Time {
     Second,
@@ -39,7 +40,30 @@ impl TryFrom<char> for Time {
     }
 }
 
+#[derive(Debug, PartialEq, PartialOrd)]
 pub struct Seconds(u64);
+
+impl Seconds {
+    pub fn new(seconds: u64) -> Self {
+        Seconds(seconds)
+    }
+}
+
+impl Sub<Seconds> for Seconds {
+    type Output = Seconds;
+
+    fn sub(self, rhs: Seconds) -> Self::Output {
+        Seconds(self.0 - rhs.0)
+    }
+}
+
+impl Deref for Seconds {
+    type Target = u64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 /// Convert a string with time format to seconds.
 /// A string with time format can be anything like:
@@ -99,6 +123,8 @@ mod tests {
             ("2 d", Seconds(172800)),
             // If no time format is specified, it defaults to seconds
             ("300", Seconds(300)),
+            // empty string is zero
+            ("", Seconds(0)),
         ];
         for (input, expected) in test_table {
             let actual = string_to_seconds(input).unwrap();

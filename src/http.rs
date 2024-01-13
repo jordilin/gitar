@@ -101,7 +101,7 @@ impl<C> Client<C> {
 
 pub struct Resource {
     pub url: String,
-    api_operation: Option<ApiOperation>,
+    pub api_operation: Option<ApiOperation>,
 }
 
 impl Resource {
