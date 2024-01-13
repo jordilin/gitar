@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use anyhow::{anyhow, Context, Result};
 use thiserror::Error;
 
@@ -12,7 +14,7 @@ pub enum GRError {
 }
 
 pub trait AddContext<T, E>: Context<T, E> {
-    fn err_context(self, msg: &str) -> Result<T, anyhow::Error>
+    fn err_context<C: Display + Send + Sync + 'static>(self, msg: C) -> Result<T, anyhow::Error>
     where
         Self: Sized,
     {

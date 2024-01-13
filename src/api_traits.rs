@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{
     cli::BrowseOptions,
     io::CmdInfo,
@@ -38,6 +40,16 @@ pub enum ApiOperation {
     // Project members, project data such as default upstream branch, project
     // id, etc...any metadata related to the project.
     Project,
+}
+
+impl Display for ApiOperation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ApiOperation::MergeRequest => write!(f, "merge_request"),
+            ApiOperation::Pipeline => write!(f, "pipeline"),
+            ApiOperation::Project => write!(f, "project"),
+        }
+    }
 }
 
 pub trait Remote: RemoteProject + MergeRequest + Cicd + Send + Sync + 'static {}

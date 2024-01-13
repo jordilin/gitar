@@ -13,7 +13,7 @@ use super::CacheState;
 
 use crate::config::ConfigProperties;
 
-use crate::error;
+use crate::error::{self, AddContext, GRError};
 use crate::Result;
 
 pub struct FileCache<C> {
@@ -86,7 +86,13 @@ impl<C: ConfigProperties> FileCache<C> {
         let cache_expiration = self
             .config
             .get_cache_expiration(&key.api_operation.as_ref().unwrap())
-            .try_into()?;
+            .try_into()
+            .err_context(GRError::ConfigurationError(format!(
+                "Cannot retrieve cache expiration time. \
+                 Check your configuration file and make sure the key \
+                 <domain>.cache_api_{}_expiration has a valid time format.",
+                &key.api_operation.as_ref().unwrap()
+            )))?;
         expired(|| get_file_mtime_elapsed(path.as_str()), cache_expiration)
     }
 }

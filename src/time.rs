@@ -1,6 +1,8 @@
 // Time utility functions
 
-use crate::error::GRError;
+use crate::Error;
+
+use crate::error::{self, GRError};
 use crate::Result;
 use std;
 use std::ops::{Deref, Sub};
@@ -24,7 +26,7 @@ impl Time {
 }
 
 impl TryFrom<char> for Time {
-    type Error = GRError;
+    type Error = Error;
 
     fn try_from(time: char) -> std::result::Result<Self, Self::Error> {
         match time {
@@ -32,7 +34,7 @@ impl TryFrom<char> for Time {
             'm' => Ok(Time::Minute),
             'h' => Ok(Time::Hour),
             'd' => Ok(Time::Day),
-            _ => Err(GRError::TimeConversionError(format!(
+            _ => Err(error::gen(format!(
                 "Unknown char time format: {} - valid types are s, m, h, d",
                 time
             ))),
@@ -92,9 +94,9 @@ impl TryFrom<&str> for Seconds {
     fn try_from(str_fmt: &str) -> std::result::Result<Self, Self::Error> {
         match string_to_seconds(str_fmt) {
             Ok(seconds) => Ok(seconds),
-            Err(err) => Err(GRError::ConfigurationError(format!(
-                "Cannot convert {} to seconds, caused by: {}",
-                str_fmt, err
+            Err(err) => Err(GRError::TimeConversionError(format!(
+                "Could not convert {} to time format: {}",
+                str_fmt, err,
             ))),
         }
     }

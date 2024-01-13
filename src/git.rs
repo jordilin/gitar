@@ -51,7 +51,7 @@ pub fn current_branch(runner: &impl Runner<Response = Response>) -> Result<CmdIn
     // let cmd_params = ["git", "branch", "--show-current"];
     // Use rev-parse for older versions of git that don't support --show-current.
     let cmd_params = ["git", "rev-parse", "--abbrev-ref", "HEAD"];
-    let response = runner.run(cmd_params).err_context(&format!(
+    let response = runner.run(cmd_params).err_context(format!(
         "Failed to get current branch. Command: {}",
         cmd_params.join(" ")
     ))?;
@@ -65,7 +65,7 @@ pub fn current_branch(runner: &impl Runner<Response = Response>) -> Result<CmdIn
 /// [`CmdInfo::Ignore`].
 pub fn fetch(exec: &impl Runner) -> Result<CmdInfo> {
     let cmd_params = ["git", "fetch"];
-    exec.run(cmd_params).err_context(&format!(
+    exec.run(cmd_params).err_context(format!(
         "Failed to git fetch. Command: {}",
         cmd_params.join(" ")
     ))?;
@@ -173,7 +173,7 @@ pub fn last_commit_message(runner: &impl Runner<Response = Response>) -> Result<
 pub fn checkout(runner: &impl Runner<Response = Response>, branch: &str) -> Result<()> {
     let git_cmd = format!("git checkout origin/{} -b {}", branch, branch);
     let cmd_params = ["/bin/sh", "-c", &git_cmd];
-    runner.run(cmd_params).err_context(&format!(
+    runner.run(cmd_params).err_context(format!(
         "Failed to git checkout remote branch. Command: {}",
         cmd_params.join(" ")
     ))?;

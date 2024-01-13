@@ -230,7 +230,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
             http::Request::new(self.rest_api_basepath(), http::Method::GET)
                 .with_api_operation(ApiOperation::Project);
         request.set_header("PRIVATE-TOKEN", self.api_token());
-        let response = self.runner.run(&mut request).err_context(&format!(
+        let response = self.runner.run(&mut request).err_context(format!(
             "Failed to get remote project data API URL: {}",
             self.rest_api_basepath()
         ))?;
