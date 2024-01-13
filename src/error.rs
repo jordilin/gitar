@@ -5,6 +5,8 @@ use thiserror::Error;
 pub enum GRError {
     #[error("Precondition not met error: {0}")]
     PreconditionNotMet(String),
+    #[error("Time conversion error: {0}")]
+    TimeConversionError(String),
     #[error("Configuration error: {0}")]
     ConfigurationError(String),
 }

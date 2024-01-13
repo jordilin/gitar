@@ -32,7 +32,7 @@ impl TryFrom<char> for Time {
             'm' => Ok(Time::Minute),
             'h' => Ok(Time::Hour),
             'd' => Ok(Time::Day),
-            _ => Err(GRError::ConfigurationError(format!(
+            _ => Err(GRError::TimeConversionError(format!(
                 "Unknown char time format: {} - valid types are s, m, h, d",
                 time
             ))),
@@ -93,7 +93,7 @@ impl TryFrom<&str> for Seconds {
         match string_to_seconds(str_fmt) {
             Ok(seconds) => Ok(seconds),
             Err(err) => Err(GRError::ConfigurationError(format!(
-                "Cannot convert {} to seconds: {}",
+                "Cannot convert {} to seconds, caused by: {}",
                 str_fmt, err
             ))),
         }
