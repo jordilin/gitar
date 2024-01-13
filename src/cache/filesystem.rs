@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 use crate::cache::Cache;
 use crate::http::Resource;
 use crate::io::{self, Response};
-use crate::time::{self, Seconds};
+use crate::time::Seconds;
 
 use super::CacheState;
 
@@ -83,10 +83,10 @@ impl<C: ConfigProperties> FileCache<C> {
     }
 
     fn expired(&self, key: &Resource, path: String) -> Result<bool> {
-        let cache_expiration = time::string_to_seconds(
-            self.config
-                .get_cache_expiration(&key.api_operation.as_ref().unwrap()),
-        )?;
+        let cache_expiration = self
+            .config
+            .get_cache_expiration(&key.api_operation.as_ref().unwrap())
+            .try_into()?;
         expired(|| get_file_mtime_elapsed(path.as_str()), cache_expiration)
     }
 }

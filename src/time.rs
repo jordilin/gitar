@@ -70,7 +70,7 @@ impl Deref for Seconds {
 /// 1s, 2s, 2 seconds, 2 second, 2seconds, 2second, 2 s
 /// The same would apply for minutes, hours and days
 /// Processing stops at the first non-digit character
-pub fn string_to_seconds(str_fmt: &str) -> Result<Seconds> {
+fn string_to_seconds(str_fmt: &str) -> Result<Seconds> {
     let mut seconds: u64 = 0;
     for c in str_fmt.chars() {
         if c.is_digit(10) {
@@ -84,6 +84,20 @@ pub fn string_to_seconds(str_fmt: &str) -> Result<Seconds> {
         }
     }
     Ok(Seconds(seconds))
+}
+
+impl TryFrom<&str> for Seconds {
+    type Error = GRError;
+
+    fn try_from(str_fmt: &str) -> std::result::Result<Self, Self::Error> {
+        match string_to_seconds(str_fmt) {
+            Ok(seconds) => Ok(seconds),
+            Err(err) => Err(GRError::ConfigurationError(format!(
+                "Cannot convert {} to seconds: {}",
+                str_fmt, err
+            ))),
+        }
+    }
 }
 
 #[cfg(test)]
