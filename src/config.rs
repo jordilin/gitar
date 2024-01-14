@@ -1,5 +1,6 @@
 //! Config file parsing and validation.
 
+use crate::api_defaults::REST_API_MAX_PAGES;
 use crate::api_traits::ApiOperation;
 use crate::error;
 use crate::Result;
@@ -18,6 +19,9 @@ pub trait ConfigProperties {
     fn get_cache_expiration(&self, _api_operation: &ApiOperation) -> &str {
         ""
     }
+    fn get_max_pages(&self, _api_operation: &ApiOperation) -> u32 {
+        REST_API_MAX_PAGES
+    }
 }
 
 #[derive(Clone, Default)]
@@ -27,6 +31,7 @@ pub struct Config {
     preferred_assignee_username: String,
     merge_request_description_signature: String,
     cache_expirations: HashMap<ApiOperation, String>,
+    max_pages: HashMap<ApiOperation, u32>,
 }
 
 impl Config {
@@ -55,6 +60,7 @@ impl Config {
             .get("merge_request_description_signature")
             .unwrap_or(&default_merge_request_description_signature);
         let cache_expirations = Config::cache_expirations(domain_config_data);
+        let max_pages = Config::max_pages(domain_config_data);
 
         Ok(Config {
             api_token: api_token.to_string(),
@@ -62,7 +68,34 @@ impl Config {
             preferred_assignee_username: preferred_assignee_username.to_string(),
             merge_request_description_signature: merge_request_description_signature.to_string(),
             cache_expirations,
+            max_pages,
         })
+    }
+
+    fn max_pages(domain_config_data: &HashMap<String, String>) -> HashMap<ApiOperation, u32> {
+        let mut max_pages: HashMap<ApiOperation, u32> = HashMap::new();
+        max_pages.insert(
+            ApiOperation::MergeRequest,
+            domain_config_data
+                .get("max_pages_api_merge_request")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(REST_API_MAX_PAGES),
+        );
+        max_pages.insert(
+            ApiOperation::Pipeline,
+            domain_config_data
+                .get("max_pages_api_pipeline")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(REST_API_MAX_PAGES),
+        );
+        max_pages.insert(
+            ApiOperation::Project,
+            domain_config_data
+                .get("max_pages_api_project")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(REST_API_MAX_PAGES),
+        );
+        max_pages
     }
 
     fn cache_expirations(
@@ -154,6 +187,14 @@ impl ConfigProperties for Config {
         match expiration {
             Some(expiration) => expiration,
             None => "",
+        }
+    }
+
+    fn get_max_pages(&self, api_operation: &ApiOperation) -> u32 {
+        let max_pages = self.max_pages.get(&api_operation);
+        match max_pages {
+            Some(max_pages) => *max_pages,
+            None => REST_API_MAX_PAGES,
         }
     }
 }
@@ -301,5 +342,93 @@ mod test {
         let reader = std::io::Cursor::new(config_data);
         let config = Config::new(reader, domain).unwrap();
         assert_eq!("", config.get_cache_expiration(&ApiOperation::MergeRequest));
+    }
+
+    #[test]
+    fn test_config_max_pages_merge_requests() {
+        let config_data = r#"
+        github.com.api_token=1234
+        github.com.cache_location=/home/user/.config/mr_cache
+        github.com.preferred_assignee_username=jordilin
+        github.com.max_pages_api_merge_request=2
+        "#;
+        let domain = "github.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Config::new(reader, domain).unwrap();
+        assert_eq!(2, config.get_max_pages(&ApiOperation::MergeRequest));
+    }
+
+    #[test]
+    fn test_config_max_pages_default_merge_request() {
+        let config_data = r#"
+        github.com.api_token=1234
+        github.com.cache_location=/home/user/.config/mr_cache
+        github.com.preferred_assignee_username=jordilin
+        "#;
+        let domain = "github.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Config::new(reader, domain).unwrap();
+        assert_eq!(
+            REST_API_MAX_PAGES,
+            config.get_max_pages(&ApiOperation::MergeRequest)
+        );
+    }
+
+    #[test]
+    fn test_config_max_pages_pipeline() {
+        let config_data = r#"
+        github.com.api_token=1234
+        github.com.cache_location=/home/user/.config/mr_cache
+        github.com.preferred_assignee_username=jordilin
+        github.com.max_pages_api_pipeline=4
+        "#;
+        let domain = "github.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Config::new(reader, domain).unwrap();
+        assert_eq!(4, config.get_max_pages(&ApiOperation::Pipeline));
+    }
+
+    #[test]
+    fn test_config_max_pages_default_pipeline() {
+        let config_data = r#"
+        github.com.api_token=1234
+        github.com.cache_location=/home/user/.config/mr_cache
+        github.com.preferred_assignee_username=jordilin"#;
+        let domain = "github.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Config::new(reader, domain).unwrap();
+        assert_eq!(
+            REST_API_MAX_PAGES,
+            config.get_max_pages(&ApiOperation::Pipeline)
+        );
+    }
+
+    #[test]
+    fn test_config_max_pages_project() {
+        let config_data = r#"
+        github.com.api_token=1234
+        github.com.cache_location=/home/user/.config/mr_cache
+        github.com.preferred_assignee_username=jordilin
+        github.com.max_pages_api_project=6
+        "#;
+        let domain = "github.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Config::new(reader, domain).unwrap();
+        assert_eq!(6, config.get_max_pages(&ApiOperation::Project));
+    }
+
+    #[test]
+    fn test_config_max_pages_default_project() {
+        let config_data = r#"
+        github.com.api_token=1234
+        github.com.cache_location=/home/user/.config/mr_cache
+        github.com.preferred_assignee_username=jordilin"#;
+        let domain = "github.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Config::new(reader, domain).unwrap();
+        assert_eq!(
+            REST_API_MAX_PAGES,
+            config.get_max_pages(&ApiOperation::Project)
+        );
     }
 }
