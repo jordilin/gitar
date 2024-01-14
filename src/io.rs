@@ -18,9 +18,8 @@ pub trait Runner {
 pub trait HttpRunner {
     type Response;
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response>;
-    // When pagination is being used, this will be called to determine if we
-    // should stop paging based on the type of request being made.
-    // fn stop_paging<T: Serialize>(&self, cmd: &Request<T>) -> bool;
+    /// Return the number of API MAX PAGES allowed for the given Request.
+    fn api_max_pages<T: Serialize>(&self, cmd: &Request<T>) -> u32;
 }
 
 #[derive(Debug)]

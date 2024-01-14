@@ -3,6 +3,8 @@ pub mod utils {
     use crate::{api_traits::ApiOperation, config::ConfigProperties, error};
     use serde::Serialize;
 
+    use crate::api_defaults::REST_API_MAX_PAGES;
+
     use crate::{
         http::Request,
         io::{HttpRunner, Response, Runner},
@@ -45,6 +47,7 @@ pub mod utils {
         headers: RefCell<HashMap<String, String>>,
         url: RefCell<String>,
         pub api_operation: RefCell<Option<ApiOperation>>,
+        pub config: ConfigMock,
     }
 
     impl MockRunner {
@@ -55,7 +58,12 @@ pub mod utils {
                 headers: RefCell::new(HashMap::new()),
                 url: RefCell::new(String::new()),
                 api_operation: RefCell::new(None),
+                config: ConfigMock::default(),
             }
+        }
+
+        pub fn with_config(self, config: ConfigMock) -> Self {
+            Self { config, ..self }
         }
 
         pub fn cmd(&self) -> Ref<String> {
@@ -107,12 +115,27 @@ pub mod utils {
                 _ => return Err(error::gen(&response.body)),
             }
         }
+
+        fn api_max_pages<T: Serialize>(&self, _cmd: &Request<T>) -> u32 {
+            self.config.get_max_pages(
+                &self
+                    .api_operation
+                    .borrow()
+                    .as_ref()
+                    // We set it to Project by default in cases where it does
+                    // not matter while testing.
+                    .unwrap_or(&ApiOperation::Project),
+            )
+        }
     }
 
-    struct ConfigMock;
+    pub struct ConfigMock {
+        max_pages: u32,
+    }
+
     impl ConfigMock {
-        fn new() -> Self {
-            ConfigMock {}
+        pub fn new(max_pages: u32) -> Self {
+            ConfigMock { max_pages }
         }
     }
 
@@ -123,9 +146,20 @@ pub mod utils {
         fn cache_location(&self) -> &str {
             ""
         }
+        fn get_max_pages(&self, _api_operation: &ApiOperation) -> u32 {
+            self.max_pages
+        }
     }
 
     pub fn config() -> impl ConfigProperties {
-        ConfigMock::new()
+        ConfigMock::default()
+    }
+
+    impl Default for ConfigMock {
+        fn default() -> Self {
+            ConfigMock {
+                max_pages: REST_API_MAX_PAGES,
+            }
+        }
     }
 }
