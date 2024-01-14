@@ -68,12 +68,24 @@ gitlab.com.api_token=<your api token>
 gitlab.com.cache_location=/home/<youruser>/.cache/gr
 gitlab.com.preferred_assignee_username=<your username>
 gitlab.com.merge_request_description_signature=<your signature, @someone, etc...>
+
+## Cache expiration configuration
+
 # Expire read merge requests in 5 minutes
 gitlab.com.cache_api_merge_request_expiration=5m
 # Expire read project metadata, members of a project in 5 days
 gitlab.com.cache_api_project_expiration=5d
 # Pipelines are read often, change often, so expire immediately.
 gitlab.com.cache_api_pipeline_expiration=0s
+
+## Max pages configuration
+
+# Get up to 10 pages of merge requests when listing
+gitlab.com.max_pages_api_merge_request=10
+# Get up to 5 pages of project metadata, members of a project when listing
+gitlab.com.max_pages_api_project=5
+# Get up to 10 pages of pipelines when listing
+gitlab.com.max_pages_api_pipeline=10
 
 
 # Github
@@ -101,6 +113,18 @@ for minutes, `h` for hours, `d` for days. For example, `5m` means 5 minutes,
 
 If omitted, the default is immediate expiration, so read operations are always
 pulled from the remote.
+
+When listing merge requests, projects, pipelines, etc... the tool will fetch up
+to max pages. We can control this per API as follows:
+
+- `<domain>`.max_pages_api_merge_request: List merge_requests, get a
+  merge request, etc... Any read operation involving merge/pull requests.
+- `<domain>`.max_pages_api_project: Get project metadata, members of a project.
+- `<domain>`.max_pages_api_pipeline: List pipelines, get a pipeline, etc...
+
+If omitted, the default global number of pages for all APIs is 10. This is to
+avoid fetching too much data when the amount of information is large.
+The default number of results per page for Gitlab is 20 and for Github is 30.
 
 ### Example open a merge/pull request
 
