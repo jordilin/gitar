@@ -37,14 +37,7 @@ pub fn execute(
             refresh_cache,
         } => {
             let remote = remote::get(domain, path, config.clone(), refresh_cache)?;
-            open(
-                remote,
-                Arc::new(config),
-                title,
-                description,
-                target_branch,
-                noprompt,
-            )
+            open(remote, config, title, description, target_branch, noprompt)
         }
         MergeRequestOptions::List {
             state,
