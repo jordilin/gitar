@@ -1,9 +1,16 @@
+use std::sync::Arc;
+
 use crate::cli::BrowseOptions;
 use crate::config::Config;
 use crate::remote;
 use crate::Result;
 
-pub fn execute(options: BrowseOptions, config: Config, domain: String, path: String) -> Result<()> {
+pub fn execute(
+    options: BrowseOptions,
+    config: Arc<Config>,
+    domain: String,
+    path: String,
+) -> Result<()> {
     match options {
         BrowseOptions::Repo => {
             // No need to contact the remote object, domain and path already

@@ -24,7 +24,7 @@ use crate::Result;
 
 pub fn execute(
     options: MergeRequestOptions,
-    config: Config,
+    config: Arc<Config>,
     domain: String,
     path: String,
 ) -> Result<()> {

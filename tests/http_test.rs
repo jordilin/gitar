@@ -1,10 +1,27 @@
 use std::collections::HashMap;
 
 use gr::cache::{Cache, InMemoryCache, NoCache};
+use gr::config::ConfigProperties;
 use gr::http::{Client, Method, Request};
 use gr::io::{HttpRunner, Response};
 use httpmock::prelude::*;
 use httpmock::Method::{GET, PATCH, POST};
+
+struct ConfigMock;
+impl ConfigMock {
+    fn new() -> Self {
+        ConfigMock {}
+    }
+}
+
+impl ConfigProperties for ConfigMock {
+    fn api_token(&self) -> &str {
+        "1234"
+    }
+    fn cache_location(&self) -> &str {
+        ""
+    }
+}
 
 #[test]
 fn test_http_runner() {
@@ -21,7 +38,7 @@ fn test_http_runner() {
             .body(body_str);
     });
 
-    let runner = Client::new(NoCache, false);
+    let runner = Client::new(NoCache, ConfigMock::new(), false);
     let mut request = Request::<()>::new(&server.url("/repos/jordilin/mr"), Method::GET);
     let response = runner.run(&mut request).unwrap();
     assert_eq!(response.status, 200);
@@ -31,7 +48,7 @@ fn test_http_runner() {
 
 #[test]
 fn test_http_runner_server_down() {
-    let runner = Client::new(NoCache, false);
+    let runner = Client::new(NoCache, ConfigMock::new(), false);
     let mut request = Request::<()>::new("http://localhost:8091/repos/jordilin/mr", Method::GET);
     let err = runner.run(&mut request).unwrap_err();
     assert!(err.to_string().contains("Connection refused"));
@@ -52,7 +69,7 @@ fn test_http_runner_post_request() {
             .body(body_str);
     });
 
-    let runner = Client::new(NoCache, false);
+    let runner = Client::new(NoCache, ConfigMock::new(), false);
     let mut request = Request::<()>::new(&server.url("/repos/jordilin/mr"), Method::POST);
     let response = runner.run(&mut request).unwrap();
     assert_eq!(response.status, 201);
@@ -89,7 +106,7 @@ fn test_http_gathers_from_inmemory_fresh_cache() {
     cache.set(&url, &response).unwrap();
 
     // Set up the http client with an inmemory cache
-    let runner = Client::new(cache, false);
+    let runner = Client::new(cache, ConfigMock::new(), false);
     let mut request = Request::<()>::new(&url, Method::GET);
 
     // Execute the client
@@ -136,7 +153,7 @@ fn test_http_gathers_from_inmemory_stale_cache_server_304() {
     cache.set(&url, &response).unwrap();
     cache.expire();
 
-    let runner = Client::new(cache, false);
+    let runner = Client::new(cache, ConfigMock::new(), false);
     let mut request = Request::<()>::new(&url, Method::GET);
 
     let response = runner.run(&mut request).unwrap();
@@ -174,7 +191,7 @@ fn test_http_get_hits_endpoint_use_cache_on_second_call() {
     // call is not cached yet using URL as key
 
     // Set up the http client with an inmemory cache
-    let runner = Client::new(cache, false);
+    let runner = Client::new(cache, ConfigMock::new(), false);
     let mut request = Request::<()>::new(&url, Method::GET);
 
     // Execute the client
@@ -223,7 +240,7 @@ fn test_http_post_hits_endpoint_two_times_does_not_use_cache() {
     // call is not cached yet using URL as key
 
     // Set up the http client with an inmemory cache
-    let runner = Client::new(cache, false);
+    let runner = Client::new(cache, ConfigMock::new(), false);
     let mut request = Request::<()>::new(&url, Method::POST);
 
     // Execute the client
@@ -261,7 +278,7 @@ fn test_http_runner_patch_request() {
             .body(body_str);
     });
 
-    let runner = Client::new(NoCache, false);
+    let runner = Client::new(NoCache, ConfigMock::new(), false);
     let mut request = Request::<()>::new(&server.url("/repos/jordilin/mr"), Method::PATCH);
     let response = runner.run(&mut request).unwrap();
     assert_eq!(response.status, 200);
@@ -294,7 +311,7 @@ fn test_http_get_hits_endpoint_dont_use_cache_if_refresh_cache_is_set() {
     // call is not cached yet using URL as key
 
     // Set up the http client with an inmemory cache and refresh cache is set.
-    let runner = Client::new(cache, true);
+    let runner = Client::new(cache, ConfigMock::new(), true);
     let mut request = Request::<()>::new(&url, Method::GET);
 
     // Execute the client

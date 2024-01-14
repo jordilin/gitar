@@ -1,6 +1,7 @@
 use crate::api_defaults::REST_API_MAX_PAGES;
 use crate::api_traits::ApiOperation;
 use crate::cache::{Cache, CacheState};
+use crate::config::ConfigProperties;
 use crate::io::{HttpRunner, Response};
 use crate::Result;
 use serde::Serialize;
@@ -8,16 +9,18 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use ureq::Error;
 
-pub struct Client<C> {
+pub struct Client<C, D> {
     cache: C,
+    config: D,
     refresh_cache: bool,
 }
 
-impl<C> Client<C> {
-    pub fn new(cache: C, refresh_cache: bool) -> Self {
+impl<C, D> Client<C, D> {
+    pub fn new(cache: C, config: D, refresh_cache: bool) -> Self {
         Client {
             cache,
             refresh_cache,
+            config,
         }
     }
 
@@ -172,7 +175,7 @@ pub enum Method {
     PATCH,
 }
 
-impl<C: Cache<Resource>> HttpRunner for Client<C> {
+impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
     type Response = Response;
 
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response> {

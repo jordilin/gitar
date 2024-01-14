@@ -1,4 +1,4 @@
-use std::{fs::File, path::Path};
+use std::{fs::File, path::Path, sync::Arc};
 
 use gr::{
     browse, cicd,
@@ -21,12 +21,12 @@ fn main() -> Result<()> {
     let CmdInfo::RemoteUrl { domain, path } = git::remote_url(&Shell)? else {
         return Err(error::gen("No remote url found. Please set a remote url."));
     };
-    let config = gr::config::Config::new(f, &domain).expect("Unable to read config");
+    let config = Arc::new(gr::config::Config::new(f, &domain).expect("Unable to read config"));
     match cli_options {
         CliOptions::MergeRequest(options) => merge_request::execute(options, config, domain, path),
         CliOptions::Browse(options) => {
             // Use default config for browsing - does not require auth.
-            let config = gr::config::Config::default();
+            let config = Arc::new(gr::config::Config::default());
             browse::execute(options, config, domain, path)
         }
         CliOptions::Pipeline(options) => cicd::execute(options, config, domain, path),
