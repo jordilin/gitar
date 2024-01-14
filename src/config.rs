@@ -209,15 +209,19 @@ impl ConfigProperties for Arc<Config> {
     }
 
     fn preferred_assignee_username(&self) -> &str {
-        &self.preferred_assignee_username
+        self.as_ref().preferred_assignee_username()
     }
 
     fn merge_request_description_signature(&self) -> &str {
-        &self.merge_request_description_signature
+        self.as_ref().merge_request_description_signature()
     }
 
-    fn get_cache_expiration(&self, _api_operation: &ApiOperation) -> &str {
-        ""
+    fn get_cache_expiration(&self, api_operation: &ApiOperation) -> &str {
+        self.as_ref().get_cache_expiration(api_operation)
+    }
+
+    fn get_max_pages(&self, api_operation: &ApiOperation) -> u32 {
+        self.as_ref().get_max_pages(api_operation)
     }
 }
 
@@ -235,7 +239,7 @@ mod test {
         "#;
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Config::new(reader, domain).unwrap();
+        let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!("1234", config.api_token());
     }
 
@@ -251,7 +255,7 @@ mod test {
         "#;
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Config::new(reader, domain).unwrap();
+        let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!("1234", config.api_token());
     }
 
@@ -289,7 +293,7 @@ mod test {
         github.com.preferred_assignee_username=jordilin"#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Config::new(reader, domain).unwrap();
+        let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!("jordilin", config.preferred_assignee_username());
     }
 
@@ -302,7 +306,7 @@ mod test {
         github.com.merge_request_description_signature=- devops team :-)"#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Config::new(reader, domain).unwrap();
+        let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!(
             "- devops team :-)",
             config.merge_request_description_signature()
@@ -321,7 +325,7 @@ mod test {
         github.com.cache_api_project_expiration=3h"#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Config::new(reader, domain).unwrap();
+        let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!(
             "2h",
             config.get_cache_expiration(&ApiOperation::MergeRequest)
@@ -340,7 +344,7 @@ mod test {
         "#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Config::new(reader, domain).unwrap();
+        let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!("", config.get_cache_expiration(&ApiOperation::MergeRequest));
     }
 
@@ -354,7 +358,7 @@ mod test {
         "#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Config::new(reader, domain).unwrap();
+        let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!(2, config.get_max_pages(&ApiOperation::MergeRequest));
     }
 
@@ -367,7 +371,7 @@ mod test {
         "#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Config::new(reader, domain).unwrap();
+        let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!(
             REST_API_MAX_PAGES,
             config.get_max_pages(&ApiOperation::MergeRequest)
@@ -384,7 +388,7 @@ mod test {
         "#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Config::new(reader, domain).unwrap();
+        let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!(4, config.get_max_pages(&ApiOperation::Pipeline));
     }
 
@@ -396,7 +400,7 @@ mod test {
         github.com.preferred_assignee_username=jordilin"#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Config::new(reader, domain).unwrap();
+        let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!(
             REST_API_MAX_PAGES,
             config.get_max_pages(&ApiOperation::Pipeline)
@@ -413,7 +417,7 @@ mod test {
         "#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Config::new(reader, domain).unwrap();
+        let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!(6, config.get_max_pages(&ApiOperation::Project));
     }
 
@@ -425,7 +429,7 @@ mod test {
         github.com.preferred_assignee_username=jordilin"#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Config::new(reader, domain).unwrap();
+        let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!(
             REST_API_MAX_PAGES,
             config.get_max_pages(&ApiOperation::Project)
