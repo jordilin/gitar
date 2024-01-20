@@ -1,4 +1,4 @@
-use crate::io::Response;
+use crate::io::{Response, ResponseField};
 
 pub mod filesystem;
 pub mod inmemory;
@@ -11,6 +11,7 @@ pub use nocache::NoCache;
 pub trait Cache<K = String> {
     fn get(&self, key: &K) -> Result<CacheState>;
     fn set(&self, key: &K, value: &Response) -> Result<()>;
+    fn update(&self, key: &K, value: &Response, field: &ResponseField) -> Result<()>;
 }
 
 pub enum CacheState {

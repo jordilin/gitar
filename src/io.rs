@@ -48,6 +48,13 @@ pub struct Response {
     link_header_processor: fn(&str) -> PageHeader,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ResponseField {
+    Body,
+    Status,
+    Headers,
+}
+
 impl Response {
     pub fn new() -> Self {
         Self {
