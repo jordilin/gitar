@@ -379,23 +379,6 @@ mod test {
     }
 
     #[test]
-    fn test_paginator_limits_to_max_pages_default() {
-        let mut responses = Vec::new();
-        for _ in 0..15 {
-            let response = response_with_next_page();
-            responses.push(response);
-        }
-        let last_response = response_with_last_page();
-        responses.push(last_response);
-        responses.reverse();
-        let client = Arc::new(MockRunner::new(responses));
-        let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost");
-        let responses = paginator.collect::<Vec<Result<Response>>>();
-        assert_eq!(10, responses.len());
-    }
-
-    #[test]
     fn test_client_get_api_max_pages() {
         let config = ConfigMock::new(1);
         let runner = Client::new(cache::NoCache, config, false);
@@ -420,8 +403,7 @@ mod test {
     }
 
     #[test]
-    fn test_if_api_max_pages_larger_than_global_rest_api_max_pages_then_rest_api_max_pages_is_used()
-    {
+    fn test_paginator_limits_to_max_pages_default() {
         let api_max_pages = REST_API_MAX_PAGES + 5;
         let mut responses = Vec::new();
         for _ in 0..api_max_pages {
