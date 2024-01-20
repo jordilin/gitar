@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use gr::cache::{Cache, InMemoryCache, NoCache};
 use gr::config::ConfigProperties;
 use gr::http::{Client, Method, Request};
-use gr::io::{HttpRunner, Response};
+use gr::io::{HttpRunner, Response, ResponseField};
 use httpmock::prelude::*;
 use httpmock::Method::{GET, PATCH, POST};
 
@@ -101,7 +101,7 @@ fn test_http_gathers_from_inmemory_fresh_cache() {
         }
     });
     // This request is cacheable with an inmemory cache
-    let cache = InMemoryCache::default();
+    let cache = &InMemoryCache::default();
     let url = format!("{}/repos/jordilin/mr", server.address());
     cache.set(&url, &response).unwrap();
 
@@ -153,7 +153,7 @@ fn test_http_gathers_from_inmemory_stale_cache_server_304() {
     cache.set(&url, &response).unwrap();
     cache.expire();
 
-    let runner = Client::new(cache, ConfigMock::new(), false);
+    let runner = Client::new(&cache, ConfigMock::new(), false);
     let mut request = Request::<()>::new(&url, Method::GET);
 
     let response = runner.run(&mut request).unwrap();
@@ -164,6 +164,9 @@ fn test_http_gathers_from_inmemory_stale_cache_server_304() {
     // server to be hit with a 304 status and a If-None-Match header set in the
     // request.
     server_mock.assert_hits(1);
+    // 304 - cache has been updated with the new upstream headers
+    assert!(*cache.updated.borrow());
+    assert_eq!(ResponseField::Headers, *cache.updated_field.borrow(),);
 }
 
 #[test]
@@ -186,7 +189,7 @@ fn test_http_get_hits_endpoint_use_cache_on_second_call() {
         }
     });
 
-    let cache = InMemoryCache::default();
+    let cache = &InMemoryCache::default();
     let url = format!("http://{}/repos/jordilin/mr", server.address());
     // call is not cached yet using URL as key
 
@@ -235,7 +238,7 @@ fn test_http_post_hits_endpoint_two_times_does_not_use_cache() {
         }
     });
 
-    let cache = InMemoryCache::default();
+    let cache = &InMemoryCache::default();
     let url = format!("http://{}/repos/jordilin/mr", server.address());
     // call is not cached yet using URL as key
 
@@ -306,7 +309,7 @@ fn test_http_get_hits_endpoint_dont_use_cache_if_refresh_cache_is_set() {
         }
     });
 
-    let cache = InMemoryCache::default();
+    let cache = &InMemoryCache::default();
     let url = format!("http://{}/repos/jordilin/mr", server.address());
     // call is not cached yet using URL as key
 

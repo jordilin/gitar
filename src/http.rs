@@ -2,7 +2,7 @@ use crate::api_defaults::REST_API_MAX_PAGES;
 use crate::api_traits::ApiOperation;
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
-use crate::io::{HttpRunner, Response};
+use crate::io::{HttpRunner, Response, ResponseField};
 use crate::Result;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -200,7 +200,11 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                 // If status is 304, then we need to return the cached response.
                 let response = self.get(cmd)?;
                 if response.status() == 304 {
-                    // Not modified return the cached response.
+                    // Update cache with latest headers. This effectively
+                    // refreshes the cache and we won't hit this until per api
+                    // cache expiration as declared in the config.
+                    self.cache
+                        .update(&cmd.resource, &response, &ResponseField::Headers)?;
                     return Ok(default_response);
                 }
                 self.cache.set(&cmd.resource, &response).unwrap();

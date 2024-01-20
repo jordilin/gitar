@@ -111,6 +111,32 @@ impl<C: ConfigProperties> Cache<Resource> for FileCache<C> {
         self.persist_cache_data(value, f)?;
         Ok(())
     }
+
+    fn update(&self, key: &Resource, value: &Response, field: &io::ResponseField) -> Result<()> {
+        let path = self.get_cache_file(&key.url);
+        if let Ok(f) = File::open(&path) {
+            let mut f = BufReader::new(f);
+            let mut response = self.get_cache_data(&mut f)?;
+            match field {
+                io::ResponseField::Body => response.body = value.body.clone(),
+                io::ResponseField::Headers => {
+                    // update existing headers with new ones. Not guaranteed
+                    // that a 304 will actually contain *all* the headers that
+                    // we got from an original 200 response. Update existing and
+                    // maintain old ones. Github wipes link headers on 304s that
+                    // actually existed in 200s.
+                    response
+                        .headers
+                        .as_mut()
+                        .unwrap()
+                        .extend(value.headers.as_ref().unwrap().clone());
+                }
+                io::ResponseField::Status => response.status = value.status,
+            }
+            return self.set(key, &response);
+        }
+        Ok(())
+    }
 }
 
 fn expired<F: Fn() -> Result<Seconds>>(
