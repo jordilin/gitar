@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::cli::PipelineOptions;
 use crate::config::Config;
 use crate::remote;
@@ -5,7 +7,7 @@ use crate::Result;
 
 pub fn execute(
     options: PipelineOptions,
-    config: Config,
+    config: Arc<Config>,
     domain: String,
     path: String,
 ) -> Result<()> {

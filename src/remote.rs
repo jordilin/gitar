@@ -230,11 +230,12 @@ impl Display for Pipeline {
 pub fn get(
     domain: String,
     path: String,
-    config: Config,
+    config: Arc<Config>,
     refresh_cache: bool,
 ) -> Result<Arc<dyn Remote>> {
     let runner = Arc::new(http::Client::new(
         FileCache::new(config.clone()),
+        config.clone(),
         refresh_cache,
     ));
     let github_domain_regex = regex::Regex::new(r"^github").unwrap();

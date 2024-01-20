@@ -18,6 +18,8 @@ pub trait Runner {
 pub trait HttpRunner {
     type Response;
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response>;
+    /// Return the number of API MAX PAGES allowed for the given Request.
+    fn api_max_pages<T: Serialize>(&self, cmd: &Request<T>) -> u32;
 }
 
 #[derive(Debug)]
