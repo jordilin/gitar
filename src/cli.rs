@@ -16,6 +16,27 @@ enum Command {
     Browse(BrowseCommand),
     #[clap(name = "pp", about = "CI/CD Pipeline operations")]
     Pipeline(PipelineCommand),
+    #[clap(name = "pj", about = "Gather project information metadata")]
+    Project(ProjectCommand),
+}
+
+#[derive(Parser)]
+struct ProjectCommand {
+    #[clap(subcommand)]
+    pub subcommand: ProjectSubcommand,
+}
+
+#[derive(Parser)]
+enum ProjectSubcommand {
+    #[clap(about = "Gather project information metadata")]
+    Info(ProjectInfo),
+}
+
+#[derive(Parser)]
+struct ProjectInfo {
+    /// ID of the project
+    #[clap(long)]
+    pub id: Option<i64>,
 }
 
 #[derive(Parser)]
@@ -149,6 +170,7 @@ pub fn parse_cli() -> Option<CliOptions> {
         Command::MergeRequest(sub_matches) => Some(CliOptions::MergeRequest(sub_matches.into())),
         Command::Browse(sub_matches) => Some(CliOptions::Browse(sub_matches.into())),
         Command::Pipeline(sub_matches) => Some(CliOptions::Pipeline(sub_matches.into())),
+        Command::Project(sub_matches) => Some(CliOptions::Project(sub_matches.into())),
     }
 }
 
@@ -156,6 +178,7 @@ pub enum CliOptions {
     MergeRequest(MergeRequestOptions),
     Browse(BrowseOptions),
     Pipeline(PipelineOptions),
+    Project(ProjectOptions),
 }
 
 pub enum BrowseOptions {
@@ -168,6 +191,11 @@ pub enum BrowseOptions {
 
 pub enum PipelineOptions {
     List { refresh_cache: bool },
+}
+
+#[derive(Debug)]
+pub enum ProjectOptions {
+    Info { id: Option<i64> },
 }
 
 // From impls - private clap structs to public domain structs
@@ -256,6 +284,14 @@ impl From<PipelineCommand> for PipelineOptions {
             None => PipelineOptions::List {
                 refresh_cache: options.refresh,
             },
+        }
+    }
+}
+
+impl From<ProjectCommand> for ProjectOptions {
+    fn from(options: ProjectCommand) -> Self {
+        match options.subcommand {
+            ProjectSubcommand::Info(options) => ProjectOptions::Info { id: options.id },
         }
     }
 }

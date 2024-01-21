@@ -16,7 +16,7 @@ pub trait MergeRequest {
 }
 
 pub trait RemoteProject {
-    fn get_project_data(&self) -> Result<CmdInfo>;
+    fn get_project_data(&self, id: Option<i64>) -> Result<CmdInfo>;
     fn get_project_members(&self) -> Result<CmdInfo>;
     // User requests to open a browser using the remote url. It can open the
     // merge/pull requests, pipeline, issues, etc.

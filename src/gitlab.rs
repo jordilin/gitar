@@ -21,6 +21,7 @@ pub struct Gitlab<R> {
     path: String,
     rest_api_basepath: String,
     runner: Arc<R>,
+    base_project_url: String,
 }
 
 impl<R> Gitlab<R> {
@@ -28,7 +29,8 @@ impl<R> Gitlab<R> {
         let api_token = config.api_token().to_string();
         let domain = domain.to_string();
         let encoded_path = path.replace('/', "%2F");
-        let rest_api_basepath = format!("https://{}/api/v4/projects/{}", domain, encoded_path);
+        let base_project_url = format!("https://{}/api/v4/projects", domain);
+        let rest_api_basepath = format!("{}/{}", base_project_url, encoded_path);
 
         Gitlab {
             api_token,
@@ -36,6 +38,7 @@ impl<R> Gitlab<R> {
             path: path.to_string(),
             rest_api_basepath,
             runner,
+            base_project_url,
         }
     }
 
@@ -225,10 +228,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
 }
 
 impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
-    fn get_project_data(&self) -> Result<CmdInfo> {
+    fn get_project_data(&self, id: Option<i64>) -> Result<CmdInfo> {
+        let url = match id {
+            Some(id) => format!("{}/{}", self.base_project_url, id),
+            None => self.rest_api_basepath().to_string(),
+        };
         let mut request: Request<()> =
-            http::Request::new(self.rest_api_basepath(), http::Method::GET)
-                .with_api_operation(ApiOperation::Project);
+            http::Request::new(&url, http::Method::GET).with_api_operation(ApiOperation::Project);
         request.set_header("PRIVATE-TOKEN", self.api_token());
         let response = self.runner.run(&mut request).err_context(format!(
             "Failed to get remote project data API URL: {}",
@@ -243,7 +249,8 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
         let project_data: serde_json::Value = serde_json::from_str(&response.body)?;
         let project_id = project_data["id"].as_i64().unwrap();
         let default_branch = project_data["default_branch"].as_str().unwrap();
-        let project = Project::new(project_id, default_branch);
+        let html_url = project_data["web_url"].as_str().unwrap();
+        let project = Project::new(project_id, default_branch).with_html_url(html_url);
         Ok(CmdInfo::Project(project))
     }
 
@@ -342,7 +349,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_ensure_request_url_private_token_is_set() {
+    fn test_get_project_data_no_id() {
         let config = config();
         let domain = "gitlab.com";
         let path = "jordilin/gitlapi";
@@ -351,9 +358,28 @@ mod test {
             .with_body(get_contract(ContractType::Gitlab, "project.json"));
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab = Gitlab::new(config, &domain, &path, client.clone());
-        gitlab.get_project_data().unwrap();
+        gitlab.get_project_data(None).unwrap();
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi",
+            client.url().to_string(),
+        );
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_get_project_data_with_given_id() {
+        let config = config();
+        let domain = "gitlab.com";
+        let path = "jordilin/gitlapi";
+        let response = Response::new()
+            .with_status(200)
+            .with_body(get_contract(ContractType::Gitlab, "project.json"));
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+        gitlab.get_project_data(Some(54345)).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/54345",
             client.url().to_string(),
         );
         assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());

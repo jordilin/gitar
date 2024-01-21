@@ -176,7 +176,7 @@ fn open(
 /// executed in parallel.
 fn cmds(remote: Arc<dyn Remote>) -> Vec<Cmd<CmdInfo>> {
     let remote_cl = remote.clone();
-    let remote_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data() };
+    let remote_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data(None) };
     let remote_members_cmd = move || -> Result<CmdInfo> { remote.get_project_members() };
     let git_status_cmd = || -> Result<CmdInfo> { git::status(&Shell) };
     let git_fetch_cmd = || -> Result<CmdInfo> { git::fetch(&Shell) };

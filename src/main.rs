@@ -5,7 +5,7 @@ use gr::{
     cli::{parse_cli, CliOptions},
     error, git,
     io::CmdInfo,
-    merge_request,
+    merge_request, project,
     shell::Shell,
     Result,
 };
@@ -30,5 +30,6 @@ fn main() -> Result<()> {
             browse::execute(options, config, domain, path)
         }
         CliOptions::Pipeline(options) => cicd::execute(options, config, domain, path),
+        CliOptions::Project(options) => project::execute(options, config, domain, path),
     }
 }
