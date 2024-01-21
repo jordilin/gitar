@@ -14,6 +14,7 @@ pub struct Project {
     id: i64,
     default_branch: String,
     members: Vec<Member>,
+    html_url: String,
 }
 
 impl Project {
@@ -22,11 +23,28 @@ impl Project {
             id,
             default_branch: default_branch.to_string(),
             members: Vec::new(),
+            html_url: String::new(),
         }
+    }
+
+    pub fn with_html_url(mut self, html_url: &str) -> Self {
+        self.html_url = html_url.to_string();
+        self
     }
 
     pub fn default_branch(&self) -> &str {
         &self.default_branch
+    }
+}
+
+impl Display for Project {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        println!("ID | Default Branch | URL");
+        write!(
+            f,
+            "{} | {} | {} ",
+            self.id, self.default_branch, self.html_url
+        )
     }
 }
 

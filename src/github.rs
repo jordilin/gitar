@@ -8,6 +8,7 @@ use crate::api_traits::RemoteProject;
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
 use crate::error;
+use crate::error::GRError;
 use crate::http;
 use crate::http::Method::{GET, PATCH, POST, PUT};
 use crate::http::Paginator;
@@ -111,7 +112,14 @@ impl<R> Github<R> {
 }
 
 impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
-    fn get_project_data(&self) -> Result<CmdInfo> {
+    fn get_project_data(&self, id: Option<i64>) -> Result<CmdInfo> {
+        if let Some(id) = id {
+            return Err(GRError::OperationNotSupported(format!(
+                "Getting project data by id is not supported in Github: {}",
+                id
+            ))
+            .into());
+        };
         let url = format!("{}/repos/{}", self.rest_api_basepath, self.path);
         let mut request: http::Request<()> =
             self.http_request(&url, None, GET, ApiOperation::Project);
@@ -128,7 +136,11 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             .to_string()
             .trim_matches('"')
             .to_string();
-        let project = Project::new(project_id, &default_branch);
+        let html_url = project_data["html_url"]
+            .to_string()
+            .trim_matches('"')
+            .to_string();
+        let project = Project::new(project_id, &default_branch).with_html_url(&html_url);
         Ok(CmdInfo::Project(project))
     }
 
@@ -407,6 +419,34 @@ mod test {
     use crate::test::utils::{config, get_contract, ContractType, MockRunner};
 
     use super::*;
+
+    #[test]
+    fn test_get_project_data_no_id() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::new()
+            .with_status(200)
+            .with_body(get_contract(ContractType::Github, "project.json"));
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github = Github::new(config, &domain, &path, client.clone());
+        github.get_project_data(None).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi",
+            *client.url(),
+        );
+        assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_get_project_data_with_id_not_supported() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let client = Arc::new(MockRunner::new(vec![]));
+        let github = Github::new(config, &domain, &path, client.clone());
+        assert!(github.get_project_data(Some(1)).is_err());
+    }
 
     #[test]
     fn test_open_merge_request() {

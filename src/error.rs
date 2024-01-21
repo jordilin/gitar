@@ -11,6 +11,8 @@ pub enum GRError {
     TimeConversionError(String),
     #[error("Configuration error: {0}")]
     ConfigurationError(String),
+    #[error("Operation not supported for this resource: {0}")]
+    OperationNotSupported(String),
 }
 
 pub trait AddContext<T, E>: Context<T, E> {
