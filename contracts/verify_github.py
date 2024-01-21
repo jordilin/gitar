@@ -42,7 +42,20 @@ def create_merge_request_api():
     data = response.json()
     if args.persist:
         persist_contract("merge_request.json", data)
-        sys.exit(0)
+    return data
+
+
+def get_project_api_json():
+    url = "https://api.github.com/repos/jordilin/githapi"
+    headers = {
+        "Authorization": f"bearer {API_TOKEN}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+    response = requests.get(url, headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    if args.persist:
+        persist_contract("project.json", data)
     return data
 
 
@@ -116,6 +129,11 @@ if __name__ == "__main__":
             create_merge_request_api,
             "merge request API contract",
             get_contract_json("merge_request.json"),
+        ),
+        TestAPI(
+            get_project_api_json,
+            "project API contract",
+            get_contract_json("project.json"),
         ),
     ]
     if not validate_responses(testcases):
