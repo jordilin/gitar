@@ -1,4 +1,3 @@
-use crate::api_defaults::REST_API_MAX_PAGES;
 use crate::api_traits::ApiOperation;
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
@@ -256,9 +255,7 @@ impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginato
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(page_url) = &self.page_url {
-            if self.iter == self.runner.api_max_pages(&self.request)
-                || self.iter == REST_API_MAX_PAGES
-            {
+            if self.iter == self.runner.api_max_pages(&self.request) {
                 return None;
             }
             if self.iter >= 1 {
@@ -294,6 +291,7 @@ mod test {
     use super::*;
 
     use crate::{
+        api_defaults::REST_API_MAX_PAGES,
         cache,
         io::{Page, PageHeader},
         test::utils::{ConfigMock, MockRunner},
