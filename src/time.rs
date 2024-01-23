@@ -5,7 +5,7 @@ use crate::Error;
 use crate::error::{self, GRError};
 use crate::Result;
 use std;
-use std::ops::{Deref, Sub};
+use std::ops::{Add, Deref, Sub};
 
 enum Time {
     Second,
@@ -42,7 +42,15 @@ impl TryFrom<char> for Time {
     }
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
+pub fn now_epoch_seconds() -> Seconds {
+    let now_epoch = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    Seconds(now_epoch)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct Seconds(u64);
 
 impl Seconds {
@@ -56,6 +64,14 @@ impl Sub<Seconds> for Seconds {
 
     fn sub(self, rhs: Seconds) -> Self::Output {
         Seconds(self.0 - rhs.0)
+    }
+}
+
+impl Add<Seconds> for Seconds {
+    type Output = Seconds;
+
+    fn add(self, rhs: Seconds) -> Self::Output {
+        Seconds(self.0 + rhs.0)
     }
 }
 

@@ -1,6 +1,7 @@
 use crate::{
     http::Request,
     remote::{Member, MergeRequestResponse, Project},
+    time::{now_epoch_seconds, Seconds},
     Result,
 };
 use regex::Regex;
@@ -46,6 +47,9 @@ pub struct Response {
     /// Optional headers. Mostly used by HTTP downstream HTTP responses
     pub(crate) headers: Option<HashMap<String, String>>,
     link_header_processor: fn(&str) -> PageHeader,
+    /// Default time in epoch seconds when the ratelimit is reset.
+    time_to_ratelimit_reset: Seconds,
+    remaining_requests: u32,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -62,6 +66,10 @@ impl Response {
             body: String::new(),
             headers: None,
             link_header_processor: parse_link_headers,
+            time_to_ratelimit_reset: now_epoch_seconds() + Seconds::new(60),
+            // most limiting Github 5000/60 = 83.33 requests per minute. Round
+            // up to 80.
+            remaining_requests: 80,
         }
     }
 
@@ -100,6 +108,52 @@ impl Response {
             }
         }
         None
+    }
+
+    // Defaults:
+    // https://docs.gitlab.com/ee/user/gitlab_com/index.html#gitlabcom-specific-rate-limits
+    // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#primary-rate-limit-for-authenticated-users
+
+    // Github 5000 requests per hour for authenticated users
+    // Gitlab 2000 requests per minute for authenticated users
+    // Most limiting Github 5000/60 = 83.33 requests per minute
+
+    pub fn get_ratelimit_headers(&mut self) -> RateLimitHeader {
+        // defaults if not provided by the remote.
+        self.remaining_requests = self.remaining_requests - 1;
+        let mut ratelimit_header =
+            RateLimitHeader::new(self.remaining_requests, self.time_to_ratelimit_reset);
+
+        // process remote headers and patch the defaults accordingly
+        if let Some(headers) = &self.headers {
+            if let Some(github_remaining) = headers.get(GITHUB_RATELIMIT_REMAINING) {
+                ratelimit_header.remaining = github_remaining
+                    .parse::<u32>()
+                    .unwrap_or(self.remaining_requests);
+                if let Some(github_reset) = headers.get(GITHUB_RATELIMIT_RESET) {
+                    ratelimit_header.reset = Seconds::new(
+                        github_reset
+                            .parse::<u64>()
+                            .unwrap_or(*self.time_to_ratelimit_reset),
+                    );
+                }
+                return ratelimit_header;
+            }
+            if let Some(gitlab_remaining) = headers.get(GITLAB_RATELIMIT_REMAINING) {
+                ratelimit_header.remaining = gitlab_remaining
+                    .parse::<u32>()
+                    .unwrap_or(self.remaining_requests);
+                if let Some(gitlab_reset) = headers.get(GITLAB_RATELIMIT_RESET) {
+                    ratelimit_header.reset = Seconds::new(
+                        gitlab_reset
+                            .parse::<u64>()
+                            .unwrap_or(*self.time_to_ratelimit_reset),
+                    );
+                }
+                return ratelimit_header;
+            }
+        }
+        ratelimit_header
     }
 
     pub fn get_etag(&self) -> Option<&str> {
@@ -187,5 +241,69 @@ impl Page {
             url: url.to_string(),
             number,
         }
+    }
+}
+
+// https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
+
+pub const GITHUB_RATELIMIT_REMAINING: &str = "x-ratelimit-remaining";
+pub const GITHUB_RATELIMIT_RESET: &str = "x-ratelimit-reset";
+
+// https://docs.gitlab.com/ee/administration/settings/user_and_ip_rate_limits.html
+
+pub const GITLAB_RATELIMIT_REMAINING: &str = "RateLimit-Remaining";
+pub const GITLAB_RATELIMIT_RESET: &str = "RateLimit-Reset";
+
+/// Unifies the different ratelimit headers available from the different remotes.
+/// Github API ratelimit headers:
+/// remaining: x-ratelimit-remaining
+/// reset: x-ratelimit-reset
+/// Gitlab API ratelimit headers:
+/// remaining: RateLimit-Remaining
+/// reset: RateLimit-Reset
+#[derive(Clone, Debug)]
+pub struct RateLimitHeader {
+    // The number of requests remaining in the current rate limit window.
+    pub remaining: u32,
+    // Unix time-formatted time when the request quota is reset.
+    pub reset: Seconds,
+}
+
+impl RateLimitHeader {
+    pub fn new(remaining: u32, reset: Seconds) -> Self {
+        RateLimitHeader { remaining, reset }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_get_rate_limit_headers_github() {
+        let body = "responsebody";
+        let mut headers = HashMap::new();
+        headers.insert("x-ratelimit-remaining".to_string(), "30".to_string());
+        headers.insert("x-ratelimit-reset".to_string(), "1658602270".to_string());
+        let mut response = Response::new()
+            .with_body(body.to_string())
+            .with_headers(headers);
+        let ratelimit_headers = response.get_ratelimit_headers();
+        assert_eq!(30, ratelimit_headers.remaining);
+        assert_eq!(Seconds::new(1658602270), ratelimit_headers.reset);
+    }
+
+    #[test]
+    fn test_get_rate_limit_headers_gitlab() {
+        let body = "responsebody";
+        let mut headers = HashMap::new();
+        headers.insert("RateLimit-Remaining".to_string(), "30".to_string());
+        headers.insert("RateLimit-Reset".to_string(), "1658602270".to_string());
+        let mut response = Response::new()
+            .with_body(body.to_string())
+            .with_headers(headers);
+        let ratelimit_headers = response.get_ratelimit_headers();
+        assert_eq!(30, ratelimit_headers.remaining);
+        assert_eq!(Seconds::new(1658602270), ratelimit_headers.reset);
     }
 }
