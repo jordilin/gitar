@@ -1,9 +1,9 @@
 use crate::api_traits::ApiOperation;
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
+use crate::error;
 use crate::io::{HttpRunner, Response, ResponseField};
 use crate::Result;
-use crate::{api_defaults, error};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
