@@ -87,6 +87,12 @@ gitlab.com.max_pages_api_project=5
 # Get up to 10 pages of pipelines when listing
 gitlab.com.max_pages_api_pipeline=10
 
+# Rate limit remaining threshold. Threshold by which the tool will stop
+# processing requests. Defaults to 10 if not provided. The remote has a counter
+# that decreases with each request. When we reach this threshold we stop for safety.
+# When it reaches 0 the remote will throw errors.
+
+gitlab.com.rate_limit_remaining_threshold=10
 
 # Github
 github.com.api_token=<your api token>
