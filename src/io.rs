@@ -251,8 +251,11 @@ pub const GITHUB_RATELIMIT_RESET: &str = "x-ratelimit-reset";
 
 // https://docs.gitlab.com/ee/administration/settings/user_and_ip_rate_limits.html
 
-pub const GITLAB_RATELIMIT_REMAINING: &str = "RateLimit-Remaining";
-pub const GITLAB_RATELIMIT_RESET: &str = "RateLimit-Reset";
+// Internal processing is all in lowercase
+// Docs: RateLimit-Remaining
+pub const GITLAB_RATELIMIT_REMAINING: &str = "ratelimit-remaining";
+// Docs: RateLimit-Reset
+pub const GITLAB_RATELIMIT_RESET: &str = "ratelimit-reset";
 
 /// Unifies the different ratelimit headers available from the different remotes.
 /// Github API ratelimit headers:
@@ -297,13 +300,28 @@ mod test {
     fn test_get_rate_limit_headers_gitlab() {
         let body = "responsebody";
         let mut headers = HashMap::new();
-        headers.insert("RateLimit-Remaining".to_string(), "30".to_string());
-        headers.insert("RateLimit-Reset".to_string(), "1658602270".to_string());
+        headers.insert("ratelimit-remaining".to_string(), "30".to_string());
+        headers.insert("ratelimit-reset".to_string(), "1658602270".to_string());
         let mut response = Response::new()
             .with_body(body.to_string())
             .with_headers(headers);
         let ratelimit_headers = response.get_ratelimit_headers();
         assert_eq!(30, ratelimit_headers.remaining);
         assert_eq!(Seconds::new(1658602270), ratelimit_headers.reset);
+    }
+
+    #[test]
+    fn test_get_rate_limit_headers_camelcase_gitlab() {
+        let body = "responsebody";
+        let mut headers = HashMap::new();
+        headers.insert("RateLimit-remaining".to_string(), "30".to_string());
+        headers.insert("rateLimit-reset".to_string(), "1658602270".to_string());
+        let mut response = Response::new()
+            .with_body(body.to_string())
+            .with_headers(headers);
+        let ratelimit_headers = response.get_ratelimit_headers();
+        // Headers are not detected, so we have default rate limit headers
+        // remaining = 80 minus the one we just used.
+        assert_eq!(79, ratelimit_headers.remaining);
     }
 }

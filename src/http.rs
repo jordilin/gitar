@@ -3,6 +3,7 @@ use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
 use crate::io::{HttpRunner, Response, ResponseField};
 use crate::Result;
+use crate::{api_defaults, error};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -40,7 +41,7 @@ impl<C, D> Client<C, D> {
                         .iter()
                         .fold(HashMap::new(), |mut headers, name| {
                             headers.insert(
-                                name.to_string(),
+                                name.to_lowercase(),
                                 response.header(name.as_str()).unwrap().to_string(),
                             );
                             headers
@@ -98,6 +99,19 @@ impl<C, D> Client<C, D> {
     fn put<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
         let ureq_req = ureq::put(request.url());
         self.update_create(request, ureq_req)
+    }
+}
+
+impl<C, D: ConfigProperties> Client<C, D> {
+    fn handle_rate_limit(&self, response: &mut Response) -> Result<()> {
+        let headers = response.get_ratelimit_headers();
+        if headers.remaining <= self.config.rate_limit_remaining_threshold() {
+            return Err(error::GRError::RateLimitExceeded(
+                "Rate limit threshold reached".to_string(),
+            )
+            .into());
+        }
+        Ok(())
     }
 }
 
@@ -197,7 +211,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                     cmd.set_header("If-None-Match", etag);
                 }
                 // If status is 304, then we need to return the cached response.
-                let response = self.get(cmd)?;
+                let mut response = self.get(cmd)?;
                 if response.status() == 304 {
                     // Update cache with latest headers. This effectively
                     // refreshes the cache and we won't hit this until per api
@@ -206,19 +220,23 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                         .update(&cmd.resource, &response, &ResponseField::Headers)?;
                     return Ok(default_response);
                 }
+                self.handle_rate_limit(&mut response)?;
                 self.cache.set(&cmd.resource, &response).unwrap();
                 Ok(response)
             }
             Method::POST => {
-                let response = self.post(cmd)?;
+                let mut response = self.post(cmd)?;
+                self.handle_rate_limit(&mut response)?;
                 Ok(response)
             }
             Method::PATCH => {
-                let response = self.patch(cmd)?;
+                let mut response = self.patch(cmd)?;
+                self.handle_rate_limit(&mut response)?;
                 Ok(response)
             }
             Method::PUT => {
-                let response = self.put(cmd)?;
+                let mut response = self.put(cmd)?;
+                self.handle_rate_limit(&mut response)?;
                 Ok(response)
             }
         }
@@ -420,5 +438,23 @@ mod test {
         let paginator = Paginator::new(&client, request, "http://localhost");
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(REST_API_MAX_PAGES, responses.len() as u32);
+    }
+
+    #[test]
+    fn test_ratelimit_remaining_threshold_reached_is_error() {
+        let mut headers = HashMap::new();
+        headers.insert("x-ratelimit-remaining".to_string(), "10".to_string());
+        let mut response = Response::new().with_status(200).with_headers(headers);
+        let client = Client::new(cache::NoCache, ConfigMock::new(1), false);
+        assert!(client.handle_rate_limit(&mut response).is_err());
+    }
+
+    #[test]
+    fn test_ratelimit_remaining_threshold_not_reached_is_ok() {
+        let mut headers = HashMap::new();
+        headers.insert("ratelimit-remaining".to_string(), "11".to_string());
+        let mut response = Response::new().with_status(200).with_headers(headers);
+        let client = Client::new(cache::NoCache, ConfigMock::new(1), false);
+        assert!(client.handle_rate_limit(&mut response).is_ok());
     }
 }
