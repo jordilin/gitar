@@ -118,11 +118,8 @@ impl Response {
     // Gitlab 2000 requests per minute for authenticated users
     // Most limiting Github 5000/60 = 83.33 requests per minute
 
-    pub fn get_ratelimit_headers(&mut self) -> RateLimitHeader {
-        // defaults if not provided by the remote.
-        self.remaining_requests = self.remaining_requests - 1;
-        let mut ratelimit_header =
-            RateLimitHeader::new(self.remaining_requests, self.time_to_ratelimit_reset);
+    pub fn get_ratelimit_headers(&mut self) -> Option<RateLimitHeader> {
+        let mut ratelimit_header = RateLimitHeader::default();
 
         // process remote headers and patch the defaults accordingly
         if let Some(headers) = &self.headers {
@@ -137,7 +134,7 @@ impl Response {
                             .unwrap_or(*self.time_to_ratelimit_reset),
                     );
                 }
-                return ratelimit_header;
+                return Some(ratelimit_header);
             }
             if let Some(gitlab_remaining) = headers.get(GITLAB_RATELIMIT_REMAINING) {
                 ratelimit_header.remaining = gitlab_remaining
@@ -150,10 +147,10 @@ impl Response {
                             .unwrap_or(*self.time_to_ratelimit_reset),
                     );
                 }
-                return ratelimit_header;
+                return Some(ratelimit_header);
             }
         }
-        ratelimit_header
+        None
     }
 
     pub fn get_etag(&self) -> Option<&str> {
@@ -264,7 +261,7 @@ pub const GITLAB_RATELIMIT_RESET: &str = "ratelimit-reset";
 /// Gitlab API ratelimit headers:
 /// remaining: RateLimit-Remaining
 /// reset: RateLimit-Reset
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct RateLimitHeader {
     // The number of requests remaining in the current rate limit window.
     pub remaining: u32,
@@ -291,8 +288,8 @@ mod test {
         let mut response = Response::new()
             .with_body(body.to_string())
             .with_headers(headers);
-        let ratelimit_headers = response.get_ratelimit_headers();
-        assert_eq!(30, ratelimit_headers.remaining);
+        let ratelimit_headers = response.get_ratelimit_headers().unwrap();
+        assert_eq!(30, ratelimit_headers.remaining.clone());
         assert_eq!(Seconds::new(1658602270), ratelimit_headers.reset);
     }
 
@@ -305,7 +302,7 @@ mod test {
         let mut response = Response::new()
             .with_body(body.to_string())
             .with_headers(headers);
-        let ratelimit_headers = response.get_ratelimit_headers();
+        let ratelimit_headers = response.get_ratelimit_headers().unwrap();
         assert_eq!(30, ratelimit_headers.remaining);
         assert_eq!(Seconds::new(1658602270), ratelimit_headers.reset);
     }
@@ -320,8 +317,6 @@ mod test {
             .with_body(body.to_string())
             .with_headers(headers);
         let ratelimit_headers = response.get_ratelimit_headers();
-        // Headers are not detected, so we have default rate limit headers
-        // remaining = 80 minus the one we just used.
-        assert_eq!(79, ratelimit_headers.remaining);
+        assert!(ratelimit_headers.is_none());
     }
 }

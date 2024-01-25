@@ -1,26 +1,34 @@
 use crate::api_traits::ApiOperation;
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
-use crate::error;
 use crate::io::{HttpRunner, Response, ResponseField};
+use crate::time::{now_epoch_seconds, Seconds};
 use crate::Result;
+use crate::{api_defaults, error};
 use serde::Serialize;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use ureq::Error;
 
 pub struct Client<C, D> {
     cache: C,
     config: D,
     refresh_cache: bool,
+    time_to_ratelimit_reset: Mutex<Seconds>,
+    remaining_requests: Mutex<u32>,
 }
 
+// TODO: provide builder pattern for Client.
 impl<C, D> Client<C, D> {
     pub fn new(cache: C, config: D, refresh_cache: bool) -> Self {
+        let remaining_requests = Mutex::new(api_defaults::DEFAULT_NUMBER_REQUESTS_MINUTE);
+        let time_to_ratelimit_reset = Mutex::new(now_epoch_seconds() + Seconds::new(60));
         Client {
             cache,
             refresh_cache,
             config,
+            time_to_ratelimit_reset,
+            remaining_requests,
         }
     }
 
@@ -104,15 +112,79 @@ impl<C, D> Client<C, D> {
 
 impl<C, D: ConfigProperties> Client<C, D> {
     fn handle_rate_limit(&self, response: &mut Response) -> Result<()> {
-        let headers = response.get_ratelimit_headers();
-        if headers.remaining <= self.config.rate_limit_remaining_threshold() {
-            return Err(error::GRError::RateLimitExceeded(
-                "Rate limit threshold reached".to_string(),
+        if let Some(headers) = response.get_ratelimit_headers() {
+            if headers.remaining <= self.config.rate_limit_remaining_threshold() {
+                return Err(error::GRError::RateLimitExceeded(
+                    "Rate limit threshold reached".to_string(),
+                )
+                .into());
+            }
+            Ok(())
+        } else {
+            // The remote does not provide rate limit headers, so we apply our
+            // defaults for safety. Official github.com and gitlab.com do, so
+            // that could be an internal/dev, etc... instance setup without rate
+            // limits.
+            default_rate_limit_handler(
+                &self.config,
+                &self.time_to_ratelimit_reset,
+                &self.remaining_requests,
+                now_epoch_seconds,
             )
+        }
+    }
+}
+
+fn default_rate_limit_handler(
+    config: &impl ConfigProperties,
+    time_to_ratelimit_reset: &Mutex<Seconds>,
+    remaining_requests: &Mutex<u32>,
+    now_epoch_seconds: fn() -> Seconds,
+) -> Result<()> {
+    // bail if we are below the security threshold for remaining requests
+
+    if let Ok(remaining_requests) = remaining_requests.lock() {
+        if *remaining_requests <= config.rate_limit_remaining_threshold() {
+            let time_to_ratelimit_reset =
+                *time_to_ratelimit_reset.lock().unwrap() - now_epoch_seconds();
+            return Err(error::GRError::RateLimitExceeded(format!(
+                "Remote does not provide rate limit headers, \
+                            so the default rate limit of {} per minute has been \
+                            exceeded. Try again in {} seconds",
+                api_defaults::DEFAULT_NUMBER_REQUESTS_MINUTE,
+                time_to_ratelimit_reset
+            ))
             .into());
         }
-        Ok(())
+    } else {
+        return Err(error::GRError::ApplicationError(
+            "http module rate limiting - Cannot read remaining \
+                    http requests"
+                .to_string(),
+        )
+        .into());
     }
+
+    if let Ok(mut remaining_requests) = remaining_requests.lock() {
+        // if elapsed time is greater than 60 seconds, then reset
+        // remaining requests to default
+        let current_time = now_epoch_seconds();
+        let mut time_to_reset = time_to_ratelimit_reset.lock().unwrap();
+        if current_time > *time_to_reset {
+            *remaining_requests = api_defaults::DEFAULT_NUMBER_REQUESTS_MINUTE;
+            *time_to_reset = current_time + Seconds::new(60);
+        }
+        *remaining_requests -= 1;
+    } else {
+        return Err(error::GRError::ApplicationError(
+            "http module rate limiting - Cannot decrease counter \
+                        number of requests pending"
+                .to_string(),
+        )
+        .into());
+    }
+
+    Ok(())
 }
 
 pub struct Resource {
@@ -456,5 +528,73 @@ mod test {
         let mut response = Response::new().with_status(200).with_headers(headers);
         let client = Client::new(cache::NoCache, ConfigMock::new(1), false);
         assert!(client.handle_rate_limit(&mut response).is_ok());
+    }
+
+    fn epoch_seconds_now_mock(secs: u64) -> Seconds {
+        Seconds::new(secs)
+    }
+
+    #[test]
+    fn test_remaining_requests_below_threshold_all_fail() {
+        // remaining requests - below threshold of 10 (api_defaults)
+        let remaining_requests = Arc::new(Mutex::new(4));
+        // 10 seconds before we reset counter to 80 (api_defaults)
+        let time_to_ratelimit_reset = Arc::new(Mutex::new(Seconds::new(10)));
+        let now = || -> Seconds { epoch_seconds_now_mock(1) };
+        let config = Arc::new(ConfigMock::new(1));
+
+        // counter will never get reset - all requests will fail
+        let mut threads = Vec::new();
+        for _ in 0..10 {
+            let remaining_requests = remaining_requests.clone();
+            let time_to_ratelimit_reset = time_to_ratelimit_reset.clone();
+            let config = config.clone();
+            threads.push(std::thread::spawn(move || {
+                let result = default_rate_limit_handler(
+                    &config,
+                    &time_to_ratelimit_reset,
+                    &remaining_requests,
+                    now,
+                );
+                assert!(result.is_err());
+            }));
+        }
+        for thread in threads {
+            thread.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn test_time_to_reset_achieved_resets_counter_all_ok() {
+        // one remaining request before we hit threshold
+        let remaining_requests = Arc::new(Mutex::new(11));
+        let time_to_ratelimit_reset = Arc::new(Mutex::new(Seconds::new(1)));
+        // now > time_to_ratelimit_reset - counter will be reset to 80
+        let now = || -> Seconds { epoch_seconds_now_mock(2) };
+        let config = Arc::new(ConfigMock::new(1));
+
+        let mut threads = Vec::new();
+        // 70 parallel requests - remaining 11.
+        // On first request, will reset total number to 81, then decrease by 1.\
+        // having 80 left to process with a threshold of 10, then the remaining
+        // 69 will be processed. Time to reset will be set to 62
+        // If we had 71, then the last one would fail.
+        for _ in 0..70 {
+            let remaining_requests = remaining_requests.clone();
+            let time_to_ratelimit_reset = time_to_ratelimit_reset.clone();
+            let config = config.clone();
+            threads.push(std::thread::spawn(move || {
+                let result = default_rate_limit_handler(
+                    &config,
+                    &time_to_ratelimit_reset,
+                    &remaining_requests,
+                    now,
+                );
+                assert!(result.is_ok());
+            }));
+        }
+        for thread in threads {
+            thread.join().unwrap();
+        }
     }
 }

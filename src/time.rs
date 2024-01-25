@@ -5,6 +5,7 @@ use crate::Error;
 use crate::error::{self, GRError};
 use crate::Result;
 use std;
+use std::fmt::{Display, Formatter};
 use std::ops::{Add, Deref, Sub};
 
 enum Time {
@@ -50,7 +51,7 @@ pub fn now_epoch_seconds() -> Seconds {
     Seconds(now_epoch)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Seconds(u64);
 
 impl Seconds {
@@ -80,6 +81,12 @@ impl Deref for Seconds {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl Display for Seconds {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

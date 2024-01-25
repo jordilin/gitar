@@ -15,6 +15,8 @@ pub enum GRError {
     OperationNotSupported(String),
     #[error("RateLimit exceeded: {0}")]
     RateLimitExceeded(String),
+    #[error("Application error: {0}")]
+    ApplicationError(String),
 }
 
 pub trait AddContext<T, E>: Context<T, E> {
