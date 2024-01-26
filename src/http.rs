@@ -111,7 +111,7 @@ impl<C, D> Client<C, D> {
 }
 
 impl<C, D: ConfigProperties> Client<C, D> {
-    fn handle_rate_limit(&self, response: &mut Response) -> Result<()> {
+    fn handle_rate_limit(&self, response: &Response) -> Result<()> {
         if let Some(headers) = response.get_ratelimit_headers() {
             if headers.remaining <= self.config.rate_limit_remaining_threshold() {
                 return Err(error::GRError::RateLimitExceeded(
@@ -283,7 +283,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                     cmd.set_header("If-None-Match", etag);
                 }
                 // If status is 304, then we need to return the cached response.
-                let mut response = self.get(cmd)?;
+                let response = self.get(cmd)?;
                 if response.status() == 304 {
                     // Update cache with latest headers. This effectively
                     // refreshes the cache and we won't hit this until per api
@@ -292,23 +292,23 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                         .update(&cmd.resource, &response, &ResponseField::Headers)?;
                     return Ok(default_response);
                 }
-                self.handle_rate_limit(&mut response)?;
+                self.handle_rate_limit(&response)?;
                 self.cache.set(&cmd.resource, &response).unwrap();
                 Ok(response)
             }
             Method::POST => {
-                let mut response = self.post(cmd)?;
-                self.handle_rate_limit(&mut response)?;
+                let response = self.post(cmd)?;
+                self.handle_rate_limit(&response)?;
                 Ok(response)
             }
             Method::PATCH => {
-                let mut response = self.patch(cmd)?;
-                self.handle_rate_limit(&mut response)?;
+                let response = self.patch(cmd)?;
+                self.handle_rate_limit(&response)?;
                 Ok(response)
             }
             Method::PUT => {
-                let mut response = self.put(cmd)?;
-                self.handle_rate_limit(&mut response)?;
+                let response = self.put(cmd)?;
+                self.handle_rate_limit(&response)?;
                 Ok(response)
             }
         }

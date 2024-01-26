@@ -118,7 +118,7 @@ impl Response {
     // Gitlab 2000 requests per minute for authenticated users
     // Most limiting Github 5000/60 = 83.33 requests per minute
 
-    pub fn get_ratelimit_headers(&mut self) -> Option<RateLimitHeader> {
+    pub fn get_ratelimit_headers(&self) -> Option<RateLimitHeader> {
         let mut ratelimit_header = RateLimitHeader::default();
 
         // process remote headers and patch the defaults accordingly
@@ -285,7 +285,7 @@ mod test {
         let mut headers = HashMap::new();
         headers.insert("x-ratelimit-remaining".to_string(), "30".to_string());
         headers.insert("x-ratelimit-reset".to_string(), "1658602270".to_string());
-        let mut response = Response::new()
+        let response = Response::new()
             .with_body(body.to_string())
             .with_headers(headers);
         let ratelimit_headers = response.get_ratelimit_headers().unwrap();
@@ -299,7 +299,7 @@ mod test {
         let mut headers = HashMap::new();
         headers.insert("ratelimit-remaining".to_string(), "30".to_string());
         headers.insert("ratelimit-reset".to_string(), "1658602270".to_string());
-        let mut response = Response::new()
+        let response = Response::new()
             .with_body(body.to_string())
             .with_headers(headers);
         let ratelimit_headers = response.get_ratelimit_headers().unwrap();
@@ -313,7 +313,7 @@ mod test {
         let mut headers = HashMap::new();
         headers.insert("RateLimit-remaining".to_string(), "30".to_string());
         headers.insert("rateLimit-reset".to_string(), "1658602270".to_string());
-        let mut response = Response::new()
+        let response = Response::new()
             .with_body(body.to_string())
             .with_headers(headers);
         let ratelimit_headers = response.get_ratelimit_headers();
