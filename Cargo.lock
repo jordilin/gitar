@@ -757,6 +757,7 @@ dependencies = [
  "clap",
  "console",
  "dialoguer",
+ "flate2",
  "httpmock",
  "lazy_static",
  "open",

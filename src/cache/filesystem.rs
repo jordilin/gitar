@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 
+use flate2::bufread::GzDecoder;
 use sha2::{Digest, Sha256};
 
 use crate::cache::Cache;
@@ -15,6 +16,9 @@ use crate::config::ConfigProperties;
 
 use crate::error::{self, AddContext, GRError};
 use crate::Result;
+
+use flate2::write::GzEncoder;
+use flate2::Compression;
 
 pub struct FileCache<C> {
     config: C,
@@ -35,6 +39,8 @@ impl<C: ConfigProperties> FileCache<C> {
     }
 
     fn get_cache_data(&self, mut reader: impl BufRead) -> Result<Response> {
+        let decompressed_data = GzDecoder::new(&mut reader);
+        let mut reader = BufReader::new(decompressed_data);
         let mut headers = String::new();
         reader.read_line(&mut headers)?;
         let mut status_code = String::new();
@@ -64,13 +70,13 @@ impl<C: ConfigProperties> FileCache<C> {
         Ok(response)
     }
 
-    fn persist_cache_data(&self, value: &Response, mut f: BufWriter<File>) -> Result<()> {
-        let headers = value.headers.as_ref().unwrap();
-        f.write_all(serde_json::to_string(headers).unwrap().as_bytes())?;
-        f.write_all(b"\n")?;
-        f.write_all(value.status.to_string().as_bytes())?;
-        f.write_all(b"\n")?;
-        f.write_all(value.body.as_bytes())?;
+    fn persist_cache_data(&self, value: &Response, f: BufWriter<File>) -> Result<()> {
+        let headers_map = value.headers.as_ref().unwrap();
+        let headers = serde_json::to_string(headers_map).unwrap();
+        let status = value.status.to_string();
+        let file_data = format!("{}\n{}\n{}", headers, status, value.body);
+        let mut encoder = GzEncoder::new(f, Compression::default());
+        encoder.write_all(file_data.as_bytes())?;
         Ok(())
     }
 
@@ -198,7 +204,9 @@ mod tests {
         200
         {"name":"385db2892449a18ca075c40344e6e9b418e3b16c","path":"tooling/cli:385db2892449a18ca075c40344e6e9b418e3b16c","location":"localhost:4567/tooling/cli:385db2892449a18ca075c40344e6e9b418e3b16c","revision":"791d4b6a13f90f0e48dd68fa1c758b79a6936f3854139eb01c9f251eded7c98d","short_revision":"791d4b6a1","digest":"sha256:41c70f2fcb036dfc6ca7da19b25cb660055268221b9d5db666bdbc7ad1ca2029","created_at":"2022-06-29T15:56:01.580+00:00","total_size":2819312
         "#;
-        let reader = std::io::Cursor::new(cached_data);
+        let mut enc = GzEncoder::new(Vec::new(), Compression::default());
+        enc.write_all(cached_data.as_bytes()).unwrap();
+        let reader = std::io::Cursor::new(enc.finish().unwrap());
         let fc = FileCache::new(ConfigMock::new());
         let response = fc.get_cache_data(reader).unwrap();
 

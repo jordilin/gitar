@@ -19,6 +19,7 @@ clap = { version = "4.4.18", features = ["derive"] }
 open = "5.0.1"
 thiserror = "1.0.56"
 anyhow = "1.0.79"
+flate2 = "1.0.28"
 
 [dev-dependencies]
 # disable basic-cookies from httpmock - not needed
