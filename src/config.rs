@@ -1,6 +1,6 @@
 //! Config file parsing and validation.
 
-use crate::api_defaults::REST_API_MAX_PAGES;
+use crate::api_defaults::{RATE_LIMIT_REMAINING_THRESHOLD, REST_API_MAX_PAGES};
 use crate::api_traits::ApiOperation;
 use crate::error;
 use crate::Result;
@@ -22,6 +22,10 @@ pub trait ConfigProperties {
     fn get_max_pages(&self, _api_operation: &ApiOperation) -> u32 {
         REST_API_MAX_PAGES
     }
+
+    fn rate_limit_remaining_threshold(&self) -> u32 {
+        RATE_LIMIT_REMAINING_THRESHOLD
+    }
 }
 
 #[derive(Clone, Default)]
@@ -32,6 +36,7 @@ pub struct Config {
     merge_request_description_signature: String,
     cache_expirations: HashMap<ApiOperation, String>,
     max_pages: HashMap<ApiOperation, u32>,
+    rate_limit_remaining_threshold: u32,
 }
 
 impl Config {
@@ -61,6 +66,10 @@ impl Config {
             .unwrap_or(&default_merge_request_description_signature);
         let cache_expirations = Config::cache_expirations(domain_config_data);
         let max_pages = Config::max_pages(domain_config_data);
+        let rate_limit_remaining_threshold = domain_config_data
+            .get("rate_limit_remaining_threshold")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(RATE_LIMIT_REMAINING_THRESHOLD);
 
         Ok(Config {
             api_token: api_token.to_string(),
@@ -69,6 +78,7 @@ impl Config {
             merge_request_description_signature: merge_request_description_signature.to_string(),
             cache_expirations,
             max_pages,
+            rate_limit_remaining_threshold,
         })
     }
 
@@ -197,6 +207,10 @@ impl ConfigProperties for Config {
             None => REST_API_MAX_PAGES,
         }
     }
+
+    fn rate_limit_remaining_threshold(&self) -> u32 {
+        self.rate_limit_remaining_threshold
+    }
 }
 
 impl ConfigProperties for Arc<Config> {
@@ -222,6 +236,10 @@ impl ConfigProperties for Arc<Config> {
 
     fn get_max_pages(&self, api_operation: &ApiOperation) -> u32 {
         self.as_ref().get_max_pages(api_operation)
+    }
+
+    fn rate_limit_remaining_threshold(&self) -> u32 {
+        self.as_ref().rate_limit_remaining_threshold()
     }
 }
 
@@ -434,5 +452,18 @@ mod test {
             REST_API_MAX_PAGES,
             config.get_max_pages(&ApiOperation::Project)
         );
+    }
+
+    #[test]
+    fn test_get_rate_limit_remaining_threshold() {
+        let config_data = r#"
+        gitlab.com.api_token=1234
+        gitlab.com.cache_location=/home/user/.config/mr_cache
+        gitlab.com.rate_limit_remaining_threshold=15
+        "#;
+        let domain = "gitlab.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Arc::new(Config::new(reader, domain).unwrap());
+        assert_eq!(15, config.rate_limit_remaining_threshold());
     }
 }

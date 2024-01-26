@@ -10,6 +10,7 @@ pub mod utils {
         io::{HttpRunner, Response, Runner},
         Result,
     };
+    use std::sync::Arc;
     use std::{
         cell::{Ref, RefCell},
         collections::HashMap,
@@ -160,6 +161,18 @@ pub mod utils {
             ConfigMock {
                 max_pages: REST_API_MAX_PAGES,
             }
+        }
+    }
+
+    impl ConfigProperties for Arc<ConfigMock> {
+        fn api_token(&self) -> &str {
+            "1234"
+        }
+        fn cache_location(&self) -> &str {
+            ""
+        }
+        fn get_max_pages(&self, _api_operation: &ApiOperation) -> u32 {
+            self.as_ref().max_pages
         }
     }
 }

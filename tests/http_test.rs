@@ -2,12 +2,14 @@ use std::collections::HashMap;
 
 use gr::cache::{Cache, InMemoryCache, NoCache};
 use gr::config::ConfigProperties;
+use gr::error::GRError;
 use gr::http::{Client, Method, Request};
 use gr::io::{HttpRunner, Response, ResponseField};
 use httpmock::prelude::*;
 use httpmock::Method::{GET, PATCH, POST};
 
-struct ConfigMock;
+struct ConfigMock {}
+
 impl ConfigMock {
     fn new() -> Self {
         ConfigMock {}
@@ -337,4 +339,68 @@ fn test_http_get_hits_endpoint_dont_use_cache_if_refresh_cache_is_set() {
     // We enforce cache refreshment, so the number of calls received by the HTTP
     // server is 2.
     server_mock.assert_hits(2);
+}
+
+#[test]
+fn test_ratelimit_remaining_below_threshold_is_err() {
+    let server = MockServer::start();
+    let body_str = r#"
+    {
+        "id": 4,
+        "default_branch": "main",
+    }"#;
+
+    let server_mock = server.mock({
+        |when, then| {
+            when.method(GET).path("/repos/jordilin/mr");
+            then.status(200)
+                .header("content-type", "application/json")
+                // below threshold
+                .header("x-ratelimit-remaining", "5")
+                .body(body_str);
+        }
+    });
+
+    let url = format!("http://{}/repos/jordilin/mr", server.address());
+
+    let runner = Client::new(NoCache, ConfigMock::new(), false);
+    let mut request = Request::<()>::new(&url, Method::GET);
+
+    match runner.run(&mut request) {
+        Ok(_) => panic!("Expected error"),
+        Err(err) => match err.downcast_ref::<GRError>() {
+            Some(GRError::RateLimitExceeded(_)) => (),
+            _ => panic!("Expected RateLimitExceeded error"),
+        },
+    }
+    server_mock.assert_hits(1);
+}
+
+#[test]
+fn test_ratelimit_remaining_above_threshold_is_ok() {
+    let server = MockServer::start();
+    let body_str = r#"
+    {
+        "id": 4,
+        "default_branch": "main",
+    }"#;
+
+    let server_mock = server.mock({
+        |when, then| {
+            when.method(GET).path("/repos/jordilin/mr");
+            then.status(200)
+                .header("content-type", "application/json")
+                // above threshold
+                .header("RateLimit-Remaining", "15")
+                .body(body_str);
+        }
+    });
+
+    let url = format!("http://{}/repos/jordilin/mr", server.address());
+
+    let runner = Client::new(NoCache, ConfigMock::new(), false);
+    let mut request = Request::<()>::new(&url, Method::GET);
+
+    assert!(runner.run(&mut request).is_ok());
+    server_mock.assert_hits(1);
 }
