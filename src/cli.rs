@@ -76,6 +76,9 @@ struct CreateMergeRequest {
     /// Refresh the cache
     #[clap(long, short)]
     pub refresh: bool,
+    /// Automatically open the browser after creating the merge request
+    #[clap(long)]
+    pub open: bool,
 }
 
 #[derive(ValueEnum, Clone)]
@@ -210,6 +213,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
             target_branch: options.target_branch,
             noprompt: options.auto,
             refresh_cache: options.refresh,
+            open_browser: options.open,
         }
     }
 }
@@ -303,6 +307,7 @@ pub enum MergeRequestOptions {
         target_branch: Option<String>,
         noprompt: bool,
         refresh_cache: bool,
+        open_browser: bool,
     },
     List {
         state: MergeRequestState,
