@@ -35,9 +35,18 @@ pub fn execute(
             target_branch,
             noprompt,
             refresh_cache,
+            open_browser,
         } => {
             let remote = remote::get(domain, path, config.clone(), refresh_cache)?;
-            open(remote, config, title, description, target_branch, noprompt)
+            open(
+                remote,
+                config,
+                title,
+                description,
+                target_branch,
+                noprompt,
+                open_browser,
+            )
         }
         MergeRequestOptions::List {
             state,
@@ -69,6 +78,7 @@ fn open(
     description: Option<String>,
     target_branch: Option<String>,
     noprompt: bool,
+    open_browser: bool,
 ) -> Result<()> {
     // data gathering stage. Gather local repo and remote project data.
 
@@ -166,6 +176,9 @@ fn open(
         git::push(&Shell, "origin", &repo)?;
         let merge_request_response = remote.open(args)?;
         println!("Merge request opened: {}", merge_request_response.web_url);
+        if open_browser {
+            open::that(merge_request_response.web_url)?;
+        }
     }
     Ok(())
 }
