@@ -344,7 +344,7 @@ impl<R: HttpRunner<Response = Response> + Send + Sync + 'static> Remote for Gitl
 mod test {
     use crate::test::utils::{config, get_contract, ContractType, MockRunner};
 
-    use crate::io::CmdInfo;
+    use crate::io::{CmdInfo, ResponseBuilder};
 
     use super::*;
 
@@ -353,9 +353,11 @@ mod test {
         let config = config();
         let domain = "gitlab.com";
         let path = "jordilin/gitlapi";
-        let response = Response::new()
-            .with_status(200)
-            .with_body(get_contract(ContractType::Gitlab, "project.json"));
+        let response = ResponseBuilder::default()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "project.json"))
+            .build()
+            .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab = Gitlab::new(config, &domain, &path, client.clone());
         gitlab.get_project_data(None).unwrap();
@@ -372,9 +374,11 @@ mod test {
         let config = config();
         let domain = "gitlab.com";
         let path = "jordilin/gitlapi";
-        let response = Response::new()
-            .with_status(200)
-            .with_body(get_contract(ContractType::Gitlab, "project.json"));
+        let response = ResponseBuilder::default()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "project.json"))
+            .build()
+            .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab = Gitlab::new(config, &domain, &path, client.clone());
         gitlab.get_project_data(Some(54345)).unwrap();
@@ -391,9 +395,11 @@ mod test {
         let config = config();
         let domain = "gitlab.com";
         let path = "jordilin/gitlapi";
-        let response = Response::new()
-            .with_status(200)
-            .with_body(get_contract(ContractType::Gitlab, "project_members.json"));
+        let response = ResponseBuilder::default()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "project_members.json"))
+            .build()
+            .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab = Gitlab::new(config, &domain, &path, client.clone());
 
@@ -419,9 +425,11 @@ mod test {
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi";
-        let response = Response::new()
-            .with_status(201)
-            .with_body(get_contract(ContractType::Gitlab, "merge_request.json"));
+        let response = ResponseBuilder::default()
+            .status(201)
+            .body(get_contract(ContractType::Gitlab, "merge_request.json"))
+            .build()
+            .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab = Gitlab::new(config, &domain, &path, client.clone());
 
@@ -443,7 +451,7 @@ mod test {
         let mr_args = MergeRequestArgs::new();
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = Response::new().with_status(400);
+        let response = ResponseBuilder::default().status(400).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab = Gitlab::new(config, &domain, &path, client);
         assert!(gitlab.open(mr_args).is_err());
@@ -457,10 +465,14 @@ mod test {
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = Response::new().with_status(409).with_body(get_contract(
-            ContractType::Gitlab,
-            "merge_request_conflict.json",
-        ));
+        let response = ResponseBuilder::default()
+            .status(409)
+            .body(get_contract(
+                ContractType::Gitlab,
+                "merge_request_conflict.json",
+            ))
+            .build()
+            .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab = Gitlab::new(config, &domain, &path, client);
 
@@ -473,9 +485,11 @@ mod test {
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = Response::new()
-            .with_status(200)
-            .with_body(get_contract(ContractType::Gitlab, "list_pipelines.json"));
+        let response = ResponseBuilder::default()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "list_pipelines.json"))
+            .build()
+            .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab = Gitlab::new(config, &domain, &path, client.clone());
 
@@ -496,7 +510,7 @@ mod test {
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = Response::new().with_status(400);
+        let response = ResponseBuilder::default().status(400).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab = Gitlab::new(config, &domain, &path, client);
 
@@ -509,9 +523,11 @@ mod test {
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = Response::new()
-            .with_status(200)
-            .with_body(get_contract(ContractType::Gitlab, "no_pipelines.json"));
+        let response = ResponseBuilder::default()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "no_pipelines.json"))
+            .build()
+            .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab = Gitlab::new(config, &domain, &path, client.clone());
 

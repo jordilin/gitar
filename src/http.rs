@@ -1,7 +1,7 @@
 use crate::api_traits::ApiOperation;
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
-use crate::io::{HttpRunner, Response, ResponseField};
+use crate::io::{HttpRunner, Response, ResponseBuilder, ResponseField};
 use crate::time::{now_epoch_seconds, Seconds};
 use crate::Result;
 use crate::{api_defaults, error};
@@ -55,10 +55,11 @@ impl<C, D> Client<C, D> {
                             headers
                         });
                 let body = response.into_string().unwrap();
-                let response = Response::new()
-                    .with_status(status)
-                    .with_body(body)
-                    .with_headers(headers);
+                let response = ResponseBuilder::default()
+                    .status(status)
+                    .body(body)
+                    .headers(headers)
+                    .build()?;
                 Ok(response)
             }
             Err(err) => Err(err.into()),
@@ -78,7 +79,10 @@ impl<C, D> Client<C, D> {
             Ok(response) => {
                 let status = response.status().into();
                 let body = response.into_string().unwrap();
-                let response = Response::new().with_status(status).with_body(body);
+                let response = ResponseBuilder::default()
+                    .status(status)
+                    .body(body)
+                    .build()?;
                 Ok(response)
             }
             Err(Error::Status(code, response)) => {
@@ -87,7 +91,10 @@ impl<C, D> Client<C, D> {
                 // https://docs.rs/ureq/latest/ureq/#error-handling
                 let status = code.into();
                 let body = response.into_string().unwrap();
-                let response = Response::new().with_status(status).with_body(body);
+                let response = ResponseBuilder::default()
+                    .status(status)
+                    .body(body)
+                    .build()?;
                 Ok(response)
             }
             Err(err) => Err(err.into()),
@@ -266,7 +273,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response> {
         match cmd.method {
             Method::GET => {
-                let mut default_response = Response::new();
+                let mut default_response = ResponseBuilder::default().build()?;
                 if !self.refresh_cache {
                     match self.cache.get(&cmd.resource) {
                         Ok(CacheState::Fresh(response)) => return Ok(response),
@@ -284,7 +291,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                 }
                 // If status is 304, then we need to return the cached response.
                 let response = self.get(cmd)?;
-                if response.status() == 304 {
+                if response.status == 304 {
                     // Update cache with latest headers. This effectively
                     // refreshes the cache and we won't hit this until per api
                     // cache expiration as declared in the config.
@@ -402,26 +409,30 @@ mod test {
     fn response_with_next_page() -> Response {
         let mut headers = HashMap::new();
         headers.insert("link".to_string(), "http://localhost?page=2".to_string());
-        let response1 = Response::new()
-            .with_status(200)
-            .with_headers(headers)
-            .with_header_processor(header_processor_next_page_no_last);
-        response1
+        let response = ResponseBuilder::default()
+            .status(200)
+            .headers(headers)
+            .link_header_processor(header_processor_next_page_no_last)
+            .build()
+            .unwrap();
+        response
     }
 
     fn response_with_last_page() -> Response {
         let mut headers = HashMap::new();
         headers.insert("link".to_string(), "http://localhost?page=2".to_string());
-        let response1 = Response::new()
-            .with_status(200)
-            .with_headers(headers)
-            .with_header_processor(header_processor_last_page_no_next);
-        response1
+        let response = ResponseBuilder::default()
+            .status(200)
+            .headers(headers)
+            .link_header_processor(header_processor_last_page_no_next)
+            .build()
+            .unwrap();
+        response
     }
 
     #[test]
     fn test_paginator_no_headers_no_next_no_last_pages() {
-        let response = Response::new().with_status(200);
+        let response = ResponseBuilder::default().status(200).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
         let paginator = Paginator::new(&client, request, "http://localhost");
@@ -435,10 +446,12 @@ mod test {
         let response1 = response_with_next_page();
         let mut headers = HashMap::new();
         headers.insert("link".to_string(), "http://localhost?page=2".to_string());
-        let response2 = Response::new()
-            .with_status(200)
-            .with_headers(headers)
-            .with_header_processor(|_header| PageHeader::new());
+        let response2 = ResponseBuilder::default()
+            .status(200)
+            .headers(headers)
+            .link_header_processor(|_header| PageHeader::new())
+            .build()
+            .unwrap();
         let client = Arc::new(MockRunner::new(vec![response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
         let paginator = Paginator::new(&client, request, "http://localhost");
@@ -459,9 +472,11 @@ mod test {
 
     #[test]
     fn test_paginator_error_response() {
-        let response = Response::new()
-            .with_status(500)
-            .with_body("Internal Server Error".to_string());
+        let response = ResponseBuilder::default()
+            .status(500)
+            .body("Internal Server Error".to_string())
+            .build()
+            .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
         let paginator = Paginator::new(&client, request, "http://localhost");
@@ -516,18 +531,26 @@ mod test {
     fn test_ratelimit_remaining_threshold_reached_is_error() {
         let mut headers = HashMap::new();
         headers.insert("x-ratelimit-remaining".to_string(), "10".to_string());
-        let mut response = Response::new().with_status(200).with_headers(headers);
+        let response = ResponseBuilder::default()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
         let client = Client::new(cache::NoCache, ConfigMock::new(1), false);
-        assert!(client.handle_rate_limit(&mut response).is_err());
+        assert!(client.handle_rate_limit(&response).is_err());
     }
 
     #[test]
     fn test_ratelimit_remaining_threshold_not_reached_is_ok() {
         let mut headers = HashMap::new();
         headers.insert("ratelimit-remaining".to_string(), "11".to_string());
-        let mut response = Response::new().with_status(200).with_headers(headers);
+        let response = ResponseBuilder::default()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
         let client = Client::new(cache::NoCache, ConfigMock::new(1), false);
-        assert!(client.handle_rate_limit(&mut response).is_ok());
+        assert!(client.handle_rate_limit(&response).is_ok());
     }
 
     fn epoch_seconds_now_mock(secs: u64) -> Seconds {
