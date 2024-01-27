@@ -303,7 +303,6 @@ mod tests {
     #[test]
     fn test_git_repo_has_untracked_files_treats_repo_as_no_local_modifications() {
         let response = ResponseBuilder::default()
-            .status(0)
             .body(get_contract(
                 ContractType::Git,
                 "git_status_untracked_files.txt",
@@ -322,7 +321,6 @@ mod tests {
     #[test]
     fn test_git_remote_url_cmd_is_correct() {
         let response = ResponseBuilder::default()
-            .status(0)
             .body("git@github.com:jordilin/mr.git".to_string())
             .build()
             .unwrap();
@@ -334,7 +332,6 @@ mod tests {
     #[test]
     fn test_get_remote_git_url() {
         let response = ResponseBuilder::default()
-            .status(0)
             .body("git@github.com:jordilin/mr.git".to_string())
             .build()
             .unwrap();
@@ -352,7 +349,6 @@ mod tests {
     #[test]
     fn test_get_remote_https_url() {
         let response = ResponseBuilder::default()
-            .status(0)
             .body("https://github.com/jordilin/gitar.git".to_string())
             .build()
             .unwrap();
@@ -370,7 +366,6 @@ mod tests {
     #[test]
     fn test_get_remote_ssh_url() {
         let response = ResponseBuilder::default()
-            .status(0)
             .body("ssh://git@gitlab-web:2222/testgroup/testsubproject.git".to_string())
             .build()
             .unwrap();
@@ -398,22 +393,14 @@ mod tests {
 
     #[test]
     fn test_empty_remote_url() {
-        let response = ResponseBuilder::default()
-            .status(0)
-            .body("".to_string())
-            .build()
-            .unwrap();
+        let response = ResponseBuilder::default().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         assert!(remote_url(&runner).is_err())
     }
 
     #[test]
     fn test_git_fetch_cmd_is_correct() {
-        let response = ResponseBuilder::default()
-            .status(0)
-            .body("".to_string())
-            .build()
-            .unwrap();
+        let response = ResponseBuilder::default().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         fetch(&runner).unwrap();
         assert_eq!("git fetch", *runner.cmd());
@@ -421,11 +408,7 @@ mod tests {
 
     #[test]
     fn test_gather_current_branch_cmd_is_correct() {
-        let response = ResponseBuilder::default()
-            .status(0)
-            .body("".to_string())
-            .build()
-            .unwrap();
+        let response = ResponseBuilder::default().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         current_branch(&runner).unwrap();
         assert_eq!("git rev-parse --abbrev-ref HEAD", *runner.cmd());
@@ -434,7 +417,6 @@ mod tests {
     #[test]
     fn test_gather_current_branch_ok() {
         let response = ResponseBuilder::default()
-            .status(0)
             .body(get_contract(ContractType::Git, "git_current_branch.txt"))
             .build()
             .unwrap();
@@ -450,7 +432,6 @@ mod tests {
     #[test]
     fn test_last_commit_summary_cmd_is_correct() {
         let response = ResponseBuilder::default()
-            .status(0)
             .body("Add README".to_string())
             .build()
             .unwrap();
@@ -462,7 +443,6 @@ mod tests {
     #[test]
     fn test_last_commit_summary_get_last_commit() {
         let response = ResponseBuilder::default()
-            .status(0)
             .body("Add README".to_string())
             .build()
             .unwrap();
@@ -488,11 +468,7 @@ mod tests {
 
     #[test]
     fn test_git_push_cmd_is_correct() {
-        let response = ResponseBuilder::default()
-            .status(0)
-            .body("".to_string())
-            .build()
-            .unwrap();
+        let response = ResponseBuilder::default().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         let mut repo = Repo::new();
         repo.with_current_branch("new_feature");
@@ -536,11 +512,7 @@ mod tests {
 
     #[test]
     fn test_git_rebase_cmd_is_correct() {
-        let response = ResponseBuilder::default()
-            .status(0)
-            .body("".to_string())
-            .build()
-            .unwrap();
+        let response = ResponseBuilder::default().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         rebase(&runner, "origin", "main").unwrap();
         assert_eq!("git rebase origin/main", *runner.cmd());
@@ -562,11 +534,7 @@ mod tests {
 
     #[test]
     fn test_outgoing_commits_cmd_is_ok() {
-        let response = ResponseBuilder::default()
-            .status(0)
-            .body("".to_string())
-            .build()
-            .unwrap();
+        let response = ResponseBuilder::default().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         outgoing_commits(&runner, "origin", "main").unwrap();
         let expected_cmd = "git log origin/main.. --reverse --pretty=format:%s - %h %d".to_string();
@@ -575,11 +543,7 @@ mod tests {
 
     #[test]
     fn test_last_commit_message_cmd_is_ok() {
-        let response = ResponseBuilder::default()
-            .status(0)
-            .body("".to_string())
-            .build()
-            .unwrap();
+        let response = ResponseBuilder::default().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         last_commit_message(&runner).unwrap();
         let expected_cmd = "git log --pretty=format:%b -n1".to_string();
