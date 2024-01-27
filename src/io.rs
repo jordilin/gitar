@@ -1,7 +1,7 @@
 use crate::{
     http::Request,
     remote::{Member, MergeRequestResponse, Project},
-    time::{now_epoch_seconds, Seconds},
+    time::Seconds,
     Result,
 };
 use regex::Regex;
@@ -47,9 +47,6 @@ pub struct Response {
     /// Optional headers. Mostly used by HTTP downstream HTTP responses
     pub(crate) headers: Option<HashMap<String, String>>,
     link_header_processor: fn(&str) -> PageHeader,
-    /// Default time in epoch seconds when the ratelimit is reset.
-    time_to_ratelimit_reset: Seconds,
-    remaining_requests: u32,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -66,10 +63,6 @@ impl Response {
             body: String::new(),
             headers: None,
             link_header_processor: parse_link_headers,
-            time_to_ratelimit_reset: now_epoch_seconds() + Seconds::new(60),
-            // most limiting Github 5000/60 = 83.33 requests per minute. Round
-            // up to 80.
-            remaining_requests: 80,
         }
     }
 
@@ -124,28 +117,16 @@ impl Response {
         // process remote headers and patch the defaults accordingly
         if let Some(headers) = &self.headers {
             if let Some(github_remaining) = headers.get(GITHUB_RATELIMIT_REMAINING) {
-                ratelimit_header.remaining = github_remaining
-                    .parse::<u32>()
-                    .unwrap_or(self.remaining_requests);
+                ratelimit_header.remaining = github_remaining.parse::<u32>().unwrap_or(0);
                 if let Some(github_reset) = headers.get(GITHUB_RATELIMIT_RESET) {
-                    ratelimit_header.reset = Seconds::new(
-                        github_reset
-                            .parse::<u64>()
-                            .unwrap_or(*self.time_to_ratelimit_reset),
-                    );
+                    ratelimit_header.reset = Seconds::new(github_reset.parse::<u64>().unwrap_or(0));
                 }
                 return Some(ratelimit_header);
             }
             if let Some(gitlab_remaining) = headers.get(GITLAB_RATELIMIT_REMAINING) {
-                ratelimit_header.remaining = gitlab_remaining
-                    .parse::<u32>()
-                    .unwrap_or(self.remaining_requests);
+                ratelimit_header.remaining = gitlab_remaining.parse::<u32>().unwrap_or(0);
                 if let Some(gitlab_reset) = headers.get(GITLAB_RATELIMIT_RESET) {
-                    ratelimit_header.reset = Seconds::new(
-                        gitlab_reset
-                            .parse::<u64>()
-                            .unwrap_or(*self.time_to_ratelimit_reset),
-                    );
+                    ratelimit_header.reset = Seconds::new(gitlab_reset.parse::<u64>().unwrap_or(0));
                 }
                 return Some(ratelimit_header);
             }
