@@ -192,8 +192,13 @@ pub enum BrowseOptions {
     Pipelines,
 }
 
-pub enum PipelineOptions {
-    List { refresh_cache: bool },
+pub enum PipelineOperation {
+    List,
+}
+
+pub struct PipelineOptions {
+    pub operation: PipelineOperation,
+    pub refresh_cache: bool,
 }
 
 #[derive(Debug)]
@@ -281,11 +286,13 @@ impl From<BrowseCommand> for BrowseOptions {
 impl From<PipelineCommand> for PipelineOptions {
     fn from(options: PipelineCommand) -> Self {
         match options.subcommand {
-            Some(PipelineSubcommand::List) => PipelineOptions::List {
+            Some(PipelineSubcommand::List) => PipelineOptions {
+                operation: PipelineOperation::List,
                 refresh_cache: options.refresh,
             },
             // defaults to list all pipelines
-            None => PipelineOptions::List {
+            None => PipelineOptions {
+                operation: PipelineOperation::List,
                 refresh_cache: options.refresh,
             },
         }

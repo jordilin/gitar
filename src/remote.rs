@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::api_traits::Remote;
+use crate::api_traits::{Cicd, Remote};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
 use crate::github::Github;
@@ -215,7 +215,7 @@ impl MergeRequestArgs {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone,Debug)]
 pub struct Pipeline {
     status: String,
     web_url: String,
@@ -275,6 +275,7 @@ macro_rules! get {
 }
 
 get!(get, Remote);
+get!(get_cicd, Cicd);
 
 #[cfg(test)]
 mod test {
