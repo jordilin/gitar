@@ -23,7 +23,7 @@ pub trait HttpRunner {
     fn api_max_pages<T: Serialize>(&self, cmd: &Request<T>) -> u32;
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum CmdInfo {
     StatusModified(bool),
     RemoteUrl { domain: String, path: String },

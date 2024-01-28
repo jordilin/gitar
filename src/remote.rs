@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::api_traits::{Cicd, Remote};
+use crate::api_traits::{Cicd, Remote, RemoteProject};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
 use crate::github::Github;
@@ -10,7 +10,7 @@ use crate::{error, http};
 use std::convert::TryFrom;
 use std::sync::Arc;
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Project {
     id: i64,
     default_branch: String,
@@ -49,7 +49,7 @@ impl Display for Project {
     }
 }
 
-#[derive(Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct Member {
     pub id: i64,
     pub name: String,
@@ -66,7 +66,7 @@ impl Member {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MergeRequestResponse {
     pub id: i64,
     pub web_url: String,
@@ -215,7 +215,7 @@ impl MergeRequestArgs {
     }
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct Pipeline {
     status: String,
     web_url: String,
@@ -276,6 +276,7 @@ macro_rules! get {
 
 get!(get, Remote);
 get!(get_cicd, Cicd);
+get!(get_project, RemoteProject);
 
 #[cfg(test)]
 mod test {

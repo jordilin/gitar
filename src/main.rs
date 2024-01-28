@@ -33,6 +33,9 @@ fn main() -> Result<()> {
             let remote = remote::get_cicd(domain, path, config, options.refresh_cache)?;
             cicd::execute(remote, options, &mut std::io::stdout())
         }
-        CliOptions::Project(options) => project::execute(options, config, domain, path),
+        CliOptions::Project(options) => {
+            let remote = remote::get_project(domain, path, config, options.refresh_cache)?;
+            project::execute(remote, options, &mut std::io::stdout())
+        }
     }
 }
