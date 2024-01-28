@@ -53,3 +53,15 @@ impl Display for ApiOperation {
 }
 
 pub trait Remote: RemoteProject + MergeRequest + Cicd + Send + Sync + 'static {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_api_operation_display() {
+        assert_eq!(format!("{}", ApiOperation::MergeRequest), "merge_request");
+        assert_eq!(format!("{}", ApiOperation::Pipeline), "pipeline");
+        assert_eq!(format!("{}", ApiOperation::Project), "project");
+    }
+}
