@@ -7,6 +7,7 @@ use crate::github::Github;
 use crate::gitlab::Gitlab;
 use crate::Result;
 use crate::{error, http};
+use std::convert::TryFrom;
 use std::sync::Arc;
 
 #[derive(Debug, Default, PartialEq)]
@@ -245,29 +246,35 @@ impl Display for Pipeline {
     }
 }
 
-pub fn get(
-    domain: String,
-    path: String,
-    config: Arc<Config>,
-    refresh_cache: bool,
-) -> Result<Arc<dyn Remote>> {
-    let runner = Arc::new(http::Client::new(
-        FileCache::new(config.clone()),
-        config.clone(),
-        refresh_cache,
-    ));
-    let github_domain_regex = regex::Regex::new(r"^github").unwrap();
-    let gitlab_domain_regex = regex::Regex::new(r"^gitlab").unwrap();
+macro_rules! get {
+    ($func_name:ident, $trait_name:ident) => {
+        pub fn $func_name(
+            domain: String,
+            path: String,
+            config: Arc<Config>,
+            refresh_cache: bool,
+        ) -> Result<Arc<dyn $trait_name>> {
+            let runner = Arc::new(http::Client::new(
+                FileCache::new(config.clone()),
+                config.clone(),
+                refresh_cache,
+            ));
 
-    let remote: Arc<dyn Remote> = if github_domain_regex.is_match(&domain) {
-        Arc::new(Github::new(config, &domain, &path, runner))
-    } else if gitlab_domain_regex.is_match(&domain) {
-        Arc::new(Gitlab::new(config, &domain, &path, runner))
-    } else {
-        return Err(error::gen(format!("Unsupported domain: {}", &domain)));
+            let github_domain_regex = regex::Regex::new(r"^github").unwrap();
+            let gitlab_domain_regex = regex::Regex::new(r"^gitlab").unwrap();
+            let remote: Arc<dyn $trait_name> = if github_domain_regex.is_match(&domain) {
+                Arc::new(Github::new(config, &domain, &path, runner))
+            } else if gitlab_domain_regex.is_match(&domain) {
+                Arc::new(Gitlab::new(config, &domain, &path, runner))
+            } else {
+                return Err(error::gen(format!("Unsupported domain: {}", &domain)));
+            };
+            Ok(remote)
+        }
     };
-    Ok(remote)
 }
+
+get!(get, Remote);
 
 #[cfg(test)]
 mod test {
