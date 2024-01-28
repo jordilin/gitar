@@ -1,5 +1,6 @@
 use crate::error;
 use crate::io::Response;
+use crate::io::ResponseBuilder;
 use crate::io::Runner;
 use crate::Result;
 use std::ffi::OsStr;
@@ -28,20 +29,22 @@ where
     let args: Vec<_> = args.into_iter().collect();
     let mut process = process::Command::new(&args[0]);
     process.args(&args[1..]);
-    let response = Response::new();
+    let mut response_builder = ResponseBuilder::default();
     match process.output() {
         Ok(output) => {
             let status_code = output.status.code().unwrap_or(0);
             if output.status.success() {
                 let output_str = str::from_utf8(&output.stdout)?;
                 if let Some(output_stripped) = output_str.strip_suffix('\n') {
-                    return Ok(response
-                        .with_status(status_code)
-                        .with_body(output_stripped.to_string()));
+                    return Ok(response_builder
+                        .status(status_code)
+                        .body(output_stripped.to_string())
+                        .build()?);
                 };
-                return Ok(response
-                    .with_status(status_code)
-                    .with_body(output_str.to_string()));
+                return Ok(response_builder
+                    .status(status_code)
+                    .body(output_str.to_string())
+                    .build()?);
             }
             let err_msg = str::from_utf8(&output.stderr)?;
             Err(error::gen(err_msg))

@@ -95,7 +95,7 @@ pub mod utils {
                     .join(" "),
             );
             let response = self.responses.borrow_mut().pop().unwrap();
-            match response.status() {
+            match response.status {
                 0 => return Ok(response),
                 _ => return Err(error::gen(&response.body)),
             }
@@ -110,7 +110,7 @@ pub mod utils {
             self.headers.replace(cmd.headers().clone());
             self.api_operation.replace(cmd.api_operation().clone());
             let response = self.responses.borrow_mut().pop().unwrap();
-            match response.status() {
+            match response.status {
                 // 409 Conflict - Merge request already exists.
                 200 | 201 | 409 => return Ok(response),
                 _ => return Err(error::gen(&response.body)),

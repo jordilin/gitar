@@ -25,3 +25,6 @@ pub type Cmd<T> = Box<dyn Fn() -> Result<T> + Send + Sync>;
 
 #[macro_use]
 extern crate lazy_static;
+
+#[macro_use]
+extern crate derive_builder;

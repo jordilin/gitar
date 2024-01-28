@@ -416,7 +416,10 @@ impl<R: HttpRunner<Response = Response> + Send + Sync + 'static> Remote for Gith
 
 #[cfg(test)]
 mod test {
-    use crate::test::utils::{config, get_contract, ContractType, MockRunner};
+    use crate::{
+        io::ResponseBuilder,
+        test::utils::{config, get_contract, ContractType, MockRunner},
+    };
 
     use super::*;
 
@@ -425,9 +428,11 @@ mod test {
         let config = config();
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";
-        let response = Response::new()
-            .with_status(200)
-            .with_body(get_contract(ContractType::Github, "project.json"));
+        let response = ResponseBuilder::default()
+            .status(200)
+            .body(get_contract(ContractType::Github, "project.json"))
+            .build()
+            .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let github = Github::new(config, &domain, &path, client.clone());
         github.get_project_data(None).unwrap();
@@ -455,12 +460,16 @@ mod test {
 
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";
-        let response1 = Response::new()
-            .with_status(201)
-            .with_body(get_contract(ContractType::Github, "merge_request.json"));
-        let response2 = Response::new()
-            .with_status(200)
-            .with_body(get_contract(ContractType::Github, "merge_request.json"));
+        let response1 = ResponseBuilder::default()
+            .status(201)
+            .body(get_contract(ContractType::Github, "merge_request.json"))
+            .build()
+            .unwrap();
+        let response2 = ResponseBuilder::default()
+            .status(200)
+            .body(get_contract(ContractType::Github, "merge_request.json"))
+            .build()
+            .unwrap();
         let client = Arc::new(MockRunner::new(vec![response2, response1]));
         let github = Github::new(config, &domain, &path, client.clone());
 
@@ -482,10 +491,12 @@ mod test {
 
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";
-        let response1 = Response::new().with_status(401).with_body(
+        let response1 = ResponseBuilder::default().status(401).body(
             r#"{"message":"Bad credentials","documentation_url":"https://docs.github.com/rest"}"#
                 .to_string(),
-        );
+            )
+            .build()
+            .unwrap();
         let client = Arc::new(MockRunner::new(vec![response1]));
         let github = Github::new(config, &domain, &path, client.clone());
         assert!(github.open(mr_args).is_err());

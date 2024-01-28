@@ -40,12 +40,16 @@ pub enum CmdInfo {
 }
 
 /// Adapts lower level I/O HTTP/Shell outputs to a common Response.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Builder)]
 pub struct Response {
+    #[builder(default)]
     pub status: i32,
+    #[builder(default)]
     pub body: String,
     /// Optional headers. Mostly used by HTTP downstream HTTP responses
+    #[builder(setter(into, strip_option), default)]
     pub(crate) headers: Option<HashMap<String, String>>,
+    #[builder(default = "parse_link_headers")]
     link_header_processor: fn(&str) -> PageHeader,
 }
 
@@ -57,35 +61,6 @@ pub enum ResponseField {
 }
 
 impl Response {
-    pub fn new() -> Self {
-        Self {
-            status: 0,
-            body: String::new(),
-            headers: None,
-            link_header_processor: parse_link_headers,
-        }
-    }
-
-    pub fn with_header_processor(mut self, processor: fn(&str) -> PageHeader) -> Self {
-        self.link_header_processor = processor;
-        self
-    }
-
-    pub fn with_status(mut self, status: i32) -> Self {
-        self.status = status;
-        self
-    }
-
-    pub fn with_body(mut self, output: String) -> Self {
-        self.body = output;
-        self
-    }
-
-    pub fn with_headers(mut self, headers: HashMap<String, String>) -> Self {
-        self.headers = Some(headers);
-        self
-    }
-
     pub fn header(&self, key: &str) -> Option<&str> {
         self.headers
             .as_ref()
@@ -136,16 +111,6 @@ impl Response {
 
     pub fn get_etag(&self) -> Option<&str> {
         self.header("etag")
-    }
-
-    pub fn status(&self) -> i32 {
-        self.status
-    }
-}
-
-impl Default for Response {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -266,9 +231,11 @@ mod test {
         let mut headers = HashMap::new();
         headers.insert("x-ratelimit-remaining".to_string(), "30".to_string());
         headers.insert("x-ratelimit-reset".to_string(), "1658602270".to_string());
-        let response = Response::new()
-            .with_body(body.to_string())
-            .with_headers(headers);
+        let response = ResponseBuilder::default()
+            .body(body.to_string())
+            .headers(headers)
+            .build()
+            .unwrap();
         let ratelimit_headers = response.get_ratelimit_headers().unwrap();
         assert_eq!(30, ratelimit_headers.remaining.clone());
         assert_eq!(Seconds::new(1658602270), ratelimit_headers.reset);
@@ -280,9 +247,11 @@ mod test {
         let mut headers = HashMap::new();
         headers.insert("ratelimit-remaining".to_string(), "30".to_string());
         headers.insert("ratelimit-reset".to_string(), "1658602270".to_string());
-        let response = Response::new()
-            .with_body(body.to_string())
-            .with_headers(headers);
+        let response = ResponseBuilder::default()
+            .body(body.to_string())
+            .headers(headers)
+            .build()
+            .unwrap();
         let ratelimit_headers = response.get_ratelimit_headers().unwrap();
         assert_eq!(30, ratelimit_headers.remaining);
         assert_eq!(Seconds::new(1658602270), ratelimit_headers.reset);
@@ -294,9 +263,11 @@ mod test {
         let mut headers = HashMap::new();
         headers.insert("RateLimit-remaining".to_string(), "30".to_string());
         headers.insert("rateLimit-reset".to_string(), "1658602270".to_string());
-        let response = Response::new()
-            .with_body(body.to_string())
-            .with_headers(headers);
+        let response = ResponseBuilder::default()
+            .body(body.to_string())
+            .headers(headers)
+            .build()
+            .unwrap();
         let ratelimit_headers = response.get_ratelimit_headers();
         assert!(ratelimit_headers.is_none());
     }

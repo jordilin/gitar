@@ -20,6 +20,7 @@ open = "5.0.1"
 thiserror = "1.0.56"
 anyhow = "1.0.79"
 flate2 = "1.0.28"
+derive_builder = "0.13.0"
 
 [dev-dependencies]
 # disable basic-cookies from httpmock - not needed
