@@ -158,11 +158,11 @@ pub fn show_summary_merge_request(
         true,
         Style::Bold,
     );
-    show_input("Target branch", args.target_branch(), false, Style::Bold);
-    show_input("Assignee", args.username(), false, Style::Bold);
-    show_input("Title", args.title(), false, Style::Bold);
-    if !args.description().is_empty() {
-        show_input("Description:", args.description(), true, Style::Bold);
+    show_input("Target branch", &args.target_branch, false, Style::Bold);
+    show_input("Assignee", &args.username, false, Style::Bold);
+    show_input("Title", &args.title, false, Style::Bold);
+    if !args.description.is_empty() {
+        show_input("Description:", &args.description, true, Style::Bold);
     } else {
         show_input("Description", "None", false, Style::Bold);
     }

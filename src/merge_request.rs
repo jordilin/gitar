@@ -116,6 +116,8 @@ fn user_prompt_confirmation(
         .target_branch(target_branch.to_string())
         .assignee_id(user_input.user_id.to_string())
         .username(user_input.username)
+        // TODO make this configurable
+        .remove_source_branch("true".to_string())
         .build()?)
 }
 

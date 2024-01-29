@@ -124,96 +124,20 @@ impl Display for MergeRequestState {
 
 #[derive(Builder)]
 pub struct MergeRequestArgs {
-    title: String,
-    description: String,
-    source_branch: String,
-    target_branch: String,
-    assignee_id: String,
-    username: String,
-    remove_source_branch: String,
-}
-
-impl Default for MergeRequestArgs {
-    fn default() -> Self {
-        MergeRequestArgs {
-            title: String::new(),
-            description: String::new(),
-            source_branch: String::new(),
-            target_branch: String::new(),
-            assignee_id: String::new(),
-            username: String::new(),
-            remove_source_branch: "true".to_string(),
-        }
-    }
-}
-
-impl MergeRequestArgs {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn with_title(mut self, title: &str) -> Self {
-        self.title = title.to_string();
-        self
-    }
-
-    pub fn with_description(mut self, description: &str) -> Self {
-        self.description = description.to_string();
-        self
-    }
-
-    pub fn with_source_branch(mut self, source_branch: &str) -> Self {
-        self.source_branch = source_branch.to_string();
-        self
-    }
-
-    pub fn with_target_branch(mut self, target_branch: &str) -> Self {
-        self.target_branch = target_branch.to_string();
-        self
-    }
-
-    pub fn with_assignee_id(mut self, assignee_id: &str) -> Self {
-        self.assignee_id = assignee_id.to_string();
-        self
-    }
-
-    pub fn with_username(mut self, username: &str) -> Self {
-        self.username = username.to_string();
-        self
-    }
-
-    pub fn with_remove_source_branch(mut self, remove_source_branch: bool) -> Self {
-        self.remove_source_branch = remove_source_branch.to_string();
-        self
-    }
-
-    pub fn title(&self) -> &str {
-        &self.title
-    }
-
-    pub fn description(&self) -> &str {
-        &self.description
-    }
-
-    pub fn source_branch(&self) -> &str {
-        &self.source_branch
-    }
-
-    pub fn target_branch(&self) -> &str {
-        &self.target_branch
-    }
-
-    pub fn assignee_id(&self) -> &str {
-        &self.assignee_id
-    }
-
-    pub fn username(&self) -> &str {
-        &self.username
-    }
-
-    pub fn remove_source_branch(&self) -> &str {
-        &self.remove_source_branch
-    }
+    #[builder(default)]
+    pub title: String,
+    #[builder(default)]
+    pub description: String,
+    #[builder(default)]
+    pub source_branch: String,
+    #[builder(default)]
+    pub target_branch: String,
+    #[builder(default)]
+    pub assignee_id: String,
+    #[builder(default)]
+    pub username: String,
+    #[builder(default = "String::from(\"true\")")]
+    pub remove_source_branch: String,
 }
 
 #[derive(Clone, Debug)]
@@ -286,10 +210,12 @@ mod test {
 
     #[test]
     fn test_merge_request_args_with_custom_title() {
-        let args = MergeRequestArgs::new()
-            .with_source_branch("source")
-            .with_target_branch("target")
-            .with_title("title");
+        let args = MergeRequestArgsBuilder::default()
+            .source_branch("source".to_string())
+            .target_branch("target".to_string())
+            .title("title".to_string())
+            .build()
+            .unwrap();
 
         assert_eq!(args.source_branch, "source");
         assert_eq!(args.target_branch, "target");
@@ -300,14 +226,16 @@ mod test {
 
     #[test]
     fn test_merge_request_get_all_fields() {
-        let args = MergeRequestArgs::new()
-            .with_source_branch("source")
-            .with_target_branch("target")
-            .with_title("title")
-            .with_description("description")
-            .with_assignee_id("assignee_id")
-            .with_username("username")
-            .with_remove_source_branch(false);
+        let args = MergeRequestArgsBuilder::default()
+            .source_branch("source".to_string())
+            .target_branch("target".to_string())
+            .title("title".to_string())
+            .description("description".to_string())
+            .assignee_id("assignee_id".to_string())
+            .username("username".to_string())
+            .remove_source_branch("false".to_string())
+            .build()
+            .unwrap();
 
         assert_eq!(args.source_branch, "source");
         assert_eq!(args.target_branch, "target");
