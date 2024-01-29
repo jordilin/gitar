@@ -5,7 +5,7 @@ use gr::{
     cli::{parse_cli, CliOptions},
     error, git,
     io::CmdInfo,
-    merge_request, project, remote,
+    merge_request, project,
     shell::Shell,
     Result,
 };
@@ -29,13 +29,7 @@ fn main() -> Result<()> {
             let config = Arc::new(gr::config::Config::default());
             browse::execute(options, config, domain, path)
         }
-        CliOptions::Pipeline(options) => {
-            let remote = remote::get_cicd(domain, path, config, options.refresh_cache)?;
-            cicd::execute(remote, options, &mut std::io::stdout())
-        }
-        CliOptions::Project(options) => {
-            let remote = remote::get_project(domain, path, config, options.refresh_cache)?;
-            project::execute(remote, options, &mut std::io::stdout())
-        }
+        CliOptions::Pipeline(options) => cicd::execute(options, config, domain, path),
+        CliOptions::Project(options) => project::execute(options, config, domain, path),
     }
 }

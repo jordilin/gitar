@@ -3,15 +3,20 @@ use std::sync::Arc;
 
 use crate::api_traits::Cicd;
 use crate::cli::{PipelineOperation, PipelineOptions};
-use crate::Result;
+use crate::config::Config;
+use crate::{remote, Result};
 
-pub fn execute<W: Write>(
-    remote: Arc<dyn Cicd>,
+pub fn execute(
     options: PipelineOptions,
-    writer: &mut W,
+    config: Arc<Config>,
+    domain: String,
+    path: String,
 ) -> Result<()> {
     match options.operation {
-        PipelineOperation::List => list_pipelines(remote, writer),
+        PipelineOperation::List => {
+            let remote = remote::get_cicd(domain, path, config, options.refresh_cache)?;
+            list_pipelines(remote, std::io::stdout())
+        }
     }
 }
 
@@ -30,7 +35,6 @@ fn list_pipelines<W: Write>(remote: Arc<dyn Cicd>, mut writer: W) -> Result<()> 
 
 #[cfg(test)]
 mod test {
-    use crate::cli::PipelineOptions;
     use crate::error;
     use crate::remote::Pipeline;
 
@@ -81,11 +85,7 @@ mod test {
             .build()
             .unwrap();
         let mut buf = Vec::new();
-        let pp_options = PipelineOptions {
-            operation: PipelineOperation::List,
-            refresh_cache: false,
-        };
-        execute(Arc::new(pp_remote), pp_options, &mut buf).unwrap();
+        list_pipelines(Arc::new(pp_remote), &mut buf).unwrap();
         assert_eq!(
             String::from_utf8(buf).unwrap(),
             "URL | Branch | SHA | Created at | Status\n\
@@ -104,11 +104,7 @@ mod test {
     #[test]
     fn test_list_pipelines_error() {
         let pp_remote = PipelineListBuilder::default().error(true).build().unwrap();
-        let pp_options = PipelineOptions {
-            operation: PipelineOperation::List,
-            refresh_cache: false,
-        };
         let mut buf = Vec::new();
-        assert!(execute(Arc::new(pp_remote), pp_options, &mut buf).is_err());
+        assert!(list_pipelines(Arc::new(pp_remote), &mut buf).is_err());
     }
 }

@@ -1,28 +1,40 @@
 use crate::api_traits::RemoteProject;
 use crate::cli::ProjectOperation;
 use crate::cli::ProjectOptions;
+use crate::config::Config;
 use crate::error;
 use crate::io::CmdInfo;
+use crate::remote;
 use crate::Result;
 use std::io::Write;
 use std::sync::Arc;
 
-pub fn execute<W: Write>(
-    remote: Arc<dyn RemoteProject>,
+pub fn execute(
     options: ProjectOptions,
-    writer: &mut W,
+    config: Arc<Config>,
+    domain: String,
+    path: String,
 ) -> Result<()> {
     match options.operation {
         ProjectOperation::Info { id } => {
-            let CmdInfo::Project(project_data) = remote.get_project_data(id)? else {
-                return Err(error::GRError::ApplicationError(
-                    "remote.get_project_data expects CmdInfo::Project invariant".to_string(),
-                )
-                .into());
-            };
-            writer.write_all(format!("{}\n", project_data).as_bytes())?;
+            let remote = remote::get_project(domain, path, config, options.refresh_cache)?;
+            return project_info(remote, std::io::stdout(), id);
         }
     }
+}
+
+fn project_info<W: Write>(
+    remote: Arc<dyn RemoteProject>,
+    mut writer: W,
+    id: Option<i64>,
+) -> Result<()> {
+    let CmdInfo::Project(project_data) = remote.get_project_data(id)? else {
+        return Err(error::GRError::ApplicationError(
+            "remote.get_project_data expects CmdInfo::Project invariant".to_string(),
+        )
+        .into());
+    };
+    writer.write_all(format!("{}\n", project_data).as_bytes())?;
     Ok(())
 }
 
@@ -67,11 +79,7 @@ mod test {
             .unwrap();
         let remote = Arc::new(remote);
         let mut writer = Vec::new();
-        let options = ProjectOptions {
-            operation: ProjectOperation::Info { id: None },
-            refresh_cache: false,
-        };
-        execute(remote, options, &mut writer).unwrap();
+        project_info(remote, &mut writer, Some(1)).unwrap();
         assert!(writer.len() > 0);
     }
 
@@ -84,11 +92,7 @@ mod test {
             .unwrap();
         let remote = Arc::new(remote);
         let mut writer = Vec::new();
-        let options = ProjectOptions {
-            operation: ProjectOperation::Info { id: None },
-            refresh_cache: false,
-        };
-        execute(remote, options, &mut writer).unwrap_err();
+        project_info(remote, &mut writer, None).unwrap_err();
         assert!(writer.len() == 0);
     }
 
@@ -100,11 +104,7 @@ mod test {
             .unwrap();
         let remote = Arc::new(remote);
         let mut writer = Vec::new();
-        let options = ProjectOptions {
-            operation: ProjectOperation::Info { id: None },
-            refresh_cache: false,
-        };
-        let result = execute(remote, options, &mut writer);
+        let result = project_info(remote, &mut writer, Some(1));
         match result {
             Ok(_) => panic!("Expected error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
