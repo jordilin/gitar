@@ -19,17 +19,17 @@ pub fn execute(
             Ok(open::that(remote_url)?)
         }
         BrowseOptions::MergeRequests => {
-            let remote = remote::get(domain, path, config, false)?;
+            let remote = remote::get_project(domain, path, config, false)?;
             Ok(open::that(remote.get_url(BrowseOptions::MergeRequests))?)
         }
         BrowseOptions::MergeRequestId(id) => {
-            let remote = remote::get(domain, path, config, false)?;
+            let remote = remote::get_project(domain, path, config, false)?;
             Ok(open::that(
                 remote.get_url(BrowseOptions::MergeRequestId(id)),
             )?)
         }
         BrowseOptions::Pipelines => {
-            let remote = remote::get(domain, path, config, false)?;
+            let remote = remote::get_project(domain, path, config, false)?;
             Ok(open::that(remote.get_url(BrowseOptions::Pipelines))?)
         }
     }

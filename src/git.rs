@@ -181,7 +181,7 @@ pub fn checkout(runner: &impl Runner<Response = Response>, branch: &str) -> Resu
 }
 
 /// Repo represents a local git repository
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Repo {
     current_branch: String,
     dirty: bool,

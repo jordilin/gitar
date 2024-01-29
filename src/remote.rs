@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::api_traits::{Cicd, Remote, RemoteProject};
+use crate::api_traits::{Cicd, MergeRequest, RemoteProject};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
 use crate::github::Github;
@@ -122,6 +122,7 @@ impl Display for MergeRequestState {
     }
 }
 
+#[derive(Builder)]
 pub struct MergeRequestArgs {
     title: String,
     description: String,
@@ -253,7 +254,7 @@ macro_rules! get {
             path: String,
             config: Arc<Config>,
             refresh_cache: bool,
-        ) -> Result<Arc<dyn $trait_name>> {
+        ) -> Result<Arc<dyn $trait_name + Send + Sync + 'static>> {
             let runner = Arc::new(http::Client::new(
                 FileCache::new(config.clone()),
                 config.clone(),
@@ -262,19 +263,20 @@ macro_rules! get {
 
             let github_domain_regex = regex::Regex::new(r"^github").unwrap();
             let gitlab_domain_regex = regex::Regex::new(r"^gitlab").unwrap();
-            let remote: Arc<dyn $trait_name> = if github_domain_regex.is_match(&domain) {
-                Arc::new(Github::new(config, &domain, &path, runner))
-            } else if gitlab_domain_regex.is_match(&domain) {
-                Arc::new(Gitlab::new(config, &domain, &path, runner))
-            } else {
-                return Err(error::gen(format!("Unsupported domain: {}", &domain)));
-            };
+            let remote: Arc<dyn $trait_name + Send + Sync + 'static> =
+                if github_domain_regex.is_match(&domain) {
+                    Arc::new(Github::new(config, &domain, &path, runner))
+                } else if gitlab_domain_regex.is_match(&domain) {
+                    Arc::new(Gitlab::new(config, &domain, &path, runner))
+                } else {
+                    return Err(error::gen(format!("Unsupported domain: {}", &domain)));
+                };
             Ok(remote)
         }
     };
 }
 
-get!(get, Remote);
+get!(get_mr, MergeRequest);
 get!(get_cicd, Cicd);
 get!(get_project, RemoteProject);
 
