@@ -18,6 +18,14 @@ enum Command {
     Pipeline(PipelineCommand),
     #[clap(name = "pj", about = "Gather project information metadata")]
     Project(ProjectCommand),
+    #[clap(name = "init", about = "Initialize the config file")]
+    Init(InitCommand),
+}
+
+#[derive(Parser)]
+struct InitCommand {
+    #[clap(long)]
+    pub domain: String,
 }
 
 #[derive(Parser)]
@@ -177,6 +185,7 @@ pub fn parse_cli() -> Option<CliOptions> {
         Command::Browse(sub_matches) => Some(CliOptions::Browse(sub_matches.into())),
         Command::Pipeline(sub_matches) => Some(CliOptions::Pipeline(sub_matches.into())),
         Command::Project(sub_matches) => Some(CliOptions::Project(sub_matches.into())),
+        Command::Init(sub_matches) => Some(CliOptions::Init(sub_matches.into())),
     }
 }
 
@@ -185,6 +194,11 @@ pub enum CliOptions {
     Browse(BrowseOptions),
     Pipeline(PipelineOptions),
     Project(ProjectOptions),
+    Init(InitCommandOptions),
+}
+
+pub struct InitCommandOptions {
+    pub domain: String,
 }
 
 pub enum BrowseOptions {
@@ -317,6 +331,14 @@ impl From<ProjectCommand> for ProjectOptions {
                 },
                 refresh_cache: options.refresh,
             },
+        }
+    }
+}
+
+impl From<InitCommand> for InitCommandOptions {
+    fn from(options: InitCommand) -> Self {
+        InitCommandOptions {
+            domain: options.domain,
         }
     }
 }
