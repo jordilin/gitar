@@ -52,8 +52,6 @@ impl Display for ApiOperation {
     }
 }
 
-pub trait Remote: RemoteProject + MergeRequest + Cicd + Send + Sync + 'static {}
-
 #[cfg(test)]
 mod tests {
     use super::*;

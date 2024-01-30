@@ -3,7 +3,6 @@ use serde::Serialize;
 use crate::api_traits::ApiOperation;
 use crate::api_traits::Cicd;
 use crate::api_traits::MergeRequest;
-use crate::api_traits::Remote;
 use crate::api_traits::RemoteProject;
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
@@ -411,8 +410,6 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
         todo!()
     }
 }
-
-impl<R: HttpRunner<Response = Response> + Send + Sync + 'static> Remote for Github<R> {}
 
 #[cfg(test)]
 mod test {

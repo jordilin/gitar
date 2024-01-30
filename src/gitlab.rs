@@ -1,4 +1,4 @@
-use crate::api_traits::{ApiOperation, Cicd, MergeRequest, Remote, RemoteProject};
+use crate::api_traits::{ApiOperation, Cicd, MergeRequest, RemoteProject};
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
 use crate::error::{self, AddContext};
@@ -333,9 +333,6 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
         todo!();
     }
 }
-
-// impl Remote for Gitlab
-impl<R: HttpRunner<Response = Response> + Send + Sync + 'static> Remote for Gitlab<R> {}
 
 #[cfg(test)]
 mod test {
