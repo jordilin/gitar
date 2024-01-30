@@ -3,7 +3,6 @@ use serde::Serialize;
 use crate::api_traits::ApiOperation;
 use crate::api_traits::Cicd;
 use crate::api_traits::MergeRequest;
-use crate::api_traits::Remote;
 use crate::api_traits::RemoteProject;
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
@@ -193,10 +192,10 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
 impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
     fn open(&self, args: MergeRequestArgs) -> Result<MergeRequestResponse> {
         let mut body: HashMap<&str, String> = HashMap::new();
-        body.insert("head", args.source_branch().to_string());
-        body.insert("base", args.target_branch().to_string());
-        body.insert("title", args.title().to_string());
-        body.insert("body", args.description().to_string());
+        body.insert("head", args.source_branch.clone());
+        body.insert("base", args.target_branch);
+        body.insert("title", args.title);
+        body.insert("body", args.description);
         let mr_url = format!("{}/repos/{}/pulls", self.rest_api_basepath, self.path);
         let mut request = self.http_request(&mr_url, Some(body), POST, ApiOperation::MergeRequest);
         match self.runner.run(&mut request) {
@@ -244,7 +243,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                         self.rest_api_basepath, self.path, id
                     );
                     let mut body: HashMap<&str, &Vec<&str>> = HashMap::new();
-                    let assignees = vec![args.username()];
+                    let assignees = vec![args.username.as_str()];
                     body.insert("assignees", &assignees);
                     self.runner.run(&mut self.http_request(
                         &issues_url,
@@ -263,7 +262,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                 // There is an existing pull request already.
                 // Gather its URL by querying Github pull requests filtering by
                 // namespace:branch
-                let remote_pr_branch = format!("{}:{}", self.path, args.source_branch());
+                let remote_pr_branch = format!("{}:{}", self.path, args.source_branch);
                 let existing_mr_url = format!("{}?head={}", mr_url, remote_pr_branch);
                 let mut request: http::Request<()> =
                     self.http_request(&existing_mr_url, None, GET, ApiOperation::MergeRequest);
@@ -412,12 +411,11 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response> + Send + Sync + 'static> Remote for Github<R> {}
-
 #[cfg(test)]
 mod test {
     use crate::{
         io::ResponseBuilder,
+        remote::MergeRequestArgsBuilder,
         test::utils::{config, get_contract, ContractType, MockRunner},
     };
 
@@ -456,7 +454,7 @@ mod test {
     #[test]
     fn test_open_merge_request() {
         let config = config();
-        let mr_args = MergeRequestArgs::new();
+        let mr_args = MergeRequestArgsBuilder::default().build().unwrap();
 
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";
@@ -487,7 +485,7 @@ mod test {
     #[test]
     fn test_open_merge_request_error_status_code() {
         let config = config();
-        let mr_args = MergeRequestArgs::new();
+        let mr_args = MergeRequestArgsBuilder::default().build().unwrap();
 
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";

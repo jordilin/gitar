@@ -1,4 +1,4 @@
-use crate::api_traits::{ApiOperation, Cicd, MergeRequest, Remote, RemoteProject};
+use crate::api_traits::{ApiOperation, Cicd, MergeRequest, RemoteProject};
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
 use crate::error::{self, AddContext};
@@ -54,15 +54,12 @@ impl<R> Gitlab<R> {
 impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     fn open(&self, args: MergeRequestArgs) -> Result<MergeRequestResponse> {
         let mut body = HashMap::new();
-        body.insert("source_branch", args.source_branch().to_string());
-        body.insert("target_branch", args.target_branch().to_string());
-        body.insert("title", args.title().to_string());
-        body.insert("assignee_id", args.assignee_id().to_string());
-        body.insert("description", args.description().to_string());
-        body.insert(
-            "remove_source_branch",
-            args.remove_source_branch().to_string(),
-        );
+        body.insert("source_branch", args.source_branch);
+        body.insert("target_branch", args.target_branch);
+        body.insert("title", args.title);
+        body.insert("assignee_id", args.assignee_id);
+        body.insert("description", args.description);
+        body.insert("remove_source_branch", args.remove_source_branch);
         let url = format!("{}/merge_requests", self.rest_api_basepath());
         let mut request = http::Request::new(&url, http::Method::POST)
             .with_api_operation(ApiOperation::MergeRequest)
@@ -337,11 +334,9 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
     }
 }
 
-// impl Remote for Gitlab
-impl<R: HttpRunner<Response = Response> + Send + Sync + 'static> Remote for Gitlab<R> {}
-
 #[cfg(test)]
 mod test {
+    use crate::remote::MergeRequestArgsBuilder;
     use crate::test::utils::{config, get_contract, ContractType, MockRunner};
 
     use crate::io::{CmdInfo, ResponseBuilder};
@@ -421,7 +416,7 @@ mod test {
     fn test_open_merge_request() {
         let config = config();
 
-        let mr_args = MergeRequestArgs::new();
+        let mr_args = MergeRequestArgsBuilder::default().build().unwrap();
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi";
@@ -448,7 +443,7 @@ mod test {
     fn test_open_merge_request_error() {
         let config = config();
 
-        let mr_args = MergeRequestArgs::new();
+        let mr_args = MergeRequestArgsBuilder::default().build().unwrap();
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
         let response = ResponseBuilder::default().status(400).build().unwrap();
@@ -461,7 +456,7 @@ mod test {
     fn test_merge_request_already_exists_status_code_409_conflict() {
         let config = config();
 
-        let mr_args = MergeRequestArgs::new();
+        let mr_args = MergeRequestArgsBuilder::default().build().unwrap();
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();

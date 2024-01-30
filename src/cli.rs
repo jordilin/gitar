@@ -24,6 +24,9 @@ enum Command {
 struct ProjectCommand {
     #[clap(subcommand)]
     pub subcommand: ProjectSubcommand,
+    /// Refresh the cache
+    #[clap(long, short)]
+    pub refresh: bool,
 }
 
 #[derive(Parser)]
@@ -192,13 +195,24 @@ pub enum BrowseOptions {
     Pipelines,
 }
 
-pub enum PipelineOptions {
-    List { refresh_cache: bool },
+pub enum PipelineOperation {
+    List,
+}
+
+pub struct PipelineOptions {
+    pub operation: PipelineOperation,
+    pub refresh_cache: bool,
 }
 
 #[derive(Debug)]
-pub enum ProjectOptions {
+pub enum ProjectOperation {
     Info { id: Option<i64> },
+}
+
+#[derive(Debug)]
+pub struct ProjectOptions {
+    pub operation: ProjectOperation,
+    pub refresh_cache: bool,
 }
 
 // From impls - private clap structs to public domain structs
@@ -281,11 +295,13 @@ impl From<BrowseCommand> for BrowseOptions {
 impl From<PipelineCommand> for PipelineOptions {
     fn from(options: PipelineCommand) -> Self {
         match options.subcommand {
-            Some(PipelineSubcommand::List) => PipelineOptions::List {
+            Some(PipelineSubcommand::List) => PipelineOptions {
+                operation: PipelineOperation::List,
                 refresh_cache: options.refresh,
             },
             // defaults to list all pipelines
-            None => PipelineOptions::List {
+            None => PipelineOptions {
+                operation: PipelineOperation::List,
                 refresh_cache: options.refresh,
             },
         }
@@ -295,7 +311,12 @@ impl From<PipelineCommand> for PipelineOptions {
 impl From<ProjectCommand> for ProjectOptions {
     fn from(options: ProjectCommand) -> Self {
         match options.subcommand {
-            ProjectSubcommand::Info(options) => ProjectOptions::Info { id: options.id },
+            ProjectSubcommand::Info(options_info) => ProjectOptions {
+                operation: ProjectOperation::Info {
+                    id: options_info.id,
+                },
+                refresh_cache: options.refresh,
+            },
         }
     }
 }
