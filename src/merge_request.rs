@@ -110,8 +110,8 @@ fn user_prompt_confirmation(
     };
 
     Ok(MergeRequestArgsBuilder::default()
-        .title(mr_body.repo.title().to_string())
-        .description(description)
+        .title(user_input.title)
+        .description(user_input.description)
         .source_branch(mr_body.repo.current_branch().to_string())
         .target_branch(target_branch.to_string())
         .assignee_id(user_input.user_id.to_string())
