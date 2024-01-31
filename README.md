@@ -37,6 +37,12 @@ I've only tested on MacOS and Linux.
 
 ## Installation
 
+You can download the latest release from the releases page
+<https://github.com/jordilin/gitar/releases> and place the binary anywhere in
+your path.
+
+Or you can build from source.
+
 ```bash
 cargo build --release
 ./target/release/gr --help
@@ -53,6 +59,17 @@ merge request.
 
 Place your configuration information in a file called `$HOME/.config/gitar/api`.
 You'll need to gather a read/write API token from your Gitlab/Github account.
+
+You can generate a new configuration file with the following command:
+
+```bash
+gr init --domain <domain>
+```
+
+Where `<domain>` is the domain of the remote. For example, `gitlab.com` or
+`github.com`. This will create a new configuration file with some default
+values.
+Once created you can append new values for each domain you want.
 
 Configuration follows a properties file format.
 
