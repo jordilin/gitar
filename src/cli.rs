@@ -239,7 +239,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
             title: options.title,
             description: options.description,
             target_branch: options.target_branch,
-            noprompt: options.auto,
+            auto: options.auto,
             refresh_cache: options.refresh,
             open_browser: options.open,
         }
@@ -348,7 +348,7 @@ pub enum MergeRequestOptions {
         title: Option<String>,
         description: Option<String>,
         target_branch: Option<String>,
-        noprompt: bool,
+        auto: bool,
         refresh_cache: bool,
         open_browser: bool,
     },

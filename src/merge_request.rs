@@ -36,7 +36,7 @@ pub fn execute(
             title,
             description,
             target_branch,
-            noprompt,
+            auto,
             refresh_cache,
             open_browser,
         } => {
@@ -49,7 +49,7 @@ pub fn execute(
                 config,
                 mr_body,
                 target_branch,
-                noprompt,
+                auto,
                 open_browser,
             )
         }
@@ -80,9 +80,9 @@ fn user_prompt_confirmation(
     config: Arc<impl ConfigProperties>,
     description: String,
     target_branch: &String,
-    noprompt: bool,
+    auto: bool,
 ) -> Result<MergeRequestArgs> {
-    let user_input = if noprompt {
+    let user_input = if auto {
         let preferred_assignee_members = mr_body
             .members
             .iter()
@@ -127,7 +127,7 @@ fn open(
     config: Arc<impl ConfigProperties>,
     mr_body: MergeRequestBody,
     target_branch: Option<String>,
-    noprompt: bool,
+    auto: bool,
     open_browser: bool,
 ) -> Result<()> {
     let source_branch = &mr_body.repo.current_branch();
@@ -142,7 +142,7 @@ fn open(
     in_feature_branch(source_branch, target_branch)?;
 
     // confirm title, description and assignee
-    let args = user_prompt_confirmation(&mr_body, config, description, target_branch, noprompt)?;
+    let args = user_prompt_confirmation(&mr_body, config, description, target_branch, auto)?;
 
     git::rebase(&Shell, "origin", target_branch)?;
 
