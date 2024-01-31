@@ -147,10 +147,7 @@ fn confirm(prompt: &str, default_answer: bool) -> bool {
 pub fn show_summary_merge_request(
     commit_str: &str,
     args: &MergeRequestArgs,
-    // target_branch: &str,
-    // title: &str,
-    // description: &str,
-    // assignee_username: &str,
+    accept: bool,
 ) -> Result<()> {
     show_input(
         "\nSummary of outgoing changes:",
@@ -167,7 +164,7 @@ pub fn show_summary_merge_request(
         show_input("Description", "None", false, Style::Bold);
     }
     println!();
-    if confirm("Confirm summary", true) {
+    if accept || confirm("Confirm summary", true) {
         Ok(())
     } else {
         Err(error::gen("User cancelled"))

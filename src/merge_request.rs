@@ -25,6 +25,17 @@ use crate::remote;
 use crate::Cmd;
 use crate::Result;
 
+#[derive(Builder)]
+pub struct MergeRequestCliArgs {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub target_branch: Option<String>,
+    pub auto: bool,
+    pub refresh_cache: bool,
+    pub open_browser: bool,
+    pub accept_summary: bool,
+}
+
 pub fn execute(
     options: MergeRequestOptions,
     config: Arc<Config>,
@@ -32,25 +43,25 @@ pub fn execute(
     path: String,
 ) -> Result<()> {
     match options {
-        MergeRequestOptions::Create {
-            title,
-            description,
-            target_branch,
-            noprompt,
-            refresh_cache,
-            open_browser,
-        } => {
-            let mr_remote =
-                remote::get_mr(domain.clone(), path.clone(), config.clone(), refresh_cache)?;
-            let project_remote = remote::get_project(domain, path, config.clone(), refresh_cache)?;
-            let mr_body = get_repo_project_info(cmds(project_remote, title, description))?;
+        MergeRequestOptions::Create(args) => {
+            let mr_remote = remote::get_mr(
+                domain.clone(),
+                path.clone(),
+                config.clone(),
+                args.refresh_cache,
+            )?;
+            let project_remote =
+                remote::get_project(domain, path, config.clone(), args.refresh_cache)?;
+            let mr_body =
+                get_repo_project_info(cmds(project_remote, args.title, args.description))?;
             open(
                 mr_remote,
                 config,
                 mr_body,
-                target_branch,
-                noprompt,
-                open_browser,
+                args.target_branch,
+                args.auto,
+                args.open_browser,
+                args.accept_summary,
             )
         }
         MergeRequestOptions::List {
@@ -80,9 +91,9 @@ fn user_prompt_confirmation(
     config: Arc<impl ConfigProperties>,
     description: String,
     target_branch: &String,
-    noprompt: bool,
+    auto: bool,
 ) -> Result<MergeRequestArgs> {
-    let user_input = if noprompt {
+    let user_input = if auto {
         let preferred_assignee_members = mr_body
             .members
             .iter()
@@ -127,8 +138,9 @@ fn open(
     config: Arc<impl ConfigProperties>,
     mr_body: MergeRequestBody,
     target_branch: Option<String>,
-    noprompt: bool,
+    auto: bool,
     open_browser: bool,
+    accept_summary: bool,
 ) -> Result<()> {
     let source_branch = &mr_body.repo.current_branch();
     let target_branch = &target_branch.unwrap_or(mr_body.project.default_branch().to_string());
@@ -142,7 +154,7 @@ fn open(
     in_feature_branch(source_branch, target_branch)?;
 
     // confirm title, description and assignee
-    let args = user_prompt_confirmation(&mr_body, config, description, target_branch, noprompt)?;
+    let args = user_prompt_confirmation(&mr_body, config, description, target_branch, auto)?;
 
     git::rebase(&Shell, "origin", target_branch)?;
 
@@ -156,7 +168,7 @@ fn open(
     }
 
     // show summary of merge request and confirm
-    if let Ok(()) = dialog::show_summary_merge_request(&outgoing_commits, &args) {
+    if let Ok(()) = dialog::show_summary_merge_request(&outgoing_commits, &args, accept_summary) {
         println!("\nTaking off... 🚀\n");
         git::push(&Shell, "origin", &mr_body.repo)?;
         let merge_request_response = remote.open(args)?;

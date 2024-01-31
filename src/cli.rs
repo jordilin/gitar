@@ -1,4 +1,7 @@
-use crate::remote::MergeRequestState;
+use crate::{
+    merge_request::{MergeRequestCliArgs, MergeRequestCliArgsBuilder},
+    remote::MergeRequestState,
+};
 use clap::{Parser, ValueEnum};
 
 #[derive(Parser)]
@@ -78,7 +81,7 @@ struct CreateMergeRequest {
     /// Description of the merge request
     #[clap(long)]
     pub description: Option<String>,
-    /// Do not prompt for confirmation
+    /// Accept the default title, description, and target branch
     #[clap(long)]
     pub auto: bool,
     /// Target branch of the merge request instead of default project's upstream branch
@@ -90,6 +93,9 @@ struct CreateMergeRequest {
     /// Automatically open the browser after creating the merge request
     #[clap(long)]
     pub open: bool,
+    /// Open the merge request automatically without prompting for confirmation
+    #[clap(long, short)]
+    pub yes: bool,
 }
 
 #[derive(ValueEnum, Clone)]
@@ -235,14 +241,18 @@ pub struct ProjectOptions {
 
 impl From<CreateMergeRequest> for MergeRequestOptions {
     fn from(options: CreateMergeRequest) -> Self {
-        MergeRequestOptions::Create {
-            title: options.title,
-            description: options.description,
-            target_branch: options.target_branch,
-            noprompt: options.auto,
-            refresh_cache: options.refresh,
-            open_browser: options.open,
-        }
+        MergeRequestOptions::Create(
+            MergeRequestCliArgsBuilder::default()
+                .title(options.title)
+                .description(options.description)
+                .target_branch(options.target_branch)
+                .auto(options.auto)
+                .refresh_cache(options.refresh)
+                .open_browser(options.open)
+                .accept_summary(options.yes)
+                .build()
+                .unwrap(),
+        )
     }
 }
 
@@ -344,14 +354,7 @@ impl From<InitCommand> for InitCommandOptions {
 }
 
 pub enum MergeRequestOptions {
-    Create {
-        title: Option<String>,
-        description: Option<String>,
-        target_branch: Option<String>,
-        noprompt: bool,
-        refresh_cache: bool,
-        open_browser: bool,
-    },
+    Create(MergeRequestCliArgs),
     List {
         state: MergeRequestState,
         refresh_cache: bool,
