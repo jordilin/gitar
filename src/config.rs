@@ -193,7 +193,7 @@ impl ConfigProperties for Config {
     }
 
     fn get_cache_expiration(&self, api_operation: &ApiOperation) -> &str {
-        let expiration = self.cache_expirations.get(&api_operation);
+        let expiration = self.cache_expirations.get(api_operation);
         match expiration {
             Some(expiration) => expiration,
             None => "",
@@ -201,7 +201,7 @@ impl ConfigProperties for Config {
     }
 
     fn get_max_pages(&self, api_operation: &ApiOperation) -> u32 {
-        let max_pages = self.max_pages.get(&api_operation);
+        let max_pages = self.max_pages.get(api_operation);
         match max_pages {
             Some(max_pages) => *max_pages,
             None => REST_API_MAX_PAGES,

@@ -20,7 +20,7 @@ fn main() -> Result<()> {
         std::process::exit(1);
     });
     if let CliOptions::Init(options) = cli_options {
-        return init::execute(options, config_file);
+        init::execute(options, config_file)
     } else {
         let f = File::open(config_file).expect("Unable to open file");
         let CmdInfo::RemoteUrl { domain, path } = git::remote_url(&Shell)? else {

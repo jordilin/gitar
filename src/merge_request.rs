@@ -55,7 +55,7 @@ pub fn execute(
                 remote::get_project(domain, path, config.clone(), args.refresh_cache)?;
             if let Some(commit_message) = &args.commit {
                 git::add(&Shell)?;
-                git::commit(&Shell, &commit_message)?;
+                git::commit(&Shell, commit_message)?;
             }
             let mr_body = get_repo_project_info(cmds(project_remote, &args))?;
             open(mr_remote, config, mr_body, args)
@@ -93,7 +93,7 @@ fn user_prompt_confirmation(
         let preferred_assignee_members = mr_body
             .members
             .iter()
-            .filter(|member| member.username == config.preferred_assignee_username().to_string())
+            .filter(|member| member.username == config.preferred_assignee_username())
             .collect::<Vec<&Member>>();
         if preferred_assignee_members.len() != 1 {
             return Err(GRError::PreconditionNotMet(
@@ -102,14 +102,14 @@ fn user_prompt_confirmation(
             .into());
         }
         dialog::MergeRequestUserInput::new(
-            &mr_body.repo.title(),
+            mr_body.repo.title(),
             &description,
             preferred_assignee_members[0].id,
             &preferred_assignee_members[0].username,
         )
     } else {
         dialog::prompt_user_merge_request_info(
-            &mr_body.repo.title(),
+            mr_body.repo.title(),
             &description,
             &mr_body.members,
             config,
@@ -141,7 +141,7 @@ fn open(
         .unwrap_or(mr_body.project.default_branch().to_string());
 
     let description = build_description(
-        &mr_body.repo.last_commit_message(),
+        mr_body.repo.last_commit_message(),
         config.merge_request_description_signature(),
     );
 

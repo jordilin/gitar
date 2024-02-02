@@ -98,13 +98,13 @@ impl Display for Seconds {
 fn string_to_seconds(str_fmt: &str) -> Result<Seconds> {
     let mut seconds: u64 = 0;
     for c in str_fmt.chars() {
-        if c.is_digit(10) {
+        if c.is_ascii_digit() {
             seconds = seconds * 10 + c.to_digit(10).unwrap() as u64;
         } else {
             if c.is_whitespace() {
                 continue;
             }
-            seconds = seconds * Time::try_from(c)?.to_seconds();
+            seconds *= Time::try_from(c)?.to_seconds();
             break;
         }
     }
