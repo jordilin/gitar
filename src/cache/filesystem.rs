@@ -84,7 +84,7 @@ impl<C: ConfigProperties> FileCache<C> {
     fn expired(&self, key: &Resource, path: String) -> Result<bool> {
         let cache_expiration = self
             .config
-            .get_cache_expiration(&key.api_operation.as_ref().unwrap())
+            .get_cache_expiration(key.api_operation.as_ref().unwrap())
             .try_into()
             .err_context(GRError::ConfigurationError(format!(
                 "Cannot retrieve cache expiration time. \
@@ -121,7 +121,7 @@ impl<C: ConfigProperties> Cache<Resource> for FileCache<C> {
 
     fn update(&self, key: &Resource, value: &Response, field: &io::ResponseField) -> Result<()> {
         let path = self.get_cache_file(&key.url);
-        if let Ok(f) = File::open(&path) {
+        if let Ok(f) = File::open(path) {
             let mut f = BufReader::new(f);
             let mut response = self.get_cache_data(&mut f)?;
             match field {

@@ -324,7 +324,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
     fn api_max_pages<T: Serialize>(&self, cmd: &Request<T>) -> u32 {
         let max_pages = self
             .config
-            .get_max_pages(&cmd.resource.api_operation.as_ref().unwrap());
+            .get_max_pages(cmd.resource.api_operation.as_ref().unwrap());
         max_pages
     }
 }

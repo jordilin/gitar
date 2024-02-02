@@ -40,7 +40,7 @@ impl Project {
 
 impl Display for Project {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        println!("ID | Default Branch | URL");
+        writeln!(f, "ID | Default Branch | URL")?;
         write!(
             f,
             "{} | {} | {} ",

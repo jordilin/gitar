@@ -18,7 +18,7 @@ pub fn execute(
     match options.operation {
         ProjectOperation::Info { id } => {
             let remote = remote::get_project(domain, path, config, options.refresh_cache)?;
-            return project_info(remote, std::io::stdout(), id);
+            project_info(remote, std::io::stdout(), id)
         }
     }
 }
