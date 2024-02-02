@@ -96,6 +96,9 @@ struct CreateMergeRequest {
     /// Open the merge request automatically without prompting for confirmation
     #[clap(long, short)]
     pub yes: bool,
+    /// Adds and commits all changes before creating the merge request
+    #[clap(long)]
+    pub commit: Option<String>,
 }
 
 #[derive(ValueEnum, Clone)]
@@ -250,6 +253,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .refresh_cache(options.refresh)
                 .open_browser(options.open)
                 .accept_summary(options.yes)
+                .commit(options.commit)
                 .build()
                 .unwrap(),
         )

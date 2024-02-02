@@ -25,7 +25,7 @@ use crate::remote;
 use crate::Cmd;
 use crate::Result;
 
-#[derive(Builder)]
+#[derive(Builder, Clone)]
 pub struct MergeRequestCliArgs {
     pub title: Option<String>,
     pub description: Option<String>,
@@ -34,6 +34,7 @@ pub struct MergeRequestCliArgs {
     pub refresh_cache: bool,
     pub open_browser: bool,
     pub accept_summary: bool,
+    pub commit: Option<String>,
 }
 
 pub fn execute(
@@ -52,17 +53,12 @@ pub fn execute(
             )?;
             let project_remote =
                 remote::get_project(domain, path, config.clone(), args.refresh_cache)?;
-            let mr_body =
-                get_repo_project_info(cmds(project_remote, args.title, args.description))?;
-            open(
-                mr_remote,
-                config,
-                mr_body,
-                args.target_branch,
-                args.auto,
-                args.open_browser,
-                args.accept_summary,
-            )
+            if let Some(commit_message) = &args.commit {
+                git::add(&Shell)?;
+                git::commit(&Shell, &commit_message)?;
+            }
+            let mr_body = get_repo_project_info(cmds(project_remote, &args))?;
+            open(mr_remote, config, mr_body, args)
         }
         MergeRequestOptions::List {
             state,
@@ -137,13 +133,12 @@ fn open(
     remote: Arc<dyn MergeRequest>,
     config: Arc<impl ConfigProperties>,
     mr_body: MergeRequestBody,
-    target_branch: Option<String>,
-    auto: bool,
-    open_browser: bool,
-    accept_summary: bool,
+    cli_args: MergeRequestCliArgs,
 ) -> Result<()> {
     let source_branch = &mr_body.repo.current_branch();
-    let target_branch = &target_branch.unwrap_or(mr_body.project.default_branch().to_string());
+    let target_branch = &cli_args
+        .target_branch
+        .unwrap_or(mr_body.project.default_branch().to_string());
 
     let description = build_description(
         &mr_body.repo.last_commit_message(),
@@ -154,7 +149,8 @@ fn open(
     in_feature_branch(source_branch, target_branch)?;
 
     // confirm title, description and assignee
-    let args = user_prompt_confirmation(&mr_body, config, description, target_branch, auto)?;
+    let args =
+        user_prompt_confirmation(&mr_body, config, description, target_branch, cli_args.auto)?;
 
     git::rebase(&Shell, "origin", target_branch)?;
 
@@ -168,12 +164,14 @@ fn open(
     }
 
     // show summary of merge request and confirm
-    if let Ok(()) = dialog::show_summary_merge_request(&outgoing_commits, &args, accept_summary) {
+    if let Ok(()) =
+        dialog::show_summary_merge_request(&outgoing_commits, &args, cli_args.accept_summary)
+    {
         println!("\nTaking off... 🚀\n");
         git::push(&Shell, "origin", &mr_body.repo)?;
         let merge_request_response = remote.open(args)?;
         println!("Merge request opened: {}", merge_request_response.web_url);
-        if open_browser {
+        if cli_args.open_browser {
             open::that(merge_request_response.web_url)?;
         }
     }
@@ -186,15 +184,15 @@ fn open(
 /// executed in parallel.
 fn cmds(
     remote: Arc<dyn RemoteProject + Send + Sync + 'static>,
-    title: Option<String>,
-    description: Option<String>,
+    args: &MergeRequestCliArgs,
 ) -> Vec<Cmd<CmdInfo>> {
     let remote_cl = remote.clone();
     let remote_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data(None) };
     let remote_members_cmd = move || -> Result<CmdInfo> { remote.get_project_members() };
     let git_status_cmd = || -> Result<CmdInfo> { git::status(&Shell) };
     let git_fetch_cmd = || -> Result<CmdInfo> { git::fetch(&Shell) };
-    let title = title.unwrap_or("".to_string());
+    let args = args.clone();
+    let title = args.title.unwrap_or("".to_string());
     let git_title_cmd = move || -> Result<CmdInfo> {
         if title.is_empty() {
             git::last_commit(&Shell)
@@ -203,7 +201,7 @@ fn cmds(
         }
     };
     let git_current_branch = || -> Result<CmdInfo> { git::current_branch(&Shell) };
-    let description = description.unwrap_or("".to_string());
+    let description = args.description.unwrap_or("".to_string());
     let git_last_commit_message = move || -> Result<CmdInfo> {
         if description.is_empty() {
             git::last_commit_message(&Shell)

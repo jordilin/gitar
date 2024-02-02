@@ -72,6 +72,24 @@ pub fn fetch(exec: &impl Runner) -> Result<CmdInfo> {
     Ok(CmdInfo::Ignore)
 }
 
+pub fn add(exec: &impl Runner) -> Result<CmdInfo> {
+    let cmd_params = ["git", "add", "-u"];
+    exec.run(cmd_params).err_context(format!(
+        "Failed to git add changes. Command: {}",
+        cmd_params.join(" ")
+    ))?;
+    Ok(CmdInfo::Ignore)
+}
+
+pub fn commit(exec: &impl Runner, message: &str) -> Result<CmdInfo> {
+    let cmd_params = ["git", "commit", "-m", message];
+    exec.run(cmd_params).err_context(format!(
+        "Failed to git commit changes. Command: {}",
+        cmd_params.join(" ")
+    ))?;
+    Ok(CmdInfo::Ignore)
+}
+
 /// Get the origin remote url from the local git repository.
 pub fn remote_url(exec: &impl Runner<Response = Response>) -> Result<CmdInfo> {
     let cmd_params = ["git", "remote", "get-url", "--all", "origin"];
@@ -548,5 +566,48 @@ mod tests {
         last_commit_message(&runner).unwrap();
         let expected_cmd = "git log --pretty=format:%b -n1".to_string();
         assert_eq!(expected_cmd, *runner.cmd());
+    }
+
+    #[test]
+    fn test_git_add_changes_cmd_is_ok() {
+        let response = ResponseBuilder::default().build().unwrap();
+        let runner = MockRunner::new(vec![response]);
+        add(&runner).unwrap();
+        let expected_cmd = "git add -u".to_string();
+        assert_eq!(expected_cmd, *runner.cmd());
+    }
+
+    #[test]
+    fn test_git_add_changes_cmd_is_err() {
+        let response = ResponseBuilder::default()
+            .status(1)
+            .body("error: could not add changes".to_string())
+            .build()
+            .unwrap();
+        let runner = MockRunner::new(vec![response]);
+        assert!(add(&runner).is_err());
+    }
+
+    #[test]
+    fn test_git_commit_message_is_ok() {
+        let response = ResponseBuilder::default()
+            .body("Add README".to_string())
+            .build()
+            .unwrap();
+        let runner = MockRunner::new(vec![response]);
+        commit(&runner, "Add README").unwrap();
+        let expected_cmd = "git commit -m Add README".to_string();
+        assert_eq!(expected_cmd, *runner.cmd());
+    }
+
+    #[test]
+    fn test_git_commit_message_is_err() {
+        let response = ResponseBuilder::default()
+            .status(1)
+            .body("error: could not commit changes".to_string())
+            .build()
+            .unwrap();
+        let runner = MockRunner::new(vec![response]);
+        assert!(commit(&runner, "Add README").is_err());
     }
 }
