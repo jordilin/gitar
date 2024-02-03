@@ -138,6 +138,8 @@ pub struct MergeRequestBodyArgs {
     pub username: String,
     #[builder(default = "String::from(\"true\")")]
     pub remove_source_branch: String,
+    #[builder(default)]
+    pub draft: bool,
 }
 
 impl MergeRequestBodyArgs {

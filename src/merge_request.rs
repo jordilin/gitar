@@ -124,6 +124,7 @@ fn user_prompt_confirmation(
         .username(user_input.username)
         // TODO make this configurable
         .remove_source_branch("true".to_string())
+        .draft(cli_args.draft)
         .build()?)
 }
 
