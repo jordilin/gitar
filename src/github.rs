@@ -15,6 +15,7 @@ use crate::io::CmdInfo;
 use crate::io::HttpRunner;
 use crate::io::Response;
 use crate::json_load_page;
+use crate::json_loads;
 use crate::remote::Member;
 use crate::remote::MergeRequestBodyArgs;
 use crate::remote::MergeRequestResponse;
@@ -130,7 +131,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
                 response.body
             )));
         }
-        let project_data: serde_json::Value = serde_json::from_str(&response.body)?;
+        let project_data = json_loads(&response.body)?;
         let project_id = project_data["id"].as_i64().unwrap();
         let default_branch = project_data["default_branch"]
             .to_string()
@@ -243,7 +244,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                     // Note: Github's REST API v3 considers every pull request
                     // an issue, but not every issue is a pull request.
                     // https://docs.github.com/en/rest/issues/issues#update-an-issue
-                    let merge_request_json: serde_json::Value = serde_json::from_str(&body)?;
+                    let merge_request_json = json_loads(&body)?;
                     let id = merge_request_json["number"].to_string();
                     let issues_url = format!(
                         "{}/repos/{}/issues/{}",
@@ -363,7 +364,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                 response.body
             )));
         }
-        serde_json::from_str::<serde_json::Value>(&response.body)?;
+        json_loads(&response.body)?;
         // Response:
         // {
         //     "sha": "6dcb09b5b57875f334f61aebed695e2e4193db5e",
@@ -391,7 +392,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         let mut request: http::Request<()> =
             self.http_request(&url, None, GET, ApiOperation::MergeRequest);
         let response = self.runner.run(&mut request)?;
-        let merge_request_json: serde_json::Value = serde_json::from_str(&response.body)?;
+        let merge_request_json = json_loads(&response.body)?;
         Ok(MergeRequestResponse::new(
             merge_request_json["id"].as_i64().unwrap(),
             merge_request_json["html_url"].to_string().trim_matches('"'),
