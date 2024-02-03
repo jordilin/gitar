@@ -15,7 +15,7 @@ use crate::io::CmdInfo;
 use crate::io::HttpRunner;
 use crate::io::Response;
 use crate::remote::Member;
-use crate::remote::MergeRequestArgs;
+use crate::remote::MergeRequestBodyArgs;
 use crate::remote::MergeRequestResponse;
 use crate::remote::MergeRequestState;
 use crate::remote::Pipeline;
@@ -190,7 +190,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
 }
 
 impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
-    fn open(&self, args: MergeRequestArgs) -> Result<MergeRequestResponse> {
+    fn open(&self, args: MergeRequestBodyArgs) -> Result<MergeRequestResponse> {
         let mut body: HashMap<&str, String> = HashMap::new();
         body.insert("head", args.source_branch.clone());
         body.insert("base", args.target_branch);
@@ -415,7 +415,6 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
 mod test {
     use crate::{
         io::ResponseBuilder,
-        remote::MergeRequestArgsBuilder,
         test::utils::{config, get_contract, ContractType, MockRunner},
     };
 
@@ -454,7 +453,7 @@ mod test {
     #[test]
     fn test_open_merge_request() {
         let config = config();
-        let mr_args = MergeRequestArgsBuilder::default().build().unwrap();
+        let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
 
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";
@@ -485,7 +484,7 @@ mod test {
     #[test]
     fn test_open_merge_request_error_status_code() {
         let config = config();
-        let mr_args = MergeRequestArgsBuilder::default().build().unwrap();
+        let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
 
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";

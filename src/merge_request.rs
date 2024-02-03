@@ -8,8 +8,7 @@ use crate::error::GRError;
 use crate::exec;
 use crate::git::Repo;
 use crate::remote::Member;
-use crate::remote::MergeRequestArgs;
-use crate::remote::MergeRequestArgsBuilder;
+use crate::remote::MergeRequestBodyArgs;
 use crate::remote::MergeRequestState;
 use crate::remote::Project;
 use crate::shell::Shell;
@@ -89,7 +88,7 @@ fn user_prompt_confirmation(
     description: String,
     target_branch: &String,
     cli_args: &MergeRequestCliArgs,
-) -> Result<MergeRequestArgs> {
+) -> Result<MergeRequestBodyArgs> {
     let mut title = mr_body.repo.title().to_string();
     if cli_args.draft {
         title = format!("DRAFT: {}", title);
@@ -116,7 +115,7 @@ fn user_prompt_confirmation(
         dialog::prompt_user_merge_request_info(&title, &description, &mr_body.members, config)?
     };
 
-    Ok(MergeRequestArgsBuilder::default()
+    Ok(MergeRequestBodyArgs::builder()
         .title(user_input.title)
         .description(user_input.description)
         .source_branch(mr_body.repo.current_branch().to_string())

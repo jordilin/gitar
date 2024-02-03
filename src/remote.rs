@@ -123,7 +123,7 @@ impl Display for MergeRequestState {
 }
 
 #[derive(Builder)]
-pub struct MergeRequestArgs {
+pub struct MergeRequestBodyArgs {
     #[builder(default)]
     pub title: String,
     #[builder(default)]
@@ -138,6 +138,12 @@ pub struct MergeRequestArgs {
     pub username: String,
     #[builder(default = "String::from(\"true\")")]
     pub remove_source_branch: String,
+}
+
+impl MergeRequestBodyArgs {
+    pub fn builder() -> MergeRequestBodyArgsBuilder {
+        MergeRequestBodyArgsBuilder::default()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -210,7 +216,7 @@ mod test {
 
     #[test]
     fn test_merge_request_args_with_custom_title() {
-        let args = MergeRequestArgsBuilder::default()
+        let args = MergeRequestBodyArgs::builder()
             .source_branch("source".to_string())
             .target_branch("target".to_string())
             .title("title".to_string())
@@ -226,7 +232,7 @@ mod test {
 
     #[test]
     fn test_merge_request_get_all_fields() {
-        let args = MergeRequestArgsBuilder::default()
+        let args = MergeRequestBodyArgs::builder()
             .source_branch("source".to_string())
             .target_branch("target".to_string())
             .title("title".to_string())
