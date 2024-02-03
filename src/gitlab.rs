@@ -317,17 +317,24 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
                         response.body
                     )));
                 }
-                let mut pipelines = Vec::new();
-                let pipelines_data: Vec<serde_json::Value> = serde_json::from_str(&response.body)?;
-                for pipeline_data in pipelines_data {
-                    let status = pipeline_data["status"].as_str().unwrap();
-                    let branch = pipeline_data["ref"].as_str().unwrap();
-                    let sha = pipeline_data["sha"].as_str().unwrap();
-                    let web_url = pipeline_data["web_url"].as_str().unwrap();
-                    let created_at = pipeline_data["created_at"].as_str().unwrap();
-                    let pipeline = Pipeline::new(status, web_url, branch, sha, created_at);
-                    pipelines.push(pipeline);
-                }
+                let pipelines = json_load_page(&response.body)?.iter().fold(
+                    Vec::new(),
+                    |mut pipelines, pipeline_data| {
+                        pipelines.push(
+                            Pipeline::builder()
+                                .status(pipeline_data["status"].as_str().unwrap().to_string())
+                                .web_url(pipeline_data["web_url"].as_str().unwrap().to_string())
+                                .branch(pipeline_data["ref"].as_str().unwrap().to_string())
+                                .sha(pipeline_data["sha"].as_str().unwrap().to_string())
+                                .created_at(
+                                    pipeline_data["created_at"].as_str().unwrap().to_string(),
+                                )
+                                .build()
+                                .unwrap(),
+                        );
+                        pipelines
+                    },
+                );
                 Ok(pipelines)
             })
             .collect::<Result<Vec<Vec<Pipeline>>>>()

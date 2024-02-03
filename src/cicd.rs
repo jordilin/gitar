@@ -48,6 +48,12 @@ mod test {
         error: bool,
     }
 
+    impl PipelineList {
+        pub fn builder() -> PipelineListBuilder {
+            PipelineListBuilder::default()
+        }
+    }
+
     impl Cicd for PipelineList {
         fn list_pipelines(&self) -> Result<Vec<Pipeline>> {
             if self.error {
@@ -65,22 +71,24 @@ mod test {
 
     #[test]
     fn test_list_pipelines() {
-        let pp_remote = PipelineListBuilder::default()
+        let pp_remote = PipelineList::builder()
             .pipelines(vec![
-                Pipeline::new(
-                    "success",
-                    "https://gitlab.com/owner/repo/-/pipelines/123",
-                    "master",
-                    "1234567890abcdef",
-                    "2020-01-01T00:00:00Z",
-                ),
-                Pipeline::new(
-                    "failed",
-                    "https://gitlab.com/owner/repo/-/pipelines/456",
-                    "master",
-                    "1234567890abcdef",
-                    "2020-01-01T00:00:00Z",
-                ),
+                Pipeline::builder()
+                    .status("success".to_string())
+                    .web_url("https://gitlab.com/owner/repo/-/pipelines/123".to_string())
+                    .branch("master".to_string())
+                    .sha("1234567890abcdef".to_string())
+                    .created_at("2020-01-01T00:00:00Z".to_string())
+                    .build()
+                    .unwrap(),
+                Pipeline::builder()
+                    .status("failed".to_string())
+                    .web_url("https://gitlab.com/owner/repo/-/pipelines/456".to_string())
+                    .branch("master".to_string())
+                    .sha("1234567890abcdef".to_string())
+                    .created_at("2020-01-01T00:00:00Z".to_string())
+                    .build()
+                    .unwrap(),
             ])
             .build()
             .unwrap();

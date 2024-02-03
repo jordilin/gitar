@@ -144,7 +144,7 @@ impl MergeRequestBodyArgs {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Builder, Clone, Debug)]
 pub struct Pipeline {
     status: String,
     web_url: String,
@@ -154,14 +154,8 @@ pub struct Pipeline {
 }
 
 impl Pipeline {
-    pub fn new(status: &str, web_url: &str, branch: &str, sha: &str, created_at: &str) -> Self {
-        Pipeline {
-            status: status.to_string(),
-            web_url: web_url.to_string(),
-            branch: branch.to_string(),
-            sha: sha.to_string(),
-            created_at: created_at.to_string(),
-        }
+    pub fn builder() -> PipelineBuilder {
+        PipelineBuilder::default()
     }
 }
 
