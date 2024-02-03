@@ -11,7 +11,7 @@ use dialoguer::Input;
 use crate::config::ConfigProperties;
 use crate::error;
 use crate::remote::Member;
-use crate::remote::MergeRequestArgs;
+use crate::remote::MergeRequestBodyArgs;
 use crate::Result;
 
 pub struct MergeRequestUserInput {
@@ -146,7 +146,7 @@ fn confirm(prompt: &str, default_answer: bool) -> bool {
 
 pub fn show_summary_merge_request(
     commit_str: &str,
-    args: &MergeRequestArgs,
+    args: &MergeRequestBodyArgs,
     accept: bool,
 ) -> Result<()> {
     show_input(

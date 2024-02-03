@@ -3,12 +3,12 @@ use std::fmt::Display;
 use crate::{
     cli::BrowseOptions,
     io::CmdInfo,
-    remote::{MergeRequestArgs, MergeRequestResponse, MergeRequestState, Pipeline},
+    remote::{MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline},
     Result,
 };
 
 pub trait MergeRequest {
-    fn open(&self, args: MergeRequestArgs) -> Result<MergeRequestResponse>;
+    fn open(&self, args: MergeRequestBodyArgs) -> Result<MergeRequestResponse>;
     fn list(&self, state: MergeRequestState) -> Result<Vec<MergeRequestResponse>>;
     fn merge(&self, id: i64) -> Result<MergeRequestResponse>;
     fn get(&self, id: i64) -> Result<MergeRequestResponse>;

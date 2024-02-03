@@ -6,7 +6,7 @@ use crate::http::{self, Paginator, Request};
 use crate::io::Response;
 use crate::io::{CmdInfo, HttpRunner};
 use crate::remote::{
-    Member, MergeRequestArgs, MergeRequestResponse, MergeRequestState, Pipeline, Project,
+    Member, MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline, Project,
 };
 use crate::Result;
 use std::collections::HashMap;
@@ -52,7 +52,7 @@ impl<R> Gitlab<R> {
 }
 
 impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
-    fn open(&self, args: MergeRequestArgs) -> Result<MergeRequestResponse> {
+    fn open(&self, args: MergeRequestBodyArgs) -> Result<MergeRequestResponse> {
         let mut body = HashMap::new();
         body.insert("source_branch", args.source_branch);
         body.insert("target_branch", args.target_branch);
@@ -336,7 +336,6 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
 
 #[cfg(test)]
 mod test {
-    use crate::remote::MergeRequestArgsBuilder;
     use crate::test::utils::{config, get_contract, ContractType, MockRunner};
 
     use crate::io::{CmdInfo, ResponseBuilder};
@@ -416,7 +415,7 @@ mod test {
     fn test_open_merge_request() {
         let config = config();
 
-        let mr_args = MergeRequestArgsBuilder::default().build().unwrap();
+        let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi";
@@ -443,7 +442,7 @@ mod test {
     fn test_open_merge_request_error() {
         let config = config();
 
-        let mr_args = MergeRequestArgsBuilder::default().build().unwrap();
+        let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
         let response = ResponseBuilder::default().status(400).build().unwrap();
@@ -456,7 +455,7 @@ mod test {
     fn test_merge_request_already_exists_status_code_409_conflict() {
         let config = config();
 
-        let mr_args = MergeRequestArgsBuilder::default().build().unwrap();
+        let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();

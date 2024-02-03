@@ -8,8 +8,7 @@ use crate::error::GRError;
 use crate::exec;
 use crate::git::Repo;
 use crate::remote::Member;
-use crate::remote::MergeRequestArgs;
-use crate::remote::MergeRequestArgsBuilder;
+use crate::remote::MergeRequestBodyArgs;
 use crate::remote::MergeRequestState;
 use crate::remote::Project;
 use crate::shell::Shell;
@@ -35,6 +34,7 @@ pub struct MergeRequestCliArgs {
     pub open_browser: bool,
     pub accept_summary: bool,
     pub commit: Option<String>,
+    pub draft: bool,
 }
 
 pub fn execute(
@@ -44,21 +44,21 @@ pub fn execute(
     path: String,
 ) -> Result<()> {
     match options {
-        MergeRequestOptions::Create(args) => {
+        MergeRequestOptions::Create(cli_args) => {
             let mr_remote = remote::get_mr(
                 domain.clone(),
                 path.clone(),
                 config.clone(),
-                args.refresh_cache,
+                cli_args.refresh_cache,
             )?;
             let project_remote =
-                remote::get_project(domain, path, config.clone(), args.refresh_cache)?;
-            if let Some(commit_message) = &args.commit {
+                remote::get_project(domain, path, config.clone(), cli_args.refresh_cache)?;
+            if let Some(commit_message) = &cli_args.commit {
                 git::add(&Shell)?;
                 git::commit(&Shell, commit_message)?;
             }
-            let mr_body = get_repo_project_info(cmds(project_remote, &args))?;
-            open(mr_remote, config, mr_body, args)
+            let mr_body = get_repo_project_info(cmds(project_remote, &cli_args))?;
+            open(mr_remote, config, mr_body, &cli_args)
         }
         MergeRequestOptions::List {
             state,
@@ -87,9 +87,13 @@ fn user_prompt_confirmation(
     config: Arc<impl ConfigProperties>,
     description: String,
     target_branch: &String,
-    auto: bool,
-) -> Result<MergeRequestArgs> {
-    let user_input = if auto {
+    cli_args: &MergeRequestCliArgs,
+) -> Result<MergeRequestBodyArgs> {
+    let mut title = mr_body.repo.title().to_string();
+    if cli_args.draft {
+        title = format!("DRAFT: {}", title);
+    }
+    let user_input = if cli_args.auto {
         let preferred_assignee_members = mr_body
             .members
             .iter()
@@ -102,21 +106,16 @@ fn user_prompt_confirmation(
             .into());
         }
         dialog::MergeRequestUserInput::new(
-            mr_body.repo.title(),
+            &title,
             &description,
             preferred_assignee_members[0].id,
             &preferred_assignee_members[0].username,
         )
     } else {
-        dialog::prompt_user_merge_request_info(
-            mr_body.repo.title(),
-            &description,
-            &mr_body.members,
-            config,
-        )?
+        dialog::prompt_user_merge_request_info(&title, &description, &mr_body.members, config)?
     };
 
-    Ok(MergeRequestArgsBuilder::default()
+    Ok(MergeRequestBodyArgs::builder()
         .title(user_input.title)
         .description(user_input.description)
         .source_branch(mr_body.repo.current_branch().to_string())
@@ -125,6 +124,7 @@ fn user_prompt_confirmation(
         .username(user_input.username)
         // TODO make this configurable
         .remove_source_branch("true".to_string())
+        .draft(cli_args.draft)
         .build()?)
 }
 
@@ -133,12 +133,11 @@ fn open(
     remote: Arc<dyn MergeRequest>,
     config: Arc<impl ConfigProperties>,
     mr_body: MergeRequestBody,
-    cli_args: MergeRequestCliArgs,
+    cli_args: &MergeRequestCliArgs,
 ) -> Result<()> {
     let source_branch = &mr_body.repo.current_branch();
-    let target_branch = &cli_args
-        .target_branch
-        .unwrap_or(mr_body.project.default_branch().to_string());
+    let target_branch = cli_args.target_branch.clone();
+    let target_branch = target_branch.unwrap_or(mr_body.project.default_branch().to_string());
 
     let description = build_description(
         mr_body.repo.last_commit_message(),
@@ -146,15 +145,14 @@ fn open(
     );
 
     // make sure we are in a feature branch or bail
-    in_feature_branch(source_branch, target_branch)?;
+    in_feature_branch(source_branch, &target_branch)?;
 
     // confirm title, description and assignee
-    let args =
-        user_prompt_confirmation(&mr_body, config, description, target_branch, cli_args.auto)?;
+    let args = user_prompt_confirmation(&mr_body, config, description, &target_branch, cli_args)?;
 
-    git::rebase(&Shell, "origin", target_branch)?;
+    git::rebase(&Shell, "origin", &target_branch)?;
 
-    let outgoing_commits = git::outgoing_commits(&Shell, "origin", target_branch)?;
+    let outgoing_commits = git::outgoing_commits(&Shell, "origin", &target_branch)?;
 
     if outgoing_commits.is_empty() {
         return Err(GRError::PreconditionNotMet(
@@ -184,15 +182,15 @@ fn open(
 /// executed in parallel.
 fn cmds(
     remote: Arc<dyn RemoteProject + Send + Sync + 'static>,
-    args: &MergeRequestCliArgs,
+    cli_args: &MergeRequestCliArgs,
 ) -> Vec<Cmd<CmdInfo>> {
     let remote_cl = remote.clone();
     let remote_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data(None) };
     let remote_members_cmd = move || -> Result<CmdInfo> { remote.get_project_members() };
     let git_status_cmd = || -> Result<CmdInfo> { git::status(&Shell) };
     let git_fetch_cmd = || -> Result<CmdInfo> { git::fetch(&Shell) };
-    let args = args.clone();
-    let title = args.title.unwrap_or("".to_string());
+    let title = cli_args.title.clone();
+    let title = title.unwrap_or("".to_string());
     let git_title_cmd = move || -> Result<CmdInfo> {
         if title.is_empty() {
             git::last_commit(&Shell)
@@ -201,7 +199,8 @@ fn cmds(
         }
     };
     let git_current_branch = || -> Result<CmdInfo> { git::current_branch(&Shell) };
-    let description = args.description.unwrap_or("".to_string());
+    let description = cli_args.description.clone();
+    let description = description.unwrap_or("".to_string());
     let git_last_commit_message = move || -> Result<CmdInfo> {
         if description.is_empty() {
             git::last_commit_message(&Shell)
