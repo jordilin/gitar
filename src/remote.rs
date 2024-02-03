@@ -62,30 +62,23 @@ impl Member {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Builder, Clone, Debug)]
 pub struct MergeRequestResponse {
+    #[builder(default)]
     pub id: i64,
+    #[builder(default)]
     pub web_url: String,
+    #[builder(default)]
     pub author: String,
+    #[builder(default)]
     pub updated_at: String,
+    #[builder(default)]
     pub source_branch: String,
 }
 
 impl MergeRequestResponse {
-    pub fn new(
-        id: i64,
-        web_url: &str,
-        author: &str,
-        updated_at: &str,
-        source_branch: &str,
-    ) -> Self {
-        MergeRequestResponse {
-            id,
-            web_url: web_url.to_string(),
-            author: author.to_string(),
-            updated_at: updated_at.to_string(),
-            source_branch: source_branch.to_string(),
-        }
+    pub fn builder() -> MergeRequestResponseBuilder {
+        MergeRequestResponseBuilder::default()
     }
 }
 

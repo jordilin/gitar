@@ -84,13 +84,11 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                 "https://{}/{}/-/merge_requests/{}",
                 self.domain, self.path, merge_request_iid
             );
-            return Ok(MergeRequestResponse::new(
-                merge_request_iid.parse::<i64>().unwrap(),
-                &merge_request_url,
-                "",
-                "",
-                "",
-            ));
+            return Ok(MergeRequestResponse::builder()
+                .id(merge_request_iid.parse().unwrap())
+                .web_url(merge_request_url)
+                .build()
+                .unwrap());
         }
         if response.status != 201 {
             return Err(error::gen(format!(
@@ -100,13 +98,11 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         }
         let merge_request_json = json_loads(&response.body)?;
 
-        Ok(MergeRequestResponse::new(
-            merge_request_json["iid"].as_i64().unwrap(),
-            merge_request_json["web_url"].as_str().unwrap(),
-            "",
-            "",
-            "",
-        ))
+        Ok(MergeRequestResponse::builder()
+            .id(merge_request_json["iid"].as_i64().unwrap())
+            .web_url(merge_request_json["web_url"].as_str().unwrap().to_string())
+            .build()
+            .unwrap())
     }
 
     fn list(&self, state: MergeRequestState) -> Result<Vec<MergeRequestResponse>> {
@@ -128,23 +124,24 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                         response.body
                     )));
                 }
-                let mut mergerequests = Vec::new();
-                let mergerequests_data: Vec<serde_json::Value> =
-                    serde_json::from_str(&response.body)?;
-                for mr_data in mergerequests_data {
-                    let id = mr_data["iid"].as_i64().unwrap();
-                    let url = mr_data["web_url"].as_str().unwrap();
-                    let username = mr_data["author"]["username"].as_str().unwrap();
-                    let updated_at = mr_data["updated_at"].as_str().unwrap();
-                    let source_branch = mr_data["source_branch"].as_str().unwrap();
-                    mergerequests.push(MergeRequestResponse::new(
-                        id,
-                        url,
-                        username,
-                        updated_at,
-                        source_branch,
-                    ))
-                }
+                let mergerequests = json_load_page(&response.body)?.iter().fold(
+                    Vec::new(),
+                    |mut mergerequests, mr_data| {
+                        mergerequests.push(
+                            MergeRequestResponse::builder()
+                                .id(mr_data["iid"].as_i64().unwrap())
+                                .web_url(mr_data["web_url"].as_str().unwrap().to_string())
+                                .source_branch(
+                                    mr_data["source_branch"].as_str().unwrap().to_string(),
+                                )
+                                .author(mr_data["author"]["username"].as_str().unwrap().to_string())
+                                .updated_at(mr_data["updated_at"].as_str().unwrap().to_string())
+                                .build()
+                                .unwrap(),
+                        );
+                        mergerequests
+                    },
+                );
                 Ok(mergerequests)
             })
             .collect::<Result<Vec<Vec<MergeRequestResponse>>>>()
@@ -165,13 +162,11 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
             )));
         }
         let merge_request_json = json_loads(&response.body)?;
-        Ok(MergeRequestResponse::new(
-            merge_request_json["iid"].as_i64().unwrap(),
-            merge_request_json["web_url"].as_str().unwrap(),
-            "",
-            "",
-            "",
-        ))
+        Ok(MergeRequestResponse::builder()
+            .id(merge_request_json["iid"].as_i64().unwrap())
+            .web_url(merge_request_json["web_url"].as_str().unwrap().to_string())
+            .build()
+            .unwrap())
     }
 
     fn get(&self, id: i64) -> Result<MergeRequestResponse> {
@@ -188,13 +183,17 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
             )));
         }
         let merge_request_json = json_loads(&response.body)?;
-        Ok(MergeRequestResponse::new(
-            merge_request_json["iid"].as_i64().unwrap(),
-            merge_request_json["web_url"].as_str().unwrap(),
-            "",
-            "",
-            merge_request_json["source_branch"].as_str().unwrap(),
-        ))
+        Ok(MergeRequestResponse::builder()
+            .id(merge_request_json["iid"].as_i64().unwrap())
+            .web_url(merge_request_json["web_url"].as_str().unwrap().to_string())
+            .source_branch(
+                merge_request_json["source_branch"]
+                    .as_str()
+                    .unwrap()
+                    .to_string(),
+            )
+            .build()
+            .unwrap())
     }
 
     fn close(&self, id: i64) -> Result<MergeRequestResponse> {
@@ -214,13 +213,11 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
             )));
         }
         let merge_request_json = json_loads(&response.body)?;
-        Ok(MergeRequestResponse::new(
-            merge_request_json["iid"].as_i64().unwrap(),
-            merge_request_json["web_url"].as_str().unwrap(),
-            "",
-            "",
-            "",
-        ))
+        Ok(MergeRequestResponse::builder()
+            .id(merge_request_json["iid"].as_i64().unwrap())
+            .web_url(merge_request_json["web_url"].as_str().unwrap().to_string())
+            .build()
+            .unwrap())
     }
 }
 

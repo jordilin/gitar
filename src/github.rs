@@ -259,13 +259,16 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                         PATCH,
                         ApiOperation::MergeRequest,
                     ))?;
-                    return Ok(MergeRequestResponse::new(
-                        merge_request_json["id"].as_i64().unwrap(),
-                        merge_request_json["html_url"].to_string().trim_matches('"'),
-                        "",
-                        "",
-                        "",
-                    ));
+                    return Ok(MergeRequestResponse::builder()
+                        .id(merge_request_json["id"].as_i64().unwrap())
+                        .web_url(
+                            merge_request_json["html_url"]
+                                .to_string()
+                                .trim_matches('"')
+                                .to_string(),
+                        )
+                        .build()
+                        .unwrap());
                 }
                 // There is an existing pull request already.
                 // Gather its URL by querying Github pull requests filtering by
@@ -279,15 +282,16 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                 let merge_requests_json: Vec<serde_json::Value> =
                     serde_json::from_str(&response.body)?;
                 if merge_requests_json.len() == 1 {
-                    return Ok(MergeRequestResponse::new(
-                        merge_requests_json[0]["id"].as_i64().unwrap(),
-                        merge_requests_json[0]["html_url"]
-                            .to_string()
-                            .trim_matches('"'),
-                        "",
-                        "",
-                        "",
-                    ));
+                    return Ok(MergeRequestResponse::builder()
+                        .id(merge_requests_json[0]["id"].as_i64().unwrap())
+                        .web_url(
+                            merge_requests_json[0]["html_url"]
+                                .to_string()
+                                .trim_matches('"')
+                                .to_string(),
+                        )
+                        .build()
+                        .unwrap());
                 }
                 Err(error::gen("Could not retrieve current pull request url"))
             }
@@ -325,23 +329,22 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                         response.body
                     )));
                 }
-                let mut mergerequests = Vec::new();
-                let mergerequests_data: Vec<serde_json::Value> =
-                    serde_json::from_str(&response.body)?;
-                for mr_data in mergerequests_data {
-                    let id = mr_data["number"].as_i64().unwrap();
-                    let url = mr_data["html_url"].as_str().unwrap();
-                    let username = mr_data["user"]["login"].as_str().unwrap();
-                    let updated_at = mr_data["updated_at"].as_str().unwrap();
-                    let source_branch = mr_data["head"]["ref"].as_str().unwrap();
-                    mergerequests.push(MergeRequestResponse::new(
-                        id,
-                        url,
-                        username,
-                        updated_at,
-                        source_branch,
-                    ))
-                }
+                let mergerequests = json_load_page(&response.body)?.iter().fold(
+                    Vec::new(),
+                    |mut mergerequests, mr_data| {
+                        mergerequests.push(
+                            MergeRequestResponse::builder()
+                                .id(mr_data["number"].as_i64().unwrap())
+                                .web_url(mr_data["html_url"].as_str().unwrap().to_string())
+                                .author(mr_data["user"]["login"].as_str().unwrap().to_string())
+                                .updated_at(mr_data["updated_at"].as_str().unwrap().to_string())
+                                .source_branch(mr_data["head"]["ref"].as_str().unwrap().to_string())
+                                .build()
+                                .unwrap(),
+                        );
+                        mergerequests
+                    },
+                );
                 Ok(mergerequests)
             })
             .collect::<Result<Vec<Vec<MergeRequestResponse>>>>()
@@ -374,14 +377,11 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
 
         // We do not have the id nor the url available in the response. Compute
         // it and return it to the client so we can open the url if needed.
-
-        Ok(MergeRequestResponse::new(
-            id,
-            &self.get_url(BrowseOptions::MergeRequestId(id)),
-            "",
-            "",
-            "",
-        ))
+        Ok(MergeRequestResponse::builder()
+            .id(id)
+            .web_url(self.get_url(BrowseOptions::MergeRequestId(id)))
+            .build()
+            .unwrap())
     }
 
     fn get(&self, id: i64) -> Result<MergeRequestResponse> {
@@ -393,15 +393,22 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             self.http_request(&url, None, GET, ApiOperation::MergeRequest);
         let response = self.runner.run(&mut request)?;
         let merge_request_json = json_loads(&response.body)?;
-        Ok(MergeRequestResponse::new(
-            merge_request_json["id"].as_i64().unwrap(),
-            merge_request_json["html_url"].to_string().trim_matches('"'),
-            "",
-            "",
-            merge_request_json["head"]["ref"]
-                .to_string()
-                .trim_matches('"'),
-        ))
+        Ok(MergeRequestResponse::builder()
+            .id(merge_request_json["id"].as_i64().unwrap())
+            .web_url(
+                merge_request_json["html_url"]
+                    .to_string()
+                    .trim_matches('"')
+                    .to_string(),
+            )
+            .source_branch(
+                merge_request_json["head"]["ref"]
+                    .to_string()
+                    .trim_matches('"')
+                    .to_string(),
+            )
+            .build()
+            .unwrap())
     }
 
     fn close(&self, _id: i64) -> Result<MergeRequestResponse> {
