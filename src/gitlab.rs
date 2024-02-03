@@ -8,7 +8,7 @@ use crate::io::{CmdInfo, HttpRunner};
 use crate::remote::{
     Member, MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline, Project,
 };
-use crate::{json_load_page, Result};
+use crate::{json_load_page, json_loads, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -98,7 +98,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                 response.body
             )));
         }
-        let merge_request_json: serde_json::Value = serde_json::from_str(&response.body)?;
+        let merge_request_json = json_loads(&response.body)?;
 
         Ok(MergeRequestResponse::new(
             merge_request_json["iid"].as_i64().unwrap(),
@@ -164,7 +164,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                 response.body
             )));
         }
-        let merge_request_json: serde_json::Value = serde_json::from_str(&response.body)?;
+        let merge_request_json = json_loads(&response.body)?;
         Ok(MergeRequestResponse::new(
             merge_request_json["iid"].as_i64().unwrap(),
             merge_request_json["web_url"].as_str().unwrap(),
@@ -187,7 +187,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                 response.body
             )));
         }
-        let merge_request_json: serde_json::Value = serde_json::from_str(&response.body)?;
+        let merge_request_json = json_loads(&response.body)?;
         Ok(MergeRequestResponse::new(
             merge_request_json["iid"].as_i64().unwrap(),
             merge_request_json["web_url"].as_str().unwrap(),
@@ -213,7 +213,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                 url, response.body
             )));
         }
-        let merge_request_json: serde_json::Value = serde_json::from_str(&response.body)?;
+        let merge_request_json = json_loads(&response.body)?;
         Ok(MergeRequestResponse::new(
             merge_request_json["iid"].as_i64().unwrap(),
             merge_request_json["web_url"].as_str().unwrap(),
@@ -243,7 +243,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
                 response.body
             )));
         }
-        let project_data: serde_json::Value = serde_json::from_str(&response.body)?;
+        let project_data = json_loads(&response.body)?;
         let project_id = project_data["id"].as_i64().unwrap();
         let default_branch = project_data["default_branch"].as_str().unwrap();
         let html_url = project_data["web_url"].as_str().unwrap();
