@@ -194,6 +194,7 @@ fn default_rate_limit_handler(
     Ok(())
 }
 
+#[derive(Default)]
 pub struct Resource {
     pub url: String,
     pub api_operation: Option<ApiOperation>,
@@ -208,20 +209,50 @@ impl Resource {
     }
 }
 
+#[derive(Builder)]
+#[builder(pattern = "owned")]
 pub struct Request<T> {
+    #[builder(setter(into, strip_option), default)]
     body: Option<T>,
+    #[builder(default)]
     headers: HashMap<String, String>,
+    #[builder(default)]
     method: Method,
+    #[builder(default)]
     pub resource: Resource,
+    #[builder(setter(into, strip_option), default)]
+    from_page: Option<i64>,
+    #[builder(setter(into, strip_option), default)]
+    to_page: Option<i64>,
 }
 
 impl<T> Request<T> {
+    pub fn builder() -> RequestBuilder<T> {
+        RequestBuilder::default()
+    }
+
     pub fn new(url: &str, method: Method) -> Self {
         Request {
             body: None,
             headers: HashMap::new(),
             method,
             resource: Resource::new(url, None),
+            from_page: None,
+            to_page: None,
+        }
+    }
+
+    pub fn max_pages(&self) -> Option<i64> {
+        match (self.from_page, self.to_page) {
+            (Some(from), Some(to)) => {
+                if from > to {
+                    // return 1 page only
+                    Some(1)
+                } else {
+                    Some(to - from)
+                }
+            }
+            _ => None,
         }
     }
 
@@ -260,7 +291,9 @@ impl<T> Request<T> {
     }
 }
 
+#[derive(Default)]
 pub enum Method {
+    #[default]
     GET,
     POST,
     PUT,
@@ -619,5 +652,17 @@ mod test {
         for thread in threads {
             thread.join().unwrap();
         }
+    }
+
+    #[test]
+    fn test_request_from_to_page_max_pages() {
+        let request: Request<()> = Request::builder().from_page(1).to_page(11).build().unwrap();
+        assert_eq!(Some(10), request.max_pages())
+    }
+
+    #[test]
+    fn test_from_bigger_than_to_page_max_pages() {
+        let request: Request<()> = Request::builder().from_page(11).to_page(1).build().unwrap();
+        assert_eq!(Some(1), request.max_pages())
     }
 }

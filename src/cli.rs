@@ -1,4 +1,7 @@
-use crate::{merge_request::MergeRequestCliArgs, remote::MergeRequestState};
+use crate::{
+    cicd::ListPipelineCliArgs, merge_request::MergeRequestCliArgs, remote::MergeRequestState,
+};
+
 use clap::{Parser, ValueEnum};
 
 #[derive(Parser)]
@@ -167,16 +170,26 @@ enum BrowseSubcommand {
 #[derive(Parser)]
 struct PipelineCommand {
     #[clap(subcommand)]
-    pub subcommand: Option<PipelineSubcommand>,
-    /// Refresh the cache
-    #[clap(long, short)]
-    pub refresh: bool,
+    pub subcommand: PipelineSubcommand,
 }
 
 #[derive(Parser)]
 enum PipelineSubcommand {
     #[clap(about = "List pipelines")]
-    List,
+    List(ListPipeline),
+}
+
+#[derive(Parser)]
+struct ListPipeline {
+    /// From page
+    #[clap(long)]
+    from_page: Option<i64>,
+    /// To page
+    #[clap(long)]
+    to_page: Option<i64>,
+    /// Refresh the cache
+    #[clap(long, short)]
+    pub refresh: bool,
 }
 
 #[derive(Parser)]
@@ -218,13 +231,8 @@ pub enum BrowseOptions {
     Pipelines,
 }
 
-pub enum PipelineOperation {
-    List,
-}
-
-pub struct PipelineOptions {
-    pub operation: PipelineOperation,
-    pub refresh_cache: bool,
+pub enum PipelineOptions {
+    List(ListPipelineCliArgs),
 }
 
 #[derive(Debug)]
@@ -324,16 +332,21 @@ impl From<BrowseCommand> for BrowseOptions {
 impl From<PipelineCommand> for PipelineOptions {
     fn from(options: PipelineCommand) -> Self {
         match options.subcommand {
-            Some(PipelineSubcommand::List) => PipelineOptions {
-                operation: PipelineOperation::List,
-                refresh_cache: options.refresh,
-            },
-            // defaults to list all pipelines
-            None => PipelineOptions {
-                operation: PipelineOperation::List,
-                refresh_cache: options.refresh,
-            },
+            PipelineSubcommand::List(options) => options.into(),
         }
+    }
+}
+
+impl From<ListPipeline> for PipelineOptions {
+    fn from(options: ListPipeline) -> Self {
+        PipelineOptions::List(
+            ListPipelineCliArgs::builder()
+                .from_page(options.from_page)
+                .to_page(options.to_page)
+                .refresh_cache(options.refresh)
+                .build()
+                .unwrap(),
+        )
     }
 }
 

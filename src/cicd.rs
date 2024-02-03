@@ -1,10 +1,22 @@
+use crate::api_traits::Cicd;
+use crate::cli::PipelineOptions;
+use crate::config::Config;
+use crate::{remote, Result};
 use std::io::Write;
 use std::sync::Arc;
 
-use crate::api_traits::Cicd;
-use crate::cli::{PipelineOperation, PipelineOptions};
-use crate::config::Config;
-use crate::{remote, Result};
+#[derive(Builder)]
+pub struct ListPipelineCliArgs {
+    pub from_page: Option<i64>,
+    pub to_page: Option<i64>,
+    pub refresh_cache: bool,
+}
+
+impl ListPipelineCliArgs {
+    pub fn builder() -> ListPipelineCliArgsBuilder {
+        ListPipelineCliArgsBuilder::default()
+    }
+}
 
 pub fn execute(
     options: PipelineOptions,
@@ -12,9 +24,9 @@ pub fn execute(
     domain: String,
     path: String,
 ) -> Result<()> {
-    match options.operation {
-        PipelineOperation::List => {
-            let remote = remote::get_cicd(domain, path, config, options.refresh_cache)?;
+    match options {
+        PipelineOptions::List(cli_args) => {
+            let remote = remote::get_cicd(domain, path, config, cli_args.refresh_cache)?;
             list_pipelines(remote, std::io::stdout())
         }
     }
