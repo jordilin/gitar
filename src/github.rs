@@ -196,7 +196,11 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         body.insert("base", args.target_branch);
         body.insert("title", args.title);
         body.insert("body", args.description);
-        body.insert("draft", args.draft.to_string());
+        // Add draft in payload only when requested. It seems that Github opens
+        // PR in draft mode even when the draft value is false.
+        if args.draft {
+            body.insert("draft", args.draft.to_string());
+        }
         let mr_url = format!("{}/repos/{}/pulls", self.rest_api_basepath, self.path);
         let mut request = self.http_request(&mr_url, Some(body), POST, ApiOperation::MergeRequest);
         match self.runner.run(&mut request) {
