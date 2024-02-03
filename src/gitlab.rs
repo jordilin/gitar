@@ -8,7 +8,7 @@ use crate::io::{CmdInfo, HttpRunner};
 use crate::remote::{
     Member, MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline, Project,
 };
-use crate::Result;
+use crate::{json_load_page, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -266,15 +266,20 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
                         response.body
                     )));
                 }
-                let mut members = Vec::new();
-                let members_data: Vec<serde_json::Value> = serde_json::from_str(&response.body)?;
-                for member_data in members_data {
-                    let id = member_data["id"].as_i64().unwrap();
-                    let username = member_data["username"].as_str().unwrap();
-                    let name = member_data["name"].as_str().unwrap();
-                    let member = Member::new(id, name, username);
-                    members.push(member);
-                }
+                let members = json_load_page(&response.body)?.iter().fold(
+                    Vec::new(),
+                    |mut members, member_data| {
+                        members.push(
+                            Member::builder()
+                                .id(member_data["id"].as_i64().unwrap())
+                                .name(member_data["name"].as_str().unwrap().to_string())
+                                .username(member_data["username"].as_str().unwrap().to_string())
+                                .build()
+                                .unwrap(),
+                        );
+                        members
+                    },
+                );
                 Ok(members)
             })
             .collect::<Result<Vec<Vec<Member>>>>()

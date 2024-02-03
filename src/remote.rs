@@ -49,7 +49,7 @@ impl Display for Project {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Builder, Clone, Debug, PartialEq, Default)]
 pub struct Member {
     pub id: i64,
     pub name: String,
@@ -57,12 +57,8 @@ pub struct Member {
 }
 
 impl Member {
-    pub fn new(id: i64, name: &str, username: &str) -> Self {
-        Member {
-            id,
-            name: name.to_string(),
-            username: username.to_string(),
-        }
+    pub fn builder() -> MemberBuilder {
+        MemberBuilder::default()
     }
 }
 
