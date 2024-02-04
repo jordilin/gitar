@@ -21,6 +21,7 @@ use crate::remote::MergeRequestBodyArgs;
 use crate::remote::MergeRequestResponse;
 use crate::remote::MergeRequestState;
 use crate::remote::Pipeline;
+use crate::remote::PipelineBodyArgs;
 use crate::remote::Project;
 use crate::Result;
 use std::collections::HashMap;
@@ -421,7 +422,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
 }
 
 impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
-    fn list_pipelines(&self) -> Result<Vec<Pipeline>> {
+    fn list(&self, _args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
         todo!()
     }
 

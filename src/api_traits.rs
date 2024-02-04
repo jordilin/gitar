@@ -3,7 +3,9 @@ use std::fmt::Display;
 use crate::{
     cli::BrowseOptions,
     io::CmdInfo,
-    remote::{MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline},
+    remote::{
+        MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline, PipelineBodyArgs,
+    },
     Result,
 };
 
@@ -24,7 +26,7 @@ pub trait RemoteProject {
 }
 
 pub trait Cicd {
-    fn list_pipelines(&self) -> Result<Vec<Pipeline>>;
+    fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>>;
     fn get_pipeline(&self, id: i64) -> Result<Pipeline>;
 }
 

@@ -1,6 +1,7 @@
 use crate::api_traits::Cicd;
 use crate::cli::PipelineOptions;
 use crate::config::Config;
+use crate::remote::PipelineBodyArgs;
 use crate::{remote, Result};
 use std::io::Write;
 use std::sync::Arc;
@@ -27,13 +28,21 @@ pub fn execute(
     match options {
         PipelineOptions::List(cli_args) => {
             let remote = remote::get_cicd(domain, path, config, cli_args.refresh_cache)?;
-            list_pipelines(remote, std::io::stdout())
+            let from_to_args = remote::validate_from_to_page(cli_args.from_page, cli_args.to_page)?;
+            let body_args = PipelineBodyArgs::builder()
+                .from_to_page(from_to_args)
+                .build()?;
+            list_pipelines(remote, body_args, std::io::stdout())
         }
     }
 }
 
-fn list_pipelines<W: Write>(remote: Arc<dyn Cicd>, mut writer: W) -> Result<()> {
-    let pipelines = remote.list_pipelines()?;
+fn list_pipelines<W: Write>(
+    remote: Arc<dyn Cicd>,
+    body_args: PipelineBodyArgs,
+    mut writer: W,
+) -> Result<()> {
+    let pipelines = remote.list(body_args)?;
     if pipelines.is_empty() {
         writer.write_all(b"No pipelines found.\n")?;
         return Ok(());
@@ -67,7 +76,7 @@ mod test {
     }
 
     impl Cicd for PipelineList {
-        fn list_pipelines(&self) -> Result<Vec<Pipeline>> {
+        fn list(&self, _args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
             if self.error {
                 return Err(error::gen("Error"));
             }
@@ -105,7 +114,11 @@ mod test {
             .build()
             .unwrap();
         let mut buf = Vec::new();
-        list_pipelines(Arc::new(pp_remote), &mut buf).unwrap();
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        list_pipelines(Arc::new(pp_remote), args, &mut buf).unwrap();
         assert_eq!(
             String::from_utf8(buf).unwrap(),
             "URL | Branch | SHA | Created at | Status\n\
@@ -117,7 +130,11 @@ mod test {
     fn test_list_pipelines_empty() {
         let pp_remote = PipelineListBuilder::default().build().unwrap();
         let mut buf = Vec::new();
-        list_pipelines(Arc::new(pp_remote), &mut buf).unwrap();
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        list_pipelines(Arc::new(pp_remote), args, &mut buf).unwrap();
         assert_eq!("No pipelines found.\n", String::from_utf8(buf).unwrap(),)
     }
 
@@ -125,6 +142,10 @@ mod test {
     fn test_list_pipelines_error() {
         let pp_remote = PipelineListBuilder::default().error(true).build().unwrap();
         let mut buf = Vec::new();
-        assert!(list_pipelines(Arc::new(pp_remote), &mut buf).is_err());
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        assert!(list_pipelines(Arc::new(pp_remote), args, &mut buf).is_err());
     }
 }

@@ -6,7 +6,8 @@ use crate::http::{self, Paginator, Request};
 use crate::io::Response;
 use crate::io::{CmdInfo, HttpRunner};
 use crate::remote::{
-    Member, MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline, Project,
+    Member, MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline,
+    PipelineBodyArgs, Project,
 };
 use crate::{json_load_page, json_loads, Result};
 use std::collections::HashMap;
@@ -299,7 +300,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
 }
 
 impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
-    fn list_pipelines(&self) -> Result<Vec<Pipeline>> {
+    fn list(&self, _args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
         let url = format!("{}/pipelines", self.rest_api_basepath());
         let mut request: Request<()> =
             http::Request::new(&url, http::Method::GET).with_api_operation(ApiOperation::Pipeline);
@@ -494,9 +495,8 @@ mod test {
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
-
-        let pipelines = gitlab.list_pipelines().unwrap();
+        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let pipelines = gitlab.list(default_pipeline_body_args()).unwrap();
 
         assert_eq!(2, pipelines.len());
         assert_eq!(
@@ -507,6 +507,14 @@ mod test {
         assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
     }
 
+    fn default_pipeline_body_args() -> PipelineBodyArgs {
+        let body_args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        body_args
+    }
+
     #[test]
     fn test_list_pipelines_error() {
         let config = config();
@@ -515,9 +523,9 @@ mod test {
         let path = "jordilin/gitlapi".to_string();
         let response = ResponseBuilder::default().status(400).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client);
+        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client));
 
-        assert!(gitlab.list_pipelines().is_err());
+        assert!(gitlab.list(default_pipeline_body_args()).is_err());
     }
 
     #[test]
@@ -532,9 +540,8 @@ mod test {
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
-
-        let pipelines = gitlab.list_pipelines().unwrap();
+        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let pipelines = gitlab.list(default_pipeline_body_args()).unwrap();
         assert_eq!(0, pipelines.len());
     }
 }
