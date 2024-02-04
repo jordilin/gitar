@@ -300,8 +300,12 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
 }
 
 impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
-    fn list(&self, _args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
-        let url = format!("{}/pipelines", self.rest_api_basepath());
+    fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
+        let mut url = format!("{}/pipelines", self.rest_api_basepath());
+        if args.from_to_page.is_some() {
+            let suffix = format!("?page={}", args.from_to_page.unwrap().page);
+            url.push_str(&suffix);
+        }
         let mut request: Request<()> =
             http::Request::new(&url, http::Method::GET).with_api_operation(ApiOperation::Pipeline);
         request.set_header("PRIVATE-TOKEN", self.api_token());
@@ -346,6 +350,7 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
 
 #[cfg(test)]
 mod test {
+    use crate::remote::FromToPageArgs;
     use crate::test::utils::{config, get_contract, ContractType, MockRunner};
 
     use crate::io::{CmdInfo, ResponseBuilder};
@@ -543,5 +548,33 @@ mod test {
         let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
         let pipelines = gitlab.list(default_pipeline_body_args()).unwrap();
         assert_eq!(0, pipelines.len());
+    }
+
+    #[test]
+    fn test_pipeline_page_from_set_in_url() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = ResponseBuilder::default()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "list_pipelines.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let fromtopage_args = FromToPageArgs::builder()
+            .page(2)
+            .max_pages(2)
+            .build()
+            .unwrap();
+        let body_args = PipelineBodyArgs::builder()
+            .from_to_page(Some(fromtopage_args))
+            .build()
+            .unwrap();
+        gitlab.list(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2",
+            *client.url(),
+        );
     }
 }
