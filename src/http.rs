@@ -216,14 +216,10 @@ pub struct Request<T> {
     body: Option<T>,
     #[builder(default)]
     headers: HashMap<String, String>,
-    #[builder(default)]
     method: Method,
-    #[builder(default)]
     pub resource: Resource,
     #[builder(setter(into, strip_option), default)]
-    from_page: Option<i64>,
-    #[builder(setter(into, strip_option), default)]
-    to_page: Option<i64>,
+    pub max_pages: Option<i64>,
 }
 
 impl<T> Request<T> {
@@ -237,22 +233,7 @@ impl<T> Request<T> {
             headers: HashMap::new(),
             method,
             resource: Resource::new(url, None),
-            from_page: None,
-            to_page: None,
-        }
-    }
-
-    pub fn max_pages(&self) -> Option<i64> {
-        match (self.from_page, self.to_page) {
-            (Some(from), Some(to)) => {
-                if from > to {
-                    // return 1 page only
-                    Some(1)
-                } else {
-                    Some(to - from)
-                }
-            }
-            _ => None,
+            max_pages: None,
         }
     }
 
@@ -387,6 +368,11 @@ impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginato
         if let Some(page_url) = &self.page_url {
             if self.iter == self.runner.api_max_pages(&self.request) {
                 return None;
+            }
+            if let Some(max_pages) = self.request.max_pages {
+                if self.iter >= max_pages as u32 {
+                    return None;
+                }
             }
             if self.iter >= 1 {
                 self.request.set_url(page_url);
@@ -655,14 +641,19 @@ mod test {
     }
 
     #[test]
-    fn test_request_from_to_page_max_pages() {
-        let request: Request<()> = Request::builder().from_page(1).to_page(11).build().unwrap();
-        assert_eq!(Some(10), request.max_pages())
-    }
-
-    #[test]
-    fn test_from_bigger_than_to_page_max_pages() {
-        let request: Request<()> = Request::builder().from_page(11).to_page(1).build().unwrap();
-        assert_eq!(Some(1), request.max_pages())
+    fn test_paginator_stops_paging_after_http_request_max_pages_reached() {
+        let response1 = response_with_next_page();
+        let response2 = response_with_next_page();
+        let response3 = response_with_last_page();
+        let client = Arc::new(MockRunner::new(vec![response3, response2, response1]));
+        let request: Request<()> = Request::builder()
+            .method(Method::GET)
+            .resource(Resource::new("http://localhost", None))
+            .max_pages(1)
+            .build()
+            .unwrap();
+        let paginator = Paginator::new(&client, request, "http://localhost");
+        let responses = paginator.collect::<Vec<Result<Response>>>();
+        assert_eq!(1, responses.len());
     }
 }
