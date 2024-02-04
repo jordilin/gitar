@@ -29,3 +29,11 @@ extern crate lazy_static;
 
 #[macro_use]
 extern crate derive_builder;
+
+fn json_load_page(data: &str) -> Result<Vec<serde_json::Value>> {
+    serde_json::from_str(data).map_err(|e| error::gen(e.to_string()))
+}
+
+fn json_loads(data: &str) -> Result<serde_json::Value> {
+    serde_json::from_str(data).map_err(|e| error::gen(e.to_string()))
+}

@@ -1,7 +1,4 @@
-use crate::{
-    merge_request::{MergeRequestCliArgs, MergeRequestCliArgsBuilder},
-    remote::MergeRequestState,
-};
+use crate::{merge_request::MergeRequestCliArgs, remote::MergeRequestState};
 use clap::{Parser, ValueEnum};
 
 #[derive(Parser)]
@@ -248,7 +245,7 @@ pub struct ProjectOptions {
 impl From<CreateMergeRequest> for MergeRequestOptions {
     fn from(options: CreateMergeRequest) -> Self {
         MergeRequestOptions::Create(
-            MergeRequestCliArgsBuilder::default()
+            MergeRequestCliArgs::builder()
                 .title(options.title)
                 .description(options.description)
                 .target_branch(options.target_branch)

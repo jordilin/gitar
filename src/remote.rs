@@ -49,7 +49,7 @@ impl Display for Project {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Builder, Clone, Debug, PartialEq, Default)]
 pub struct Member {
     pub id: i64,
     pub name: String,
@@ -57,39 +57,28 @@ pub struct Member {
 }
 
 impl Member {
-    pub fn new(id: i64, name: &str, username: &str) -> Self {
-        Member {
-            id,
-            name: name.to_string(),
-            username: username.to_string(),
-        }
+    pub fn builder() -> MemberBuilder {
+        MemberBuilder::default()
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Builder, Clone, Debug)]
 pub struct MergeRequestResponse {
+    #[builder(default)]
     pub id: i64,
+    #[builder(default)]
     pub web_url: String,
+    #[builder(default)]
     pub author: String,
+    #[builder(default)]
     pub updated_at: String,
+    #[builder(default)]
     pub source_branch: String,
 }
 
 impl MergeRequestResponse {
-    pub fn new(
-        id: i64,
-        web_url: &str,
-        author: &str,
-        updated_at: &str,
-        source_branch: &str,
-    ) -> Self {
-        MergeRequestResponse {
-            id,
-            web_url: web_url.to_string(),
-            author: author.to_string(),
-            updated_at: updated_at.to_string(),
-            source_branch: source_branch.to_string(),
-        }
+    pub fn builder() -> MergeRequestResponseBuilder {
+        MergeRequestResponseBuilder::default()
     }
 }
 
@@ -148,7 +137,7 @@ impl MergeRequestBodyArgs {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Builder, Clone, Debug)]
 pub struct Pipeline {
     status: String,
     web_url: String,
@@ -158,14 +147,8 @@ pub struct Pipeline {
 }
 
 impl Pipeline {
-    pub fn new(status: &str, web_url: &str, branch: &str, sha: &str, created_at: &str) -> Self {
-        Pipeline {
-            status: status.to_string(),
-            web_url: web_url.to_string(),
-            branch: branch.to_string(),
-            sha: sha.to_string(),
-            created_at: created_at.to_string(),
-        }
+    pub fn builder() -> PipelineBuilder {
+        PipelineBuilder::default()
     }
 }
 

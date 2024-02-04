@@ -8,7 +8,7 @@ use crate::io::{CmdInfo, HttpRunner};
 use crate::remote::{
     Member, MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline, Project,
 };
-use crate::Result;
+use crate::{json_load_page, json_loads, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -84,13 +84,11 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                 "https://{}/{}/-/merge_requests/{}",
                 self.domain, self.path, merge_request_iid
             );
-            return Ok(MergeRequestResponse::new(
-                merge_request_iid.parse::<i64>().unwrap(),
-                &merge_request_url,
-                "",
-                "",
-                "",
-            ));
+            return Ok(MergeRequestResponse::builder()
+                .id(merge_request_iid.parse().unwrap())
+                .web_url(merge_request_url)
+                .build()
+                .unwrap());
         }
         if response.status != 201 {
             return Err(error::gen(format!(
@@ -98,15 +96,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                 response.body
             )));
         }
-        let merge_request_json: serde_json::Value = serde_json::from_str(&response.body)?;
+        let merge_request_json = json_loads(&response.body)?;
 
-        Ok(MergeRequestResponse::new(
-            merge_request_json["iid"].as_i64().unwrap(),
-            merge_request_json["web_url"].as_str().unwrap(),
-            "",
-            "",
-            "",
-        ))
+        Ok(MergeRequestResponse::builder()
+            .id(merge_request_json["iid"].as_i64().unwrap())
+            .web_url(merge_request_json["web_url"].as_str().unwrap().to_string())
+            .build()
+            .unwrap())
     }
 
     fn list(&self, state: MergeRequestState) -> Result<Vec<MergeRequestResponse>> {
@@ -128,23 +124,24 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                         response.body
                     )));
                 }
-                let mut mergerequests = Vec::new();
-                let mergerequests_data: Vec<serde_json::Value> =
-                    serde_json::from_str(&response.body)?;
-                for mr_data in mergerequests_data {
-                    let id = mr_data["iid"].as_i64().unwrap();
-                    let url = mr_data["web_url"].as_str().unwrap();
-                    let username = mr_data["author"]["username"].as_str().unwrap();
-                    let updated_at = mr_data["updated_at"].as_str().unwrap();
-                    let source_branch = mr_data["source_branch"].as_str().unwrap();
-                    mergerequests.push(MergeRequestResponse::new(
-                        id,
-                        url,
-                        username,
-                        updated_at,
-                        source_branch,
-                    ))
-                }
+                let mergerequests = json_load_page(&response.body)?.iter().fold(
+                    Vec::new(),
+                    |mut mergerequests, mr_data| {
+                        mergerequests.push(
+                            MergeRequestResponse::builder()
+                                .id(mr_data["iid"].as_i64().unwrap())
+                                .web_url(mr_data["web_url"].as_str().unwrap().to_string())
+                                .source_branch(
+                                    mr_data["source_branch"].as_str().unwrap().to_string(),
+                                )
+                                .author(mr_data["author"]["username"].as_str().unwrap().to_string())
+                                .updated_at(mr_data["updated_at"].as_str().unwrap().to_string())
+                                .build()
+                                .unwrap(),
+                        );
+                        mergerequests
+                    },
+                );
                 Ok(mergerequests)
             })
             .collect::<Result<Vec<Vec<MergeRequestResponse>>>>()
@@ -164,14 +161,12 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                 response.body
             )));
         }
-        let merge_request_json: serde_json::Value = serde_json::from_str(&response.body)?;
-        Ok(MergeRequestResponse::new(
-            merge_request_json["iid"].as_i64().unwrap(),
-            merge_request_json["web_url"].as_str().unwrap(),
-            "",
-            "",
-            "",
-        ))
+        let merge_request_json = json_loads(&response.body)?;
+        Ok(MergeRequestResponse::builder()
+            .id(merge_request_json["iid"].as_i64().unwrap())
+            .web_url(merge_request_json["web_url"].as_str().unwrap().to_string())
+            .build()
+            .unwrap())
     }
 
     fn get(&self, id: i64) -> Result<MergeRequestResponse> {
@@ -187,14 +182,18 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                 response.body
             )));
         }
-        let merge_request_json: serde_json::Value = serde_json::from_str(&response.body)?;
-        Ok(MergeRequestResponse::new(
-            merge_request_json["iid"].as_i64().unwrap(),
-            merge_request_json["web_url"].as_str().unwrap(),
-            "",
-            "",
-            merge_request_json["source_branch"].as_str().unwrap(),
-        ))
+        let merge_request_json = json_loads(&response.body)?;
+        Ok(MergeRequestResponse::builder()
+            .id(merge_request_json["iid"].as_i64().unwrap())
+            .web_url(merge_request_json["web_url"].as_str().unwrap().to_string())
+            .source_branch(
+                merge_request_json["source_branch"]
+                    .as_str()
+                    .unwrap()
+                    .to_string(),
+            )
+            .build()
+            .unwrap())
     }
 
     fn close(&self, id: i64) -> Result<MergeRequestResponse> {
@@ -213,14 +212,12 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                 url, response.body
             )));
         }
-        let merge_request_json: serde_json::Value = serde_json::from_str(&response.body)?;
-        Ok(MergeRequestResponse::new(
-            merge_request_json["iid"].as_i64().unwrap(),
-            merge_request_json["web_url"].as_str().unwrap(),
-            "",
-            "",
-            "",
-        ))
+        let merge_request_json = json_loads(&response.body)?;
+        Ok(MergeRequestResponse::builder()
+            .id(merge_request_json["iid"].as_i64().unwrap())
+            .web_url(merge_request_json["web_url"].as_str().unwrap().to_string())
+            .build()
+            .unwrap())
     }
 }
 
@@ -243,7 +240,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
                 response.body
             )));
         }
-        let project_data: serde_json::Value = serde_json::from_str(&response.body)?;
+        let project_data = json_loads(&response.body)?;
         let project_id = project_data["id"].as_i64().unwrap();
         let default_branch = project_data["default_branch"].as_str().unwrap();
         let html_url = project_data["web_url"].as_str().unwrap();
@@ -266,15 +263,20 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
                         response.body
                     )));
                 }
-                let mut members = Vec::new();
-                let members_data: Vec<serde_json::Value> = serde_json::from_str(&response.body)?;
-                for member_data in members_data {
-                    let id = member_data["id"].as_i64().unwrap();
-                    let username = member_data["username"].as_str().unwrap();
-                    let name = member_data["name"].as_str().unwrap();
-                    let member = Member::new(id, name, username);
-                    members.push(member);
-                }
+                let members = json_load_page(&response.body)?.iter().fold(
+                    Vec::new(),
+                    |mut members, member_data| {
+                        members.push(
+                            Member::builder()
+                                .id(member_data["id"].as_i64().unwrap())
+                                .name(member_data["name"].as_str().unwrap().to_string())
+                                .username(member_data["username"].as_str().unwrap().to_string())
+                                .build()
+                                .unwrap(),
+                        );
+                        members
+                    },
+                );
                 Ok(members)
             })
             .collect::<Result<Vec<Vec<Member>>>>()
@@ -312,17 +314,24 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
                         response.body
                     )));
                 }
-                let mut pipelines = Vec::new();
-                let pipelines_data: Vec<serde_json::Value> = serde_json::from_str(&response.body)?;
-                for pipeline_data in pipelines_data {
-                    let status = pipeline_data["status"].as_str().unwrap();
-                    let branch = pipeline_data["ref"].as_str().unwrap();
-                    let sha = pipeline_data["sha"].as_str().unwrap();
-                    let web_url = pipeline_data["web_url"].as_str().unwrap();
-                    let created_at = pipeline_data["created_at"].as_str().unwrap();
-                    let pipeline = Pipeline::new(status, web_url, branch, sha, created_at);
-                    pipelines.push(pipeline);
-                }
+                let pipelines = json_load_page(&response.body)?.iter().fold(
+                    Vec::new(),
+                    |mut pipelines, pipeline_data| {
+                        pipelines.push(
+                            Pipeline::builder()
+                                .status(pipeline_data["status"].as_str().unwrap().to_string())
+                                .web_url(pipeline_data["web_url"].as_str().unwrap().to_string())
+                                .branch(pipeline_data["ref"].as_str().unwrap().to_string())
+                                .sha(pipeline_data["sha"].as_str().unwrap().to_string())
+                                .created_at(
+                                    pipeline_data["created_at"].as_str().unwrap().to_string(),
+                                )
+                                .build()
+                                .unwrap(),
+                        );
+                        pipelines
+                    },
+                );
                 Ok(pipelines)
             })
             .collect::<Result<Vec<Vec<Pipeline>>>>()

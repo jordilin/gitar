@@ -37,6 +37,12 @@ pub struct MergeRequestCliArgs {
     pub draft: bool,
 }
 
+impl MergeRequestCliArgs {
+    pub fn builder() -> MergeRequestCliArgsBuilder {
+        MergeRequestCliArgsBuilder::default()
+    }
+}
+
 pub fn execute(
     options: MergeRequestOptions,
     config: Arc<Config>,
