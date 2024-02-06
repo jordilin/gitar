@@ -153,6 +153,7 @@ impl Pipeline {
     }
 }
 
+/// List cli args can be used across multiple APIs that support pagination.
 #[derive(Builder)]
 pub struct ListRemoteCliArgs {
     pub from_page: Option<i64>,
