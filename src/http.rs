@@ -237,6 +237,10 @@ impl<T> Request<T> {
         }
     }
 
+    pub fn set_max_pages(&mut self, max_pages: i64) {
+        self.max_pages = Some(max_pages);
+    }
+
     pub fn with_api_operation(mut self, api_operation: ApiOperation) -> Self {
         self.resource.api_operation = Some(api_operation);
         self

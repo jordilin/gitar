@@ -302,13 +302,16 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
 impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
         let mut url = format!("{}/pipelines", self.rest_api_basepath());
-        if args.from_to_page.is_some() {
-            let suffix = format!("?page={}", args.from_to_page.unwrap().page);
-            url.push_str(&suffix);
-        }
         let mut request: Request<()> =
             http::Request::new(&url, http::Method::GET).with_api_operation(ApiOperation::Pipeline);
         request.set_header("PRIVATE-TOKEN", self.api_token());
+        if args.from_to_page.is_some() {
+            let from_page = args.from_to_page.as_ref().unwrap().page;
+            let suffix = format!("?page={}", &from_page);
+            url.push_str(&suffix);
+            request.set_max_pages(args.from_to_page.unwrap().max_pages);
+            request.set_url(&url);
+        }
         let paginator = Paginator::new(&self.runner, request, &url);
         paginator
             .map(|response| {
