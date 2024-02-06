@@ -271,4 +271,35 @@ mod test {
         let ratelimit_headers = response.get_ratelimit_headers();
         assert!(ratelimit_headers.is_none());
     }
+
+    #[test]
+    fn test_link_header_has_next_and_last_page() {
+        let link = r#"<https://api.github.com/search/code?q=addClass+user%3Amozilla&page=2>; rel="next", <https://api.github.com/search/code?q=addClass+user%3Amozilla&page=34>; rel="last""#;
+        let page_headers = parse_link_headers(link);
+        assert_eq!(
+            "https://api.github.com/search/code?q=addClass+user%3Amozilla&page=2",
+            page_headers.next.as_ref().unwrap().url
+        );
+        assert_eq!(2, page_headers.next.unwrap().number);
+        assert_eq!(
+            "https://api.github.com/search/code?q=addClass+user%3Amozilla&page=34",
+            page_headers.last.as_ref().unwrap().url
+        );
+        assert_eq!(34, page_headers.last.unwrap().number);
+    }
+
+    #[test]
+    fn test_link_header_has_no_next_page() {
+        let link = r#"<http://gitlab-web/api/v4/projects/tooling%2Fcli/members/all?id=tooling%2Fcli&page=1&per_page=20>; rel="first", <http://gitlab-web/api/v4/projects/tooling%2Fcli/members/all?id=tooling%2Fcli&page=1&per_page=20>; rel="last""#;
+        let page_headers = parse_link_headers(link);
+        assert_eq!(None, page_headers.next);
+    }
+
+    #[test]
+    fn test_with_per_page() {
+        let link = r#"<https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=2&per_page=20&sort=desc>; rel="next", <https://gitlab.disney.com/api/v4/projects/15/pipelines?id=15&order_by=id&page=1&per_page=20&sort=desc>; rel="first", <https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=91&per_page=20&sort=desc>; rel="last""#;
+        let page_headers = parse_link_headers(link);
+        assert_eq!(91, page_headers.last.unwrap().number);
+        assert_eq!(2, page_headers.next.unwrap().number);
+    }
 }
