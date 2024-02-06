@@ -53,6 +53,12 @@ pub struct Response {
     link_header_processor: fn(&str) -> PageHeader,
 }
 
+impl Response {
+    pub fn builder() -> ResponseBuilder {
+        ResponseBuilder::default()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ResponseField {
     Body,
@@ -231,7 +237,7 @@ mod test {
         let mut headers = HashMap::new();
         headers.insert("x-ratelimit-remaining".to_string(), "30".to_string());
         headers.insert("x-ratelimit-reset".to_string(), "1658602270".to_string());
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .body(body.to_string())
             .headers(headers)
             .build()
@@ -247,7 +253,7 @@ mod test {
         let mut headers = HashMap::new();
         headers.insert("ratelimit-remaining".to_string(), "30".to_string());
         headers.insert("ratelimit-reset".to_string(), "1658602270".to_string());
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .body(body.to_string())
             .headers(headers)
             .build()
@@ -263,7 +269,7 @@ mod test {
         let mut headers = HashMap::new();
         headers.insert("RateLimit-remaining".to_string(), "30".to_string());
         headers.insert("rateLimit-reset".to_string(), "1658602270".to_string());
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .body(body.to_string())
             .headers(headers)
             .build()

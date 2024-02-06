@@ -382,7 +382,7 @@ mod test {
     use crate::remote::ListBodyArgs;
     use crate::test::utils::{config, get_contract, ContractType, MockRunner};
 
-    use crate::io::{CmdInfo, ResponseBuilder};
+    use crate::io::CmdInfo;
 
     use super::*;
 
@@ -391,7 +391,7 @@ mod test {
         let config = config();
         let domain = "gitlab.com";
         let path = "jordilin/gitlapi";
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Gitlab, "project.json"))
             .build()
@@ -412,7 +412,7 @@ mod test {
         let config = config();
         let domain = "gitlab.com";
         let path = "jordilin/gitlapi";
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Gitlab, "project.json"))
             .build()
@@ -433,7 +433,7 @@ mod test {
         let config = config();
         let domain = "gitlab.com";
         let path = "jordilin/gitlapi";
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Gitlab, "project_members.json"))
             .build()
@@ -463,7 +463,7 @@ mod test {
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi";
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(201)
             .body(get_contract(ContractType::Gitlab, "merge_request.json"))
             .build()
@@ -489,7 +489,7 @@ mod test {
         let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = ResponseBuilder::default().status(400).build().unwrap();
+        let response = Response::builder().status(400).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab = Gitlab::new(config, &domain, &path, client);
         assert!(gitlab.open(mr_args).is_err());
@@ -503,7 +503,7 @@ mod test {
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(409)
             .body(get_contract(
                 ContractType::Gitlab,
@@ -523,7 +523,7 @@ mod test {
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Gitlab, "list_pipelines.json"))
             .build()
@@ -555,7 +555,7 @@ mod test {
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = ResponseBuilder::default().status(400).build().unwrap();
+        let response = Response::builder().status(400).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client));
 
@@ -568,7 +568,7 @@ mod test {
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Gitlab, "no_pipelines.json"))
             .build()
@@ -584,7 +584,7 @@ mod test {
         let config = config();
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Gitlab, "list_pipelines.json"))
             .build()
@@ -614,7 +614,7 @@ mod test {
         let path = "jordilin/gitlapi".to_string();
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"last\"";
         let headers = vec![("link".to_string(), link_header.to_string())];
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .headers(HashMap::from_iter(headers))
             .build()
@@ -632,7 +632,7 @@ mod test {
         let path = "jordilin/gitlapi".to_string();
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"next\"";
         let headers = vec![("link".to_string(), link_header.to_string())];
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .headers(HashMap::from_iter(headers))
             .build()

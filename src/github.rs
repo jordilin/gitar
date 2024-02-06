@@ -440,10 +440,7 @@ impl<R: HttpRunner<Response = Response>> ListPages for Github<R> {
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        io::ResponseBuilder,
-        test::utils::{config, get_contract, ContractType, MockRunner},
-    };
+    use crate::test::utils::{config, get_contract, ContractType, MockRunner};
 
     use super::*;
 
@@ -452,7 +449,7 @@ mod test {
         let config = config();
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Github, "project.json"))
             .build()
@@ -484,12 +481,12 @@ mod test {
 
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";
-        let response1 = ResponseBuilder::default()
+        let response1 = Response::builder()
             .status(201)
             .body(get_contract(ContractType::Github, "merge_request.json"))
             .build()
             .unwrap();
-        let response2 = ResponseBuilder::default()
+        let response2 = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Github, "merge_request.json"))
             .build()
@@ -515,7 +512,7 @@ mod test {
 
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";
-        let response1 = ResponseBuilder::default().status(401).body(
+        let response1 = Response::builder().status(401).body(
             r#"{"message":"Bad credentials","documentation_url":"https://docs.github.com/rest"}"#
                 .to_string(),
             )
