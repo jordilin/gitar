@@ -176,11 +176,11 @@ struct PipelineCommand {
 #[derive(Parser)]
 enum PipelineSubcommand {
     #[clap(about = "List pipelines")]
-    List(ListPipeline),
+    List(ListArgs),
 }
 
 #[derive(Parser)]
-struct ListPipeline {
+struct ListArgs {
     /// From page
     #[clap(long)]
     from_page: Option<i64>,
@@ -337,8 +337,8 @@ impl From<PipelineCommand> for PipelineOptions {
     }
 }
 
-impl From<ListPipeline> for PipelineOptions {
-    fn from(options: ListPipeline) -> Self {
+impl From<ListArgs> for PipelineOptions {
+    fn from(options: ListArgs) -> Self {
         PipelineOptions::List(
             ListPipelineCliArgs::builder()
                 .from_page(options.from_page)
