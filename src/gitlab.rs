@@ -1,4 +1,4 @@
-use crate::api_traits::{ApiOperation, Cicd, MergeRequest, RemoteProject};
+use crate::api_traits::{ApiOperation, Cicd, ListPages, MergeRequest, RemoteProject};
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
 use crate::error::{self, AddContext};
@@ -348,9 +348,35 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
     }
 }
 
+impl<R: HttpRunner<Response = Response>> ListPages for Gitlab<R> {
+    fn num_pages(&self, args: &ApiOperation) -> Result<Option<u32>> {
+        match args {
+            ApiOperation::Pipeline => {
+                let url = format!("{}/pipelines?page=1", self.rest_api_basepath());
+                let mut request: Request<()> = http::Request::new(&url, http::Method::GET)
+                    .with_api_operation(ApiOperation::Pipeline);
+                request.set_header("PRIVATE-TOKEN", self.api_token());
+                let response = self.runner.run(&mut request).unwrap();
+                let page_header = response.get_page_headers().ok_or_else(|| {
+                    error::gen(format!(
+                        "Failed to get page headers for GitLab API URL: {}",
+                        url
+                    ))
+                })?;
+                if let Some(last_page) = page_header.last {
+                    return Ok(Some(last_page.number));
+                }
+                return Ok(None);
+            }
+            _ => Ok(None),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::remote::FromToPageArgs;
+
+    use crate::remote::ListBodyArgs;
     use crate::test::utils::{config, get_contract, ContractType, MockRunner};
 
     use crate::io::{CmdInfo, ResponseBuilder};
@@ -562,7 +588,7 @@ mod test {
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
-        let fromtopage_args = FromToPageArgs::builder()
+        let fromtopage_args = ListBodyArgs::builder()
             .page(2)
             .max_pages(2)
             .build()
@@ -576,5 +602,41 @@ mod test {
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2",
             *client.url(),
         );
+    }
+
+    #[test]
+    fn test_gitlab_implements_num_pages() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"last\"";
+        let headers = vec![("link".to_string(), link_header.to_string())];
+        let response = ResponseBuilder::default()
+            .status(200)
+            .headers(HashMap::from_iter(headers))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn ListPages> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert_eq!(Some(2), gitlab.num_pages(&ApiOperation::Pipeline).unwrap());
+    }
+
+    #[test]
+    fn test_gitlab_num_pages_no_last_header_in_link() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"next\"";
+        let headers = vec![("link".to_string(), link_header.to_string())];
+        let response = ResponseBuilder::default()
+            .status(200)
+            .headers(HashMap::from_iter(headers))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn ListPages> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert_eq!(None, gitlab.num_pages(&ApiOperation::Pipeline).unwrap());
     }
 }

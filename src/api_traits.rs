@@ -30,6 +30,13 @@ pub trait Cicd {
     fn get_pipeline(&self, id: i64) -> Result<Pipeline>;
 }
 
+pub trait ListPages {
+    /// Queries the remote API to get the number of pages available for a given
+    /// resource. Reports a failure in case of any error and optionally return
+    /// the number of pages if available for the resource.
+    fn num_pages(&self, api_operation: &ApiOperation) -> Result<Option<u32>>;
+}
+
 /// Types of API resources attached to a request. The request will carry this
 /// information so we can decide if we need to use the cache or not based on
 /// global configuration.

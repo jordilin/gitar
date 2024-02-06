@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::api_traits::{Cicd, MergeRequest, RemoteProject};
+use crate::api_traits::{Cicd, ListPages, MergeRequest, RemoteProject};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
 use crate::error::GRError;
@@ -153,23 +153,38 @@ impl Pipeline {
     }
 }
 
-#[derive(Builder, Clone)]
-pub struct FromToPageArgs {
-    pub page: i64,
-    pub max_pages: i64,
+#[derive(Builder)]
+pub struct ListRemoteCliArgs {
+    pub from_page: Option<i64>,
+    pub to_page: Option<i64>,
+    #[builder(default)]
+    pub num_pages: bool,
+    #[builder(default)]
+    pub refresh_cache: bool,
 }
 
-impl FromToPageArgs {
-    pub fn builder() -> FromToPageArgsBuilder {
-        FromToPageArgsBuilder::default()
+impl ListRemoteCliArgs {
+    pub fn builder() -> ListRemoteCliArgsBuilder {
+        ListRemoteCliArgsBuilder::default()
     }
 }
 
-pub fn validate_from_to_page(
-    from_page: Option<i64>,
-    to_page: Option<i64>,
-) -> Result<Option<FromToPageArgs>> {
-    return match (from_page, to_page) {
+#[derive(Builder, Clone)]
+pub struct ListBodyArgs {
+    pub page: i64,
+    pub max_pages: i64,
+    #[builder(default = "false")]
+    pub num_pages: bool,
+}
+
+impl ListBodyArgs {
+    pub fn builder() -> ListBodyArgsBuilder {
+        ListBodyArgsBuilder::default()
+    }
+}
+
+pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Option<ListBodyArgs>> {
+    return match (remote_cli_args.from_page, remote_cli_args.to_page) {
         (Some(from_page), Some(to_page)) => {
             if from_page < 0 || to_page < 0 {
                 return Err(GRError::PreconditionNotMet(
@@ -186,7 +201,7 @@ pub fn validate_from_to_page(
 
             let max_pages = to_page - from_page;
             Ok(Some(
-                FromToPageArgs::builder()
+                ListBodyArgs::builder()
                     .page(from_page)
                     .max_pages(max_pages)
                     .build()
@@ -206,7 +221,7 @@ pub fn validate_from_to_page(
                 .into());
             }
             Ok(Some(
-                FromToPageArgs::builder()
+                ListBodyArgs::builder()
                     .page(1)
                     .max_pages(to_page)
                     .build()
@@ -219,7 +234,7 @@ pub fn validate_from_to_page(
 
 #[derive(Builder, Clone)]
 pub struct PipelineBodyArgs {
-    pub from_to_page: Option<FromToPageArgs>,
+    pub from_to_page: Option<ListBodyArgs>,
 }
 
 impl PipelineBodyArgs {
@@ -270,6 +285,7 @@ macro_rules! get {
 get!(get_mr, MergeRequest);
 get!(get_cicd, Cicd);
 get!(get_project, RemoteProject);
+get!(get_list_pages, ListPages);
 
 #[cfg(test)]
 mod test {
@@ -317,7 +333,12 @@ mod test {
     fn test_cli_from_to_pages_valid_range() {
         let from_page = Option::Some(1);
         let to_page = Option::Some(3);
-        let args = validate_from_to_page(from_page, to_page).unwrap().unwrap();
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
         assert_eq!(args.page, 1);
         assert_eq!(args.max_pages, 2);
     }
@@ -326,7 +347,12 @@ mod test {
     fn test_cli_from_to_pages_invalid_range() {
         let from_page = Some(5);
         let to_page = Some(2);
-        let args = validate_from_to_page(from_page, to_page);
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args);
         match args {
             Err(err) => match err.downcast_ref::<error::GRError>() {
                 Some(error::GRError::PreconditionNotMet(_)) => (),
@@ -340,7 +366,12 @@ mod test {
     fn test_cli_from_page_negative_number_is_error() {
         let from_page = Some(-5);
         let to_page = Some(5);
-        let args = validate_from_to_page(from_page, to_page);
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args);
         match args {
             Err(err) => match err.downcast_ref::<error::GRError>() {
                 Some(error::GRError::PreconditionNotMet(_)) => (),
@@ -354,7 +385,12 @@ mod test {
     fn test_cli_to_page_negative_number_is_error() {
         let from_page = Some(5);
         let to_page = Some(-5);
-        let args = validate_from_to_page(from_page, to_page);
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args);
         match args {
             Err(err) => match err.downcast_ref::<error::GRError>() {
                 Some(error::GRError::PreconditionNotMet(_)) => (),
@@ -368,7 +404,12 @@ mod test {
     fn test_cli_from_page_without_to_page_is_error() {
         let from_page = Some(5);
         let to_page = None;
-        let args = validate_from_to_page(from_page, to_page);
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args);
         match args {
             Err(err) => match err.downcast_ref::<error::GRError>() {
                 Some(error::GRError::PreconditionNotMet(_)) => (),
@@ -382,7 +423,12 @@ mod test {
     fn test_if_from_and_to_provided_must_be_positive() {
         let from_page = Some(-5);
         let to_page = Some(-5);
-        let args = validate_from_to_page(from_page, to_page);
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args);
         match args {
             Err(err) => match err.downcast_ref::<error::GRError>() {
                 Some(error::GRError::PreconditionNotMet(_)) => (),

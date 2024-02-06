@@ -1,5 +1,5 @@
 use crate::{
-    cicd::ListPipelineCliArgs, merge_request::MergeRequestCliArgs, remote::MergeRequestState,
+    merge_request::MergeRequestCliArgs, remote::ListRemoteCliArgs, remote::MergeRequestState,
 };
 
 use clap::{Parser, ValueEnum};
@@ -187,6 +187,9 @@ struct ListArgs {
     /// To page
     #[clap(long)]
     to_page: Option<i64>,
+    /// How many pages are available
+    #[clap(long)]
+    num_pages: bool,
     /// Refresh the cache
     #[clap(long, short)]
     pub refresh: bool,
@@ -232,7 +235,7 @@ pub enum BrowseOptions {
 }
 
 pub enum PipelineOptions {
-    List(ListPipelineCliArgs),
+    List(ListRemoteCliArgs),
 }
 
 #[derive(Debug)]
@@ -340,9 +343,10 @@ impl From<PipelineCommand> for PipelineOptions {
 impl From<ListArgs> for PipelineOptions {
     fn from(options: ListArgs) -> Self {
         PipelineOptions::List(
-            ListPipelineCliArgs::builder()
+            ListRemoteCliArgs::builder()
                 .from_page(options.from_page)
                 .to_page(options.to_page)
+                .num_pages(options.num_pages)
                 .refresh_cache(options.refresh)
                 .build()
                 .unwrap(),

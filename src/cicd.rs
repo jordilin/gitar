@@ -1,4 +1,4 @@
-use crate::api_traits::Cicd;
+use crate::api_traits::{ApiOperation, Cicd};
 use crate::cli::PipelineOptions;
 use crate::config::Config;
 use crate::remote::PipelineBodyArgs;
@@ -27,8 +27,23 @@ pub fn execute(
 ) -> Result<()> {
     match options {
         PipelineOptions::List(cli_args) => {
+            if cli_args.num_pages {
+                let remote = remote::get_list_pages(domain, path, config, cli_args.refresh_cache)?;
+                match remote.num_pages(&ApiOperation::Pipeline) {
+                    Ok(Some(pages)) => {
+                        println!("Number of pages: {}", pages);
+                    }
+                    Ok(None) => {
+                        println!("Number of pages not available.");
+                    }
+                    Err(e) => {
+                        return Err(e);
+                    }
+                };
+                return Ok(());
+            }
             let remote = remote::get_cicd(domain, path, config, cli_args.refresh_cache)?;
-            let from_to_args = remote::validate_from_to_page(cli_args.from_page, cli_args.to_page)?;
+            let from_to_args = remote::validate_from_to_page(&cli_args)?;
             let body_args = PipelineBodyArgs::builder()
                 .from_to_page(from_to_args)
                 .build()?;
