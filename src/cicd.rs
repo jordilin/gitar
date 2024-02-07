@@ -16,7 +16,7 @@ pub fn execute(
         PipelineOptions::List(cli_args) => {
             if cli_args.num_pages {
                 let remote = remote::get_list_pages(domain, path, config, cli_args.refresh_cache)?;
-                return execute_list_pages(remote, std::io::stdout());
+                return query_pages(remote, std::io::stdout());
             }
             let remote = remote::get_cicd(domain, path, config, cli_args.refresh_cache)?;
             let from_to_args = remote::validate_from_to_page(&cli_args)?;
@@ -28,7 +28,7 @@ pub fn execute(
     }
 }
 
-fn execute_list_pages<W: Write>(remote: Arc<dyn QueryPages>, mut writer: W) -> Result<()> {
+fn query_pages<W: Write>(remote: Arc<dyn QueryPages>, mut writer: W) -> Result<()> {
     match remote.num_pages(&ApiOperation::Pipeline) {
         Ok(Some(pages)) => writer.write_all(format!("{pages}\n", pages = pages).as_bytes())?,
         Ok(None) => {
@@ -171,7 +171,7 @@ mod test {
             .build()
             .unwrap();
         let mut buf = Vec::new();
-        execute_list_pages(Arc::new(pp_remote), &mut buf).unwrap();
+        query_pages(Arc::new(pp_remote), &mut buf).unwrap();
         assert_eq!("3\n", String::from_utf8(buf).unwrap(),)
     }
 
@@ -179,7 +179,7 @@ mod test {
     fn test_no_pages_available() {
         let pp_remote = PipelineListMock::builder().build().unwrap();
         let mut buf = Vec::new();
-        execute_list_pages(Arc::new(pp_remote), &mut buf).unwrap();
+        query_pages(Arc::new(pp_remote), &mut buf).unwrap();
         assert_eq!(
             "Number of pages not available.\n",
             String::from_utf8(buf).unwrap(),
@@ -190,6 +190,6 @@ mod test {
     fn test_number_of_pages_error() {
         let pp_remote = PipelineListMock::builder().error(true).build().unwrap();
         let mut buf = Vec::new();
-        assert!(execute_list_pages(Arc::new(pp_remote), &mut buf).is_err());
+        assert!(query_pages(Arc::new(pp_remote), &mut buf).is_err());
     }
 }
