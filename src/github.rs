@@ -2,8 +2,8 @@ use serde::Serialize;
 
 use crate::api_traits::ApiOperation;
 use crate::api_traits::Cicd;
-use crate::api_traits::ListPages;
 use crate::api_traits::MergeRequest;
+use crate::api_traits::QueryPages;
 use crate::api_traits::RemoteProject;
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
@@ -432,7 +432,7 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> ListPages for Github<R> {
+impl<R: HttpRunner<Response = Response>> QueryPages for Github<R> {
     fn num_pages(&self, _api_operation: &ApiOperation) -> Result<Option<u32>> {
         unimplemented!("num_pages not implemented for Github")
     }

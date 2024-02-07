@@ -1,4 +1,4 @@
-use crate::api_traits::{ApiOperation, Cicd, ListPages};
+use crate::api_traits::{ApiOperation, Cicd, QueryPages};
 use crate::cli::PipelineOptions;
 use crate::config::Config;
 use crate::remote::PipelineBodyArgs;
@@ -28,7 +28,7 @@ pub fn execute(
     }
 }
 
-fn execute_list_pages<W: Write>(remote: Arc<dyn ListPages>, mut writer: W) -> Result<()> {
+fn execute_list_pages<W: Write>(remote: Arc<dyn QueryPages>, mut writer: W) -> Result<()> {
     match remote.num_pages(&ApiOperation::Pipeline) {
         Ok(Some(pages)) => writer.write_all(format!("{pages}\n", pages = pages).as_bytes())?,
         Ok(None) => {
@@ -96,7 +96,7 @@ mod test {
         }
     }
 
-    impl ListPages for PipelineListMock {
+    impl QueryPages for PipelineListMock {
         fn num_pages(&self, _op: &ApiOperation) -> Result<Option<u32>> {
             if self.error {
                 return Err(error::gen("Error"));

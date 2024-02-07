@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::api_traits::{Cicd, ListPages, MergeRequest, RemoteProject};
+use crate::api_traits::{Cicd, MergeRequest, QueryPages, RemoteProject};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
 use crate::error::GRError;
@@ -286,7 +286,7 @@ macro_rules! get {
 get!(get_mr, MergeRequest);
 get!(get_cicd, Cicd);
 get!(get_project, RemoteProject);
-get!(get_list_pages, ListPages);
+get!(get_list_pages, QueryPages);
 
 #[cfg(test)]
 mod test {

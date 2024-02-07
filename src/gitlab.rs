@@ -1,4 +1,4 @@
-use crate::api_traits::{ApiOperation, Cicd, ListPages, MergeRequest, RemoteProject};
+use crate::api_traits::{ApiOperation, Cicd, MergeRequest, QueryPages, RemoteProject};
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
 use crate::error::{self, AddContext};
@@ -351,7 +351,7 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> ListPages for Gitlab<R> {
+impl<R: HttpRunner<Response = Response>> QueryPages for Gitlab<R> {
     fn num_pages(&self, args: &ApiOperation) -> Result<Option<u32>> {
         match args {
             ApiOperation::Pipeline => {
@@ -620,7 +620,7 @@ mod test {
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn ListPages> =
+        let gitlab: Box<dyn QueryPages> =
             Box::new(Gitlab::new(config, &domain, &path, client.clone()));
         assert_eq!(Some(2), gitlab.num_pages(&ApiOperation::Pipeline).unwrap());
     }
@@ -638,7 +638,7 @@ mod test {
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn ListPages> =
+        let gitlab: Box<dyn QueryPages> =
             Box::new(Gitlab::new(config, &domain, &path, client.clone()));
         assert_eq!(None, gitlab.num_pages(&ApiOperation::Pipeline).unwrap());
     }
