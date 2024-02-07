@@ -92,7 +92,7 @@ struct CreateMergeRequest {
     pub refresh: bool,
     /// Automatically open the browser after creating the merge request
     #[clap(long)]
-    pub open: bool,
+    pub browse: bool,
     /// Open the merge request automatically without prompting for confirmation
     #[clap(long, short)]
     pub yes: bool,
@@ -262,7 +262,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .target_branch(options.target_branch)
                 .auto(options.auto)
                 .refresh_cache(options.refresh)
-                .open_browser(options.open)
+                .open_browser(options.browse)
                 .accept_summary(options.yes)
                 .commit(options.commit)
                 .draft(options.draft)
