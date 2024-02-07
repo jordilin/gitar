@@ -1,4 +1,7 @@
-use crate::{merge_request::MergeRequestCliArgs, remote::MergeRequestState};
+use crate::{
+    merge_request::MergeRequestCliArgs, remote::ListRemoteCliArgs, remote::MergeRequestState,
+};
+
 use clap::{Parser, ValueEnum};
 
 #[derive(Parser)]
@@ -89,7 +92,7 @@ struct CreateMergeRequest {
     pub refresh: bool,
     /// Automatically open the browser after creating the merge request
     #[clap(long)]
-    pub open: bool,
+    pub browse: bool,
     /// Open the merge request automatically without prompting for confirmation
     #[clap(long, short)]
     pub yes: bool,
@@ -167,16 +170,29 @@ enum BrowseSubcommand {
 #[derive(Parser)]
 struct PipelineCommand {
     #[clap(subcommand)]
-    pub subcommand: Option<PipelineSubcommand>,
-    /// Refresh the cache
-    #[clap(long, short)]
-    pub refresh: bool,
+    pub subcommand: PipelineSubcommand,
 }
 
 #[derive(Parser)]
 enum PipelineSubcommand {
     #[clap(about = "List pipelines")]
-    List,
+    List(ListArgs),
+}
+
+#[derive(Parser)]
+struct ListArgs {
+    /// From page
+    #[clap(long)]
+    from_page: Option<i64>,
+    /// To page
+    #[clap(long)]
+    to_page: Option<i64>,
+    /// How many pages are available
+    #[clap(long)]
+    num_pages: bool,
+    /// Refresh the cache
+    #[clap(long, short)]
+    pub refresh: bool,
 }
 
 #[derive(Parser)]
@@ -218,13 +234,8 @@ pub enum BrowseOptions {
     Pipelines,
 }
 
-pub enum PipelineOperation {
-    List,
-}
-
-pub struct PipelineOptions {
-    pub operation: PipelineOperation,
-    pub refresh_cache: bool,
+pub enum PipelineOptions {
+    List(ListRemoteCliArgs),
 }
 
 #[derive(Debug)]
@@ -251,7 +262,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .target_branch(options.target_branch)
                 .auto(options.auto)
                 .refresh_cache(options.refresh)
-                .open_browser(options.open)
+                .open_browser(options.browse)
                 .accept_summary(options.yes)
                 .commit(options.commit)
                 .draft(options.draft)
@@ -324,16 +335,22 @@ impl From<BrowseCommand> for BrowseOptions {
 impl From<PipelineCommand> for PipelineOptions {
     fn from(options: PipelineCommand) -> Self {
         match options.subcommand {
-            Some(PipelineSubcommand::List) => PipelineOptions {
-                operation: PipelineOperation::List,
-                refresh_cache: options.refresh,
-            },
-            // defaults to list all pipelines
-            None => PipelineOptions {
-                operation: PipelineOperation::List,
-                refresh_cache: options.refresh,
-            },
+            PipelineSubcommand::List(options) => options.into(),
         }
+    }
+}
+
+impl From<ListArgs> for PipelineOptions {
+    fn from(options: ListArgs) -> Self {
+        PipelineOptions::List(
+            ListRemoteCliArgs::builder()
+                .from_page(options.from_page)
+                .to_page(options.to_page)
+                .num_pages(options.num_pages)
+                .refresh_cache(options.refresh)
+                .build()
+                .unwrap(),
+        )
     }
 }
 

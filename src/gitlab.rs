@@ -1,4 +1,4 @@
-use crate::api_traits::{ApiOperation, Cicd, MergeRequest, RemoteProject};
+use crate::api_traits::{ApiOperation, Cicd, MergeRequest, QueryPages, RemoteProject};
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
 use crate::error::{self, AddContext};
@@ -6,7 +6,8 @@ use crate::http::{self, Paginator, Request};
 use crate::io::Response;
 use crate::io::{CmdInfo, HttpRunner};
 use crate::remote::{
-    Member, MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline, Project,
+    Member, MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline,
+    PipelineBodyArgs, Project,
 };
 use crate::{json_load_page, json_loads, Result};
 use std::collections::HashMap;
@@ -299,11 +300,18 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
 }
 
 impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
-    fn list_pipelines(&self) -> Result<Vec<Pipeline>> {
-        let url = format!("{}/pipelines", self.rest_api_basepath());
+    fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
+        let mut url = format!("{}/pipelines", self.rest_api_basepath());
         let mut request: Request<()> =
             http::Request::new(&url, http::Method::GET).with_api_operation(ApiOperation::Pipeline);
         request.set_header("PRIVATE-TOKEN", self.api_token());
+        if args.from_to_page.is_some() {
+            let from_page = args.from_to_page.as_ref().unwrap().page;
+            let suffix = format!("?page={}", &from_page);
+            url.push_str(&suffix);
+            request.set_max_pages(args.from_to_page.unwrap().max_pages);
+            request.set_url(&url);
+        }
         let paginator = Paginator::new(&self.runner, request, &url);
         paginator
             .map(|response| {
@@ -343,11 +351,38 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
     }
 }
 
+impl<R: HttpRunner<Response = Response>> QueryPages for Gitlab<R> {
+    fn num_pages(&self, args: &ApiOperation) -> Result<Option<u32>> {
+        match args {
+            ApiOperation::Pipeline => {
+                let url = format!("{}/pipelines?page=1", self.rest_api_basepath());
+                let mut request: Request<()> = http::Request::new(&url, http::Method::GET)
+                    .with_api_operation(ApiOperation::Pipeline);
+                request.set_header("PRIVATE-TOKEN", self.api_token());
+                let response = self.runner.run(&mut request).unwrap();
+                let page_header = response.get_page_headers().ok_or_else(|| {
+                    error::gen(format!(
+                        "Failed to get page headers for GitLab API URL: {}",
+                        url
+                    ))
+                })?;
+                if let Some(last_page) = page_header.last {
+                    return Ok(Some(last_page.number));
+                }
+                Ok(None)
+            }
+            _ => Ok(None),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
+
+    use crate::remote::ListBodyArgs;
     use crate::test::utils::{config, get_contract, ContractType, MockRunner};
 
-    use crate::io::{CmdInfo, ResponseBuilder};
+    use crate::io::CmdInfo;
 
     use super::*;
 
@@ -356,7 +391,7 @@ mod test {
         let config = config();
         let domain = "gitlab.com";
         let path = "jordilin/gitlapi";
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Gitlab, "project.json"))
             .build()
@@ -377,7 +412,7 @@ mod test {
         let config = config();
         let domain = "gitlab.com";
         let path = "jordilin/gitlapi";
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Gitlab, "project.json"))
             .build()
@@ -398,7 +433,7 @@ mod test {
         let config = config();
         let domain = "gitlab.com";
         let path = "jordilin/gitlapi";
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Gitlab, "project_members.json"))
             .build()
@@ -428,7 +463,7 @@ mod test {
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi";
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(201)
             .body(get_contract(ContractType::Gitlab, "merge_request.json"))
             .build()
@@ -454,7 +489,7 @@ mod test {
         let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = ResponseBuilder::default().status(400).build().unwrap();
+        let response = Response::builder().status(400).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab = Gitlab::new(config, &domain, &path, client);
         assert!(gitlab.open(mr_args).is_err());
@@ -468,7 +503,7 @@ mod test {
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(409)
             .body(get_contract(
                 ContractType::Gitlab,
@@ -488,15 +523,14 @@ mod test {
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Gitlab, "list_pipelines.json"))
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
-
-        let pipelines = gitlab.list_pipelines().unwrap();
+        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let pipelines = gitlab.list(default_pipeline_body_args()).unwrap();
 
         assert_eq!(2, pipelines.len());
         assert_eq!(
@@ -507,17 +541,25 @@ mod test {
         assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
     }
 
+    fn default_pipeline_body_args() -> PipelineBodyArgs {
+        let body_args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        body_args
+    }
+
     #[test]
     fn test_list_pipelines_error() {
         let config = config();
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = ResponseBuilder::default().status(400).build().unwrap();
+        let response = Response::builder().status(400).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client);
+        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client));
 
-        assert!(gitlab.list_pipelines().is_err());
+        assert!(gitlab.list(default_pipeline_body_args()).is_err());
     }
 
     #[test]
@@ -526,15 +568,78 @@ mod test {
 
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Gitlab, "no_pipelines.json"))
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
-
-        let pipelines = gitlab.list_pipelines().unwrap();
+        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let pipelines = gitlab.list(default_pipeline_body_args()).unwrap();
         assert_eq!(0, pipelines.len());
+    }
+
+    #[test]
+    fn test_pipeline_page_from_set_in_url() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "list_pipelines.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let fromtopage_args = ListBodyArgs::builder()
+            .page(2)
+            .max_pages(2)
+            .build()
+            .unwrap();
+        let body_args = PipelineBodyArgs::builder()
+            .from_to_page(Some(fromtopage_args))
+            .build()
+            .unwrap();
+        gitlab.list(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2",
+            *client.url(),
+        );
+    }
+
+    #[test]
+    fn test_gitlab_implements_num_pages() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"last\"";
+        let headers = vec![("link".to_string(), link_header.to_string())];
+        let response = Response::builder()
+            .status(200)
+            .headers(HashMap::from_iter(headers))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn QueryPages> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert_eq!(Some(2), gitlab.num_pages(&ApiOperation::Pipeline).unwrap());
+    }
+
+    #[test]
+    fn test_gitlab_num_pages_no_last_header_in_link() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"next\"";
+        let headers = vec![("link".to_string(), link_header.to_string())];
+        let response = Response::builder()
+            .status(200)
+            .headers(HashMap::from_iter(headers))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn QueryPages> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert_eq!(None, gitlab.num_pages(&ApiOperation::Pipeline).unwrap());
     }
 }

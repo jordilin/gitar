@@ -1,8 +1,9 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::api_traits::{Cicd, MergeRequest, RemoteProject};
+use crate::api_traits::{Cicd, MergeRequest, QueryPages, RemoteProject};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
+use crate::error::GRError;
 use crate::github::Github;
 use crate::gitlab::Gitlab;
 use crate::Result;
@@ -152,6 +153,97 @@ impl Pipeline {
     }
 }
 
+/// List cli args can be used across multiple APIs that support pagination.
+#[derive(Builder)]
+pub struct ListRemoteCliArgs {
+    pub from_page: Option<i64>,
+    pub to_page: Option<i64>,
+    #[builder(default)]
+    pub num_pages: bool,
+    #[builder(default)]
+    pub refresh_cache: bool,
+}
+
+impl ListRemoteCliArgs {
+    pub fn builder() -> ListRemoteCliArgsBuilder {
+        ListRemoteCliArgsBuilder::default()
+    }
+}
+
+#[derive(Builder, Clone)]
+pub struct ListBodyArgs {
+    pub page: i64,
+    pub max_pages: i64,
+    #[builder(default = "false")]
+    pub num_pages: bool,
+}
+
+impl ListBodyArgs {
+    pub fn builder() -> ListBodyArgsBuilder {
+        ListBodyArgsBuilder::default()
+    }
+}
+
+pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Option<ListBodyArgs>> {
+    return match (remote_cli_args.from_page, remote_cli_args.to_page) {
+        (Some(from_page), Some(to_page)) => {
+            if from_page < 0 || to_page < 0 {
+                return Err(GRError::PreconditionNotMet(
+                    "from_page and to_page must be a positive number".to_string(),
+                )
+                .into());
+            }
+            if from_page >= to_page {
+                return Err(GRError::PreconditionNotMet(
+                    "from_page must be less than to_page".to_string(),
+                )
+                .into());
+            }
+
+            let max_pages = to_page - from_page;
+            Ok(Some(
+                ListBodyArgs::builder()
+                    .page(from_page)
+                    .max_pages(max_pages)
+                    .build()
+                    .unwrap(),
+            ))
+        }
+        (Some(_), None) => {
+            return Err(
+                GRError::PreconditionNotMet("from_page requires the to_page".to_string()).into(),
+            );
+        }
+        (None, Some(to_page)) => {
+            if to_page < 0 {
+                return Err(GRError::PreconditionNotMet(
+                    "to_page must be a positive number".to_string(),
+                )
+                .into());
+            }
+            Ok(Some(
+                ListBodyArgs::builder()
+                    .page(1)
+                    .max_pages(to_page)
+                    .build()
+                    .unwrap(),
+            ))
+        }
+        (None, None) => Ok(None),
+    };
+}
+
+#[derive(Builder, Clone)]
+pub struct PipelineBodyArgs {
+    pub from_to_page: Option<ListBodyArgs>,
+}
+
+impl PipelineBodyArgs {
+    pub fn builder() -> PipelineBodyArgsBuilder {
+        PipelineBodyArgsBuilder::default()
+    }
+}
+
 impl Display for Pipeline {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -194,6 +286,7 @@ macro_rules! get {
 get!(get_mr, MergeRequest);
 get!(get_cicd, Cicd);
 get!(get_project, RemoteProject);
+get!(get_list_pages, QueryPages);
 
 #[cfg(test)]
 mod test {
@@ -235,5 +328,114 @@ mod test {
         assert_eq!(args.assignee_id, "assignee_id");
         assert_eq!(args.username, "username");
         assert_eq!(args.remove_source_branch, "false");
+    }
+
+    #[test]
+    fn test_cli_from_to_pages_valid_range() {
+        let from_page = Option::Some(1);
+        let to_page = Option::Some(3);
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.page, 1);
+        assert_eq!(args.max_pages, 2);
+    }
+
+    #[test]
+    fn test_cli_from_to_pages_invalid_range() {
+        let from_page = Some(5);
+        let to_page = Some(2);
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args);
+        match args {
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::PreconditionNotMet(_)) => (),
+                _ => panic!("Expected error::GRError::PreconditionNotMet"),
+            },
+            _ => panic!("Expected error"),
+        }
+    }
+
+    #[test]
+    fn test_cli_from_page_negative_number_is_error() {
+        let from_page = Some(-5);
+        let to_page = Some(5);
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args);
+        match args {
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::PreconditionNotMet(_)) => (),
+                _ => panic!("Expected error::GRError::PreconditionNotMet"),
+            },
+            _ => panic!("Expected error"),
+        }
+    }
+
+    #[test]
+    fn test_cli_to_page_negative_number_is_error() {
+        let from_page = Some(5);
+        let to_page = Some(-5);
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args);
+        match args {
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::PreconditionNotMet(_)) => (),
+                _ => panic!("Expected error::GRError::PreconditionNotMet"),
+            },
+            _ => panic!("Expected error"),
+        }
+    }
+
+    #[test]
+    fn test_cli_from_page_without_to_page_is_error() {
+        let from_page = Some(5);
+        let to_page = None;
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args);
+        match args {
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::PreconditionNotMet(_)) => (),
+                _ => panic!("Expected error::GRError::PreconditionNotMet"),
+            },
+            _ => panic!("Expected error"),
+        }
+    }
+
+    #[test]
+    fn test_if_from_and_to_provided_must_be_positive() {
+        let from_page = Some(-5);
+        let to_page = Some(-5);
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args);
+        match args {
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::PreconditionNotMet(_)) => (),
+                _ => panic!("Expected error::GRError::PreconditionNotMet"),
+            },
+            _ => panic!("Expected error"),
+        }
     }
 }

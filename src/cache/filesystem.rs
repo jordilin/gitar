@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 
 use crate::cache::Cache;
 use crate::http::Resource;
-use crate::io::{self, Response, ResponseBuilder};
+use crate::io::{self, Response};
 use crate::time::Seconds;
 
 use super::CacheState;
@@ -63,7 +63,7 @@ impl<C: ConfigProperties> FileCache<C> {
         reader.read_line(&mut body)?;
         let body = body.trim();
         let headers_map = serde_json::from_str::<HashMap<String, String>>(&headers)?;
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(status_code)
             .body(body.to_string())
             .headers(headers_map)

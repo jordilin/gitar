@@ -3,7 +3,9 @@ use std::fmt::Display;
 use crate::{
     cli::BrowseOptions,
     io::CmdInfo,
-    remote::{MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline},
+    remote::{
+        MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline, PipelineBodyArgs,
+    },
     Result,
 };
 
@@ -24,8 +26,17 @@ pub trait RemoteProject {
 }
 
 pub trait Cicd {
-    fn list_pipelines(&self) -> Result<Vec<Pipeline>>;
+    fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>>;
     fn get_pipeline(&self, id: i64) -> Result<Pipeline>;
+}
+
+/// Implementors can query the remote API to get information about the number of
+/// pages available.
+pub trait QueryPages {
+    /// Queries the remote API to get the number of pages available for a given
+    /// resource. Reports a failure in case of any error and optionally return
+    /// the number of pages if available for the resource.
+    fn num_pages(&self, api_operation: &ApiOperation) -> Result<Option<u32>>;
 }
 
 /// Types of API resources attached to a request. The request will carry this

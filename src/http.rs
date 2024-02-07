@@ -1,7 +1,7 @@
 use crate::api_traits::ApiOperation;
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
-use crate::io::{HttpRunner, Response, ResponseBuilder, ResponseField};
+use crate::io::{HttpRunner, Response, ResponseField};
 use crate::time::{now_epoch_seconds, Seconds};
 use crate::Result;
 use crate::{api_defaults, error};
@@ -55,7 +55,7 @@ impl<C, D> Client<C, D> {
                             headers
                         });
                 let body = response.into_string().unwrap();
-                let response = ResponseBuilder::default()
+                let response = Response::builder()
                     .status(status)
                     .body(body)
                     .headers(headers)
@@ -79,10 +79,7 @@ impl<C, D> Client<C, D> {
             Ok(response) => {
                 let status = response.status().into();
                 let body = response.into_string().unwrap();
-                let response = ResponseBuilder::default()
-                    .status(status)
-                    .body(body)
-                    .build()?;
+                let response = Response::builder().status(status).body(body).build()?;
                 Ok(response)
             }
             Err(Error::Status(code, response)) => {
@@ -91,10 +88,7 @@ impl<C, D> Client<C, D> {
                 // https://docs.rs/ureq/latest/ureq/#error-handling
                 let status = code.into();
                 let body = response.into_string().unwrap();
-                let response = ResponseBuilder::default()
-                    .status(status)
-                    .body(body)
-                    .build()?;
+                let response = Response::builder().status(status).body(body).build()?;
                 Ok(response)
             }
             Err(err) => Err(err.into()),
@@ -194,6 +188,7 @@ fn default_rate_limit_handler(
     Ok(())
 }
 
+#[derive(Default)]
 pub struct Resource {
     pub url: String,
     pub api_operation: Option<ApiOperation>,
@@ -208,21 +203,36 @@ impl Resource {
     }
 }
 
+#[derive(Builder)]
+#[builder(pattern = "owned")]
 pub struct Request<T> {
+    #[builder(setter(into, strip_option), default)]
     body: Option<T>,
+    #[builder(default)]
     headers: HashMap<String, String>,
     method: Method,
     pub resource: Resource,
+    #[builder(setter(into, strip_option), default)]
+    pub max_pages: Option<i64>,
 }
 
 impl<T> Request<T> {
+    pub fn builder() -> RequestBuilder<T> {
+        RequestBuilder::default()
+    }
+
     pub fn new(url: &str, method: Method) -> Self {
         Request {
             body: None,
             headers: HashMap::new(),
             method,
             resource: Resource::new(url, None),
+            max_pages: None,
         }
+    }
+
+    pub fn set_max_pages(&mut self, max_pages: i64) {
+        self.max_pages = Some(max_pages);
     }
 
     pub fn with_api_operation(mut self, api_operation: ApiOperation) -> Self {
@@ -260,7 +270,9 @@ impl<T> Request<T> {
     }
 }
 
+#[derive(Default)]
 pub enum Method {
+    #[default]
     GET,
     POST,
     PUT,
@@ -273,7 +285,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response> {
         match cmd.method {
             Method::GET => {
-                let mut default_response = ResponseBuilder::default().build()?;
+                let mut default_response = Response::builder().build()?;
                 if !self.refresh_cache {
                     match self.cache.get(&cmd.resource) {
                         Ok(CacheState::Fresh(response)) => return Ok(response),
@@ -355,6 +367,11 @@ impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginato
             if self.iter == self.runner.api_max_pages(&self.request) {
                 return None;
             }
+            if let Some(max_pages) = self.request.max_pages {
+                if self.iter >= max_pages as u32 {
+                    return None;
+                }
+            }
             if self.iter >= 1 {
                 self.request.set_url(page_url);
             }
@@ -409,7 +426,7 @@ mod test {
     fn response_with_next_page() -> Response {
         let mut headers = HashMap::new();
         headers.insert("link".to_string(), "http://localhost?page=2".to_string());
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .headers(headers)
             .link_header_processor(header_processor_next_page_no_last)
@@ -421,7 +438,7 @@ mod test {
     fn response_with_last_page() -> Response {
         let mut headers = HashMap::new();
         headers.insert("link".to_string(), "http://localhost?page=2".to_string());
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .headers(headers)
             .link_header_processor(header_processor_last_page_no_next)
@@ -432,7 +449,7 @@ mod test {
 
     #[test]
     fn test_paginator_no_headers_no_next_no_last_pages() {
-        let response = ResponseBuilder::default().status(200).build().unwrap();
+        let response = Response::builder().status(200).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
         let paginator = Paginator::new(&client, request, "http://localhost");
@@ -446,7 +463,7 @@ mod test {
         let response1 = response_with_next_page();
         let mut headers = HashMap::new();
         headers.insert("link".to_string(), "http://localhost?page=2".to_string());
-        let response2 = ResponseBuilder::default()
+        let response2 = Response::builder()
             .status(200)
             .headers(headers)
             .link_header_processor(|_header| PageHeader::new())
@@ -472,7 +489,7 @@ mod test {
 
     #[test]
     fn test_paginator_error_response() {
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(500)
             .body("Internal Server Error".to_string())
             .build()
@@ -531,7 +548,7 @@ mod test {
     fn test_ratelimit_remaining_threshold_reached_is_error() {
         let mut headers = HashMap::new();
         headers.insert("x-ratelimit-remaining".to_string(), "10".to_string());
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .headers(headers)
             .build()
@@ -544,7 +561,7 @@ mod test {
     fn test_ratelimit_remaining_threshold_not_reached_is_ok() {
         let mut headers = HashMap::new();
         headers.insert("ratelimit-remaining".to_string(), "11".to_string());
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .headers(headers)
             .build()
@@ -619,5 +636,22 @@ mod test {
         for thread in threads {
             thread.join().unwrap();
         }
+    }
+
+    #[test]
+    fn test_paginator_stops_paging_after_http_request_max_pages_reached() {
+        let response1 = response_with_next_page();
+        let response2 = response_with_next_page();
+        let response3 = response_with_last_page();
+        let client = Arc::new(MockRunner::new(vec![response3, response2, response1]));
+        let request: Request<()> = Request::builder()
+            .method(Method::GET)
+            .resource(Resource::new("http://localhost", None))
+            .max_pages(1)
+            .build()
+            .unwrap();
+        let paginator = Paginator::new(&client, request, "http://localhost");
+        let responses = paginator.collect::<Vec<Result<Response>>>();
+        assert_eq!(1, responses.len());
     }
 }

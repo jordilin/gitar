@@ -3,6 +3,7 @@ use serde::Serialize;
 use crate::api_traits::ApiOperation;
 use crate::api_traits::Cicd;
 use crate::api_traits::MergeRequest;
+use crate::api_traits::QueryPages;
 use crate::api_traits::RemoteProject;
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
@@ -21,6 +22,7 @@ use crate::remote::MergeRequestBodyArgs;
 use crate::remote::MergeRequestResponse;
 use crate::remote::MergeRequestState;
 use crate::remote::Pipeline;
+use crate::remote::PipelineBodyArgs;
 use crate::remote::Project;
 use crate::Result;
 use std::collections::HashMap;
@@ -421,7 +423,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
 }
 
 impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
-    fn list_pipelines(&self) -> Result<Vec<Pipeline>> {
+    fn list(&self, _args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
         todo!()
     }
 
@@ -430,12 +432,15 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
     }
 }
 
+impl<R: HttpRunner<Response = Response>> QueryPages for Github<R> {
+    fn num_pages(&self, _api_operation: &ApiOperation) -> Result<Option<u32>> {
+        unimplemented!("num_pages not implemented for Github")
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::{
-        io::ResponseBuilder,
-        test::utils::{config, get_contract, ContractType, MockRunner},
-    };
+    use crate::test::utils::{config, get_contract, ContractType, MockRunner};
 
     use super::*;
 
@@ -444,7 +449,7 @@ mod test {
         let config = config();
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";
-        let response = ResponseBuilder::default()
+        let response = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Github, "project.json"))
             .build()
@@ -476,12 +481,12 @@ mod test {
 
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";
-        let response1 = ResponseBuilder::default()
+        let response1 = Response::builder()
             .status(201)
             .body(get_contract(ContractType::Github, "merge_request.json"))
             .build()
             .unwrap();
-        let response2 = ResponseBuilder::default()
+        let response2 = Response::builder()
             .status(200)
             .body(get_contract(ContractType::Github, "merge_request.json"))
             .build()
@@ -507,7 +512,7 @@ mod test {
 
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";
-        let response1 = ResponseBuilder::default().status(401).body(
+        let response1 = Response::builder().status(401).body(
             r#"{"message":"Bad credentials","documentation_url":"https://docs.github.com/rest"}"#
                 .to_string(),
             )
