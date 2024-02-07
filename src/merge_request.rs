@@ -7,6 +7,7 @@ use crate::config::ConfigProperties;
 use crate::error::GRError;
 use crate::exec;
 use crate::git::Repo;
+use crate::remote::ListRemoteCliArgs;
 use crate::remote::Member;
 use crate::remote::MergeRequestBodyArgs;
 use crate::remote::MergeRequestState;
@@ -43,6 +44,20 @@ impl MergeRequestCliArgs {
     }
 }
 
+pub struct MergeRequestListCliArgs {
+    pub state: MergeRequestState,
+    pub list_args: ListRemoteCliArgs,
+}
+
+impl MergeRequestListCliArgs {
+    pub fn new(state: MergeRequestState, args: ListRemoteCliArgs) -> MergeRequestListCliArgs {
+        MergeRequestListCliArgs {
+            state,
+            list_args: args,
+        }
+    }
+}
+
 pub fn execute(
     options: MergeRequestOptions,
     config: Arc<Config>,
@@ -66,12 +81,9 @@ pub fn execute(
             let mr_body = get_repo_project_info(cmds(project_remote, &cli_args))?;
             open(mr_remote, config, mr_body, &cli_args)
         }
-        MergeRequestOptions::List {
-            state,
-            refresh_cache,
-        } => {
-            let remote = remote::get_mr(domain, path, config, refresh_cache)?;
-            list(remote, state)
+        MergeRequestOptions::List(cli_args) => {
+            let remote = remote::get_mr(domain, path, config, cli_args.list_args.refresh_cache)?;
+            list(remote, cli_args.state)
         }
         MergeRequestOptions::Merge { id } => {
             let remote = remote::get_mr(domain, path, config, false)?;
