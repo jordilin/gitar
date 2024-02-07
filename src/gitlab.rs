@@ -369,7 +369,7 @@ impl<R: HttpRunner<Response = Response>> QueryPages for Gitlab<R> {
                 if let Some(last_page) = page_header.last {
                     return Ok(Some(last_page.number));
                 }
-                return Ok(None);
+                Ok(None)
             }
             _ => Ok(None),
         }
