@@ -6,19 +6,6 @@ use crate::{remote, Result};
 use std::io::Write;
 use std::sync::Arc;
 
-#[derive(Builder)]
-pub struct ListPipelineCliArgs {
-    pub from_page: Option<i64>,
-    pub to_page: Option<i64>,
-    pub refresh_cache: bool,
-}
-
-impl ListPipelineCliArgs {
-    pub fn builder() -> ListPipelineCliArgsBuilder {
-        ListPipelineCliArgsBuilder::default()
-    }
-}
-
 pub fn execute(
     options: PipelineOptions,
     config: Arc<Config>,
