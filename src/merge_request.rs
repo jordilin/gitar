@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::api_traits::ApiOperation;
 use crate::api_traits::MergeRequest;
 
 use crate::api_traits::RemoteProject;
@@ -83,6 +84,27 @@ pub fn execute(
             open(mr_remote, config, mr_body, &cli_args)
         }
         MergeRequestOptions::List(cli_args) => {
+            if cli_args.list_args.num_pages {
+                let remote = remote::get_list_pages(
+                    domain.clone(),
+                    path.clone(),
+                    config.clone(),
+                    cli_args.list_args.refresh_cache,
+                )?;
+                match remote.num_pages(&ApiOperation::MergeRequest) {
+                    Ok(Some(pages)) => {
+                        println!("{}", pages);
+                        return Ok(());
+                    }
+                    Ok(None) => {
+                        println!("Number of pages not available.");
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        return Err(e);
+                    }
+                };
+            }
             let remote = remote::get_mr(domain, path, config, cli_args.list_args.refresh_cache)?;
             let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
             let body_args = MergeRequestListBodyArgs::builder()

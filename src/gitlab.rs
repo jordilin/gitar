@@ -52,6 +52,25 @@ impl<R> Gitlab<R> {
     }
 }
 
+impl<R: HttpRunner<Response = Response>> Gitlab<R> {
+    fn num_pages(&self, url: String, operation: ApiOperation) -> Result<Option<u32>> {
+        let mut request: Request<()> =
+            http::Request::new(&url, http::Method::GET).with_api_operation(operation);
+        request.set_header("PRIVATE-TOKEN", self.api_token());
+        let response = self.runner.run(&mut request)?;
+        let page_header = response.get_page_headers().ok_or_else(|| {
+            error::gen(format!(
+                "Failed to get page headers for GitLab API URL: {}",
+                url
+            ))
+        })?;
+        if let Some(last_page) = page_header.last {
+            return Ok(Some(last_page.number));
+        }
+        Ok(None)
+    }
+}
+
 impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     fn open(&self, args: MergeRequestBodyArgs) -> Result<MergeRequestResponse> {
         let mut body = HashMap::new();
@@ -362,20 +381,11 @@ impl<R: HttpRunner<Response = Response>> QueryPages for Gitlab<R> {
         match args {
             ApiOperation::Pipeline => {
                 let url = format!("{}/pipelines?page=1", self.rest_api_basepath());
-                let mut request: Request<()> = http::Request::new(&url, http::Method::GET)
-                    .with_api_operation(ApiOperation::Pipeline);
-                request.set_header("PRIVATE-TOKEN", self.api_token());
-                let response = self.runner.run(&mut request).unwrap();
-                let page_header = response.get_page_headers().ok_or_else(|| {
-                    error::gen(format!(
-                        "Failed to get page headers for GitLab API URL: {}",
-                        url
-                    ))
-                })?;
-                if let Some(last_page) = page_header.last {
-                    return Ok(Some(last_page.number));
-                }
-                Ok(None)
+                self.num_pages(url, ApiOperation::Pipeline)
+            }
+            ApiOperation::MergeRequest => {
+                let url = format!("{}/merge_requests?page=1", self.rest_api_basepath());
+                self.num_pages(url, ApiOperation::MergeRequest)
             }
             _ => Ok(None),
         }
@@ -614,7 +624,7 @@ mod test {
     }
 
     #[test]
-    fn test_gitlab_implements_num_pages() {
+    fn test_gitlab_implements_num_pages_pipeline_operation() {
         let config = config();
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
@@ -629,10 +639,14 @@ mod test {
         let gitlab: Box<dyn QueryPages> =
             Box::new(Gitlab::new(config, &domain, &path, client.clone()));
         assert_eq!(Some(2), gitlab.num_pages(&ApiOperation::Pipeline).unwrap());
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=1",
+            *client.url(),
+        );
     }
 
     #[test]
-    fn test_gitlab_num_pages_no_last_header_in_link() {
+    fn test_gitlab_num_pages_pipeline_no_last_header_in_link() {
         let config = config();
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
@@ -647,6 +661,18 @@ mod test {
         let gitlab: Box<dyn QueryPages> =
             Box::new(Gitlab::new(config, &domain, &path, client.clone()));
         assert_eq!(None, gitlab.num_pages(&ApiOperation::Pipeline).unwrap());
+    }
+
+    #[test]
+    fn test_gitlab_num_pages_pipeline_operation_response_error_is_error() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder().status(400).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn QueryPages> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert!(gitlab.num_pages(&ApiOperation::Pipeline).is_err());
     }
 
     #[test]
@@ -678,5 +704,72 @@ mod test {
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=2",
             *client.url(),
         );
+    }
+
+    #[test]
+    fn test_gitlab_merge_request_num_pages() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=1>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=2>; rel=\"last\"";
+        let headers = vec![("link".to_string(), link_header.to_string())];
+        let response = Response::builder()
+            .status(200)
+            .headers(HashMap::from_iter(headers))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn QueryPages> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert_eq!(
+            Some(2),
+            gitlab.num_pages(&ApiOperation::MergeRequest).unwrap()
+        );
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?page=1",
+            *client.url(),
+        );
+    }
+
+    #[test]
+    fn test_gitlab_merge_request_num_pages_no_link_header_error() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder().status(200).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn QueryPages> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert!(gitlab.num_pages(&ApiOperation::MergeRequest).is_err());
+    }
+
+    #[test]
+    fn test_gitlab_merge_request_num_pages_response_error_is_error() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder().status(400).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn QueryPages> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert!(gitlab.num_pages(&ApiOperation::MergeRequest).is_err());
+    }
+
+    #[test]
+    fn test_gitlab_merge_request_num_pages_no_last_header_in_link() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=1>; rel=\"next\"";
+        let headers = vec![("link".to_string(), link_header.to_string())];
+        let response = Response::builder()
+            .status(200)
+            .headers(HashMap::from_iter(headers))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn QueryPages> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert_eq!(None, gitlab.num_pages(&ApiOperation::MergeRequest).unwrap());
     }
 }
