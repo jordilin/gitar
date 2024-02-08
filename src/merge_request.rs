@@ -10,6 +10,7 @@ use crate::git::Repo;
 use crate::remote::ListRemoteCliArgs;
 use crate::remote::Member;
 use crate::remote::MergeRequestBodyArgs;
+use crate::remote::MergeRequestListBodyArgs;
 use crate::remote::MergeRequestState;
 use crate::remote::Project;
 use crate::shell::Shell;
@@ -83,7 +84,13 @@ pub fn execute(
         }
         MergeRequestOptions::List(cli_args) => {
             let remote = remote::get_mr(domain, path, config, cli_args.list_args.refresh_cache)?;
-            list(remote, cli_args.state)
+            let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
+            let body_args = MergeRequestListBodyArgs::builder()
+                .list_args(from_to_args)
+                .state(cli_args.state)
+                .build()?;
+
+            list(remote, body_args)
         }
         MergeRequestOptions::Merge { id } => {
             let remote = remote::get_mr(domain, path, config, false)?;
@@ -313,8 +320,8 @@ fn in_feature_branch(current_branch: &str, upstream_branch: &str) -> Result<()> 
     }
 }
 
-fn list(remote: Arc<dyn MergeRequest>, state: MergeRequestState) -> Result<()> {
-    let merge_requests = remote.list(state)?;
+fn list(remote: Arc<dyn MergeRequest>, args: MergeRequestListBodyArgs) -> Result<()> {
+    let merge_requests = remote.list(args)?;
     if merge_requests.is_empty() {
         println!("No merge requests found.");
         return Ok(());

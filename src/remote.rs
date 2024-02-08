@@ -83,6 +83,7 @@ impl MergeRequestResponse {
     }
 }
 
+#[derive(Clone)]
 pub enum MergeRequestState {
     Opened,
     Closed,
@@ -135,6 +136,18 @@ pub struct MergeRequestBodyArgs {
 impl MergeRequestBodyArgs {
     pub fn builder() -> MergeRequestBodyArgsBuilder {
         MergeRequestBodyArgsBuilder::default()
+    }
+}
+
+#[derive(Builder)]
+pub struct MergeRequestListBodyArgs {
+    pub state: MergeRequestState,
+    pub list_args: Option<ListBodyArgs>,
+}
+
+impl MergeRequestListBodyArgs {
+    pub fn builder() -> MergeRequestListBodyArgsBuilder {
+        MergeRequestListBodyArgsBuilder::default()
     }
 }
 

@@ -19,6 +19,7 @@ use crate::json_load_page;
 use crate::json_loads;
 use crate::remote::Member;
 use crate::remote::MergeRequestBodyArgs;
+use crate::remote::MergeRequestListBodyArgs;
 use crate::remote::MergeRequestResponse;
 use crate::remote::MergeRequestState;
 use crate::remote::Pipeline;
@@ -305,9 +306,9 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         }
     }
 
-    fn list(&self, state: MergeRequestState) -> Result<Vec<MergeRequestResponse>> {
+    fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
         // TODO add sort
-        let url = match state {
+        let url = match args.state {
             MergeRequestState::Opened => {
                 format!(
                     "{}/repos/{}/pulls?state=open",

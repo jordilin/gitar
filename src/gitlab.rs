@@ -6,7 +6,7 @@ use crate::http::{self, Paginator, Request};
 use crate::io::Response;
 use crate::io::{CmdInfo, HttpRunner};
 use crate::remote::{
-    Member, MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline,
+    Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Pipeline,
     PipelineBodyArgs, Project,
 };
 use crate::{json_load_page, json_loads, Result};
@@ -106,15 +106,21 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
             .unwrap())
     }
 
-    fn list(&self, state: MergeRequestState) -> Result<Vec<MergeRequestResponse>> {
+    fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
         let url = &format!(
             "{}/merge_requests?state={}",
             self.rest_api_basepath(),
-            state
+            args.state
         );
         let mut request: Request<()> = http::Request::new(url, http::Method::GET)
             .with_api_operation(ApiOperation::MergeRequest);
         request.set_header("PRIVATE-TOKEN", self.api_token());
+        if args.list_args.is_some() {
+            let from_page = args.list_args.as_ref().unwrap().page;
+            let suffix = format!("&page={}", &from_page);
+            request.set_max_pages(args.list_args.unwrap().max_pages);
+            request.set_url(&format!("{}{}", url, suffix));
+        }
         let paginator = Paginator::new(&self.runner, request, url);
         paginator
             .map(|response| {
@@ -379,7 +385,7 @@ impl<R: HttpRunner<Response = Response>> QueryPages for Gitlab<R> {
 #[cfg(test)]
 mod test {
 
-    use crate::remote::ListBodyArgs;
+    use crate::remote::{ListBodyArgs, MergeRequestState};
     use crate::test::utils::{config, get_contract, ContractType, MockRunner};
 
     use crate::io::CmdInfo;
@@ -641,5 +647,36 @@ mod test {
         let gitlab: Box<dyn QueryPages> =
             Box::new(Gitlab::new(config, &domain, &path, client.clone()));
         assert_eq!(None, gitlab.num_pages(&ApiOperation::Pipeline).unwrap());
+    }
+
+    #[test]
+    fn test_list_merge_request_with_from_page() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body("[]".to_string())
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn MergeRequest> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(Some(
+                ListBodyArgs::builder()
+                    .page(2)
+                    .max_pages(2)
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
+        gitlab.list(args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=2",
+            *client.url(),
+        );
     }
 }

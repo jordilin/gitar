@@ -4,14 +4,15 @@ use crate::{
     cli::BrowseOptions,
     io::CmdInfo,
     remote::{
-        MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline, PipelineBodyArgs,
+        MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Pipeline,
+        PipelineBodyArgs,
     },
     Result,
 };
 
 pub trait MergeRequest {
     fn open(&self, args: MergeRequestBodyArgs) -> Result<MergeRequestResponse>;
-    fn list(&self, state: MergeRequestState) -> Result<Vec<MergeRequestResponse>>;
+    fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>>;
     fn merge(&self, id: i64) -> Result<MergeRequestResponse>;
     fn get(&self, id: i64) -> Result<MergeRequestResponse>;
     fn close(&self, id: i64) -> Result<MergeRequestResponse>;
