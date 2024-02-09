@@ -46,6 +46,12 @@
             cargo-tarpaulin
             cargo-audit
             cargo-watch
+            # cargo-edit provides cargo upgrade for Cargo.toml
+            # See note cargo upgrade stuck on fetch
+            # https://github.com/killercup/cargo-edit/issues/869#issuecomment-1696223822
+            # run CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git cargo fetch
+            # and CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git cargo upgrade
+            cargo-edit
             # cargo llvm-cov --html (alternative to tarpaulin needs
             # llvm-tools-preview extension)
             cargo-llvm-cov
