@@ -245,6 +245,16 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
             .build()
             .unwrap())
     }
+
+    fn num_pages(&self, args: MergeRequestListBodyArgs) -> Result<Option<u32>> {
+        let state = args.state.to_string();
+        let url = format!(
+            "{}/merge_requests?state={}&page=1",
+            self.rest_api_basepath(),
+            state
+        );
+        self.num_pages(url, ApiOperation::MergeRequest)
+    }
 }
 
 impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
@@ -373,6 +383,11 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
 
     fn get_pipeline(&self, _id: i64) -> Result<Pipeline> {
         todo!();
+    }
+
+    fn num_pages(&self) -> Result<Option<u32>> {
+        let url = format!("{}/pipelines?page=1", self.rest_api_basepath());
+        self.num_pages(url, ApiOperation::Pipeline)
     }
 }
 

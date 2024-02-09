@@ -1,4 +1,4 @@
-use crate::api_traits::{ApiOperation, Cicd, QueryPages};
+use crate::api_traits::Cicd;
 use crate::cli::PipelineOptions;
 use crate::config::Config;
 use crate::remote::PipelineBodyArgs;
@@ -14,11 +14,11 @@ pub fn execute(
 ) -> Result<()> {
     match options {
         PipelineOptions::List(cli_args) => {
+            let remote = remote::get_cicd(domain, path, config, cli_args.refresh_cache)?;
             if cli_args.num_pages {
-                let remote = remote::get_list_pages(domain, path, config, cli_args.refresh_cache)?;
                 return query_pages(remote, std::io::stdout());
             }
-            let remote = remote::get_cicd(domain, path, config, cli_args.refresh_cache)?;
+
             let from_to_args = remote::validate_from_to_page(&cli_args)?;
             let body_args = PipelineBodyArgs::builder()
                 .from_to_page(from_to_args)
@@ -28,8 +28,8 @@ pub fn execute(
     }
 }
 
-fn query_pages<W: Write>(remote: Arc<dyn QueryPages>, mut writer: W) -> Result<()> {
-    match remote.num_pages(&ApiOperation::Pipeline) {
+fn query_pages<W: Write>(remote: Arc<dyn Cicd>, mut writer: W) -> Result<()> {
+    match remote.num_pages() {
         Ok(Some(pages)) => writer.write_all(format!("{pages}\n", pages = pages).as_bytes())?,
         Ok(None) => {
             writer.write_all(b"Number of pages not available.\n")?;
@@ -94,10 +94,8 @@ mod test {
             let pp = self.pipelines.clone();
             Ok(pp[0].clone())
         }
-    }
 
-    impl QueryPages for PipelineListMock {
-        fn num_pages(&self, _op: &ApiOperation) -> Result<Option<u32>> {
+        fn num_pages(&self) -> Result<Option<u32>> {
             if self.error {
                 return Err(error::gen("Error"));
             }

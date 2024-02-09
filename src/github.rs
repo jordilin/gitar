@@ -421,6 +421,10 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
     fn close(&self, _id: i64) -> Result<MergeRequestResponse> {
         todo!()
     }
+
+    fn num_pages(&self, _args: MergeRequestListBodyArgs) -> Result<Option<u32>> {
+        todo!()
+    }
 }
 
 impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
@@ -429,6 +433,10 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
     }
 
     fn get_pipeline(&self, _id: i64) -> Result<Pipeline> {
+        todo!()
+    }
+
+    fn num_pages(&self) -> Result<Option<u32>> {
         todo!()
     }
 }

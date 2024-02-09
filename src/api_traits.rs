@@ -16,6 +16,9 @@ pub trait MergeRequest {
     fn merge(&self, id: i64) -> Result<MergeRequestResponse>;
     fn get(&self, id: i64) -> Result<MergeRequestResponse>;
     fn close(&self, id: i64) -> Result<MergeRequestResponse>;
+    /// Queries the remote API to get the number of pages available for a given
+    /// resource based on list arguments.
+    fn num_pages(&self, args: MergeRequestListBodyArgs) -> Result<Option<u32>>;
 }
 
 pub trait RemoteProject {
@@ -29,6 +32,7 @@ pub trait RemoteProject {
 pub trait Cicd {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>>;
     fn get_pipeline(&self, id: i64) -> Result<Pipeline>;
+    fn num_pages(&self) -> Result<Option<u32>>;
 }
 
 /// Implementors can query the remote API to get information about the number of
