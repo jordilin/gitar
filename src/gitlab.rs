@@ -1,4 +1,4 @@
-use crate::api_traits::{ApiOperation, Cicd, MergeRequest, QueryPages, RemoteProject};
+use crate::api_traits::{ApiOperation, Cicd, MergeRequest, RemoteProject};
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
 use crate::error::{self, AddContext};
@@ -391,22 +391,6 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> QueryPages for Gitlab<R> {
-    fn num_pages(&self, args: &ApiOperation) -> Result<Option<u32>> {
-        match args {
-            ApiOperation::Pipeline => {
-                let url = format!("{}/pipelines?page=1", self.rest_api_basepath());
-                self.num_pages(url, ApiOperation::Pipeline)
-            }
-            ApiOperation::MergeRequest => {
-                let url = format!("{}/merge_requests?page=1", self.rest_api_basepath());
-                self.num_pages(url, ApiOperation::MergeRequest)
-            }
-            _ => Ok(None),
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
 
@@ -651,9 +635,8 @@ mod test {
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn QueryPages> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
-        assert_eq!(Some(2), gitlab.num_pages(&ApiOperation::Pipeline).unwrap());
+        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert_eq!(Some(2), gitlab.num_pages().unwrap());
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=1",
             *client.url(),
@@ -673,9 +656,8 @@ mod test {
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn QueryPages> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
-        assert_eq!(None, gitlab.num_pages(&ApiOperation::Pipeline).unwrap());
+        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert_eq!(None, gitlab.num_pages().unwrap());
     }
 
     #[test]
@@ -685,9 +667,8 @@ mod test {
         let path = "jordilin/gitlapi".to_string();
         let response = Response::builder().status(400).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn QueryPages> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
-        assert!(gitlab.num_pages(&ApiOperation::Pipeline).is_err());
+        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert!(gitlab.num_pages().is_err());
     }
 
     #[test]
@@ -734,14 +715,16 @@ mod test {
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn QueryPages> =
+        let gitlab: Box<dyn MergeRequest> =
             Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let body_args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(None)
+            .build()
+            .unwrap();
+        assert_eq!(Some(2), gitlab.num_pages(body_args).unwrap());
         assert_eq!(
-            Some(2),
-            gitlab.num_pages(&ApiOperation::MergeRequest).unwrap()
-        );
-        assert_eq!(
-            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?page=1",
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=1",
             *client.url(),
         );
     }
@@ -753,9 +736,14 @@ mod test {
         let path = "jordilin/gitlapi".to_string();
         let response = Response::builder().status(200).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn QueryPages> =
+        let gitlab: Box<dyn MergeRequest> =
             Box::new(Gitlab::new(config, &domain, &path, client.clone()));
-        assert!(gitlab.num_pages(&ApiOperation::MergeRequest).is_err());
+        let body_args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(None)
+            .build()
+            .unwrap();
+        assert!(gitlab.num_pages(body_args).is_err());
     }
 
     #[test]
@@ -765,9 +753,14 @@ mod test {
         let path = "jordilin/gitlapi".to_string();
         let response = Response::builder().status(400).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn QueryPages> =
+        let gitlab: Box<dyn MergeRequest> =
             Box::new(Gitlab::new(config, &domain, &path, client.clone()));
-        assert!(gitlab.num_pages(&ApiOperation::MergeRequest).is_err());
+        let body_args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(None)
+            .build()
+            .unwrap();
+        assert!(gitlab.num_pages(body_args).is_err());
     }
 
     #[test]
@@ -783,8 +776,13 @@ mod test {
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn QueryPages> =
+        let gitlab: Box<dyn MergeRequest> =
             Box::new(Gitlab::new(config, &domain, &path, client.clone()));
-        assert_eq!(None, gitlab.num_pages(&ApiOperation::MergeRequest).unwrap());
+        let body_args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(None)
+            .build()
+            .unwrap();
+        assert_eq!(None, gitlab.num_pages(body_args).unwrap());
     }
 }

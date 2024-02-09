@@ -35,15 +35,6 @@ pub trait Cicd {
     fn num_pages(&self) -> Result<Option<u32>>;
 }
 
-/// Implementors can query the remote API to get information about the number of
-/// pages available.
-pub trait QueryPages {
-    /// Queries the remote API to get the number of pages available for a given
-    /// resource. Reports a failure in case of any error and optionally return
-    /// the number of pages if available for the resource.
-    fn num_pages(&self, api_operation: &ApiOperation) -> Result<Option<u32>>;
-}
-
 /// Types of API resources attached to a request. The request will carry this
 /// information so we can decide if we need to use the cache or not based on
 /// global configuration.
