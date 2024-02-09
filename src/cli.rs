@@ -1,5 +1,6 @@
 use crate::{
-    merge_request::MergeRequestCliArgs, remote::ListRemoteCliArgs, remote::MergeRequestState,
+    merge_request::{MergeRequestCliArgs, MergeRequestListCliArgs},
+    remote::{ListRemoteCliArgs, MergeRequestState},
 };
 
 use clap::{Parser, ValueEnum};
@@ -125,9 +126,8 @@ impl From<MergeRequestStateStateCli> for MergeRequestState {
 struct ListMergeRequest {
     #[clap()]
     pub state: MergeRequestStateStateCli,
-    /// Refresh the cache
-    #[clap(long, short)]
-    pub refresh: bool,
+    #[command(flatten)]
+    list_args: ListArgs,
 }
 
 #[derive(Parser)]
@@ -179,7 +179,7 @@ enum PipelineSubcommand {
     List(ListArgs),
 }
 
-#[derive(Parser)]
+#[derive(Clone, Parser)]
 struct ListArgs {
     /// From page
     #[clap(long)]
@@ -249,6 +249,14 @@ pub struct ProjectOptions {
     pub refresh_cache: bool,
 }
 
+pub enum MergeRequestOptions {
+    Create(MergeRequestCliArgs),
+    List(MergeRequestListCliArgs),
+    Merge { id: i64 },
+    Checkout { id: i64 },
+    Close { id: i64 },
+}
+
 // From impls - private clap structs to public domain structs
 // Mainly to avoid propagating clap further down the stack as changes in the
 // clap API could break other parts of the code.
@@ -274,10 +282,17 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
 
 impl From<ListMergeRequest> for MergeRequestOptions {
     fn from(options: ListMergeRequest) -> Self {
-        MergeRequestOptions::List {
-            state: options.state.into(),
-            refresh_cache: options.refresh,
-        }
+        let list_args = ListRemoteCliArgs::builder()
+            .from_page(options.list_args.from_page)
+            .to_page(options.list_args.to_page)
+            .num_pages(options.list_args.num_pages)
+            .refresh_cache(options.list_args.refresh)
+            .build()
+            .unwrap();
+        MergeRequestOptions::List(MergeRequestListCliArgs::new(
+            options.state.into(),
+            list_args,
+        ))
     }
 }
 
@@ -373,21 +388,4 @@ impl From<InitCommand> for InitCommandOptions {
             domain: options.domain,
         }
     }
-}
-
-pub enum MergeRequestOptions {
-    Create(MergeRequestCliArgs),
-    List {
-        state: MergeRequestState,
-        refresh_cache: bool,
-    },
-    Merge {
-        id: i64,
-    },
-    Checkout {
-        id: i64,
-    },
-    Close {
-        id: i64,
-    },
 }

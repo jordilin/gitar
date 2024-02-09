@@ -3,7 +3,6 @@ use serde::Serialize;
 use crate::api_traits::ApiOperation;
 use crate::api_traits::Cicd;
 use crate::api_traits::MergeRequest;
-use crate::api_traits::QueryPages;
 use crate::api_traits::RemoteProject;
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
@@ -19,6 +18,7 @@ use crate::json_load_page;
 use crate::json_loads;
 use crate::remote::Member;
 use crate::remote::MergeRequestBodyArgs;
+use crate::remote::MergeRequestListBodyArgs;
 use crate::remote::MergeRequestResponse;
 use crate::remote::MergeRequestState;
 use crate::remote::Pipeline;
@@ -305,9 +305,9 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         }
     }
 
-    fn list(&self, state: MergeRequestState) -> Result<Vec<MergeRequestResponse>> {
+    fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
         // TODO add sort
-        let url = match state {
+        let url = match args.state {
             MergeRequestState::Opened => {
                 format!(
                     "{}/repos/{}/pulls?state=open",
@@ -420,6 +420,10 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
     fn close(&self, _id: i64) -> Result<MergeRequestResponse> {
         todo!()
     }
+
+    fn num_pages(&self, _args: MergeRequestListBodyArgs) -> Result<Option<u32>> {
+        todo!()
+    }
 }
 
 impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
@@ -430,11 +434,9 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
     fn get_pipeline(&self, _id: i64) -> Result<Pipeline> {
         todo!()
     }
-}
 
-impl<R: HttpRunner<Response = Response>> QueryPages for Github<R> {
-    fn num_pages(&self, _api_operation: &ApiOperation) -> Result<Option<u32>> {
-        unimplemented!("num_pages not implemented for Github")
+    fn num_pages(&self) -> Result<Option<u32>> {
+        todo!()
     }
 }
 

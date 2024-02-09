@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::api_traits::{Cicd, MergeRequest, QueryPages, RemoteProject};
+use crate::api_traits::{Cicd, MergeRequest, RemoteProject};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
 use crate::error::GRError;
@@ -83,6 +83,7 @@ impl MergeRequestResponse {
     }
 }
 
+#[derive(Clone)]
 pub enum MergeRequestState {
     Opened,
     Closed,
@@ -135,6 +136,18 @@ pub struct MergeRequestBodyArgs {
 impl MergeRequestBodyArgs {
     pub fn builder() -> MergeRequestBodyArgsBuilder {
         MergeRequestBodyArgsBuilder::default()
+    }
+}
+
+#[derive(Builder)]
+pub struct MergeRequestListBodyArgs {
+    pub state: MergeRequestState,
+    pub list_args: Option<ListBodyArgs>,
+}
+
+impl MergeRequestListBodyArgs {
+    pub fn builder() -> MergeRequestListBodyArgsBuilder {
+        MergeRequestListBodyArgsBuilder::default()
     }
 }
 
@@ -286,7 +299,6 @@ macro_rules! get {
 get!(get_mr, MergeRequest);
 get!(get_cicd, Cicd);
 get!(get_project, RemoteProject);
-get!(get_list_pages, QueryPages);
 
 #[cfg(test)]
 mod test {

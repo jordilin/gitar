@@ -4,17 +4,21 @@ use crate::{
     cli::BrowseOptions,
     io::CmdInfo,
     remote::{
-        MergeRequestBodyArgs, MergeRequestResponse, MergeRequestState, Pipeline, PipelineBodyArgs,
+        MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Pipeline,
+        PipelineBodyArgs,
     },
     Result,
 };
 
 pub trait MergeRequest {
     fn open(&self, args: MergeRequestBodyArgs) -> Result<MergeRequestResponse>;
-    fn list(&self, state: MergeRequestState) -> Result<Vec<MergeRequestResponse>>;
+    fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>>;
     fn merge(&self, id: i64) -> Result<MergeRequestResponse>;
     fn get(&self, id: i64) -> Result<MergeRequestResponse>;
     fn close(&self, id: i64) -> Result<MergeRequestResponse>;
+    /// Queries the remote API to get the number of pages available for a given
+    /// resource based on list arguments.
+    fn num_pages(&self, args: MergeRequestListBodyArgs) -> Result<Option<u32>>;
 }
 
 pub trait RemoteProject {
@@ -28,15 +32,7 @@ pub trait RemoteProject {
 pub trait Cicd {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>>;
     fn get_pipeline(&self, id: i64) -> Result<Pipeline>;
-}
-
-/// Implementors can query the remote API to get information about the number of
-/// pages available.
-pub trait QueryPages {
-    /// Queries the remote API to get the number of pages available for a given
-    /// resource. Reports a failure in case of any error and optionally return
-    /// the number of pages if available for the resource.
-    fn num_pages(&self, api_operation: &ApiOperation) -> Result<Option<u32>>;
+    fn num_pages(&self) -> Result<Option<u32>>;
 }
 
 /// Types of API resources attached to a request. The request will carry this

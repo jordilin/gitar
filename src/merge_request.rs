@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use crate::api_traits::MergeRequest;
-
 use crate::api_traits::RemoteProject;
 use crate::config::ConfigProperties;
 use crate::error::GRError;
 use crate::exec;
 use crate::git::Repo;
+use crate::remote::ListRemoteCliArgs;
 use crate::remote::Member;
 use crate::remote::MergeRequestBodyArgs;
+use crate::remote::MergeRequestListBodyArgs;
 use crate::remote::MergeRequestState;
 use crate::remote::Project;
 use crate::shell::Shell;
@@ -43,6 +44,20 @@ impl MergeRequestCliArgs {
     }
 }
 
+pub struct MergeRequestListCliArgs {
+    pub state: MergeRequestState,
+    pub list_args: ListRemoteCliArgs,
+}
+
+impl MergeRequestListCliArgs {
+    pub fn new(state: MergeRequestState, args: ListRemoteCliArgs) -> MergeRequestListCliArgs {
+        MergeRequestListCliArgs {
+            state,
+            list_args: args,
+        }
+    }
+}
+
 pub fn execute(
     options: MergeRequestOptions,
     config: Arc<Config>,
@@ -66,12 +81,29 @@ pub fn execute(
             let mr_body = get_repo_project_info(cmds(project_remote, &cli_args))?;
             open(mr_remote, config, mr_body, &cli_args)
         }
-        MergeRequestOptions::List {
-            state,
-            refresh_cache,
-        } => {
-            let remote = remote::get_mr(domain, path, config, refresh_cache)?;
-            list(remote, state)
+        MergeRequestOptions::List(cli_args) => {
+            let remote = remote::get_mr(domain, path, config, cli_args.list_args.refresh_cache)?;
+            let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
+            let body_args = MergeRequestListBodyArgs::builder()
+                .list_args(from_to_args)
+                .state(cli_args.state)
+                .build()?;
+            if cli_args.list_args.num_pages {
+                match remote.num_pages(body_args) {
+                    Ok(Some(pages)) => {
+                        println!("{}", pages);
+                        return Ok(());
+                    }
+                    Ok(None) => {
+                        println!("Number of pages not available.");
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        return Err(e);
+                    }
+                };
+            }
+            list(remote, body_args)
         }
         MergeRequestOptions::Merge { id } => {
             let remote = remote::get_mr(domain, path, config, false)?;
@@ -301,8 +333,8 @@ fn in_feature_branch(current_branch: &str, upstream_branch: &str) -> Result<()> 
     }
 }
 
-fn list(remote: Arc<dyn MergeRequest>, state: MergeRequestState) -> Result<()> {
-    let merge_requests = remote.list(state)?;
+fn list(remote: Arc<dyn MergeRequest>, args: MergeRequestListBodyArgs) -> Result<()> {
+    let merge_requests = remote.list(args)?;
     if merge_requests.is_empty() {
         println!("No merge requests found.");
         return Ok(());
