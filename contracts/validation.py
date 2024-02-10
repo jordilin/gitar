@@ -1,3 +1,7 @@
+import os
+import json
+
+
 def _verify_all_keys_exist(expected, actual):
     for key in expected:
         if key not in actual:
@@ -48,3 +52,24 @@ def validate_responses(testcases):
                 return False
         print("OK")
     return True
+
+
+def find_expectations(name):
+    print("Contract is being used in:")
+    os.system("git --no-pager grep -n " + name + " | grep -v contracts")
+
+
+def persist_contract(name, remote, data):
+    with open("contracts/{}/{}".format(remote, name), "w") as fh:
+        json.dump(data, fh, indent=2)
+        fh.write("\n")
+
+
+def get_contract_json(name, remote):
+    with open("contracts/{}/{}".format(remote, name)) as fh:
+        data_json = json.load(fh)
+        if type(data_json) == list:
+            # gather one element from list. We just need to verify keys and
+            # types of values.
+            return data_json[0]
+        return data_json

@@ -5,23 +5,15 @@ import argparse
 import sys
 
 from validation import validate_responses
+from validation import persist_contract
+from validation import get_contract_json
 
 API_TOKEN = os.environ["GITHUB_TOKEN"]
+REMOTE = "github"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--persist", action="store_true")
 args = parser.parse_args()
-
-
-def find_expectations(name):
-    print("Contract is being used in:")
-    os.system("git --no-pager grep -n " + name + " | grep -v contracts")
-
-
-def persist_contract(name, data):
-    with open("contracts/github/{}".format(name), "w") as fh:
-        json.dump(data, fh, indent=2)
-        fh.write("\n")
 
 
 def create_merge_request_api():
@@ -57,13 +49,8 @@ def get_project_api_json():
     assert response.status_code == 200
     data = response.json()
     if args.persist:
-        persist_contract("project.json", data)
+        persist_contract("project.json", REMOTE, data)
     return data
-
-
-def get_contract_json(name):
-    with open("contracts/github/{}".format(name)) as fh:
-        return json.load(fh)
 
 
 class TestAPI:
@@ -78,12 +65,12 @@ if __name__ == "__main__":
         TestAPI(
             create_merge_request_api,
             "merge request API contract",
-            get_contract_json("merge_request.json"),
+            get_contract_json("merge_request.json", REMOTE),
         ),
         TestAPI(
             get_project_api_json,
             "project API contract",
-            get_contract_json("project.json"),
+            get_contract_json("project.json", REMOTE),
         ),
     ]
     if not validate_responses(testcases):

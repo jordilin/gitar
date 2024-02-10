@@ -4,23 +4,15 @@ import os
 import argparse
 
 from validation import validate_responses
+from validation import persist_contract
+from validation import get_contract_json
 
 PRIVATE_TOKEN = os.environ["GITLAB_TOKEN"]
+REMOTE = "gitlab"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--persist", action="store_true")
 args = parser.parse_args()
-
-
-def find_expectations(name):
-    print("Contract is being used in:")
-    os.system("git --no-pager grep -n " + name + " | grep -v contracts")
-
-
-def persist_contract(name, data):
-    with open("contracts/gitlab/{}".format(name), "w") as fh:
-        json.dump(data, fh, indent=2)
-        fh.write("\n")
 
 
 def get_project_api_json():
@@ -37,7 +29,7 @@ def get_project_api_json():
     # change to a long time ago to avoid flaky tests
     data["container_expiration_policy"]["next_run_at"] = "2060-03-20T06:26:02.725Z"
     if args.persist:
-        persist_contract("project.json", data)
+        persist_contract("project.json", REMOTE, data)
     return data
 
 
@@ -103,16 +95,6 @@ def list_pipelines_api():
     return data
 
 
-def get_contract_json(name):
-    with open("contracts/gitlab/{}".format(name)) as fh:
-        data_json = json.load(fh)
-        if type(data_json) == list:
-            # gather one element from list. We just need to verify keys and
-            # types of values.
-            return data_json[0]
-        return data_json
-
-
 class TestAPI:
     def __init__(self, callback, msg, *expected):
         self.callback = callback
@@ -125,19 +107,19 @@ if __name__ == "__main__":
         TestAPI(
             get_project_api_json,
             "project API contract",
-            get_contract_json("project.json"),
+            get_contract_json("project.json", REMOTE),
             # TODO: teardown callback close merge request
         ),
         TestAPI(
             create_merge_request_api,
             "merge request API contract",
-            get_contract_json("merge_request.json"),
-            get_contract_json("merge_request_conflict.json"),
+            get_contract_json("merge_request.json", REMOTE),
+            get_contract_json("merge_request_conflict.json", REMOTE),
         ),
         TestAPI(
             list_pipelines_api,
             "list pipelines API contract",
-            get_contract_json("list_pipelines.json"),
+            get_contract_json("list_pipelines.json", REMOTE),
         ),
     ]
     if not validate_responses(testcases):
