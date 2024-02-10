@@ -83,7 +83,7 @@ impl MergeRequestResponse {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum MergeRequestState {
     Opened,
     Closed,
@@ -169,12 +169,16 @@ impl Pipeline {
 /// List cli args can be used across multiple APIs that support pagination.
 #[derive(Builder)]
 pub struct ListRemoteCliArgs {
+    #[builder(default)]
     pub from_page: Option<i64>,
+    #[builder(default)]
     pub to_page: Option<i64>,
     #[builder(default)]
     pub num_pages: bool,
     #[builder(default)]
     pub refresh_cache: bool,
+    #[builder(default)]
+    pub no_headers: bool,
 }
 
 impl ListRemoteCliArgs {
@@ -183,12 +187,15 @@ impl ListRemoteCliArgs {
     }
 }
 
+/// List body args is a common structure that can be used across multiple APIs
+/// that support pagination. `list` operations in traits that accept some sort
+/// of List related arguments can encapsulate this structure. Example of those
+/// is `MergeRequestListBodyArgs`. This can be consumed by Github and Gitlab
+/// clients when executing HTTP requests.
 #[derive(Builder, Clone)]
 pub struct ListBodyArgs {
     pub page: i64,
     pub max_pages: i64,
-    #[builder(default = "false")]
-    pub num_pages: bool,
 }
 
 impl ListBodyArgs {

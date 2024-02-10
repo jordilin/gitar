@@ -193,6 +193,9 @@ struct ListArgs {
     /// Refresh the cache
     #[clap(long, short)]
     pub refresh: bool,
+    /// Do not print headers
+    #[clap(long)]
+    no_headers: bool,
 }
 
 #[derive(Parser)]
@@ -287,6 +290,7 @@ impl From<ListMergeRequest> for MergeRequestOptions {
             .to_page(options.list_args.to_page)
             .num_pages(options.list_args.num_pages)
             .refresh_cache(options.list_args.refresh)
+            .no_headers(options.list_args.no_headers)
             .build()
             .unwrap();
         MergeRequestOptions::List(MergeRequestListCliArgs::new(
@@ -363,6 +367,7 @@ impl From<ListArgs> for PipelineOptions {
                 .to_page(options.to_page)
                 .num_pages(options.num_pages)
                 .refresh_cache(options.refresh)
+                .no_headers(options.no_headers)
                 .build()
                 .unwrap(),
         )
