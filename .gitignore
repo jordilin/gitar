@@ -9,3 +9,4 @@ gitlab_token
 github_token
 curl-test.sh
 result
+contracts/__pycache__
