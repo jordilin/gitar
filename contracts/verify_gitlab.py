@@ -52,35 +52,39 @@ def get_project_members_api_json():
         member["created_by"]["username"] = "test_user_" + str(i)
         member["created_by"]["name"] = "Test User " + str(i)
     if args.persist:
-        persist_contract("project_members.json", data)
+        persist_contract("project_members.json", REMOTE, data)
         persist_contract(
-            "project_members_response_headers.json", dict(response.headers)
+            "project_members_response_headers.json", REMOTE, dict(response.headers)
         )
     return response.json()
 
 
-def create_merge_request_api():
-    url = "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests"
-    source_branch = "feature"
-    target_branch = "main"
-    title = "New Feature"
+def merge_request_api():
+    mr_base_url = "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests"
+    existing_mr_url = f"{mr_base_url}/33"
     headers = {"PRIVATE-TOKEN": PRIVATE_TOKEN}
-    body = {
-        "source_branch": source_branch,
-        "target_branch": target_branch,
-        "title": title,
-    }
-    response = requests.post(url, headers=headers, data=body)
-    assert response.status_code == 201
+    response = requests.get(existing_mr_url, headers=headers)
+    assert response.status_code == 200
     data = response.json()
+    author = data["author"]
+    author["id"] = 123456
+    author["avatar_url"] = "https://any_url_test.test"
+    user = data["head_pipeline"]["user"]
+    user["id"] = 123456
+    user["avatar_url"] = "https://any_url_test.test"
     if args.persist:
-        persist_contract("merge_request.json", data)
+        persist_contract("merge_request.json", REMOTE, data)
     # re-create - response with a 409
-    response = requests.post(url, headers=headers, data=body)
+    body = {
+        "source_branch": "feature",
+        "target_branch": "main",
+        "title": "New Feature",
+    }
+    response = requests.post(mr_base_url, headers=headers, data=body)
     assert response.status_code == 409
     data_conflict = response.json()
     if args.persist:
-        persist_contract("merge_request_conflict.json", data_conflict)
+        persist_contract("merge_request_conflict.json", REMOTE, data_conflict)
     return data, data_conflict
 
 
@@ -89,9 +93,9 @@ def list_pipelines_api():
     url = "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines"
     headers = {"PRIVATE-TOKEN": PRIVATE_TOKEN}
     response = requests.get(url, headers=headers)
-    data = response.json()[0]
+    data = response.json()
     if args.persist:
-        persist_contract("list_pipelines.json", data)
+        persist_contract("list_pipelines.json", REMOTE, data)
     return data
 
 
@@ -108,10 +112,9 @@ if __name__ == "__main__":
             get_project_api_json,
             "project API contract",
             get_contract_json("project.json", REMOTE),
-            # TODO: teardown callback close merge request
         ),
         TestAPI(
-            create_merge_request_api,
+            merge_request_api,
             "merge request API contract",
             get_contract_json("merge_request.json", REMOTE),
             get_contract_json("merge_request_conflict.json", REMOTE),

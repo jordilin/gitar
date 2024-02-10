@@ -16,26 +16,26 @@ parser.add_argument("--persist", action="store_true")
 args = parser.parse_args()
 
 
-def create_merge_request_api():
-    url = "https://api.github.com/repos/jordilin/githapi/pulls"
-    source_branch = "feature"
-    target_branch = "main"
-    title = "New Feature"
+def merge_request_api():
+    url = "https://api.github.com/repos/jordilin/githapi/pulls/23"
     headers = {
         "Authorization": f"bearer {API_TOKEN}",
         "Accept": "application/vnd.github.v3+json",
     }
+    source_branch = "feature"
+    target_branch = "main"
+    title = "New Feature"
     body = {
         "title": title,
         "head": source_branch,
         "base": target_branch,
         "body": "This is a new feature",
     }
-    response = requests.post(url, headers=headers, data=json.dumps(body))
-    assert response.status_code == 201
+    response = requests.get(url, headers=headers)
+    assert response.status_code == 200
     data = response.json()
     if args.persist:
-        persist_contract("merge_request.json", data)
+        persist_contract("merge_request.json", REMOTE, data)
     return data
 
 
@@ -63,7 +63,7 @@ class TestAPI:
 if __name__ == "__main__":
     testcases = [
         TestAPI(
-            create_merge_request_api,
+            merge_request_api,
             "merge request API contract",
             get_contract_json("merge_request.json", REMOTE),
         ),
