@@ -1,7 +1,7 @@
 use crate::api_traits::Cicd;
 use crate::cli::PipelineOptions;
 use crate::config::Config;
-use crate::remote::PipelineBodyArgs;
+use crate::remote::{ListRemoteCliArgs, PipelineBodyArgs};
 use crate::{remote, Result};
 use std::io::Write;
 use std::sync::Arc;
@@ -23,7 +23,7 @@ pub fn execute(
             let body_args = PipelineBodyArgs::builder()
                 .from_to_page(from_to_args)
                 .build()?;
-            list_pipelines(remote, body_args, std::io::stdout())
+            list_pipelines(remote, body_args, cli_args, std::io::stdout())
         }
     }
 }
@@ -44,6 +44,7 @@ fn query_pages<W: Write>(remote: Arc<dyn Cicd>, mut writer: W) -> Result<()> {
 fn list_pipelines<W: Write>(
     remote: Arc<dyn Cicd>,
     body_args: PipelineBodyArgs,
+    cli_args: ListRemoteCliArgs,
     mut writer: W,
 ) -> Result<()> {
     let pipelines = remote.list(body_args)?;
@@ -51,7 +52,9 @@ fn list_pipelines<W: Write>(
         writer.write_all(b"No pipelines found.\n")?;
         return Ok(());
     }
-    writer.write_all(b"URL | Branch | SHA | Created at | Status\n")?;
+    if !cli_args.no_headers {
+        writer.write_all(b"URL | Branch | SHA | Created at | Status\n")?;
+    }
     for pipeline in pipelines {
         writer.write_all(format!("{}\n", pipeline).as_bytes())?;
     }
@@ -127,11 +130,12 @@ mod test {
             .build()
             .unwrap();
         let mut buf = Vec::new();
-        let args = PipelineBodyArgs::builder()
+        let body_args = PipelineBodyArgs::builder()
             .from_to_page(None)
             .build()
             .unwrap();
-        list_pipelines(Arc::new(pp_remote), args, &mut buf).unwrap();
+        let cli_args = ListRemoteCliArgs::builder().build().unwrap();
+        list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
             String::from_utf8(buf).unwrap(),
             "URL | Branch | SHA | Created at | Status\n\
@@ -143,11 +147,13 @@ mod test {
     fn test_list_pipelines_empty() {
         let pp_remote = PipelineListMock::builder().build().unwrap();
         let mut buf = Vec::new();
-        let args = PipelineBodyArgs::builder()
+
+        let body_args = PipelineBodyArgs::builder()
             .from_to_page(None)
             .build()
             .unwrap();
-        list_pipelines(Arc::new(pp_remote), args, &mut buf).unwrap();
+        let cli_args = ListRemoteCliArgs::builder().build().unwrap();
+        list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();
         assert_eq!("No pipelines found.\n", String::from_utf8(buf).unwrap(),)
     }
 
@@ -155,11 +161,12 @@ mod test {
     fn test_list_pipelines_error() {
         let pp_remote = PipelineListMock::builder().error(true).build().unwrap();
         let mut buf = Vec::new();
-        let args = PipelineBodyArgs::builder()
+        let body_args = PipelineBodyArgs::builder()
             .from_to_page(None)
             .build()
             .unwrap();
-        assert!(list_pipelines(Arc::new(pp_remote), args, &mut buf).is_err());
+        let cli_args = ListRemoteCliArgs::builder().build().unwrap();
+        assert!(list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).is_err());
     }
 
     #[test]
@@ -189,5 +196,45 @@ mod test {
         let pp_remote = PipelineListMock::builder().error(true).build().unwrap();
         let mut buf = Vec::new();
         assert!(query_pages(Arc::new(pp_remote), &mut buf).is_err());
+    }
+
+    #[test]
+    fn test_list_pipelines_no_headers() {
+        let pp_remote = PipelineListMock::builder()
+            .pipelines(vec![
+                Pipeline::builder()
+                    .status("success".to_string())
+                    .web_url("https://gitlab.com/owner/repo/-/pipelines/123".to_string())
+                    .branch("master".to_string())
+                    .sha("1234567890abcdef".to_string())
+                    .created_at("2020-01-01T00:00:00Z".to_string())
+                    .build()
+                    .unwrap(),
+                Pipeline::builder()
+                    .status("failed".to_string())
+                    .web_url("https://gitlab.com/owner/repo/-/pipelines/456".to_string())
+                    .branch("master".to_string())
+                    .sha("1234567890abcdef".to_string())
+                    .created_at("2020-01-01T00:00:00Z".to_string())
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
+        let mut buf = Vec::new();
+        let body_args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        let cli_args = ListRemoteCliArgs::builder()
+            .no_headers(true)
+            .build()
+            .unwrap();
+        list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();
+        assert_eq!(
+            "https://gitlab.com/owner/repo/-/pipelines/123 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | success\n\
+             https://gitlab.com/owner/repo/-/pipelines/456 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | failed\n",
+            String::from_utf8(buf).unwrap(),
+        )
     }
 }
