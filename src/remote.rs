@@ -220,7 +220,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                 .into());
             }
 
-            let max_pages = to_page - from_page;
+            let max_pages = to_page - from_page + 1;
             Ok(Some(
                 ListBodyArgs::builder()
                     .page(from_page)
@@ -360,7 +360,7 @@ mod test {
             .unwrap();
         let args = validate_from_to_page(&args).unwrap().unwrap();
         assert_eq!(args.page, 1);
-        assert_eq!(args.max_pages, 2);
+        assert_eq!(args.max_pages, 3);
     }
 
     #[test]
