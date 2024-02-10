@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::sync::Arc;
 
 use crate::api_traits::MergeRequest;
@@ -103,7 +104,7 @@ pub fn execute(
                     }
                 };
             }
-            list(remote, body_args)
+            list(remote, body_args, cli_args, std::io::stdout())
         }
         MergeRequestOptions::Merge { id } => {
             let remote = remote::get_mr(domain, path, config, false)?;
@@ -333,18 +334,28 @@ fn in_feature_branch(current_branch: &str, upstream_branch: &str) -> Result<()> 
     }
 }
 
-fn list(remote: Arc<dyn MergeRequest>, args: MergeRequestListBodyArgs) -> Result<()> {
-    let merge_requests = remote.list(args)?;
+fn list<W: Write>(
+    remote: Arc<dyn MergeRequest>,
+    body_args: MergeRequestListBodyArgs,
+    cli_args: MergeRequestListCliArgs,
+    mut writer: W,
+) -> Result<()> {
+    let merge_requests = remote.list(body_args)?;
     if merge_requests.is_empty() {
-        println!("No merge requests found.");
+        writer.write_all(b"No merge requests found.\n")?;
         return Ok(());
     }
-    println!("ID | URL | Author | Updated at");
+    if !cli_args.list_args.no_headers {
+        writer.write_all(b"ID | URL | Author | Updated at\n")?;
+    }
     for mr in merge_requests {
-        println!(
-            "{} | {} | {} | {}",
-            mr.id, mr.web_url, mr.author, mr.updated_at
-        );
+        writer.write_all(
+            format!(
+                "{} | {} | {} | {}\n",
+                mr.id, mr.web_url, mr.author, mr.updated_at
+            )
+            .as_bytes(),
+        )?;
     }
     Ok(())
 }
@@ -369,7 +380,7 @@ fn close(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::error;
+    use crate::{error, remote::MergeRequestResponse};
 
     use super::*;
 
@@ -506,6 +517,125 @@ mod tests {
         for (description, signature, expected) in description_signature_table {
             let result = build_description(description, signature);
             assert_eq!(result, expected);
+        }
+    }
+
+    #[test]
+    fn test_list_merge_requests() {
+        let remote = Arc::new(
+            MergeRequestListMock::builder()
+                .merge_requests(vec![MergeRequestResponse::builder()
+                    .id(1)
+                    .web_url("https://gitlab.com/owner/repo/-/merge_requests/1".to_string())
+                    .author("author".to_string())
+                    .updated_at("2021-01-01".to_string())
+                    .build()
+                    .unwrap()])
+                .build()
+                .unwrap(),
+        );
+        let mut buf = Vec::new();
+        let body_args = MergeRequestListBodyArgs::builder()
+            .list_args(None)
+            .state(MergeRequestState::Opened)
+            .build()
+            .unwrap();
+        let cli_args = MergeRequestListCliArgs::new(
+            MergeRequestState::Opened,
+            ListRemoteCliArgs::builder().build().unwrap(),
+        );
+        list(remote, body_args, cli_args, &mut buf).unwrap();
+        assert_eq!(
+            "ID | URL | Author | Updated at\n\
+             1 | https://gitlab.com/owner/repo/-/merge_requests/1 | author | 2021-01-01\n",
+            String::from_utf8(buf).unwrap(),
+        )
+    }
+
+    #[test]
+    fn test_if_no_merge_requests_are_available_list_should_return_no_merge_requests_found() {
+        let remote = Arc::new(MergeRequestListMock::builder().build().unwrap());
+        let mut buf = Vec::new();
+        let body_args = MergeRequestListBodyArgs::builder()
+            .list_args(None)
+            .state(MergeRequestState::Opened)
+            .build()
+            .unwrap();
+        let cli_args = MergeRequestListCliArgs::new(
+            MergeRequestState::Opened,
+            ListRemoteCliArgs::builder().build().unwrap(),
+        );
+        list(remote, body_args, cli_args, &mut buf).unwrap();
+        assert_eq!(
+            "No merge requests found.\n",
+            String::from_utf8(buf).unwrap(),
+        )
+    }
+
+    #[test]
+    fn test_list_merge_requests_no_headers() {
+        let remote = Arc::new(
+            MergeRequestListMock::builder()
+                .merge_requests(vec![MergeRequestResponse::builder()
+                    .id(1)
+                    .web_url("https://gitlab.com/owner/repo/-/merge_requests/1".to_string())
+                    .author("author".to_string())
+                    .updated_at("2021-01-01".to_string())
+                    .build()
+                    .unwrap()])
+                .build()
+                .unwrap(),
+        );
+        let mut buf = Vec::new();
+        let body_args = MergeRequestListBodyArgs::builder()
+            .list_args(None)
+            .state(MergeRequestState::Opened)
+            .build()
+            .unwrap();
+        let cli_args = MergeRequestListCliArgs::new(
+            MergeRequestState::Opened,
+            ListRemoteCliArgs::builder()
+                .no_headers(true)
+                .build()
+                .unwrap(),
+        );
+        list(remote, body_args, cli_args, &mut buf).unwrap();
+        assert_eq!(
+            "1 | https://gitlab.com/owner/repo/-/merge_requests/1 | author | 2021-01-01\n",
+            String::from_utf8(buf).unwrap(),
+        )
+    }
+
+    #[derive(Clone, Builder)]
+    struct MergeRequestListMock {
+        #[builder(default = "Vec::new()")]
+        merge_requests: Vec<MergeRequestResponse>,
+    }
+
+    impl MergeRequestListMock {
+        pub fn builder() -> MergeRequestListMockBuilder {
+            MergeRequestListMockBuilder::default()
+        }
+    }
+
+    impl MergeRequest for MergeRequestListMock {
+        fn open(&self, _args: MergeRequestBodyArgs) -> Result<MergeRequestResponse> {
+            Ok(MergeRequestResponse::builder().build().unwrap())
+        }
+        fn list(&self, _args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
+            Ok(self.merge_requests.clone())
+        }
+        fn merge(&self, _id: i64) -> Result<MergeRequestResponse> {
+            Ok(MergeRequestResponse::builder().build().unwrap())
+        }
+        fn get(&self, _id: i64) -> Result<MergeRequestResponse> {
+            Ok(MergeRequestResponse::builder().build().unwrap())
+        }
+        fn close(&self, _id: i64) -> Result<MergeRequestResponse> {
+            Ok(MergeRequestResponse::builder().build().unwrap())
+        }
+        fn num_pages(&self, _args: MergeRequestListBodyArgs) -> Result<Option<u32>> {
+            Ok(None)
         }
     }
 }

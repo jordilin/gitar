@@ -83,7 +83,7 @@ impl MergeRequestResponse {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum MergeRequestState {
     Opened,
     Closed,
