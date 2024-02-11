@@ -29,6 +29,7 @@ test-all:
     cargo test
     bash contracts/verify_git.sh
     python3 contracts/verify_gitlab.py
+    python3 contracts/verify_github.py
 
 test-watch:
     cargo watch --clear --exec test

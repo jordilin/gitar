@@ -1,28 +1,28 @@
 [
-    {
-        "id": 1122075755,
-        "iid": 2,
-        "project_id": 44438708,
-        "sha": "a47ad8d1c997215e2a50b964013ae9b4c7a5a446",
-        "ref": "feature",
-        "status": "success",
-        "source": "push",
-        "created_at": "2023-12-29T05:32:51.808Z",
-        "updated_at": "2023-12-29T05:33:22.263Z",
-        "web_url": "https://gitlab.com/jordilin/gitlapi/-/pipelines/1122075755",
-        "name": null
-    },
-    {
-        "id": 1122075312,
-        "iid": 1,
-        "project_id": 44438708,
-        "sha": "cd2ed1fd2810accfa45e2105f392ba9aca9cd618",
-        "ref": "feature",
-        "status": "failed",
-        "source": "push",
-        "created_at": "2023-12-29T05:30:40.682Z",
-        "updated_at": "2023-12-29T05:30:40.682Z",
-        "web_url": "https://gitlab.com/jordilin/gitlapi/-/pipelines/1122075312",
-        "name": null
-    }
+  {
+    "id": 1122075755,
+    "iid": 2,
+    "project_id": 44438708,
+    "sha": "a47ad8d1c997215e2a50b964013ae9b4c7a5a446",
+    "ref": "feature",
+    "status": "success",
+    "source": "push",
+    "created_at": "2023-12-29T05:32:51.808Z",
+    "updated_at": "2023-12-29T05:33:22.263Z",
+    "web_url": "https://gitlab.com/jordilin/gitlapi/-/pipelines/1122075755",
+    "name": null
+  },
+  {
+    "id": 1122075312,
+    "iid": 1,
+    "project_id": 44438708,
+    "sha": "cd2ed1fd2810accfa45e2105f392ba9aca9cd618",
+    "ref": "feature",
+    "status": "failed",
+    "source": "push",
+    "created_at": "2023-12-29T05:30:40.682Z",
+    "updated_at": "2023-12-29T05:30:40.682Z",
+    "web_url": "https://gitlab.com/jordilin/gitlapi/-/pipelines/1122075312",
+    "name": null
+  }
 ]

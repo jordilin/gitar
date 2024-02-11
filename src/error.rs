@@ -17,6 +17,12 @@ pub enum GRError {
     RateLimitExceeded(String),
     #[error("Application error: {0}")]
     ApplicationError(String),
+    // The remote server returned a JSON response that was not expected. The
+    // contract was broken and would need new validation.
+    #[error(
+        "Remote unexpected response contract: Open issue at https://github.com/jordilin/gitar: {0}"
+    )]
+    RemoteUnexpectedResponseContract(String),
 }
 
 pub trait AddContext<T, E>: Context<T, E> {

@@ -3,22 +3,16 @@ import json
 import os
 import argparse
 
+from validation import validate_responses
+from validation import persist_contract
+from validation import get_contract_json
+
 PRIVATE_TOKEN = os.environ["GITLAB_TOKEN"]
+REMOTE = "gitlab"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--persist", action="store_true")
 args = parser.parse_args()
-
-
-def find_expectations(name):
-    print("Contract is being used in:")
-    os.system("git --no-pager grep -n " + name + " | grep -v contracts")
-
-
-def persist_contract(name, data):
-    with open("contracts/gitlab/{}".format(name), "w") as fh:
-        json.dump(data, fh, indent=2)
-        fh.write("\n")
 
 
 def get_project_api_json():
@@ -35,7 +29,7 @@ def get_project_api_json():
     # change to a long time ago to avoid flaky tests
     data["container_expiration_policy"]["next_run_at"] = "2060-03-20T06:26:02.725Z"
     if args.persist:
-        persist_contract("project.json", data)
+        persist_contract("project.json", REMOTE, data)
     return data
 
 
@@ -58,35 +52,39 @@ def get_project_members_api_json():
         member["created_by"]["username"] = "test_user_" + str(i)
         member["created_by"]["name"] = "Test User " + str(i)
     if args.persist:
-        persist_contract("project_members.json", data)
+        persist_contract("project_members.json", REMOTE, data)
         persist_contract(
-            "project_members_response_headers.json", dict(response.headers)
+            "project_members_response_headers.json", REMOTE, dict(response.headers)
         )
     return response.json()
 
 
-def create_merge_request_api():
-    url = "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests"
-    source_branch = "feature"
-    target_branch = "main"
-    title = "New Feature"
+def merge_request_api():
+    mr_base_url = "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests"
+    existing_mr_url = f"{mr_base_url}/33"
     headers = {"PRIVATE-TOKEN": PRIVATE_TOKEN}
-    body = {
-        "source_branch": source_branch,
-        "target_branch": target_branch,
-        "title": title,
-    }
-    response = requests.post(url, headers=headers, data=body)
-    assert response.status_code == 201
+    response = requests.get(existing_mr_url, headers=headers)
+    assert response.status_code == 200
     data = response.json()
+    author = data["author"]
+    author["id"] = 123456
+    author["avatar_url"] = "https://any_url_test.test"
+    user = data["head_pipeline"]["user"]
+    user["id"] = 123456
+    user["avatar_url"] = "https://any_url_test.test"
     if args.persist:
-        persist_contract("merge_request.json", data)
+        persist_contract("merge_request.json", REMOTE, data)
     # re-create - response with a 409
-    response = requests.post(url, headers=headers, data=body)
+    body = {
+        "source_branch": "feature",
+        "target_branch": "main",
+        "title": "New Feature",
+    }
+    response = requests.post(mr_base_url, headers=headers, data=body)
     assert response.status_code == 409
     data_conflict = response.json()
     if args.persist:
-        persist_contract("merge_request_conflict.json", data_conflict)
+        persist_contract("merge_request_conflict.json", REMOTE, data_conflict)
     return data, data_conflict
 
 
@@ -95,56 +93,10 @@ def list_pipelines_api():
     url = "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines"
     headers = {"PRIVATE-TOKEN": PRIVATE_TOKEN}
     response = requests.get(url, headers=headers)
-    data = response.json()[0]
+    data = response.json()
     if args.persist:
-        persist_contract("list_pipelines.json", data)
-    return data
-
-
-def get_contract_json(name):
-    with open("contracts/gitlab/{}".format(name)) as fh:
-        data_json = json.load(fh)
-        if type(data_json) == list:
-            # gather one element from list. We just need to verify keys and
-            # types of values.
-            return data_json[0]
-        return data_json
-
-
-def _verify_all_keys_exist(expected, actual):
-    for key in expected:
-        if key not in actual:
-            print("Expected JSON key [{}] not found in upstream".format(key))
-            return False
-        if type(expected[key]) == dict:
-            # API responses checked are not more than one level deep
-            if not _verify_all_keys_exist(expected[key], actual[key]):
-                return False
-    return True
-
-
-def _verify_types_of_values(expected, actual):
-    for key in expected:
-        if type(expected[key]) != type(actual[key]):
-            print(
-                "Type mismatch for key [{}]: expected [{}] but got [{}]".format(
-                    key, type(expected[key]), type(actual[key])
-                )
-            )
-            return False
-        if type(expected[key]) == dict:
-            # API responses checked are not more than one level deep
-            if not _verify_types_of_values(expected[key], actual[key]):
-                return False
-    return True
-
-
-def verify_all(expected, actual):
-    if not _verify_all_keys_exist(expected, actual):
-        return False
-    if not _verify_types_of_values(expected, actual):
-        return False
-    return True
+        persist_contract("list_pipelines.json", REMOTE, data)
+    return data[0]
 
 
 class TestAPI:
@@ -154,40 +106,23 @@ class TestAPI:
         self.expected = expected
 
 
-def validate_responses(testcases):
-    for testcase in testcases:
-        actual = testcase.callback()
-        print("{}... ".format(testcase.msg), end="")
-        verifications = []
-        if type(actual) == tuple:
-            verifications = zip(testcase.expected, actual)
-        else:
-            verifications = zip(testcase.expected, [actual])
-        for expected, actual in verifications:
-            if not verify_all(expected, actual):
-                return False
-        print("OK")
-    return True
-
-
 if __name__ == "__main__":
     testcases = [
         TestAPI(
             get_project_api_json,
             "project API contract",
-            get_contract_json("project.json"),
-            # TODO: teardown callback close merge request
+            get_contract_json("project.json", REMOTE),
         ),
         TestAPI(
-            create_merge_request_api,
+            merge_request_api,
             "merge request API contract",
-            get_contract_json("merge_request.json"),
-            get_contract_json("merge_request_conflict.json"),
+            get_contract_json("merge_request.json", REMOTE),
+            get_contract_json("merge_request_conflict.json", REMOTE),
         ),
         TestAPI(
             list_pipelines_api,
             "list pipelines API contract",
-            get_contract_json("list_pipelines.json"),
+            get_contract_json("list_pipelines.json", REMOTE),
         ),
     ]
     if not validate_responses(testcases):
