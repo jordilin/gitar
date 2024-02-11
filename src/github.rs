@@ -229,77 +229,84 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                 //     "message": "Validation Failed"
                 //   }
                 let body = response.body;
-                if response.status == 201 {
-                    // This is a new pull request
-                    // Set the assignee to the pull request. Currently, the
-                    // only way to set the assignee to a pull request is by
-                    // using the issues API. All pull requests in Github API v3
-                    // are considered to be issues, but not the other way
-                    // around.
-                    // See note in https://docs.github.com/en/rest/issues/issues#list-repository-issues
-                    // Note: Github's REST API v3 considers every pull request
-                    // an issue, but not every issue is a pull request.
-                    // https://docs.github.com/en/rest/issues/issues#update-an-issue
-                    let merge_request_json = json_loads(&body)?;
-                    let id = merge_request_json["number"].to_string();
-                    let issues_url = format!(
-                        "{}/repos/{}/issues/{}",
-                        self.rest_api_basepath, self.path, id
-                    );
-                    let mut body: HashMap<&str, &Vec<&str>> = HashMap::new();
-                    let assignees = vec![args.username.as_str()];
-                    body.insert("assignees", &assignees);
-                    self.runner.run(&mut self.http_request(
-                        &issues_url,
-                        Some(body),
-                        PATCH,
-                        ApiOperation::MergeRequest,
-                    ))?;
-                    return Ok(MergeRequestResponse::builder()
-                        .id(merge_request_json["id"].as_i64().unwrap())
-                        .web_url(
-                            merge_request_json["html_url"]
-                                .to_string()
-                                .trim_matches('"')
-                                .to_string(),
-                        )
-                        .build()
-                        .unwrap());
-                }
-                if response.status == 422 {
-                    // There is an existing pull request already.
-                    // Gather its URL by querying Github pull requests filtering by
-                    // namespace:branch
-                    let remote_pr_branch = format!("{}:{}", self.path, args.source_branch);
-                    let existing_mr_url = format!("{}?head={}", mr_url, remote_pr_branch);
-                    let mut request: http::Request<()> =
-                        self.http_request(&existing_mr_url, None, GET, ApiOperation::MergeRequest);
-                    let response = self.runner.run(&mut request)?;
-                    let merge_requests_json: Vec<serde_json::Value> =
-                        serde_json::from_str(&response.body)?;
-                    if merge_requests_json.len() == 1 {
-                        return Ok(MergeRequestResponse::builder()
-                            .id(merge_requests_json[0]["id"].as_i64().unwrap())
+                match response.status {
+                    201 => {
+                        // This is a new pull request
+                        // Set the assignee to the pull request. Currently, the
+                        // only way to set the assignee to a pull request is by
+                        // using the issues API. All pull requests in Github API v3
+                        // are considered to be issues, but not the other way
+                        // around.
+                        // See note in https://docs.github.com/en/rest/issues/issues#list-repository-issues
+                        // Note: Github's REST API v3 considers every pull request
+                        // an issue, but not every issue is a pull request.
+                        // https://docs.github.com/en/rest/issues/issues#update-an-issue
+                        let merge_request_json = json_loads(&body)?;
+                        let id = merge_request_json["number"].to_string();
+                        let issues_url = format!(
+                            "{}/repos/{}/issues/{}",
+                            self.rest_api_basepath, self.path, id
+                        );
+                        let mut body: HashMap<&str, &Vec<&str>> = HashMap::new();
+                        let assignees = vec![args.username.as_str()];
+                        body.insert("assignees", &assignees);
+                        self.runner.run(&mut self.http_request(
+                            &issues_url,
+                            Some(body),
+                            PATCH,
+                            ApiOperation::MergeRequest,
+                        ))?;
+                        Ok(MergeRequestResponse::builder()
+                            .id(merge_request_json["id"].as_i64().unwrap())
                             .web_url(
-                                merge_requests_json[0]["html_url"]
+                                merge_request_json["html_url"]
                                     .to_string()
                                     .trim_matches('"')
                                     .to_string(),
                             )
                             .build()
-                            .unwrap());
+                            .unwrap())
                     }
-                    return Err(error::GRError::RemoteUnexpectedResponseContract(format!(
-                        "There should have been an existing pull request at \
-                        URL: {} but got an unexpected response: {}",
-                        existing_mr_url, response.body
-                    ))
-                    .into());
+                    422 => {
+                        // There is an existing pull request already.
+                        // Gather its URL by querying Github pull requests filtering by
+                        // namespace:branch
+                        let remote_pr_branch = format!("{}:{}", self.path, args.source_branch);
+                        let existing_mr_url = format!("{}?head={}", mr_url, remote_pr_branch);
+                        let mut request: http::Request<()> = self.http_request(
+                            &existing_mr_url,
+                            None,
+                            GET,
+                            ApiOperation::MergeRequest,
+                        );
+                        let response = self.runner.run(&mut request)?;
+                        let merge_requests_json: Vec<serde_json::Value> =
+                            serde_json::from_str(&response.body)?;
+                        if merge_requests_json.len() == 1 {
+                            Ok(MergeRequestResponse::builder()
+                                .id(merge_requests_json[0]["id"].as_i64().unwrap())
+                                .web_url(
+                                    merge_requests_json[0]["html_url"]
+                                        .to_string()
+                                        .trim_matches('"')
+                                        .to_string(),
+                                )
+                                .build()
+                                .unwrap())
+                        } else {
+                            Err(error::GRError::RemoteUnexpectedResponseContract(format!(
+                                "There should have been an existing pull request at \
+                                URL: {} but got an unexpected response: {}",
+                                existing_mr_url, response.body
+                            ))
+                            .into())
+                        }
+                    }
+                    _ => Err(error::gen(format!(
+                        "Failed to create merge request. Status code: {}, Body: {}",
+                        response.status, body
+                    ))),
                 }
-                return Err(error::gen(format!(
-                    "Failed to create merge request. Status code: {}, Body: {}",
-                    response.status, body
-                )));
             }
             Err(err) => Err(err),
         }
