@@ -41,10 +41,10 @@ def merge_request_api():
     }
     response = requests.post(mr_base_url, headers=headers, data=json.dumps(body))
     assert response.status_code == 422
-    data = response.json()
+    data_conflict = response.json()
     if args.persist:
-        persist_contract("merge_request_conflict.json", REMOTE, data)
-    return data
+        persist_contract("merge_request_conflict.json", REMOTE, data_conflict)
+    return data, data_conflict
 
 
 def fake_user_data(data):
