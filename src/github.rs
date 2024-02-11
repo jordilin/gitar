@@ -214,20 +214,6 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         let mut request = self.http_request(&mr_url, Some(body), POST, ApiOperation::MergeRequest);
         match self.runner.run(&mut request) {
             Ok(response) => {
-                // If the pull request already exists, we need to pull its URL
-                // by filtering by user:ref or org:ref
-                // Response example is:
-                // {
-                //     "documentation_url": "https://docs.github.com/rest/reference/pulls#create-a-pull-request",
-                //     "errors": [
-                //       {
-                //         "code": "custom",
-                //         "message": "A pull request already exists for jordilin:githubmr.",
-                //         "resource": "PullRequest"
-                //       }
-                //     ],
-                //     "message": "Validation Failed"
-                //   }
                 let body = response.body;
                 match response.status {
                     201 => {
