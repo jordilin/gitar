@@ -214,13 +214,6 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         let mut request = self.http_request(&mr_url, Some(body), POST, ApiOperation::MergeRequest);
         match self.runner.run(&mut request) {
             Ok(response) => {
-                // 422 - pull request already exists.
-                if response.status != 201 && response.status != 422 {
-                    return Err(error::gen(format!(
-                        "Failed to create merge request. Status code: {}, Body: {}",
-                        response.status, response.body
-                    )));
-                }
                 // If the pull request already exists, we need to pull its URL
                 // by filtering by user:ref or org:ref
                 // Response example is:
@@ -296,9 +289,17 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                             .build()
                             .unwrap());
                     }
-                    return Err(error::gen("Could not retrieve current pull request url"));
+                    return Err(error::GRError::RemoteUnexpectedResponseContract(format!(
+                        "There should have been an existing pull request at \
+                        URL: {} but got an unexpected response: {}",
+                        existing_mr_url, response.body
+                    ))
+                    .into());
                 }
-                Err(error::gen("Could not retrieve current pull request url"))
+                return Err(error::gen(format!(
+                    "Failed to create merge request. Status code: {}, Body: {}",
+                    response.status, body
+                )));
             }
             Err(err) => Err(err),
         }
@@ -565,5 +566,41 @@ mod test {
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
         );
+    }
+
+    #[test]
+    fn test_open_merge_request_cannot_retrieve_url_existing_one_is_error() {
+        let config = config();
+        let mr_args = MergeRequestBodyArgs::builder()
+            .source_branch("feature".to_string())
+            .build()
+            .unwrap();
+
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response1 = Response::builder()
+            .status(422)
+            .body(get_contract(
+                ContractType::Github,
+                "merge_request_conflict.json",
+            ))
+            .build()
+            .unwrap();
+        let response2 = Response::builder()
+            .status(200)
+            .body("[]".to_string())
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response2, response1]));
+        let github = Github::new(config, &domain, &path, client.clone());
+
+        let result = github.open(mr_args);
+        match result {
+            Ok(_) => panic!("Expected error"),
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::RemoteUnexpectedResponseContract(_)) => (),
+                _ => panic!("Expected error::GRError::RemoteUnexpectedResponseContract"),
+            },
+        }
     }
 }
