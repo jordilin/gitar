@@ -236,10 +236,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                 //     "message": "Validation Failed"
                 //   }
                 let body = response.body;
-                let fields = body
-                    .split("A pull request already exists")
-                    .collect::<Vec<&str>>();
-                if fields.len() == 1 {
+                if response.status == 201 {
                     // This is a new pull request
                     // Set the assignee to the pull request. Currently, the
                     // only way to set the assignee to a pull request is by
@@ -276,28 +273,30 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                         .build()
                         .unwrap());
                 }
-                // There is an existing pull request already.
-                // Gather its URL by querying Github pull requests filtering by
-                // namespace:branch
-                let remote_pr_branch = format!("{}:{}", self.path, args.source_branch);
-                let existing_mr_url = format!("{}?head={}", mr_url, remote_pr_branch);
-                let mut request: http::Request<()> =
-                    self.http_request(&existing_mr_url, None, GET, ApiOperation::MergeRequest);
-                // let client = http::Client::new(NoCache);
-                let response = self.runner.run(&mut request)?;
-                let merge_requests_json: Vec<serde_json::Value> =
-                    serde_json::from_str(&response.body)?;
-                if merge_requests_json.len() == 1 {
-                    return Ok(MergeRequestResponse::builder()
-                        .id(merge_requests_json[0]["id"].as_i64().unwrap())
-                        .web_url(
-                            merge_requests_json[0]["html_url"]
-                                .to_string()
-                                .trim_matches('"')
-                                .to_string(),
-                        )
-                        .build()
-                        .unwrap());
+                if response.status == 422 {
+                    // There is an existing pull request already.
+                    // Gather its URL by querying Github pull requests filtering by
+                    // namespace:branch
+                    let remote_pr_branch = format!("{}:{}", self.path, args.source_branch);
+                    let existing_mr_url = format!("{}?head={}", mr_url, remote_pr_branch);
+                    let mut request: http::Request<()> =
+                        self.http_request(&existing_mr_url, None, GET, ApiOperation::MergeRequest);
+                    let response = self.runner.run(&mut request)?;
+                    let merge_requests_json: Vec<serde_json::Value> =
+                        serde_json::from_str(&response.body)?;
+                    if merge_requests_json.len() == 1 {
+                        return Ok(MergeRequestResponse::builder()
+                            .id(merge_requests_json[0]["id"].as_i64().unwrap())
+                            .web_url(
+                                merge_requests_json[0]["html_url"]
+                                    .to_string()
+                                    .trim_matches('"')
+                                    .to_string(),
+                            )
+                            .build()
+                            .unwrap());
+                    }
+                    return Err(error::gen("Could not retrieve current pull request url"));
                 }
                 Err(error::gen("Could not retrieve current pull request url"))
             }
@@ -498,7 +497,7 @@ mod test {
 
         assert!(github.open(mr_args).is_ok());
         assert_eq!(
-            "https://api.github.com/repos/jordilin/githapi/issues/1",
+            "https://api.github.com/repos/jordilin/githapi/issues/23",
             *client.url(),
         );
         assert_eq!(
@@ -523,5 +522,48 @@ mod test {
         let client = Arc::new(MockRunner::new(vec![response1]));
         let github = Github::new(config, &domain, &path, client.clone());
         assert!(github.open(mr_args).is_err());
+    }
+
+    #[test]
+    fn test_open_merge_request_existing_one() {
+        let config = config();
+        let mr_args = MergeRequestBodyArgs::builder()
+            .source_branch("feature".to_string())
+            .build()
+            .unwrap();
+
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response1 = Response::builder()
+            .status(422)
+            .body(get_contract(
+                ContractType::Github,
+                "merge_request_conflict.json",
+            ))
+            .build()
+            .unwrap();
+        // Github returns a 422 (already exists), so the code grabs existing URL
+        // filtering by namespace and branch. The response is a list of merge
+        // requests.
+        let response2 = Response::builder()
+            .status(200)
+            .body(format!(
+                "[{}]",
+                get_contract(ContractType::Github, "merge_request.json")
+            ))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response2, response1]));
+        let github = Github::new(config, &domain, &path, client.clone());
+
+        github.open(mr_args).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/pulls?head=jordilin/githapi:feature",
+            *client.url(),
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
     }
 }
