@@ -96,7 +96,7 @@ def list_pipelines_api():
     data = response.json()
     if args.persist:
         persist_contract("list_pipelines.json", REMOTE, data)
-    return data
+    return data[0]
 
 
 class TestAPI:
