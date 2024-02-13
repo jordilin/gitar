@@ -16,13 +16,23 @@ parser.add_argument("--persist", action="store_true")
 args = parser.parse_args()
 
 
-def merge_request_api():
-    mr_base_url = "https://api.github.com/repos/jordilin/githapi/pulls"
-    mr_existing_url = f"{mr_base_url}/23"
-    headers = {
+def get_headers():
+    return {
         "Authorization": f"bearer {API_TOKEN}",
         "Accept": "application/vnd.github.v3+json",
     }
+
+
+def fake_user(data):
+    data["id"] = 123456
+    data["node_id"] = "abcdefg"
+    data["avatar_url"] = "https://any_url_test.test"
+
+
+def merge_request_api():
+    mr_base_url = "https://api.github.com/repos/jordilin/githapi/pulls"
+    mr_existing_url = f"{mr_base_url}/23"
+    headers = get_headers()
     response = requests.get(mr_existing_url, headers=headers)
     assert response.status_code == 200
     data = response.json()
@@ -50,36 +60,25 @@ def merge_request_api():
 def fake_user_data(data):
     data["node_id"] = "abcdefg"
     user = data["user"]
-    user["id"] = 123456
-    user["avatar_url"] = "https://any_url_test.test"
-    user["node_id"] = "abcdefg"
+    fake_user(user)
     data["id"] = 123456
     user_source = data["head"]["user"]
-    user_source["id"] = 123456
-    user_source["avatar_url"] = "https://any_url_test.test"
-    user_source["node_id"] = "abcdefg"
+    fake_user(user_source)
     repo_source = data["head"]["repo"]
     repo_source["id"] = 123456
     repo_source["node_id"] = "abcdefg"
-    repo_source["owner"]["id"] = 123456
-    repo_source["owner"]["node_id"] = "abcdefg"
+    fake_user(repo_source["owner"])
     user_target = data["base"]["user"]
-    user_target["id"] = 123456
-    user_target["avatar_url"] = "https://any_url_test.test"
-    user_target["node_id"] = "abcdefg"
+    fake_user(user_target)
     repo_target = data["base"]["repo"]
     repo_target["id"] = 123456
     repo_target["node_id"] = "abcdefg"
-    repo_target["owner"]["id"] = 123456
-    repo_target["owner"]["node_id"] = "abcdefg"
+    fake_user(repo_target["owner"])
 
 
 def get_project_api_json():
     url = "https://api.github.com/repos/jordilin/githapi"
-    headers = {
-        "Authorization": f"bearer {API_TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-    }
+    headers = get_headers()
     response = requests.get(url, headers=headers)
     assert response.status_code == 200
     data = response.json()
@@ -90,6 +89,27 @@ def get_project_api_json():
     data["owner"]["avatar_url"] = "https://any_url_test.test"
     if args.persist:
         persist_contract("project.json", REMOTE, data)
+    return data
+
+
+def list_pipelines_api():
+    url = "https://api.github.com/repos/jordilin/githapi/actions/runs"
+    headers = get_headers()
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    run = data["workflow_runs"][0]
+    actor = run["actor"]
+    fake_user(actor)
+    triggering_actor = run["triggering_actor"]
+    fake_user(triggering_actor)
+    repository_owner = run["repository"]["owner"]
+    fake_user(repository_owner)
+    head_repository_owner = run["head_repository"]["owner"]
+    fake_user(head_repository_owner)
+    # patch data with just one workflow run
+    data["workflow_runs"] = [run]
+    if args.persist:
+        persist_contract("list_pipelines.json", REMOTE, data)
     return data
 
 
@@ -112,6 +132,11 @@ if __name__ == "__main__":
             get_project_api_json,
             "project API contract",
             get_contract_json("project.json", REMOTE),
+        ),
+        TestAPI(
+            list_pipelines_api,
+            "list pipelines API contract",
+            get_contract_json("list_pipelines.json", REMOTE),
         ),
     ]
     if not validate_responses(testcases):
