@@ -421,7 +421,56 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
 
 impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
     fn list(&self, _args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
-        todo!()
+        let url = format!(
+            "{}/repos/{}/actions/runs",
+            self.rest_api_basepath, self.path
+        );
+        let request: http::Request<()> = self.http_request(&url, None, GET, ApiOperation::Pipeline);
+        let paginator = Paginator::new(&self.runner, request, &url);
+        paginator
+            .map(|response| {
+                let response = response?;
+                if response.status != 200 {
+                    return Err(error::gen(format!(
+                        "Failed to get project pipelines from Github: {}",
+                        response.body
+                    )));
+                }
+                let body = json_loads(&response.body)?;
+                let wrkfl_runs = body["workflow_runs"].as_array().ok_or(
+                    GRError::RemoteUnexpectedResponseContract(format!(
+                        "Expected an array of workflow runs but got: {}",
+                        response.body
+                    )),
+                )?;
+                let pipelines =
+                    wrkfl_runs
+                        .iter()
+                        .fold(Vec::new(), |mut pipelines, pipeline_data| {
+                            pipelines.push(
+                                Pipeline::builder()
+                                    .status(
+                                        pipeline_data["conclusion"].as_str().unwrap().to_string(),
+                                    )
+                                    .web_url(
+                                        pipeline_data["html_url"].as_str().unwrap().to_string(),
+                                    )
+                                    .branch(
+                                        pipeline_data["head_branch"].as_str().unwrap().to_string(),
+                                    )
+                                    .sha(pipeline_data["head_sha"].as_str().unwrap().to_string())
+                                    .created_at(
+                                        pipeline_data["created_at"].as_str().unwrap().to_string(),
+                                    )
+                                    .build()
+                                    .unwrap(),
+                            );
+                            pipelines
+                        });
+                Ok(pipelines)
+            })
+            .collect::<Result<Vec<Vec<Pipeline>>>>()
+            .map(|pipelines| pipelines.into_iter().flatten().collect())
     }
 
     fn get_pipeline(&self, _id: i64) -> Result<Pipeline> {
@@ -589,6 +638,90 @@ mod test {
 
         let result = github.open(mr_args);
         match result {
+            Ok(_) => panic!("Expected error"),
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::RemoteUnexpectedResponseContract(_)) => (),
+                _ => panic!("Expected error::GRError::RemoteUnexpectedResponseContract"),
+            },
+        }
+    }
+
+    #[test]
+    fn test_list_actions() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Github, "list_pipelines.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        let runs = github.list(args).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/actions/runs",
+            *client.url(),
+        );
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+        assert_eq!(1, runs.len());
+    }
+
+    #[test]
+    fn test_list_actions_error_status_code() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder().status(401).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        assert!(github.list(args).is_err());
+    }
+
+    #[test]
+    fn test_list_actions_empty_workflow_runs() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder()
+            .status(200)
+            .body(r#"{"workflow_runs":[]}"#.to_string())
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        assert_eq!(0, github.list(args).unwrap().len());
+    }
+
+    #[test]
+    fn test_workflow_runs_not_an_array_is_error() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder()
+            .status(200)
+            .body(r#"{"workflow_runs":{}}"#.to_string())
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        match github.list(args) {
             Ok(_) => panic!("Expected error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
                 Some(error::GRError::RemoteUnexpectedResponseContract(_)) => (),
