@@ -48,7 +48,8 @@ def validate_responses(testcases):
         else:
             verifications = zip(testcase.expected, [actual])
         for expected, actual in verifications:
-            if not verify_all(expected, actual):
+            if not verify_all(expected.data, actual):
+                find_expectations(expected.name)
                 return False
         print("OK")
     return True
@@ -56,7 +57,8 @@ def validate_responses(testcases):
 
 def find_expectations(name):
     print("Contract is being used in:")
-    os.system("git --no-pager grep -n " + name + " | grep -v contracts")
+    name = name.replace(".", r"\.")
+    os.system("git --no-pager grep -n " + '"' + name + '"' + " | grep -v contracts")
 
 
 def persist_contract(name, remote, data):
@@ -65,11 +67,17 @@ def persist_contract(name, remote, data):
         fh.write("\n")
 
 
+class ContractDataName:
+    def __init__(self, name, data):
+        self.name = name
+        self.data = data
+
+
 def get_contract_json(name, remote):
     with open("contracts/{}/{}".format(remote, name)) as fh:
         data_json = json.load(fh)
         if type(data_json) == list:
             # gather one element from list. We just need to verify keys and
             # types of values.
-            return data_json[0]
-        return data_json
+            return ContractDataName(name, data_json[0])
+        return ContractDataName(name, data_json)
