@@ -421,6 +421,8 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
 
 impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
     fn list(&self, _args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
+        // Doc:
+        // https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#list-workflow-runs-for-a-repository
         let url = format!(
             "{}/repos/{}/actions/runs",
             self.rest_api_basepath, self.path
@@ -453,6 +455,12 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
                         .fold(Vec::new(), |mut pipelines, pipeline_data| {
                             pipelines.push(
                                 Pipeline::builder()
+                                    // Github has `conclusion` as the final
+                                    // state of the pipeline. It also has a
+                                    // `status` field to represent the current
+                                    // state of the pipeline. Our domain
+                                    // `Pipeline` struct `status` refers to the
+                                    // final state, i.e conclusion.
                                     .status(
                                         pipeline_data["conclusion"].as_str().unwrap().to_string(),
                                     )
