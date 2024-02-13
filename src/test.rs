@@ -113,7 +113,7 @@ pub mod utils {
             match response.status {
                 // 409 Conflict - Merge request already exists. - Gitlab
                 // 422 Conflict - Merge request already exists. - Github
-                200 | 201 | 409 | 422 => return Ok(response),
+                200 | 201 | 302 | 409 | 422 => return Ok(response),
                 _ => return Err(error::gen(&response.body)),
             }
         }

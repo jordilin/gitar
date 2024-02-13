@@ -431,10 +431,14 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
             .map(|response| {
                 let response = response?;
                 if response.status != 200 {
-                    return Err(error::gen(format!(
-                        "Failed to get project pipelines from Github: {}",
-                        response.body
-                    )));
+                    // TODO extract this into common remote utility functions.
+                    return Err(GRError::RemoteUnexpectedResponseContract(format!(
+                        "Failed to get project pipelines from Github: \n\
+                        Expected HTTP 200, but got HTTP status code: {} \n\
+                        HTTP body: {}",
+                        response.status, response.body
+                    ))
+                    .into());
                 }
                 let body = json_loads(&response.body)?;
                 let wrkfl_runs = body["workflow_runs"].as_array().ok_or(
@@ -684,6 +688,27 @@ mod test {
             .build()
             .unwrap();
         assert!(github.list(args).is_err());
+    }
+
+    #[test]
+    fn test_list_actions_unexpected_ok_status_code() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder().status(302).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        match github.list(args) {
+            Ok(_) => panic!("Expected error"),
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::RemoteUnexpectedResponseContract(_)) => (),
+                _ => panic!("Expected error::GRError::RemoteUnexpectedResponseContract"),
+            },
+        }
     }
 
     #[test]
