@@ -470,7 +470,19 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
                                     // `Pipeline` struct `status` refers to the
                                     // final state, i.e conclusion.
                                     .status(
-                                        pipeline_data["conclusion"].as_str().unwrap().to_string(),
+                                        pipeline_data["conclusion"]
+                                            .as_str()
+                                            // conclusion is not present when a
+                                            // pipeline is running, gather its status.
+                                            .unwrap_or_else(|| {
+                                                pipeline_data["status"]
+                                                    .as_str()
+                                                    // set is as unknown if
+                                                    // neither conclusion nor
+                                                    // status are present.
+                                                    .unwrap_or("unknown")
+                                            })
+                                            .to_string(),
                                     )
                                     .web_url(
                                         pipeline_data["html_url"].as_str().unwrap().to_string(),
@@ -853,5 +865,57 @@ mod test {
             *client.url(),
         );
         assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_list_actions_conclusion_field_not_available_use_status() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let contract_json = get_contract(ContractType::Github, "list_pipelines.json");
+        let contract_json = contract_json
+            .lines()
+            .filter(|line| !line.contains("conclusion"))
+            .collect::<Vec<&str>>()
+            .join("\n");
+        let response = Response::builder()
+            .status(200)
+            .body(contract_json)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        let runs = github.list(args).unwrap();
+        assert_eq!("completed", runs[0].status);
+    }
+
+    #[test]
+    fn test_list_actions_neither_conclusion_nor_status_use_unknown() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let contract_json = get_contract(ContractType::Github, "list_pipelines.json");
+        let contract_json = contract_json
+            .lines()
+            .filter(|line| !line.contains("conclusion") && !line.contains("status"))
+            .collect::<Vec<&str>>()
+            .join("\n");
+        let response = Response::builder()
+            .status(200)
+            .body(contract_json)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        let runs = github.list(args).unwrap();
+        assert_eq!("unknown", runs[0].status);
     }
 }
