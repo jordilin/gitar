@@ -420,8 +420,77 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
 }
 
 impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
-    fn list(&self, _args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
-        todo!()
+    fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
+        // Doc:
+        // https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#list-workflow-runs-for-a-repository
+        let mut url = format!(
+            "{}/repos/{}/actions/runs",
+            self.rest_api_basepath, self.path
+        );
+        let mut request: http::Request<()> =
+            self.http_request(&url, None, GET, ApiOperation::Pipeline);
+        if args.from_to_page.is_some() {
+            let from_page = args.from_to_page.as_ref().unwrap().page;
+            let suffix = format!("?page={}", &from_page);
+            url.push_str(&suffix);
+            request.set_max_pages(args.from_to_page.unwrap().max_pages);
+            request.set_url(&url);
+        }
+        let paginator = Paginator::new(&self.runner, request, &url);
+        paginator
+            .map(|response| {
+                let response = response?;
+                if response.status != 200 {
+                    // TODO extract this into common remote utility functions.
+                    return Err(GRError::RemoteServerError(format!(
+                        "Failed to get project pipelines from Github: \n\
+                        Expected HTTP 200, but got HTTP status code: {} \n\
+                        HTTP body: {}",
+                        response.status, response.body
+                    ))
+                    .into());
+                }
+                let body = json_loads(&response.body)?;
+                let wrkfl_runs = body["workflow_runs"].as_array().ok_or(
+                    GRError::RemoteUnexpectedResponseContract(format!(
+                        "Expected an array of workflow runs but got: {}",
+                        response.body
+                    )),
+                )?;
+                let pipelines =
+                    wrkfl_runs
+                        .iter()
+                        .fold(Vec::new(), |mut pipelines, pipeline_data| {
+                            pipelines.push(
+                                Pipeline::builder()
+                                    // Github has `conclusion` as the final
+                                    // state of the pipeline. It also has a
+                                    // `status` field to represent the current
+                                    // state of the pipeline. Our domain
+                                    // `Pipeline` struct `status` refers to the
+                                    // final state, i.e conclusion.
+                                    .status(
+                                        pipeline_data["conclusion"].as_str().unwrap().to_string(),
+                                    )
+                                    .web_url(
+                                        pipeline_data["html_url"].as_str().unwrap().to_string(),
+                                    )
+                                    .branch(
+                                        pipeline_data["head_branch"].as_str().unwrap().to_string(),
+                                    )
+                                    .sha(pipeline_data["head_sha"].as_str().unwrap().to_string())
+                                    .created_at(
+                                        pipeline_data["created_at"].as_str().unwrap().to_string(),
+                                    )
+                                    .build()
+                                    .unwrap(),
+                            );
+                            pipelines
+                        });
+                Ok(pipelines)
+            })
+            .collect::<Result<Vec<Vec<Pipeline>>>>()
+            .map(|pipelines| pipelines.into_iter().flatten().collect())
     }
 
     fn get_pipeline(&self, _id: i64) -> Result<Pipeline> {
@@ -429,13 +498,32 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
     }
 
     fn num_pages(&self) -> Result<Option<u32>> {
-        todo!()
+        let url = format!(
+            "{}/repos/{}/actions/runs?page=1",
+            self.rest_api_basepath, self.path
+        );
+        let mut request: http::Request<()> =
+            self.http_request(&url, None, GET, ApiOperation::Pipeline);
+        let response = self.runner.run(&mut request)?;
+        let page_header = response.get_page_headers().ok_or_else(|| {
+            error::gen(format!(
+                "Failed to get page headers for Github API URL: {}",
+                url
+            ))
+        })?;
+        if let Some(last_page) = page_header.last {
+            return Ok(Some(last_page.number));
+        }
+        Ok(None)
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::test::utils::{config, get_contract, ContractType, MockRunner};
+    use crate::{
+        remote::ListBodyArgs,
+        test::utils::{config, get_contract, ContractType, MockRunner},
+    };
 
     use super::*;
 
@@ -595,5 +683,175 @@ mod test {
                 _ => panic!("Expected error::GRError::RemoteUnexpectedResponseContract"),
             },
         }
+    }
+
+    #[test]
+    fn test_list_actions() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Github, "list_pipelines.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        let runs = github.list(args).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/actions/runs",
+            *client.url(),
+        );
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+        assert_eq!(1, runs.len());
+    }
+
+    #[test]
+    fn test_list_actions_error_status_code() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder().status(401).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        assert!(github.list(args).is_err());
+    }
+
+    #[test]
+    fn test_list_actions_unexpected_ok_status_code() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder().status(302).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        match github.list(args) {
+            Ok(_) => panic!("Expected error"),
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::RemoteServerError(_)) => (),
+                _ => panic!("Expected error::GRError::RemoteServerError"),
+            },
+        }
+    }
+
+    #[test]
+    fn test_list_actions_empty_workflow_runs() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder()
+            .status(200)
+            .body(r#"{"workflow_runs":[]}"#.to_string())
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        assert_eq!(0, github.list(args).unwrap().len());
+    }
+
+    #[test]
+    fn test_workflow_runs_not_an_array_is_error() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder()
+            .status(200)
+            .body(r#"{"workflow_runs":{}}"#.to_string())
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        match github.list(args) {
+            Ok(_) => panic!("Expected error"),
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::RemoteUnexpectedResponseContract(_)) => (),
+                _ => panic!("Expected error::GRError::RemoteUnexpectedResponseContract"),
+            },
+        }
+    }
+
+    #[test]
+    fn test_num_pages_for_list_actions() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let link_header = r#"<https://api.github.com/repos/jordilin/githapi/actions/runs?page=1>; rel="next", <https://api.github.com/repos/jordilin/githapi/actions/runs?page=1>; rel="last""#;
+        let response = Response::builder()
+            .status(200)
+            .headers(HashMap::from_iter(vec![(
+                "link".to_string(),
+                link_header.to_string(),
+            )]))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        assert_eq!(Some(1), github.num_pages().unwrap());
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/actions/runs?page=1",
+            *client.url(),
+        );
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_num_pages_error_retrieving_last_page() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder().status(200).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        assert!(github.num_pages().is_err());
+    }
+
+    #[test]
+    fn test_list_actions_from_page_set_in_url() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Github, "list_pipelines.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(Some(
+                ListBodyArgs::builder()
+                    .page(2)
+                    .max_pages(3)
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
+        github.list(args).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/actions/runs?page=2",
+            *client.url(),
+        );
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
     }
 }
