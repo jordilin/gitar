@@ -490,7 +490,23 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
     }
 
     fn num_pages(&self) -> Result<Option<u32>> {
-        todo!()
+        let url = format!(
+            "{}/repos/{}/actions/runs?page=1",
+            self.rest_api_basepath, self.path
+        );
+        let mut request: http::Request<()> =
+            self.http_request(&url, None, GET, ApiOperation::Pipeline);
+        let response = self.runner.run(&mut request)?;
+        let page_header = response.get_page_headers().ok_or_else(|| {
+            error::gen(format!(
+                "Failed to get page headers for Github API URL: {}",
+                url
+            ))
+        })?;
+        if let Some(last_page) = page_header.last {
+            return Ok(Some(last_page.number));
+        }
+        Ok(None)
     }
 }
 
@@ -761,5 +777,40 @@ mod test {
                 _ => panic!("Expected error::GRError::RemoteUnexpectedResponseContract"),
             },
         }
+    }
+
+    #[test]
+    fn test_num_pages_for_list_actions() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let link_header = r#"<https://api.github.com/repos/jordilin/githapi/actions/runs?page=1>; rel="next", <https://api.github.com/repos/jordilin/githapi/actions/runs?page=1>; rel="last""#;
+        let response = Response::builder()
+            .status(200)
+            .headers(HashMap::from_iter(vec![(
+                "link".to_string(),
+                link_header.to_string(),
+            )]))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        assert_eq!(Some(1), github.num_pages().unwrap());
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/actions/runs?page=1",
+            *client.url(),
+        );
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_num_pages_error_retrieving_last_page() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder().status(200).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        assert!(github.num_pages().is_err());
     }
 }
