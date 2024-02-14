@@ -153,7 +153,7 @@ impl MergeRequestListBodyArgs {
 
 #[derive(Builder, Clone, Debug)]
 pub struct Pipeline {
-    status: String,
+    pub status: String,
     web_url: String,
     branch: String,
     sha: String,
