@@ -420,14 +420,22 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
 }
 
 impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
-    fn list(&self, _args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
+    fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
         // Doc:
         // https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#list-workflow-runs-for-a-repository
-        let url = format!(
+        let mut url = format!(
             "{}/repos/{}/actions/runs",
             self.rest_api_basepath, self.path
         );
-        let request: http::Request<()> = self.http_request(&url, None, GET, ApiOperation::Pipeline);
+        let mut request: http::Request<()> =
+            self.http_request(&url, None, GET, ApiOperation::Pipeline);
+        if args.from_to_page.is_some() {
+            let from_page = args.from_to_page.as_ref().unwrap().page;
+            let suffix = format!("?page={}", &from_page);
+            url.push_str(&suffix);
+            request.set_max_pages(args.from_to_page.unwrap().max_pages);
+            request.set_url(&url);
+        }
         let paginator = Paginator::new(&self.runner, request, &url);
         paginator
             .map(|response| {
@@ -512,7 +520,10 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
 
 #[cfg(test)]
 mod test {
-    use crate::test::utils::{config, get_contract, ContractType, MockRunner};
+    use crate::{
+        remote::ListBodyArgs,
+        test::utils::{config, get_contract, ContractType, MockRunner},
+    };
 
     use super::*;
 
@@ -812,5 +823,35 @@ mod test {
         let client = Arc::new(MockRunner::new(vec![response]));
         let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
         assert!(github.num_pages().is_err());
+    }
+
+    #[test]
+    fn test_list_actions_from_page_set_in_url() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Github, "list_pipelines.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = PipelineBodyArgs::builder()
+            .from_to_page(Some(
+                ListBodyArgs::builder()
+                    .page(2)
+                    .max_pages(3)
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
+        github.list(args).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/actions/runs?page=2",
+            *client.url(),
+        );
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
     }
 }
