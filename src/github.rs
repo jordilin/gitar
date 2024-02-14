@@ -434,7 +434,7 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
                 let response = response?;
                 if response.status != 200 {
                     // TODO extract this into common remote utility functions.
-                    return Err(GRError::RemoteUnexpectedResponseContract(format!(
+                    return Err(GRError::RemoteServerError(format!(
                         "Failed to get project pipelines from Github: \n\
                         Expected HTTP 200, but got HTTP status code: {} \n\
                         HTTP body: {}",
@@ -713,8 +713,8 @@ mod test {
         match github.list(args) {
             Ok(_) => panic!("Expected error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
-                Some(error::GRError::RemoteUnexpectedResponseContract(_)) => (),
-                _ => panic!("Expected error::GRError::RemoteUnexpectedResponseContract"),
+                Some(error::GRError::RemoteServerError(_)) => (),
+                _ => panic!("Expected error::GRError::RemoteServerError"),
             },
         }
     }

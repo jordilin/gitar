@@ -23,6 +23,8 @@ pub enum GRError {
         "Remote unexpected response contract: Open issue at https://github.com/jordilin/gitar: {0}"
     )]
     RemoteUnexpectedResponseContract(String),
+    #[error("Remote server status error: {0}")]
+    RemoteServerError(String),
 }
 
 pub trait AddContext<T, E>: Context<T, E> {
