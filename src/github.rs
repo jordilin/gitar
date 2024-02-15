@@ -114,7 +114,7 @@ impl<R> Github<R> {
     }
 
     fn url_list_merge_requests(&self, args: &MergeRequestListBodyArgs) -> String {
-        let url = match args.state {
+        match args.state {
             MergeRequestState::Opened => {
                 format!(
                     "{}/repos/{}/pulls?state=open",
@@ -129,8 +129,7 @@ impl<R> Github<R> {
                     self.rest_api_basepath, self.path
                 )
             }
-        };
-        url
+        }
     }
 }
 
