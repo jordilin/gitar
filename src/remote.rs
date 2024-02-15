@@ -139,7 +139,7 @@ impl MergeRequestBodyArgs {
     }
 }
 
-#[derive(Builder)]
+#[derive(Builder, Clone)]
 pub struct MergeRequestListBodyArgs {
     pub state: MergeRequestState,
     pub list_args: Option<ListBodyArgs>,

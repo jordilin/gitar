@@ -113,7 +113,7 @@ impl<R> Github<R> {
         headers
     }
 
-    fn url_list_merge_requests(&self, args: MergeRequestListBodyArgs) -> String {
+    fn url_list_merge_requests(&self, args: &MergeRequestListBodyArgs) -> String {
         let url = match args.state {
             MergeRequestState::Opened => {
                 format!(
@@ -319,9 +319,17 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
     }
 
     fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
-        let url = self.url_list_merge_requests(args);
-        let request: http::Request<()> =
+        let mut url = self.url_list_merge_requests(&args);
+        let mut request: http::Request<()> =
             self.http_request(&url, None, GET, ApiOperation::MergeRequest);
+        if args.list_args.is_some() {
+            let list_args = args.list_args.as_ref().unwrap();
+            let from_page = list_args.page;
+            let suffix = format!("&page={}", &from_page);
+            url.push_str(&suffix);
+            request.set_max_pages(list_args.max_pages);
+            request.set_url(&url);
+        }
         let paginator = Paginator::new(&self.runner, request, &url);
         paginator
             .map(|response| {
@@ -419,7 +427,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
     }
 
     fn num_pages(&self, args: MergeRequestListBodyArgs) -> Result<Option<u32>> {
-        let url = self.url_list_merge_requests(args) + "&page=1";
+        let url = self.url_list_merge_requests(&args) + "&page=1";
         let mut request: http::Request<()> =
             self.http_request(&url, None, GET, ApiOperation::MergeRequest);
         let response = self.runner.run(&mut request)?;
@@ -937,7 +945,7 @@ mod test {
     }
 
     #[test]
-    fn test_list_merge_request_num_pages() {
+    fn test_merge_request_num_pages() {
         let config = config();
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";
@@ -961,6 +969,41 @@ mod test {
         assert_eq!(Some(2), github.num_pages(args).unwrap());
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/pulls?state=open&page=1",
+            *client.url(),
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_list_merge_requests_from_to_page_set_in_url() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder()
+            .status(200)
+            .body("[]".to_string())
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn MergeRequest> =
+            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(Some(
+                ListBodyArgs::builder()
+                    .page(2)
+                    .max_pages(3)
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
+        github.list(args).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/pulls?state=open&page=2",
             *client.url(),
         );
         assert_eq!(
