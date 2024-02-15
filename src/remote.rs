@@ -1,15 +1,50 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::api_traits::{Cicd, MergeRequest, RemoteProject};
+use crate::api_traits::{ApiOperation, Cicd, MergeRequest, RemoteProject};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
 use crate::error::GRError;
 use crate::github::Github;
 use crate::gitlab::Gitlab;
+use crate::http::Request;
+use crate::io::{HttpRunner, Response};
 use crate::Result;
 use crate::{error, http};
 use std::convert::TryFrom;
 use std::sync::Arc;
+
+pub struct Token {
+    header_name: String,
+    value: String,
+}
+
+impl Token {
+    pub fn new(header_name: &str, value: &str) -> Self {
+        Token {
+            header_name: header_name.to_string(),
+            value: value.to_string(),
+        }
+    }
+}
+
+pub fn num_pages<R: HttpRunner<Response = Response>>(
+    runner: &Arc<R>,
+    url: &str,
+    token: Token,
+    operation: ApiOperation,
+) -> Result<Option<u32>> {
+    let mut request: Request<()> =
+        http::Request::new(&url, http::Method::GET).with_api_operation(operation);
+    request.set_header(&token.header_name, &token.value);
+    let response = runner.run(&mut request)?;
+    let page_header = response
+        .get_page_headers()
+        .ok_or_else(|| error::gen(format!("Failed to get page headers for URL: {}", url)))?;
+    if let Some(last_page) = page_header.last {
+        return Ok(Some(last_page.number));
+    }
+    Ok(None)
+}
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Project {

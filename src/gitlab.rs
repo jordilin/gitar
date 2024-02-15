@@ -6,8 +6,8 @@ use crate::http::{self, Paginator, Request};
 use crate::io::Response;
 use crate::io::{CmdInfo, HttpRunner};
 use crate::remote::{
-    Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Pipeline,
-    PipelineBodyArgs, Project,
+    self, Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Pipeline,
+    PipelineBodyArgs, Project, Token,
 };
 use crate::{json_load_page, json_loads, Result};
 use std::collections::HashMap;
@@ -49,25 +49,6 @@ impl<R> Gitlab<R> {
 
     fn rest_api_basepath(&self) -> &str {
         &self.rest_api_basepath
-    }
-}
-
-impl<R: HttpRunner<Response = Response>> Gitlab<R> {
-    fn num_pages(&self, url: String, operation: ApiOperation) -> Result<Option<u32>> {
-        let mut request: Request<()> =
-            http::Request::new(&url, http::Method::GET).with_api_operation(operation);
-        request.set_header("PRIVATE-TOKEN", self.api_token());
-        let response = self.runner.run(&mut request)?;
-        let page_header = response.get_page_headers().ok_or_else(|| {
-            error::gen(format!(
-                "Failed to get page headers for GitLab API URL: {}",
-                url
-            ))
-        })?;
-        if let Some(last_page) = page_header.last {
-            return Ok(Some(last_page.number));
-        }
-        Ok(None)
     }
 }
 
@@ -254,7 +235,8 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
             self.rest_api_basepath(),
             state
         );
-        self.num_pages(url, ApiOperation::MergeRequest)
+        let token = Token::new("PRIVATE-TOKEN", self.api_token());
+        remote::num_pages(&self.runner, &url, token, ApiOperation::MergeRequest)
     }
 }
 
@@ -388,7 +370,8 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
 
     fn num_pages(&self) -> Result<Option<u32>> {
         let url = format!("{}/pipelines?page=1", self.rest_api_basepath());
-        self.num_pages(url, ApiOperation::Pipeline)
+        let token = Token::new("PRIVATE-TOKEN", self.api_token());
+        remote::num_pages(&self.runner, &url, token, ApiOperation::Pipeline)
     }
 }
 
