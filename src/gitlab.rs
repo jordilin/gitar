@@ -126,21 +126,22 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     }
 
     fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
-        let url = &format!(
+        let mut url = format!(
             "{}/merge_requests?state={}",
             self.rest_api_basepath(),
             args.state
         );
-        let mut request: Request<()> = http::Request::new(url, http::Method::GET)
+        let mut request: Request<()> = http::Request::new(&url, http::Method::GET)
             .with_api_operation(ApiOperation::MergeRequest);
         request.set_header("PRIVATE-TOKEN", self.api_token());
         if args.list_args.is_some() {
             let from_page = args.list_args.as_ref().unwrap().page;
             let suffix = format!("&page={}", &from_page);
+            url.push_str(&suffix);
             request.set_max_pages(args.list_args.unwrap().max_pages);
-            request.set_url(&format!("{}{}", url, suffix));
+            request.set_url(&url);
         }
-        let paginator = Paginator::new(&self.runner, request, url);
+        let paginator = Paginator::new(&self.runner, request, &url);
         paginator
             .map(|response| {
                 let response = response?;
