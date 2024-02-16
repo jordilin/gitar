@@ -364,14 +364,14 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
 }
 
 pub struct Paginator<'a, R, T> {
-    runner: &'a R,
+    runner: &'a Arc<R>,
     request: Request<T>,
     page_url: Option<String>,
     iter: u32,
 }
 
 impl<'a, R, T> Paginator<'a, R, T> {
-    pub fn new(runner: &'a R, request: Request<T>, page_url: &str) -> Self {
+    pub fn new(runner: &'a Arc<R>, request: Request<T>, page_url: &str) -> Self {
         Paginator {
             runner,
             request,
@@ -381,7 +381,7 @@ impl<'a, R, T> Paginator<'a, R, T> {
     }
 }
 
-impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginator<'a, Arc<R>, T> {
+impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginator<'a, R, T> {
     type Item = Result<Response>;
 
     fn next(&mut self) -> Option<Self::Item> {

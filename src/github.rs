@@ -140,16 +140,13 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             .into());
         };
         let url = format!("{}/repos/{}", self.rest_api_basepath, self.path);
-        let mut request: http::Request<()> =
-            self.http_request(&url, None, GET, ApiOperation::Project);
-        let response = self.runner.run(&mut request)?;
-        if response.status != 200 {
-            return Err(error::gen(format!(
-                "Failed to get project data from Github: {}",
-                response.body
-            )));
-        }
-        let project_data = json_loads(&response.body)?;
+        let project_data = query::send(
+            &self.runner,
+            &url,
+            self.request_headers(),
+            GET,
+            ApiOperation::Project,
+        )?;
         let project_id = project_data["id"].as_i64().unwrap();
         let default_branch = project_data["default_branch"]
             .to_string()
@@ -168,39 +165,12 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             "{}/repos/{}/contributors",
             self.rest_api_basepath, self.path
         );
-        let request: http::Request<()> = self.http_request(url, None, GET, ApiOperation::Project);
-        let paginator = Paginator::new(&self.runner, request, url);
-        let members_data = paginator
-            .map(|response| {
-                let response = response?;
-                if response.status != 200 {
-                    return Err(error::gen(format!(
-                        "Failed to get project members from GitLab: {}",
-                        response.body
-                    )));
-                }
-                let members = json_load_page(&response.body)?.iter().fold(
-                    Vec::new(),
-                    |mut members, member_data| {
-                        members.push(
-                            Member::builder()
-                                .id(member_data["id"].as_i64().unwrap())
-                                .username(member_data["login"].as_str().unwrap().to_string())
-                                .name("".to_string())
-                                .build()
-                                .unwrap(),
-                        );
-                        members
-                    },
-                );
-                Ok(members)
-            })
-            .collect::<Result<Vec<Vec<Member>>>>()
-            .map(|members| members.into_iter().flatten().collect());
-        match members_data {
-            Ok(members) => Ok(CmdInfo::Members(members)),
-            Err(err) => Err(err),
-        }
+        query::get_members(
+            &self.runner,
+            url,
+            self.request_headers(),
+            ApiOperation::Project,
+        )
     }
 
     fn get_url(&self, option: BrowseOptions) -> String {
@@ -211,6 +181,33 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             BrowseOptions::MergeRequestId(id) => format!("{}/pull/{}", base_url, id),
             BrowseOptions::Pipelines => format!("{}/actions", base_url),
         }
+    }
+}
+
+pub struct GithubMemberFields {
+    id: i64,
+    login: String,
+    name: String,
+}
+
+impl From<&serde_json::Value> for GithubMemberFields {
+    fn from(member_data: &serde_json::Value) -> Self {
+        GithubMemberFields {
+            id: member_data["id"].as_i64().unwrap(),
+            login: member_data["login"].as_str().unwrap().to_string(),
+            name: "".to_string(),
+        }
+    }
+}
+
+impl From<GithubMemberFields> for Member {
+    fn from(fields: GithubMemberFields) -> Self {
+        Member::builder()
+            .id(fields.id)
+            .username(fields.login)
+            .name(fields.name)
+            .build()
+            .unwrap()
     }
 }
 
@@ -365,16 +362,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             "{}/repos/{}/pulls/{}/merge",
             self.rest_api_basepath, self.path, id
         );
-        let mut request: http::Request<()> =
-            self.http_request(&url, None, PUT, ApiOperation::MergeRequest);
-        let response = self.runner.run(&mut request)?;
-        if response.status != 200 {
-            return Err(error::gen(format!(
-                "Failed to merge merge request: {}",
-                response.body
-            )));
-        }
-        json_loads(&response.body)?;
+        query::send(
+            &self.runner,
+            &url,
+            self.request_headers(),
+            PUT,
+            ApiOperation::MergeRequest,
+        )?;
         // Response:
         // {
         //     "sha": "6dcb09b5b57875f334f61aebed695e2e4193db5e",
@@ -396,10 +390,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             "{}/repos/{}/pulls/{}",
             self.rest_api_basepath, self.path, id
         );
-        let mut request: http::Request<()> =
-            self.http_request(&url, None, GET, ApiOperation::MergeRequest);
-        let response = self.runner.run(&mut request)?;
-        let merge_request_json = json_loads(&response.body)?;
+        let merge_request_json = query::send(
+            &self.runner,
+            &url,
+            self.request_headers(),
+            GET,
+            ApiOperation::MergeRequest,
+        )?;
         Ok(MergeRequestResponse::builder()
             .id(merge_request_json["id"].as_i64().unwrap())
             .web_url(
