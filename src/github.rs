@@ -17,6 +17,7 @@ use crate::io::HttpRunner;
 use crate::io::Response;
 use crate::json_load_page;
 use crate::json_loads;
+use crate::remote;
 use crate::remote::Member;
 use crate::remote::MergeRequestBodyArgs;
 use crate::remote::MergeRequestListBodyArgs;
@@ -428,19 +429,8 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
 
     fn num_pages(&self, args: MergeRequestListBodyArgs) -> Result<Option<u32>> {
         let url = self.url_list_merge_requests(&args) + "&page=1";
-        let mut request: http::Request<()> =
-            self.http_request(&url, None, GET, ApiOperation::MergeRequest);
-        let response = self.runner.run(&mut request)?;
-        let page_header = response.get_page_headers().ok_or_else(|| {
-            error::gen(format!(
-                "Failed to get page headers for Github API URL: {}",
-                url
-            ))
-        })?;
-        if let Some(last_page) = page_header.last {
-            return Ok(Some(last_page.number));
-        }
-        Ok(None)
+        let headers = self.request_headers();
+        remote::num_pages(&self.runner, &url, headers, ApiOperation::MergeRequest)
     }
 }
 
@@ -539,19 +529,8 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
             "{}/repos/{}/actions/runs?page=1",
             self.rest_api_basepath, self.path
         );
-        let mut request: http::Request<()> =
-            self.http_request(&url, None, GET, ApiOperation::Pipeline);
-        let response = self.runner.run(&mut request)?;
-        let page_header = response.get_page_headers().ok_or_else(|| {
-            error::gen(format!(
-                "Failed to get page headers for Github API URL: {}",
-                url
-            ))
-        })?;
-        if let Some(last_page) = page_header.last {
-            return Ok(Some(last_page.number));
-        }
-        Ok(None)
+        let headers = self.request_headers();
+        remote::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
     }
 }
 
