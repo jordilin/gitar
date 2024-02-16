@@ -118,6 +118,10 @@ impl Response {
     pub fn get_etag(&self) -> Option<&str> {
         self.header("etag")
     }
+
+    pub fn is_ok(&self) -> bool {
+        self.status == 200 || self.status == 201
+    }
 }
 
 const NEXT: &str = "next";
@@ -307,5 +311,14 @@ mod test {
         let page_headers = parse_link_headers(link);
         assert_eq!(91, page_headers.last.unwrap().number);
         assert_eq!(2, page_headers.next.unwrap().number);
+    }
+
+    #[test]
+    fn test_response_ok_status_method() {
+        let ok_status = [200, 201];
+        for status in ok_status.iter() {
+            let response = Response::builder().status(*status).build().unwrap();
+            assert!(response.is_ok());
+        }
     }
 }
