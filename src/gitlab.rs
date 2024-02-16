@@ -5,6 +5,7 @@ use crate::error;
 use crate::http::{self, Headers, Paginator, Request};
 use crate::io::Response;
 use crate::io::{CmdInfo, HttpRunner};
+use crate::remote::query::gitlab_list_members;
 use crate::remote::{
     query, Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Pipeline,
     PipelineBodyArgs, Project,
@@ -261,41 +262,9 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
 
     fn get_project_members(&self) -> Result<CmdInfo> {
         let url = format!("{}/members/all", self.rest_api_basepath());
-        let mut request: Request<()> =
-            http::Request::new(&url, http::Method::GET).with_api_operation(ApiOperation::Project);
-        request.set_header("PRIVATE-TOKEN", self.api_token());
-        let paginator = Paginator::new(&self.runner, request, &url);
-        let members_data = paginator
-            .map(|response| {
-                let response = response?;
-                if response.status != 200 {
-                    return Err(error::gen(format!(
-                        "Failed to get project members from GitLab: {}",
-                        response.body
-                    )));
-                }
-                let members = json_load_page(&response.body)?.iter().fold(
-                    Vec::new(),
-                    |mut members, member_data| {
-                        members.push(
-                            Member::builder()
-                                .id(member_data["id"].as_i64().unwrap())
-                                .name(member_data["name"].as_str().unwrap().to_string())
-                                .username(member_data["username"].as_str().unwrap().to_string())
-                                .build()
-                                .unwrap(),
-                        );
-                        members
-                    },
-                );
-                Ok(members)
-            })
-            .collect::<Result<Vec<Vec<Member>>>>()
-            .map(|members| members.into_iter().flatten().collect());
-        match members_data {
-            Ok(members) => Ok(CmdInfo::Members(members)),
-            Err(err) => Err(err),
-        }
+        let members =
+            gitlab_list_members(&self.runner, &url, self.headers(), ApiOperation::Project)?;
+        Ok(CmdInfo::Members(members))
     }
 
     fn get_url(&self, option: BrowseOptions) -> String {
@@ -306,6 +275,33 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
             BrowseOptions::MergeRequestId(id) => format!("{}/merge_requests/{}", base_url, id),
             BrowseOptions::Pipelines => format!("{}/pipelines", base_url),
         }
+    }
+}
+
+pub struct GitlabMemberFields {
+    id: i64,
+    name: String,
+    username: String,
+}
+
+impl From<&serde_json::Value> for GitlabMemberFields {
+    fn from(data: &serde_json::Value) -> Self {
+        GitlabMemberFields {
+            id: data["id"].as_i64().unwrap(),
+            name: data["name"].as_str().unwrap().to_string(),
+            username: data["username"].as_str().unwrap().to_string(),
+        }
+    }
+}
+
+impl From<GitlabMemberFields> for Member {
+    fn from(fields: GitlabMemberFields) -> Self {
+        Member::builder()
+            .id(fields.id)
+            .name(fields.name.to_string())
+            .username(fields.username.to_string())
+            .build()
+            .unwrap()
     }
 }
 

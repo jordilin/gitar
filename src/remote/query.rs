@@ -5,8 +5,9 @@ use crate::{
     api_traits::ApiOperation,
     error,
     github::GithubMemberFields,
+    gitlab::GitlabMemberFields,
     http::{self, Headers, Paginator, Request},
-    io::{CmdInfo, HttpRunner, Response},
+    io::{HttpRunner, Response},
     json_load_page, json_loads, Result,
 };
 
@@ -92,3 +93,4 @@ macro_rules! paged {
 }
 
 paged!(github_list_members, GithubMemberFields, Member);
+paged!(gitlab_list_members, GitlabMemberFields, Member);
