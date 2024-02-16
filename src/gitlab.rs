@@ -267,6 +267,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
             &url,
             None,
             self.headers(),
+            None,
             ApiOperation::Project,
         )?;
         Ok(CmdInfo::Members(members))
@@ -318,6 +319,7 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
             &url,
             args.from_to_page,
             self.headers(),
+            None,
             ApiOperation::Pipeline,
         )
     }

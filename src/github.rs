@@ -18,6 +18,7 @@ use crate::io::Response;
 use crate::json_load_page;
 use crate::json_loads;
 use crate::remote::query::github_list_members;
+use crate::remote::query::github_list_pipelines;
 use crate::remote::{
     query, Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse,
     MergeRequestState, Pipeline, PipelineBodyArgs, Project,
@@ -171,6 +172,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             url,
             None,
             self.request_headers(),
+            None,
             ApiOperation::Project,
         )?;
         Ok(CmdInfo::Members(members))
@@ -433,86 +435,18 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
         // Doc:
         // https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#list-workflow-runs-for-a-repository
-        let mut url = format!(
+        let url = format!(
             "{}/repos/{}/actions/runs",
             self.rest_api_basepath, self.path
         );
-        let mut request: http::Request<()> =
-            self.http_request(&url, None, GET, ApiOperation::Pipeline);
-        if args.from_to_page.is_some() {
-            let from_page = args.from_to_page.as_ref().unwrap().page;
-            let suffix = format!("?page={}", &from_page);
-            url.push_str(&suffix);
-            request.set_max_pages(args.from_to_page.unwrap().max_pages);
-            request.set_url(&url);
-        }
-        let paginator = Paginator::new(&self.runner, request, &url);
-        paginator
-            .map(|response| {
-                let response = response?;
-                if response.status != 200 {
-                    // TODO extract this into common remote utility functions.
-                    return Err(GRError::RemoteServerError(format!(
-                        "Failed to get project pipelines from Github: \n\
-                        Expected HTTP 200, but got HTTP status code: {} \n\
-                        HTTP body: {}",
-                        response.status, response.body
-                    ))
-                    .into());
-                }
-                let body = json_loads(&response.body)?;
-                let wrkfl_runs = body["workflow_runs"].as_array().ok_or(
-                    GRError::RemoteUnexpectedResponseContract(format!(
-                        "Expected an array of workflow runs but got: {}",
-                        response.body
-                    )),
-                )?;
-                let pipelines =
-                    wrkfl_runs
-                        .iter()
-                        .fold(Vec::new(), |mut pipelines, pipeline_data| {
-                            pipelines.push(
-                                Pipeline::builder()
-                                    // Github has `conclusion` as the final
-                                    // state of the pipeline. It also has a
-                                    // `status` field to represent the current
-                                    // state of the pipeline. Our domain
-                                    // `Pipeline` struct `status` refers to the
-                                    // final state, i.e conclusion.
-                                    .status(
-                                        pipeline_data["conclusion"]
-                                            .as_str()
-                                            // conclusion is not present when a
-                                            // pipeline is running, gather its status.
-                                            .unwrap_or_else(|| {
-                                                pipeline_data["status"]
-                                                    .as_str()
-                                                    // set is as unknown if
-                                                    // neither conclusion nor
-                                                    // status are present.
-                                                    .unwrap_or("unknown")
-                                            })
-                                            .to_string(),
-                                    )
-                                    .web_url(
-                                        pipeline_data["html_url"].as_str().unwrap().to_string(),
-                                    )
-                                    .branch(
-                                        pipeline_data["head_branch"].as_str().unwrap().to_string(),
-                                    )
-                                    .sha(pipeline_data["head_sha"].as_str().unwrap().to_string())
-                                    .created_at(
-                                        pipeline_data["created_at"].as_str().unwrap().to_string(),
-                                    )
-                                    .build()
-                                    .unwrap(),
-                            );
-                            pipelines
-                        });
-                Ok(pipelines)
-            })
-            .collect::<Result<Vec<Vec<Pipeline>>>>()
-            .map(|pipelines| pipelines.into_iter().flatten().collect())
+        github_list_pipelines(
+            &self.runner,
+            &url,
+            args.from_to_page,
+            self.request_headers(),
+            Some("workflow_runs"),
+            ApiOperation::Pipeline,
+        )
     }
 
     fn get_pipeline(&self, _id: i64) -> Result<Pipeline> {
@@ -526,6 +460,57 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
         );
         let headers = self.request_headers();
         query::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
+    }
+}
+
+pub struct GithubPipelineFields {
+    status: String,
+    web_url: String,
+    branch: String,
+    sha: String,
+    created_at: String,
+}
+
+impl From<&serde_json::Value> for GithubPipelineFields {
+    fn from(pipeline_data: &serde_json::Value) -> Self {
+        GithubPipelineFields {
+            // Github has `conclusion` as the final
+            // state of the pipeline. It also has a
+            // `status` field to represent the current
+            // state of the pipeline. Our domain
+            // `Pipeline` struct `status` refers to the
+            // final state, i.e conclusion.
+            status: pipeline_data["conclusion"]
+                .as_str()
+                // conclusion is not present when a
+                // pipeline is running, gather its status.
+                .unwrap_or_else(|| {
+                    pipeline_data["status"]
+                        .as_str()
+                        // set is as unknown if
+                        // neither conclusion nor
+                        // status are present.
+                        .unwrap_or("unknown")
+                })
+                .to_string(),
+            web_url: pipeline_data["html_url"].as_str().unwrap().to_string(),
+            branch: pipeline_data["head_branch"].as_str().unwrap().to_string(),
+            sha: pipeline_data["head_sha"].as_str().unwrap().to_string(),
+            created_at: pipeline_data["created_at"].as_str().unwrap().to_string(),
+        }
+    }
+}
+
+impl From<GithubPipelineFields> for Pipeline {
+    fn from(fields: GithubPipelineFields) -> Self {
+        Pipeline::builder()
+            .status(fields.status)
+            .web_url(fields.web_url)
+            .branch(fields.branch)
+            .sha(fields.sha)
+            .created_at(fields.created_at)
+            .build()
+            .unwrap()
     }
 }
 

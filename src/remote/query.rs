@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::{
     api_traits::ApiOperation,
     error,
-    github::GithubMemberFields,
+    github::{GithubMemberFields, GithubPipelineFields},
     gitlab::{GitlabMemberFields, GitlabPipelineFields},
     http::{self, Headers, Paginator, Request},
     io::{HttpRunner, Response},
@@ -64,6 +64,7 @@ macro_rules! paged {
             url: &str,
             list_args: Option<ListBodyArgs>,
             request_headers: Headers,
+            iter_over_sub_array: Option<&str>,
             operation: ApiOperation,
         ) -> Result<Vec<$return_type>> {
             let mut request: http::Request<()> =
@@ -82,6 +83,24 @@ macro_rules! paged {
                     let response = response?;
                     if !response.is_ok() {
                         return Err(query_error(&url, &response).into());
+                    }
+                    if iter_over_sub_array.is_some() {
+                        let body = json_loads(&response.body)?;
+                        let paged_data = body[iter_over_sub_array.unwrap()]
+                            .as_array()
+                            .ok_or_else(|| {
+                                error::GRError::RemoteUnexpectedResponseContract(format!(
+                                    "Expected an array of {} but got: {}",
+                                    iter_over_sub_array.unwrap(),
+                                    response.body
+                                ))
+                            })?
+                            .iter()
+                            .fold(Vec::new(), |mut paged_data, data| {
+                                paged_data.push(<$map_type>::from(data).into());
+                                paged_data
+                            });
+                        return Ok(paged_data);
                     }
                     let paged_data = json_load_page(&response.body)?.iter().fold(
                         Vec::new(),
@@ -104,4 +123,6 @@ macro_rules! paged {
 
 paged!(github_list_members, GithubMemberFields, Member);
 paged!(gitlab_list_members, GitlabMemberFields, Member);
+
+paged!(github_list_pipelines, GithubPipelineFields, Pipeline);
 paged!(gitlab_list_pipelines, GitlabPipelineFields, Pipeline);
