@@ -17,15 +17,10 @@ use crate::io::HttpRunner;
 use crate::io::Response;
 use crate::json_load_page;
 use crate::json_loads;
-use crate::remote;
-use crate::remote::Member;
-use crate::remote::MergeRequestBodyArgs;
-use crate::remote::MergeRequestListBodyArgs;
-use crate::remote::MergeRequestResponse;
-use crate::remote::MergeRequestState;
-use crate::remote::Pipeline;
-use crate::remote::PipelineBodyArgs;
-use crate::remote::Project;
+use crate::remote::{
+    query, Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse,
+    MergeRequestState, Pipeline, PipelineBodyArgs, Project,
+};
 use crate::Result;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -430,7 +425,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
     fn num_pages(&self, args: MergeRequestListBodyArgs) -> Result<Option<u32>> {
         let url = self.url_list_merge_requests(&args) + "&page=1";
         let headers = self.request_headers();
-        remote::num_pages(&self.runner, &url, headers, ApiOperation::MergeRequest)
+        query::num_pages(&self.runner, &url, headers, ApiOperation::MergeRequest)
     }
 }
 
@@ -530,7 +525,7 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
             self.rest_api_basepath, self.path
         );
         let headers = self.request_headers();
-        remote::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
+        query::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
     }
 }
 

@@ -1,37 +1,17 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::api_traits::{ApiOperation, Cicd, MergeRequest, RemoteProject};
+use crate::api_traits::{Cicd, MergeRequest, RemoteProject};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
 use crate::error::GRError;
 use crate::github::Github;
 use crate::gitlab::Gitlab;
-use crate::http::Headers;
-use crate::http::Request;
-use crate::io::{HttpRunner, Response};
 use crate::Result;
 use crate::{error, http};
 use std::convert::TryFrom;
 use std::sync::Arc;
 
-pub fn num_pages<R: HttpRunner<Response = Response>>(
-    runner: &Arc<R>,
-    url: &str,
-    request_headers: Headers,
-    operation: ApiOperation,
-) -> Result<Option<u32>> {
-    let mut request: Request<()> =
-        http::Request::new(&url, http::Method::GET).with_api_operation(operation);
-    request.set_headers(request_headers);
-    let response = runner.run(&mut request)?;
-    let page_header = response
-        .get_page_headers()
-        .ok_or_else(|| error::gen(format!("Failed to get page headers for URL: {}", url)))?;
-    if let Some(last_page) = page_header.last {
-        return Ok(Some(last_page.number));
-    }
-    Ok(None)
-}
+pub mod query;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Project {

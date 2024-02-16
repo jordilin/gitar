@@ -6,7 +6,7 @@ use crate::http::{self, Headers, Paginator, Request};
 use crate::io::Response;
 use crate::io::{CmdInfo, HttpRunner};
 use crate::remote::{
-    self, Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Pipeline,
+    query, Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Pipeline,
     PipelineBodyArgs, Project,
 };
 use crate::{json_load_page, json_loads, Result};
@@ -237,7 +237,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         );
         let mut headers = Headers::new();
         headers.set("PRIVATE-TOKEN", self.api_token());
-        remote::num_pages(&self.runner, &url, headers, ApiOperation::MergeRequest)
+        query::num_pages(&self.runner, &url, headers, ApiOperation::MergeRequest)
     }
 }
 
@@ -373,7 +373,7 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
         let url = format!("{}/pipelines?page=1", self.rest_api_basepath());
         let mut headers = Headers::new();
         headers.set("PRIVATE-TOKEN", self.api_token());
-        remote::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
+        query::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
     }
 }
 
