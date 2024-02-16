@@ -262,8 +262,13 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
 
     fn get_project_members(&self) -> Result<CmdInfo> {
         let url = format!("{}/members/all", self.rest_api_basepath());
-        let members =
-            gitlab_list_members(&self.runner, &url, self.headers(), ApiOperation::Project)?;
+        let members = gitlab_list_members(
+            &self.runner,
+            &url,
+            None,
+            self.headers(),
+            ApiOperation::Project,
+        )?;
         Ok(CmdInfo::Members(members))
     }
 
@@ -307,49 +312,14 @@ impl From<GitlabMemberFields> for Member {
 
 impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
-        let mut url = format!("{}/pipelines", self.rest_api_basepath());
-        let mut request: Request<()> =
-            http::Request::new(&url, http::Method::GET).with_api_operation(ApiOperation::Pipeline);
-        request.set_header("PRIVATE-TOKEN", self.api_token());
-        if args.from_to_page.is_some() {
-            let from_page = args.from_to_page.as_ref().unwrap().page;
-            let suffix = format!("?page={}", &from_page);
-            url.push_str(&suffix);
-            request.set_max_pages(args.from_to_page.unwrap().max_pages);
-            request.set_url(&url);
-        }
-        let paginator = Paginator::new(&self.runner, request, &url);
-        paginator
-            .map(|response| {
-                let response = response?;
-                if response.status != 200 {
-                    return Err(error::gen(format!(
-                        "Failed to get project pipelines from GitLab: {}",
-                        response.body
-                    )));
-                }
-                let pipelines = json_load_page(&response.body)?.iter().fold(
-                    Vec::new(),
-                    |mut pipelines, pipeline_data| {
-                        pipelines.push(
-                            Pipeline::builder()
-                                .status(pipeline_data["status"].as_str().unwrap().to_string())
-                                .web_url(pipeline_data["web_url"].as_str().unwrap().to_string())
-                                .branch(pipeline_data["ref"].as_str().unwrap().to_string())
-                                .sha(pipeline_data["sha"].as_str().unwrap().to_string())
-                                .created_at(
-                                    pipeline_data["created_at"].as_str().unwrap().to_string(),
-                                )
-                                .build()
-                                .unwrap(),
-                        );
-                        pipelines
-                    },
-                );
-                Ok(pipelines)
-            })
-            .collect::<Result<Vec<Vec<Pipeline>>>>()
-            .map(|pipelines| pipelines.into_iter().flatten().collect())
+        let url = format!("{}/pipelines", self.rest_api_basepath());
+        query::gitlab_list_pipelines(
+            &self.runner,
+            &url,
+            args.from_to_page,
+            self.headers(),
+            ApiOperation::Pipeline,
+        )
     }
 
     fn get_pipeline(&self, _id: i64) -> Result<Pipeline> {
@@ -361,6 +331,39 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
         let mut headers = Headers::new();
         headers.set("PRIVATE-TOKEN", self.api_token());
         query::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
+    }
+}
+
+pub struct GitlabPipelineFields {
+    status: String,
+    web_url: String,
+    ref_: String,
+    sha: String,
+    created_at: String,
+}
+
+impl From<&serde_json::Value> for GitlabPipelineFields {
+    fn from(data: &serde_json::Value) -> Self {
+        GitlabPipelineFields {
+            status: data["status"].as_str().unwrap().to_string(),
+            web_url: data["web_url"].as_str().unwrap().to_string(),
+            ref_: data["ref"].as_str().unwrap().to_string(),
+            sha: data["sha"].as_str().unwrap().to_string(),
+            created_at: data["created_at"].as_str().unwrap().to_string(),
+        }
+    }
+}
+
+impl From<GitlabPipelineFields> for Pipeline {
+    fn from(fields: GitlabPipelineFields) -> Self {
+        Pipeline::builder()
+            .status(fields.status.to_string())
+            .web_url(fields.web_url.to_string())
+            .branch(fields.ref_.to_string())
+            .sha(fields.sha.to_string())
+            .created_at(fields.created_at.to_string())
+            .build()
+            .unwrap()
     }
 }
 
