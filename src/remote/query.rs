@@ -5,7 +5,7 @@ use crate::{
     error,
     http::{self, Headers, Request},
     io::{HttpRunner, Response},
-    Result,
+    json_loads, Result,
 };
 
 pub fn num_pages<R: HttpRunner<Response = Response>>(
@@ -25,4 +25,23 @@ pub fn num_pages<R: HttpRunner<Response = Response>>(
         return Ok(Some(last_page.number));
     }
     Ok(None)
+}
+
+pub fn send<R: HttpRunner<Response = Response>>(
+    runner: &Arc<R>,
+    url: &str,
+    request_headers: Headers,
+    method: http::Method,
+    operation: ApiOperation,
+) -> Result<serde_json::Value> {
+    let mut request: Request<()> = Request::new(&url, method).with_api_operation(operation);
+    request.set_headers(request_headers);
+    let response = runner.run(&mut request)?;
+    if !response.is_ok() {
+        return Err(error::gen(format!(
+            "Failed to submit request query to URL: {} with status code: {} and body: {}",
+            url, response.status, response.body
+        )));
+    }
+    json_loads(&response.body)
 }

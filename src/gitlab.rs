@@ -1,7 +1,7 @@
 use crate::api_traits::{ApiOperation, Cicd, MergeRequest, RemoteProject};
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
-use crate::error::{self, AddContext};
+use crate::error;
 use crate::http::{self, Headers, Paginator, Request};
 use crate::io::Response;
 use crate::io::{CmdInfo, HttpRunner};
@@ -49,6 +49,12 @@ impl<R> Gitlab<R> {
 
     fn rest_api_basepath(&self) -> &str {
         &self.rest_api_basepath
+    }
+
+    fn headers(&self) -> Headers {
+        let mut headers = Headers::new();
+        headers.set("PRIVATE-TOKEN", self.api_token());
+        headers
     }
 }
 
@@ -159,17 +165,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     fn merge(&self, id: i64) -> Result<MergeRequestResponse> {
         // PUT /projects/:id/merge_requests/:merge_request_iid/merge
         let url = format!("{}/merge_requests/{}/merge", self.rest_api_basepath(), id);
-        let mut request: Request<()> = http::Request::new(&url, http::Method::PUT)
-            .with_api_operation(ApiOperation::MergeRequest);
-        request.set_header("PRIVATE-TOKEN", self.api_token());
-        let response = self.runner.run(&mut request)?;
-        if response.status != 200 {
-            return Err(error::gen(format!(
-                "Failed to merge merge request: {}",
-                response.body
-            )));
-        }
-        let merge_request_json = json_loads(&response.body)?;
+        let merge_request_json = query::send(
+            &self.runner,
+            &url,
+            self.headers(),
+            http::Method::PUT,
+            ApiOperation::MergeRequest,
+        )?;
         Ok(MergeRequestResponse::builder()
             .id(merge_request_json["iid"].as_i64().unwrap())
             .web_url(merge_request_json["web_url"].as_str().unwrap().to_string())
@@ -180,17 +182,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     fn get(&self, id: i64) -> Result<MergeRequestResponse> {
         // GET /projects/:id/merge_requests/:merge_request_iid
         let url = format!("{}/merge_requests/{}", self.rest_api_basepath(), id);
-        let mut request: Request<()> = http::Request::new(&url, http::Method::GET)
-            .with_api_operation(ApiOperation::MergeRequest);
-        request.set_header("PRIVATE-TOKEN", self.api_token());
-        let response = self.runner.run(&mut request)?;
-        if response.status != 200 {
-            return Err(error::gen(format!(
-                "Failed to gather details for merge request: {}",
-                response.body
-            )));
-        }
-        let merge_request_json = json_loads(&response.body)?;
+        let merge_request_json = query::send(
+            &self.runner,
+            &url,
+            self.headers(),
+            http::Method::GET,
+            ApiOperation::MergeRequest,
+        )?;
         Ok(MergeRequestResponse::builder()
             .id(merge_request_json["iid"].as_i64().unwrap())
             .web_url(merge_request_json["web_url"].as_str().unwrap().to_string())
@@ -247,20 +245,13 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
             Some(id) => format!("{}/{}", self.base_project_url, id),
             None => self.rest_api_basepath().to_string(),
         };
-        let mut request: Request<()> =
-            http::Request::new(&url, http::Method::GET).with_api_operation(ApiOperation::Project);
-        request.set_header("PRIVATE-TOKEN", self.api_token());
-        let response = self.runner.run(&mut request).err_context(format!(
-            "Failed to get remote project data API URL: {}",
-            self.rest_api_basepath()
-        ))?;
-        if response.status != 200 {
-            return Err(error::gen(format!(
-                "Failed to get project data from GitLab: {}",
-                response.body
-            )));
-        }
-        let project_data = json_loads(&response.body)?;
+        let project_data = query::send(
+            &self.runner,
+            &url,
+            self.headers(),
+            http::Method::GET,
+            ApiOperation::Project,
+        )?;
         let project_id = project_data["id"].as_i64().unwrap();
         let default_branch = project_data["default_branch"].as_str().unwrap();
         let html_url = project_data["web_url"].as_str().unwrap();
