@@ -1,5 +1,6 @@
 #[cfg(test)]
 pub mod utils {
+    use crate::http::Headers;
     use crate::{api_traits::ApiOperation, config::ConfigProperties, error};
     use serde::Serialize;
 
@@ -13,7 +14,6 @@ pub mod utils {
     use std::sync::Arc;
     use std::{
         cell::{Ref, RefCell},
-        collections::HashMap,
         fs::File,
         io::Read,
     };
@@ -45,7 +45,7 @@ pub mod utils {
     pub struct MockRunner {
         responses: RefCell<Vec<Response>>,
         cmd: RefCell<String>,
-        headers: RefCell<HashMap<String, String>>,
+        headers: RefCell<Headers>,
         url: RefCell<String>,
         pub api_operation: RefCell<Option<ApiOperation>>,
         pub config: ConfigMock,
@@ -56,7 +56,7 @@ pub mod utils {
             Self {
                 responses: RefCell::new(responses),
                 cmd: RefCell::new(String::new()),
-                headers: RefCell::new(HashMap::new()),
+                headers: RefCell::new(Headers::new()),
                 url: RefCell::new(String::new()),
                 api_operation: RefCell::new(None),
                 config: ConfigMock::default(),
@@ -75,7 +75,7 @@ pub mod utils {
             self.url.borrow()
         }
 
-        pub fn headers(&self) -> Ref<HashMap<String, String>> {
+        pub fn headers(&self) -> Ref<Headers> {
             self.headers.borrow()
         }
     }

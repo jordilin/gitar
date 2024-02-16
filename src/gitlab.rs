@@ -2,12 +2,12 @@ use crate::api_traits::{ApiOperation, Cicd, MergeRequest, RemoteProject};
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
 use crate::error::{self, AddContext};
-use crate::http::{self, Paginator, Request};
+use crate::http::{self, Headers, Paginator, Request};
 use crate::io::Response;
 use crate::io::{CmdInfo, HttpRunner};
 use crate::remote::{
     self, Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Pipeline,
-    PipelineBodyArgs, Project, Token,
+    PipelineBodyArgs, Project,
 };
 use crate::{json_load_page, json_loads, Result};
 use std::collections::HashMap;
@@ -235,8 +235,9 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
             self.rest_api_basepath(),
             state
         );
-        let token = Token::new("PRIVATE-TOKEN", self.api_token());
-        remote::num_pages(&self.runner, &url, token, ApiOperation::MergeRequest)
+        let mut headers = Headers::new();
+        headers.set("PRIVATE-TOKEN", self.api_token());
+        remote::num_pages(&self.runner, &url, headers, ApiOperation::MergeRequest)
     }
 }
 
@@ -370,8 +371,9 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
 
     fn num_pages(&self) -> Result<Option<u32>> {
         let url = format!("{}/pipelines?page=1", self.rest_api_basepath());
-        let token = Token::new("PRIVATE-TOKEN", self.api_token());
-        remote::num_pages(&self.runner, &url, token, ApiOperation::Pipeline)
+        let mut headers = Headers::new();
+        headers.set("PRIVATE-TOKEN", self.api_token());
+        remote::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
     }
 }
 

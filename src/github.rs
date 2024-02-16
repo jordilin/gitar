@@ -9,6 +9,7 @@ use crate::config::ConfigProperties;
 use crate::error;
 use crate::error::GRError;
 use crate::http;
+use crate::http::Headers;
 use crate::http::Method::{GET, PATCH, POST, PUT};
 use crate::http::Paginator;
 use crate::io::CmdInfo;
@@ -101,15 +102,15 @@ impl<R> Github<R> {
         }
     }
 
-    fn request_headers(&self) -> HashMap<String, String> {
-        let mut headers = HashMap::new();
+    fn request_headers(&self) -> Headers {
+        let mut headers = Headers::new();
         let auth_token_value = format!("bearer {}", self.api_token);
-        headers.insert("Authorization".to_string(), auth_token_value);
-        headers.insert(
+        headers.set("Authorization".to_string(), auth_token_value);
+        headers.set(
             "Accept".to_string(),
             "application/vnd.github.v3+json".to_string(),
         );
-        headers.insert("User-Agent".to_string(), "gg".to_string());
+        headers.set("User-Agent".to_string(), "gg".to_string());
         headers
     }
 

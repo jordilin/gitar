@@ -6,7 +6,8 @@ use crate::time::{now_epoch_seconds, Seconds};
 use crate::Result;
 use crate::{api_defaults, error};
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{hash_map, HashMap};
+use std::iter::Iterator;
 use std::sync::{Arc, Mutex};
 use ureq::Error;
 
@@ -203,13 +204,34 @@ impl Resource {
     }
 }
 
+#[derive(Clone, Default)]
+pub struct Headers(HashMap<String, String>);
+
+impl Headers {
+    pub fn new() -> Self {
+        Headers(HashMap::new())
+    }
+
+    pub fn set<K: Into<String>, V: Into<String>>(&mut self, key: K, value: V) {
+        self.0.insert(key.into(), value.into());
+    }
+
+    pub fn get(&self, key: &str) -> Option<&String> {
+        self.0.get(key)
+    }
+
+    pub fn iter(&self) -> hash_map::Iter<String, String> {
+        self.0.iter()
+    }
+}
+
 #[derive(Builder)]
 #[builder(pattern = "owned")]
 pub struct Request<T> {
     #[builder(setter(into, strip_option), default)]
     body: Option<T>,
     #[builder(default)]
-    headers: HashMap<String, String>,
+    headers: Headers,
     method: Method,
     pub resource: Resource,
     #[builder(setter(into, strip_option), default)]
@@ -224,7 +246,7 @@ impl<T> Request<T> {
     pub fn new(url: &str, method: Method) -> Self {
         Request {
             body: None,
-            headers: HashMap::new(),
+            headers: Headers::new(),
             method,
             resource: Resource::new(url, None),
             max_pages: None,
@@ -250,10 +272,10 @@ impl<T> Request<T> {
     }
 
     pub fn set_header(&mut self, key: &str, value: &str) {
-        self.headers.insert(key.to_string(), value.to_string());
+        self.headers.set(key.to_string(), value.to_string());
     }
 
-    pub fn set_headers(&mut self, headers: HashMap<String, String>) {
+    pub fn set_headers(&mut self, headers: Headers) {
         self.headers = headers;
     }
 
@@ -265,7 +287,7 @@ impl<T> Request<T> {
         &self.resource.url
     }
 
-    pub fn headers(&self) -> &HashMap<String, String> {
+    pub fn headers(&self) -> &Headers {
         &self.headers
     }
 }
