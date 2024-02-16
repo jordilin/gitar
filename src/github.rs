@@ -17,6 +17,7 @@ use crate::io::HttpRunner;
 use crate::io::Response;
 use crate::json_load_page;
 use crate::json_loads;
+use crate::remote::query::github_list_members;
 use crate::remote::{
     query, Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse,
     MergeRequestState, Pipeline, PipelineBodyArgs, Project,
@@ -165,12 +166,13 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             "{}/repos/{}/contributors",
             self.rest_api_basepath, self.path
         );
-        query::get_members(
+        let members = github_list_members(
             &self.runner,
             url,
             self.request_headers(),
             ApiOperation::Project,
-        )
+        )?;
+        Ok(CmdInfo::Members(members))
     }
 
     fn get_url(&self, option: BrowseOptions) -> String {

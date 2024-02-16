@@ -54,35 +54,41 @@ fn query_error(url: &str, response: &Response) -> error::GRError {
     ))
 }
 
-pub fn get_members<R: HttpRunner<Response = Response>>(
-    runner: &Arc<R>,
-    url: &str,
-    request_headers: Headers,
-    operation: ApiOperation,
-) -> Result<CmdInfo> {
-    let mut request: http::Request<()> =
-        http::Request::new(&url, http::Method::GET).with_api_operation(operation);
-    request.set_headers(request_headers);
-    let paginator = Paginator::new(&runner, request, url);
-    let members_data = paginator
-        .map(|response| {
-            let response = response?;
-            if !response.is_ok() {
-                return Err(query_error(&url, &response).into());
+macro_rules! paged {
+    ($func_name:ident, $map_type:ident, $return_type:ident) => {
+        pub fn $func_name<R: HttpRunner<Response = Response>>(
+            runner: &Arc<R>,
+            url: &str,
+            request_headers: Headers,
+            operation: ApiOperation,
+        ) -> Result<Vec<$return_type>> {
+            let mut request: http::Request<()> =
+                http::Request::new(&url, http::Method::GET).with_api_operation(operation);
+            request.set_headers(request_headers);
+            let paginator = Paginator::new(&runner, request, url);
+            let all_data = paginator
+                .map(|response| {
+                    let response = response?;
+                    if !response.is_ok() {
+                        return Err(query_error(&url, &response).into());
+                    }
+                    let paged_data = json_load_page(&response.body)?.iter().fold(
+                        Vec::new(),
+                        |mut paged_data, data| {
+                            paged_data.push(<$map_type>::from(data).into());
+                            paged_data
+                        },
+                    );
+                    Ok(paged_data)
+                })
+                .collect::<Result<Vec<Vec<$return_type>>>>()
+                .map(|paged_data| paged_data.into_iter().flatten().collect());
+            match all_data {
+                Ok(paged_data) => Ok(paged_data),
+                Err(err) => Err(err),
             }
-            let members = json_load_page(&response.body)?.iter().fold(
-                Vec::new(),
-                |mut members, member_data| {
-                    members.push(GithubMemberFields::from(member_data).into());
-                    members
-                },
-            );
-            Ok(members)
-        })
-        .collect::<Result<Vec<Vec<Member>>>>()
-        .map(|members| members.into_iter().flatten().collect());
-    match members_data {
-        Ok(members) => Ok(CmdInfo::Members(members)),
-        Err(err) => Err(err),
-    }
+        }
+    };
 }
+
+paged!(github_list_members, GithubMemberFields, Member);
