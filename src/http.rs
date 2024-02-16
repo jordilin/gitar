@@ -204,6 +204,19 @@ impl Resource {
     }
 }
 
+#[derive(Serialize, Clone, Debug)]
+pub struct Body<T>(HashMap<String, T>);
+
+impl<T> Body<T> {
+    pub fn new() -> Self {
+        Body(HashMap::new())
+    }
+
+    pub fn add<K: Into<String>>(&mut self, key: K, value: T) {
+        self.0.insert(key.into(), value);
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct Headers(HashMap<String, String>);
 

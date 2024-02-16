@@ -9,6 +9,7 @@ use crate::config::ConfigProperties;
 use crate::error;
 use crate::error::GRError;
 use crate::http;
+use crate::http::Body;
 use crate::http::Headers;
 use crate::http::Method::{GET, PATCH, POST, PUT};
 use crate::http::Paginator;
@@ -218,15 +219,15 @@ impl From<GithubMemberFields> for Member {
 
 impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
     fn open(&self, args: MergeRequestBodyArgs) -> Result<MergeRequestResponse> {
-        let mut body: HashMap<&str, String> = HashMap::new();
-        body.insert("head", args.source_branch.clone());
-        body.insert("base", args.target_branch);
-        body.insert("title", args.title);
-        body.insert("body", args.description);
+        let mut body = Body::new();
+        body.add("head", args.source_branch.clone());
+        body.add("base", args.target_branch);
+        body.add("title", args.title);
+        body.add("body", args.description);
         // Add draft in payload only when requested. It seems that Github opens
         // PR in draft mode even when the draft value is false.
         if args.draft {
-            body.insert("draft", args.draft.to_string());
+            body.add("draft", args.draft.to_string());
         }
         let mr_url = format!("{}/repos/{}/pulls", self.rest_api_basepath, self.path);
         let mut request = self.http_request(&mr_url, Some(body), POST, ApiOperation::MergeRequest);

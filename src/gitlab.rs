@@ -2,7 +2,7 @@ use crate::api_traits::{ApiOperation, Cicd, MergeRequest, RemoteProject};
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
 use crate::error;
-use crate::http::{self, Headers, Paginator, Request};
+use crate::http::{self, Body, Headers, Paginator, Request};
 use crate::io::Response;
 use crate::io::{CmdInfo, HttpRunner};
 use crate::remote::query::gitlab_list_members;
@@ -61,13 +61,13 @@ impl<R> Gitlab<R> {
 
 impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     fn open(&self, args: MergeRequestBodyArgs) -> Result<MergeRequestResponse> {
-        let mut body = HashMap::new();
-        body.insert("source_branch", args.source_branch);
-        body.insert("target_branch", args.target_branch);
-        body.insert("title", args.title);
-        body.insert("assignee_id", args.assignee_id);
-        body.insert("description", args.description);
-        body.insert("remove_source_branch", args.remove_source_branch);
+        let mut body = Body::new();
+        body.add("source_branch", args.source_branch);
+        body.add("target_branch", args.target_branch);
+        body.add("title", args.title);
+        body.add("assignee_id", args.assignee_id);
+        body.add("description", args.description);
+        body.add("remove_source_branch", args.remove_source_branch);
         let url = format!("{}/merge_requests", self.rest_api_basepath());
         let mut request = http::Request::new(&url, http::Method::POST)
             .with_api_operation(ApiOperation::MergeRequest)
