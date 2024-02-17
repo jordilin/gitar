@@ -1,12 +1,12 @@
 use crate::{
-    http::Request,
+    http::{Headers, Request},
     remote::{Member, MergeRequestResponse, Project},
     time::Seconds,
     Result,
 };
 use regex::Regex;
 use serde::Serialize;
-use std::{collections::HashMap, ffi::OsStr};
+use std::ffi::OsStr;
 
 pub trait Runner {
     type Response;
@@ -48,7 +48,7 @@ pub struct Response {
     pub body: String,
     /// Optional headers. Mostly used by HTTP downstream HTTP responses
     #[builder(setter(into, strip_option), default)]
-    pub(crate) headers: Option<HashMap<String, String>>,
+    pub(crate) headers: Option<Headers>,
     #[builder(default = "parse_link_headers")]
     link_header_processor: fn(&str) -> PageHeader,
 }
@@ -238,9 +238,9 @@ mod test {
     #[test]
     fn test_get_rate_limit_headers_github() {
         let body = "responsebody";
-        let mut headers = HashMap::new();
-        headers.insert("x-ratelimit-remaining".to_string(), "30".to_string());
-        headers.insert("x-ratelimit-reset".to_string(), "1658602270".to_string());
+        let mut headers = Headers::new();
+        headers.set("x-ratelimit-remaining".to_string(), "30".to_string());
+        headers.set("x-ratelimit-reset".to_string(), "1658602270".to_string());
         let response = Response::builder()
             .body(body.to_string())
             .headers(headers)
@@ -254,9 +254,9 @@ mod test {
     #[test]
     fn test_get_rate_limit_headers_gitlab() {
         let body = "responsebody";
-        let mut headers = HashMap::new();
-        headers.insert("ratelimit-remaining".to_string(), "30".to_string());
-        headers.insert("ratelimit-reset".to_string(), "1658602270".to_string());
+        let mut headers = Headers::new();
+        headers.set("ratelimit-remaining".to_string(), "30".to_string());
+        headers.set("ratelimit-reset".to_string(), "1658602270".to_string());
         let response = Response::builder()
             .body(body.to_string())
             .headers(headers)
@@ -270,9 +270,9 @@ mod test {
     #[test]
     fn test_get_rate_limit_headers_camelcase_gitlab() {
         let body = "responsebody";
-        let mut headers = HashMap::new();
-        headers.insert("RateLimit-remaining".to_string(), "30".to_string());
-        headers.insert("rateLimit-reset".to_string(), "1658602270".to_string());
+        let mut headers = Headers::new();
+        headers.set("RateLimit-remaining".to_string(), "30".to_string());
+        headers.set("rateLimit-reset".to_string(), "1658602270".to_string());
         let response = Response::builder()
             .body(body.to_string())
             .headers(headers)

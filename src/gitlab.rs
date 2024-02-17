@@ -2,7 +2,7 @@ use crate::api_traits::{ApiOperation, Cicd, MergeRequest, RemoteProject};
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
 use crate::error;
-use crate::http::{self, Body, Headers, Paginator, Request};
+use crate::http::{self, Body, Headers, Paginator, Request, Resource};
 use crate::io::Response;
 use crate::io::{CmdInfo, HttpRunner};
 use crate::remote::query::gitlab_list_members;
@@ -11,7 +11,6 @@ use crate::remote::{
     PipelineBodyArgs, Project,
 };
 use crate::{json_load_page, json_loads, Result};
-use std::collections::HashMap;
 use std::sync::Arc;
 
 // https://docs.gitlab.com/ee/api/rest/
@@ -69,10 +68,12 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         body.add("description", args.description);
         body.add("remove_source_branch", args.remove_source_branch);
         let url = format!("{}/merge_requests", self.rest_api_basepath());
-        let mut request = http::Request::new(&url, http::Method::POST)
-            .with_api_operation(ApiOperation::MergeRequest)
-            .with_body(body);
-        request.set_header("PRIVATE-TOKEN", self.api_token());
+        let mut request = http::Request::builder()
+            .method(http::Method::POST)
+            .resource(Resource::new(&url, Some(ApiOperation::MergeRequest)))
+            .body(body)
+            .headers(self.headers())
+            .build()?;
         let response = self.runner.run(&mut request)?;
         // if status code is 409, it means that the merge request already
         // exists. We already pushed the branch, just return the merge request
@@ -166,9 +167,10 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     fn merge(&self, id: i64) -> Result<MergeRequestResponse> {
         // PUT /projects/:id/merge_requests/:merge_request_iid/merge
         let url = format!("{}/merge_requests/{}/merge", self.rest_api_basepath(), id);
-        let merge_request_json = query::send(
+        let merge_request_json = query::send::<_, ()>(
             &self.runner,
             &url,
+            None,
             self.headers(),
             http::Method::PUT,
             ApiOperation::MergeRequest,
@@ -183,9 +185,10 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     fn get(&self, id: i64) -> Result<MergeRequestResponse> {
         // GET /projects/:id/merge_requests/:merge_request_iid
         let url = format!("{}/merge_requests/{}", self.rest_api_basepath(), id);
-        let merge_request_json = query::send(
+        let merge_request_json = query::send::<_, ()>(
             &self.runner,
             &url,
+            None,
             self.headers(),
             http::Method::GET,
             ApiOperation::MergeRequest,
@@ -205,13 +208,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
 
     fn close(&self, id: i64) -> Result<MergeRequestResponse> {
         let url = format!("{}/merge_requests/{}", self.rest_api_basepath(), id);
-        let mut body = HashMap::new();
-        body.insert("state_event".to_string(), "close".to_string());
-        let mut request: Request<HashMap<String, String>> =
-            http::Request::new(&url, http::Method::PUT)
-                .with_api_operation(ApiOperation::MergeRequest)
-                .with_body(body);
-        request.set_header("PRIVATE-TOKEN", self.api_token());
+        let mut body = Body::new();
+        body.add("state_event".to_string(), "close".to_string());
+        let mut request = http::Request::builder()
+            .method(http::Method::PUT)
+            .resource(Resource::new(&url, Some(ApiOperation::MergeRequest)))
+            .body(body)
+            .headers(self.headers())
+            .build()?;
         let response = self.runner.run(&mut request)?;
         if response.status != 200 {
             return Err(error::gen(format!(
@@ -246,9 +250,10 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
             Some(id) => format!("{}/{}", self.base_project_url, id),
             None => self.rest_api_basepath().to_string(),
         };
-        let project_data = query::send(
+        let project_data = query::send::<_, ()>(
             &self.runner,
             &url,
+            None,
             self.headers(),
             http::Method::GET,
             ApiOperation::Project,
@@ -606,10 +611,11 @@ mod test {
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"last\"";
-        let headers = vec![("link".to_string(), link_header.to_string())];
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
         let response = Response::builder()
             .status(200)
-            .headers(HashMap::from_iter(headers))
+            .headers(headers)
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
@@ -627,10 +633,11 @@ mod test {
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"next\"";
-        let headers = vec![("link".to_string(), link_header.to_string())];
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
         let response = Response::builder()
             .status(200)
-            .headers(HashMap::from_iter(headers))
+            .headers(headers)
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
@@ -686,10 +693,11 @@ mod test {
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=1>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=2>; rel=\"last\"";
-        let headers = vec![("link".to_string(), link_header.to_string())];
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
         let response = Response::builder()
             .status(200)
-            .headers(HashMap::from_iter(headers))
+            .headers(headers)
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
@@ -747,10 +755,11 @@ mod test {
         let domain = "gitlab.com".to_string();
         let path = "jordilin/gitlapi".to_string();
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=1>; rel=\"next\"";
-        let headers = vec![("link".to_string(), link_header.to_string())];
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
         let response = Response::builder()
             .status(200)
-            .headers(HashMap::from_iter(headers))
+            .headers(headers)
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));

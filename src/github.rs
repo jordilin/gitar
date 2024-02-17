@@ -13,6 +13,7 @@ use crate::http::Body;
 use crate::http::Headers;
 use crate::http::Method::{GET, PATCH, POST, PUT};
 use crate::http::Paginator;
+use crate::http::Resource;
 use crate::io::CmdInfo;
 use crate::io::HttpRunner;
 use crate::io::Response;
@@ -25,7 +26,6 @@ use crate::remote::{
     MergeRequestState, Pipeline, PipelineBodyArgs, Project,
 };
 use crate::Result;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -55,7 +55,7 @@ impl<R> Github<R> {
     fn http_request<T>(
         &self,
         url: &str,
-        body: Option<T>,
+        body: Option<Body<T>>,
         method: http::Method,
         api_operation: ApiOperation,
     ) -> http::Request<T>
@@ -71,33 +71,41 @@ impl<R> Github<R> {
                 request
             }
             http::Method::POST => {
-                let mut request = http::Request::new(url, http::Method::POST)
-                    .with_api_operation(api_operation)
-                    .with_body(body.unwrap());
-                let headers = self.request_headers();
-                request.set_headers(headers);
+                let request = http::Request::builder()
+                    .method(http::Method::POST)
+                    .resource(Resource::new(&url, Some(api_operation)))
+                    .body(body.unwrap())
+                    .headers(self.request_headers())
+                    .build()
+                    .unwrap();
                 request
             }
             http::Method::PUT => {
-                let mut request = if let Some(body) = body {
-                    http::Request::new(url, http::Method::PUT)
-                        .with_api_operation(api_operation)
-                        .with_body(body)
+                let request = if let Some(body) = body {
+                    http::Request::builder()
+                        .method(http::Method::PUT)
+                        .resource(Resource::new(&url, Some(api_operation)))
+                        .body(body)
+                        .headers(self.request_headers())
+                        .build()
+                        .unwrap()
                 } else {
-                    http::Request::new(url, http::Method::PUT).with_api_operation(api_operation)
+                    http::Request::builder()
+                        .method(http::Method::PUT)
+                        .resource(Resource::new(&url, Some(api_operation)))
+                        .headers(self.request_headers())
+                        .build()
+                        .unwrap()
                 };
-                let headers = self.request_headers();
-                request.set_headers(headers);
                 request
             }
-            http::Method::PATCH => {
-                let mut request = http::Request::new(url, http::Method::PATCH)
-                    .with_api_operation(api_operation)
-                    .with_body(body.unwrap());
-                let headers = self.request_headers();
-                request.set_headers(headers);
-                request
-            }
+            http::Method::PATCH => http::Request::builder()
+                .method(http::Method::PATCH)
+                .resource(Resource::new(&url, Some(api_operation)))
+                .body(body.unwrap())
+                .headers(self.request_headers())
+                .build()
+                .unwrap(),
         }
     }
 
@@ -143,9 +151,10 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             .into());
         };
         let url = format!("{}/repos/{}", self.rest_api_basepath, self.path);
-        let project_data = query::send(
+        let project_data = query::send::<_, ()>(
             &self.runner,
             &url,
+            None,
             self.request_headers(),
             GET,
             ApiOperation::Project,
@@ -252,9 +261,9 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                             "{}/repos/{}/issues/{}",
                             self.rest_api_basepath, self.path, id
                         );
-                        let mut body: HashMap<&str, &Vec<&str>> = HashMap::new();
+                        let mut body = Body::new();
                         let assignees = vec![args.username.as_str()];
-                        body.insert("assignees", &assignees);
+                        body.add("assignees", &assignees);
                         self.runner.run(&mut self.http_request(
                             &issues_url,
                             Some(body),
@@ -368,9 +377,10 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             "{}/repos/{}/pulls/{}/merge",
             self.rest_api_basepath, self.path, id
         );
-        query::send(
+        query::send::<_, ()>(
             &self.runner,
             &url,
+            None,
             self.request_headers(),
             PUT,
             ApiOperation::MergeRequest,
@@ -396,9 +406,10 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             "{}/repos/{}/pulls/{}",
             self.rest_api_basepath, self.path, id
         );
-        let merge_request_json = query::send(
+        let merge_request_json = query::send::<_, ()>(
             &self.runner,
             &url,
+            None,
             self.request_headers(),
             GET,
             ApiOperation::MergeRequest,
@@ -793,12 +804,11 @@ mod test {
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";
         let link_header = r#"<https://api.github.com/repos/jordilin/githapi/actions/runs?page=1>; rel="next", <https://api.github.com/repos/jordilin/githapi/actions/runs?page=1>; rel="last""#;
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), link_header.to_string());
         let response = Response::builder()
             .status(200)
-            .headers(HashMap::from_iter(vec![(
-                "link".to_string(),
-                link_header.to_string(),
-            )]))
+            .headers(headers)
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
@@ -910,12 +920,11 @@ mod test {
         let domain = "github.com".to_string();
         let path = "jordilin/githapi";
         let link_header = r#"<https://api.github.com/repos/jordilin/githapi/pulls?state=open&page=2>; rel="next", <https://api.github.com/repos/jordilin/githapi/pulls?state=open&page=2>; rel="last""#;
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), link_header.to_string());
         let response = Response::builder()
             .status(200)
-            .headers(HashMap::from_iter(vec![(
-                "link".to_string(),
-                link_header.to_string(),
-            )]))
+            .headers(headers)
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));

@@ -5,7 +5,7 @@ use crate::io::{HttpRunner, Response, ResponseField};
 use crate::time::{now_epoch_seconds, Seconds};
 use crate::Result;
 use crate::{api_defaults, error};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{hash_map, HashMap};
 use std::iter::Iterator;
 use std::sync::{Arc, Mutex};
@@ -48,8 +48,8 @@ impl<C, D> Client<C, D> {
                     response
                         .headers_names()
                         .iter()
-                        .fold(HashMap::new(), |mut headers, name| {
-                            headers.insert(
+                        .fold(Headers::new(), |mut headers, name| {
+                            headers.set(
                                 name.to_lowercase(),
                                 response.header(name.as_str()).unwrap().to_string(),
                             );
@@ -196,7 +196,7 @@ pub struct Resource {
 }
 
 impl Resource {
-    fn new(url: &str, api_operation: Option<ApiOperation>) -> Self {
+    pub fn new(url: &str, api_operation: Option<ApiOperation>) -> Self {
         Resource {
             url: url.to_string(),
             api_operation,
@@ -217,7 +217,7 @@ impl<T> Body<T> {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Headers(HashMap<String, String>);
 
 impl Headers {
@@ -236,13 +236,19 @@ impl Headers {
     pub fn iter(&self) -> hash_map::Iter<String, String> {
         self.0.iter()
     }
+
+    pub fn extend(&mut self, headers: Headers) {
+        for (key, value) in headers.iter() {
+            self.0.insert(key.clone(), value.clone());
+        }
+    }
 }
 
 #[derive(Builder)]
 #[builder(pattern = "owned")]
 pub struct Request<T> {
     #[builder(setter(into, strip_option), default)]
-    body: Option<T>,
+    body: Option<Body<T>>,
     #[builder(default)]
     headers: Headers,
     method: Method,
@@ -279,9 +285,8 @@ impl<T> Request<T> {
         &self.resource.api_operation
     }
 
-    pub fn with_body(mut self, body: T) -> Self {
+    pub fn with_body(&mut self, body: Body<T>) {
         self.body = Some(body);
-        self
     }
 
     pub fn set_header(&mut self, key: &str, value: &str) {
@@ -459,8 +464,8 @@ mod test {
     }
 
     fn response_with_next_page() -> Response {
-        let mut headers = HashMap::new();
-        headers.insert("link".to_string(), "http://localhost?page=2".to_string());
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), "http://localhost?page=2".to_string());
         let response = Response::builder()
             .status(200)
             .headers(headers)
@@ -471,8 +476,8 @@ mod test {
     }
 
     fn response_with_last_page() -> Response {
-        let mut headers = HashMap::new();
-        headers.insert("link".to_string(), "http://localhost?page=2".to_string());
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), "http://localhost?page=2".to_string());
         let response = Response::builder()
             .status(200)
             .headers(headers)
@@ -496,8 +501,8 @@ mod test {
     #[test]
     fn test_paginator_with_link_headers_one_next_and_no_last_pages() {
         let response1 = response_with_next_page();
-        let mut headers = HashMap::new();
-        headers.insert("link".to_string(), "http://localhost?page=2".to_string());
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), "http://localhost?page=2".to_string());
         let response2 = Response::builder()
             .status(200)
             .headers(headers)
@@ -581,8 +586,8 @@ mod test {
 
     #[test]
     fn test_ratelimit_remaining_threshold_reached_is_error() {
-        let mut headers = HashMap::new();
-        headers.insert("x-ratelimit-remaining".to_string(), "10".to_string());
+        let mut headers = Headers::new();
+        headers.set("x-ratelimit-remaining".to_string(), "10".to_string());
         let response = Response::builder()
             .status(200)
             .headers(headers)
@@ -594,8 +599,8 @@ mod test {
 
     #[test]
     fn test_ratelimit_remaining_threshold_not_reached_is_ok() {
-        let mut headers = HashMap::new();
-        headers.insert("ratelimit-remaining".to_string(), "11".to_string());
+        let mut headers = Headers::new();
+        headers.set("ratelimit-remaining".to_string(), "11".to_string());
         let response = Response::builder()
             .status(200)
             .headers(headers)

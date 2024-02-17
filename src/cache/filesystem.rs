@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 
@@ -6,7 +5,7 @@ use flate2::bufread::GzDecoder;
 use sha2::{Digest, Sha256};
 
 use crate::cache::Cache;
-use crate::http::Resource;
+use crate::http::{Headers, Resource};
 use crate::io::{self, Response};
 use crate::time::Seconds;
 
@@ -62,7 +61,7 @@ impl<C: ConfigProperties> FileCache<C> {
         let mut body = String::new();
         reader.read_line(&mut body)?;
         let body = body.trim();
-        let headers_map = serde_json::from_str::<HashMap<String, String>>(&headers)?;
+        let headers_map = serde_json::from_str::<Headers>(&headers)?;
         let response = Response::builder()
             .status(status_code)
             .body(body.to_string())
