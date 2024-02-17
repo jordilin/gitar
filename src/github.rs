@@ -151,7 +151,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             .into());
         };
         let url = format!("{}/repos/{}", self.rest_api_basepath, self.path);
-        let project_data = query::send::<_, ()>(
+        let project = query::github_project_data::<_, ()>(
             &self.runner,
             &url,
             None,
@@ -159,16 +159,6 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             GET,
             ApiOperation::Project,
         )?;
-        let project_id = project_data["id"].as_i64().unwrap();
-        let default_branch = project_data["default_branch"]
-            .to_string()
-            .trim_matches('"')
-            .to_string();
-        let html_url = project_data["html_url"]
-            .to_string()
-            .trim_matches('"')
-            .to_string();
-        let project = Project::new(project_id, &default_branch).with_html_url(&html_url);
         Ok(CmdInfo::Project(project))
     }
 
@@ -196,6 +186,34 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             BrowseOptions::MergeRequestId(id) => format!("{}/pull/{}", base_url, id),
             BrowseOptions::Pipelines => format!("{}/actions", base_url),
         }
+    }
+}
+
+pub struct GithubProjectFields {
+    id: i64,
+    default_branch: String,
+    html_url: String,
+}
+
+impl From<&serde_json::Value> for GithubProjectFields {
+    fn from(project_data: &serde_json::Value) -> Self {
+        GithubProjectFields {
+            id: project_data["id"].as_i64().unwrap(),
+            default_branch: project_data["default_branch"]
+                .to_string()
+                .trim_matches('"')
+                .to_string(),
+            html_url: project_data["html_url"]
+                .to_string()
+                .trim_matches('"')
+                .to_string(),
+        }
+    }
+}
+
+impl From<GithubProjectFields> for Project {
+    fn from(fields: GithubProjectFields) -> Self {
+        Project::new(fields.id, &fields.default_branch).with_html_url(&fields.html_url)
     }
 }
 

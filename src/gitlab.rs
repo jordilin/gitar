@@ -250,7 +250,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
             Some(id) => format!("{}/{}", self.base_project_url, id),
             None => self.rest_api_basepath().to_string(),
         };
-        let project_data = query::send::<_, ()>(
+        let project = query::gitlab_project_data::<_, ()>(
             &self.runner,
             &url,
             None,
@@ -258,10 +258,6 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
             http::Method::GET,
             ApiOperation::Project,
         )?;
-        let project_id = project_data["id"].as_i64().unwrap();
-        let default_branch = project_data["default_branch"].as_str().unwrap();
-        let html_url = project_data["web_url"].as_str().unwrap();
-        let project = Project::new(project_id, default_branch).with_html_url(html_url);
         Ok(CmdInfo::Project(project))
     }
 
@@ -286,6 +282,28 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
             BrowseOptions::MergeRequestId(id) => format!("{}/merge_requests/{}", base_url, id),
             BrowseOptions::Pipelines => format!("{}/pipelines", base_url),
         }
+    }
+}
+
+pub struct GitlabProjectFields {
+    id: i64,
+    default_branch: String,
+    web_url: String,
+}
+
+impl From<&serde_json::Value> for GitlabProjectFields {
+    fn from(data: &serde_json::Value) -> Self {
+        GitlabProjectFields {
+            id: data["id"].as_i64().unwrap(),
+            default_branch: data["default_branch"].as_str().unwrap().to_string(),
+            web_url: data["web_url"].as_str().unwrap().to_string(),
+        }
+    }
+}
+
+impl From<GitlabProjectFields> for Project {
+    fn from(fields: GitlabProjectFields) -> Self {
+        Project::new(fields.id, &fields.default_branch).with_html_url(&fields.web_url)
     }
 }
 

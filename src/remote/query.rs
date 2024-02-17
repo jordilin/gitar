@@ -6,8 +6,8 @@ use serde::Serialize;
 use crate::{
     api_traits::ApiOperation,
     error,
-    github::{GithubMemberFields, GithubPipelineFields},
-    gitlab::{GitlabMemberFields, GitlabPipelineFields},
+    github::{GithubMemberFields, GithubPipelineFields, GithubProjectFields},
+    gitlab::{GitlabMemberFields, GitlabPipelineFields, GitlabProjectFields},
     http::{self, Body, Headers, Paginator, Request, Resource},
     io::{HttpRunner, Response},
     json_load_page, json_loads,
@@ -15,7 +15,7 @@ use crate::{
     Result,
 };
 
-use super::{Member, Pipeline};
+use super::{Member, Pipeline, Project};
 
 pub fn num_pages<R: HttpRunner<Response = Response>>(
     runner: &Arc<R>,
@@ -75,6 +75,42 @@ fn query_error(url: &str, response: &Response) -> error::GRError {
         "Failed to submit request to URL: {} with status code: {} and body: {}",
         url, response.status, response.body
     ))
+}
+
+macro_rules! get {
+    ($func_name:ident, $map_type:ident, $return_type:ident) => {
+        pub fn $func_name<R: HttpRunner<Response = Response>, T: Serialize>(
+            runner: &Arc<R>,
+            url: &str,
+            body: Option<Body<T>>,
+            request_headers: Headers,
+            method: http::Method,
+            operation: ApiOperation,
+        ) -> Result<$return_type> {
+            let mut request = if let Some(body) = body {
+                http::Request::builder()
+                    .method(method)
+                    .resource(Resource::new(&url, Some(operation)))
+                    .body(body)
+                    .headers(request_headers)
+                    .build()
+                    .unwrap()
+            } else {
+                http::Request::builder()
+                    .method(method)
+                    .resource(Resource::new(&url, Some(operation)))
+                    .headers(request_headers)
+                    .build()
+                    .unwrap()
+            };
+            let response = runner.run(&mut request)?;
+            if !response.is_ok() {
+                return Err(query_error(&url, &response).into());
+            }
+            let body = json_loads(&response.body)?;
+            Ok(<$map_type>::from(&body).into())
+        }
+    };
 }
 
 macro_rules! paged {
@@ -146,3 +182,6 @@ paged!(gitlab_list_members, GitlabMemberFields, Member);
 
 paged!(github_list_pipelines, GithubPipelineFields, Pipeline);
 paged!(gitlab_list_pipelines, GitlabPipelineFields, Pipeline);
+
+get!(gitlab_project_data, GitlabProjectFields, Project);
+get!(github_project_data, GithubProjectFields, Project);
