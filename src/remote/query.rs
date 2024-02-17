@@ -208,11 +208,12 @@ paged!(
 send!(gitlab_project_data, GitlabProjectFields, Project);
 send!(github_project_data, GithubProjectFields, Project);
 send!(
-    github_get_merge_request,
+    github_merge_request,
     GithubMergeRequestFields,
     MergeRequestResponse
 );
-send!(github_update_merge_request, serde_json::Value);
+send!(github_merge_request_json, serde_json::Value);
+send!(github_merge_request_response, Response);
 send!(
     gitlab_merge_request,
     GitlabMergeRequestFields,

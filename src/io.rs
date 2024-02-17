@@ -120,7 +120,7 @@ impl Response {
     }
 
     pub fn is_ok(&self) -> bool {
-        self.status == 200 || self.status == 201
+        self.status == 200 || self.status == 201 || self.status == 422
     }
 }
 
