@@ -134,19 +134,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     fn merge(&self, id: i64) -> Result<MergeRequestResponse> {
         // PUT /projects/:id/merge_requests/:merge_request_iid/merge
         let url = format!("{}/merge_requests/{}/merge", self.rest_api_basepath(), id);
-        let merge_request_json = query::send::<_, ()>(
+        query::gitlab_merge_request::<_, ()>(
             &self.runner,
             &url,
             None,
             self.headers(),
             http::Method::PUT,
             ApiOperation::MergeRequest,
-        )?;
-        Ok(MergeRequestResponse::builder()
-            .id(merge_request_json["iid"].as_i64().unwrap())
-            .web_url(merge_request_json["web_url"].as_str().unwrap().to_string())
-            .build()
-            .unwrap())
+        )
     }
 
     fn get(&self, id: i64) -> Result<MergeRequestResponse> {
