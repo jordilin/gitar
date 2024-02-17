@@ -60,11 +60,24 @@ macro_rules! send {
             method: http::Method,
             operation: ApiOperation,
         ) -> Result<$return_type> {
-            let body = send_request(runner, url, body, request_headers, method, operation)?;
+            let response = send_request(runner, url, body, request_headers, method, operation)?;
+            let body = json_loads(&response.body)?;
             Ok(<$map_type>::from(&body).into())
         }
     };
-    ($func_name:ident) => {
+    ($func_name:ident, Response) => {
+        pub fn $func_name<R: HttpRunner<Response = Response>, T: Serialize>(
+            runner: &Arc<R>,
+            url: &str,
+            body: Option<Body<T>>,
+            request_headers: Headers,
+            method: http::Method,
+            operation: ApiOperation,
+        ) -> Result<Response> {
+            send_request(runner, url, body, request_headers, method, operation)
+        }
+    };
+    ($func_name:ident, serde_json::Value) => {
         pub fn $func_name<R: HttpRunner<Response = Response>, T: Serialize>(
             runner: &Arc<R>,
             url: &str,
@@ -73,7 +86,8 @@ macro_rules! send {
             method: http::Method,
             operation: ApiOperation,
         ) -> Result<serde_json::Value> {
-            send_request(runner, url, body, request_headers, method, operation)
+            let response = send_request(runner, url, body, request_headers, method, operation)?;
+            json_loads(&response.body)
         }
     };
 }
@@ -85,7 +99,7 @@ fn send_request<R: HttpRunner<Response = Response>, T: Serialize>(
     request_headers: Headers,
     method: http::Method,
     operation: ApiOperation,
-) -> Result<serde_json::Value> {
+) -> Result<Response> {
     let mut request = if let Some(body) = body {
         http::Request::builder()
             .method(method)
@@ -106,7 +120,7 @@ fn send_request<R: HttpRunner<Response = Response>, T: Serialize>(
     if !response.is_ok() {
         return Err(query_error(&url, &response).into());
     }
-    json_loads(&response.body)
+    Ok(response)
 }
 
 macro_rules! paged {
@@ -198,7 +212,7 @@ send!(
     GithubMergeRequestFields,
     MergeRequestResponse
 );
-send!(github_update_merge_request);
+send!(github_update_merge_request, serde_json::Value);
 send!(
     gitlab_merge_request,
     GitlabMergeRequestFields,
