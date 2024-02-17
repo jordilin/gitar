@@ -43,37 +43,6 @@ pub fn num_pages<R: HttpRunner<Response = Response>>(
     Ok(None)
 }
 
-pub fn send<R: HttpRunner<Response = Response>, T: Serialize>(
-    runner: &Arc<R>,
-    url: &str,
-    body: Option<Body<T>>,
-    request_headers: Headers,
-    method: http::Method,
-    operation: ApiOperation,
-) -> Result<serde_json::Value> {
-    let mut request = if let Some(body) = body {
-        http::Request::builder()
-            .method(method)
-            .resource(Resource::new(&url, Some(operation)))
-            .body(body)
-            .headers(request_headers)
-            .build()
-            .unwrap()
-    } else {
-        http::Request::builder()
-            .method(method)
-            .resource(Resource::new(&url, Some(operation)))
-            .headers(request_headers)
-            .build()
-            .unwrap()
-    };
-    let response = runner.run(&mut request)?;
-    if !response.is_ok() {
-        return Err(query_error(&url, &response).into());
-    }
-    json_loads(&response.body)
-}
-
 fn query_error(url: &str, response: &Response) -> error::GRError {
     error::GRError::RemoteServerError(format!(
         "Failed to submit request to URL: {} with status code: {} and body: {}",
