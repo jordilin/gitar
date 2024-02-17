@@ -361,7 +361,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             "{}/repos/{}/pulls/{}/merge",
             self.rest_api_basepath, self.path, id
         );
-        query::send::<_, ()>(
+        query::github_update_merge_request::<_, ()>(
             &self.runner,
             &url,
             None,

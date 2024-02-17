@@ -91,30 +91,53 @@ macro_rules! send {
             method: http::Method,
             operation: ApiOperation,
         ) -> Result<$return_type> {
-            let mut request = if let Some(body) = body {
-                http::Request::builder()
-                    .method(method)
-                    .resource(Resource::new(&url, Some(operation)))
-                    .body(body)
-                    .headers(request_headers)
-                    .build()
-                    .unwrap()
-            } else {
-                http::Request::builder()
-                    .method(method)
-                    .resource(Resource::new(&url, Some(operation)))
-                    .headers(request_headers)
-                    .build()
-                    .unwrap()
-            };
-            let response = runner.run(&mut request)?;
-            if !response.is_ok() {
-                return Err(query_error(&url, &response).into());
-            }
-            let body = json_loads(&response.body)?;
+            let body = send_request(runner, url, body, request_headers, method, operation)?;
             Ok(<$map_type>::from(&body).into())
         }
     };
+    ($func_name:ident) => {
+        pub fn $func_name<R: HttpRunner<Response = Response>, T: Serialize>(
+            runner: &Arc<R>,
+            url: &str,
+            body: Option<Body<T>>,
+            request_headers: Headers,
+            method: http::Method,
+            operation: ApiOperation,
+        ) -> Result<serde_json::Value> {
+            send_request(runner, url, body, request_headers, method, operation)
+        }
+    };
+}
+
+fn send_request<R: HttpRunner<Response = Response>, T: Serialize>(
+    runner: &Arc<R>,
+    url: &str,
+    body: Option<Body<T>>,
+    request_headers: Headers,
+    method: http::Method,
+    operation: ApiOperation,
+) -> Result<serde_json::Value> {
+    let mut request = if let Some(body) = body {
+        http::Request::builder()
+            .method(method)
+            .resource(Resource::new(&url, Some(operation)))
+            .body(body)
+            .headers(request_headers)
+            .build()
+            .unwrap()
+    } else {
+        http::Request::builder()
+            .method(method)
+            .resource(Resource::new(&url, Some(operation)))
+            .headers(request_headers)
+            .build()
+            .unwrap()
+    };
+    let response = runner.run(&mut request)?;
+    if !response.is_ok() {
+        return Err(query_error(&url, &response).into());
+    }
+    json_loads(&response.body)
 }
 
 macro_rules! paged {
@@ -206,6 +229,7 @@ send!(
     GithubMergeRequestFields,
     MergeRequestResponse
 );
+send!(github_update_merge_request);
 send!(
     gitlab_merge_request,
     GitlabMergeRequestFields,
