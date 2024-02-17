@@ -21,11 +21,14 @@ pub fn num_pages<R: HttpRunner<Response = Response>>(
     runner: &Arc<R>,
     url: &str,
     request_headers: Headers,
-    operation: ApiOperation,
+    api_operation: ApiOperation,
 ) -> Result<Option<u32>> {
-    let mut request: Request<()> =
-        Request::new(&url, http::Method::GET).with_api_operation(operation);
-    request.set_headers(request_headers);
+    let mut request: Request<()> = http::Request::builder()
+        .method(http::Method::GET)
+        .resource(Resource::new(&url, Some(api_operation)))
+        .headers(request_headers)
+        .build()
+        .unwrap();
     let response = runner.run(&mut request)?;
     let page_header = response
         .get_page_headers()
