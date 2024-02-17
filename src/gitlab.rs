@@ -152,7 +152,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     fn get(&self, id: i64) -> Result<MergeRequestResponse> {
         // GET /projects/:id/merge_requests/:merge_request_iid
         let url = format!("{}/merge_requests/{}", self.rest_api_basepath(), id);
-        query::gitlab_get_merge_request::<_, ()>(
+        query::gitlab_merge_request::<_, ()>(
             &self.runner,
             &url,
             None,
@@ -166,25 +166,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         let url = format!("{}/merge_requests/{}", self.rest_api_basepath(), id);
         let mut body = Body::new();
         body.add("state_event".to_string(), "close".to_string());
-        let mut request = http::Request::builder()
-            .method(http::Method::PUT)
-            .resource(Resource::new(&url, Some(ApiOperation::MergeRequest)))
-            .body(body)
-            .headers(self.headers())
-            .build()?;
-        let response = self.runner.run(&mut request)?;
-        if response.status != 200 {
-            return Err(error::gen(format!(
-                "Failed to close the merge request wilth URL: {} and ERROR: {}",
-                url, response.body
-            )));
-        }
-        let merge_request_json = json_loads(&response.body)?;
-        Ok(MergeRequestResponse::builder()
-            .id(merge_request_json["iid"].as_i64().unwrap())
-            .web_url(merge_request_json["web_url"].as_str().unwrap().to_string())
-            .build()
-            .unwrap())
+        query::gitlab_merge_request::<_, String>(
+            &self.runner,
+            &url,
+            Some(body),
+            self.headers(),
+            http::Method::PUT,
+            ApiOperation::MergeRequest,
+        )
     }
 
     fn num_pages(&self, args: MergeRequestListBodyArgs) -> Result<Option<u32>> {

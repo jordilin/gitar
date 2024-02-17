@@ -81,7 +81,7 @@ fn query_error(url: &str, response: &Response) -> error::GRError {
     ))
 }
 
-macro_rules! get {
+macro_rules! send {
     ($func_name:ident, $map_type:ident, $return_type:ident) => {
         pub fn $func_name<R: HttpRunner<Response = Response>, T: Serialize>(
             runner: &Arc<R>,
@@ -199,15 +199,15 @@ paged!(
     MergeRequestResponse
 );
 
-get!(gitlab_project_data, GitlabProjectFields, Project);
-get!(github_project_data, GithubProjectFields, Project);
-get!(
+send!(gitlab_project_data, GitlabProjectFields, Project);
+send!(github_project_data, GithubProjectFields, Project);
+send!(
     github_get_merge_request,
     GithubMergeRequestFields,
     MergeRequestResponse
 );
-get!(
-    gitlab_get_merge_request,
+send!(
+    gitlab_merge_request,
     GitlabMergeRequestFields,
     MergeRequestResponse
 );
