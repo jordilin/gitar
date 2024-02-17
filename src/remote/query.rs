@@ -9,7 +9,9 @@ use crate::{
     github::{
         GithubMemberFields, GithubMergeRequestFields, GithubPipelineFields, GithubProjectFields,
     },
-    gitlab::{GitlabMemberFields, GitlabPipelineFields, GitlabProjectFields},
+    gitlab::{
+        GitlabMemberFields, GitlabMergeRequestFields, GitlabPipelineFields, GitlabProjectFields,
+    },
     http::{self, Body, Headers, Paginator, Request, Resource},
     io::{HttpRunner, Response},
     json_load_page, json_loads,
@@ -184,21 +186,28 @@ macro_rules! paged {
 
 paged!(github_list_members, GithubMemberFields, Member);
 paged!(gitlab_list_members, GitlabMemberFields, Member);
-
 paged!(github_list_pipelines, GithubPipelineFields, Pipeline);
 paged!(gitlab_list_pipelines, GitlabPipelineFields, Pipeline);
-
 paged!(
     github_list_merge_requests,
     GithubMergeRequestFields,
     MergeRequestResponse
 );
+paged!(
+    gitlab_list_merge_requests,
+    GitlabMergeRequestFields,
+    MergeRequestResponse
+);
 
 get!(gitlab_project_data, GitlabProjectFields, Project);
 get!(github_project_data, GithubProjectFields, Project);
-
 get!(
     github_get_merge_request,
     GithubMergeRequestFields,
+    MergeRequestResponse
+);
+get!(
+    gitlab_get_merge_request,
+    GitlabMergeRequestFields,
     MergeRequestResponse
 );

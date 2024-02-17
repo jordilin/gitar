@@ -2,7 +2,8 @@ use crate::api_traits::{ApiOperation, Cicd, MergeRequest, RemoteProject};
 use crate::cli::BrowseOptions;
 use crate::config::ConfigProperties;
 use crate::error;
-use crate::http::{self, Body, Headers, Paginator, Request, Resource};
+use crate::http::Method::GET;
+use crate::http::{self, Body, Headers, Resource};
 use crate::io::Response;
 use crate::io::{CmdInfo, HttpRunner};
 use crate::remote::query::gitlab_list_members;
@@ -10,7 +11,7 @@ use crate::remote::{
     query, Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Pipeline,
     PipelineBodyArgs, Project,
 };
-use crate::{json_load_page, json_loads, Result};
+use crate::{json_loads, Result};
 use std::sync::Arc;
 
 // https://docs.gitlab.com/ee/api/rest/
@@ -115,53 +116,19 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     }
 
     fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
-        let mut url = format!(
+        let url = format!(
             "{}/merge_requests?state={}",
             self.rest_api_basepath(),
             args.state
         );
-        let mut request: Request<()> = http::Request::new(&url, http::Method::GET)
-            .with_api_operation(ApiOperation::MergeRequest);
-        request.set_header("PRIVATE-TOKEN", self.api_token());
-        if args.list_args.is_some() {
-            let from_page = args.list_args.as_ref().unwrap().page;
-            let suffix = format!("&page={}", &from_page);
-            url.push_str(&suffix);
-            request.set_max_pages(args.list_args.unwrap().max_pages);
-            request.set_url(&url);
-        }
-        let paginator = Paginator::new(&self.runner, request, &url);
-        paginator
-            .map(|response| {
-                let response = response?;
-                if response.status != 200 {
-                    return Err(error::gen(format!(
-                        "Failed to get project merge requests from GitLab: {}",
-                        response.body
-                    )));
-                }
-                let mergerequests = json_load_page(&response.body)?.iter().fold(
-                    Vec::new(),
-                    |mut mergerequests, mr_data| {
-                        mergerequests.push(
-                            MergeRequestResponse::builder()
-                                .id(mr_data["iid"].as_i64().unwrap())
-                                .web_url(mr_data["web_url"].as_str().unwrap().to_string())
-                                .source_branch(
-                                    mr_data["source_branch"].as_str().unwrap().to_string(),
-                                )
-                                .author(mr_data["author"]["username"].as_str().unwrap().to_string())
-                                .updated_at(mr_data["updated_at"].as_str().unwrap().to_string())
-                                .build()
-                                .unwrap(),
-                        );
-                        mergerequests
-                    },
-                );
-                Ok(mergerequests)
-            })
-            .collect::<Result<Vec<Vec<MergeRequestResponse>>>>()
-            .map(|mergerequests| mergerequests.into_iter().flatten().collect())
+        query::gitlab_list_merge_requests(
+            &self.runner,
+            &url,
+            args.list_args,
+            self.headers(),
+            None,
+            ApiOperation::MergeRequest,
+        )
     }
 
     fn merge(&self, id: i64) -> Result<MergeRequestResponse> {
@@ -185,25 +152,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     fn get(&self, id: i64) -> Result<MergeRequestResponse> {
         // GET /projects/:id/merge_requests/:merge_request_iid
         let url = format!("{}/merge_requests/{}", self.rest_api_basepath(), id);
-        let merge_request_json = query::send::<_, ()>(
+        query::gitlab_get_merge_request::<_, ()>(
             &self.runner,
             &url,
             None,
             self.headers(),
-            http::Method::GET,
+            GET,
             ApiOperation::MergeRequest,
-        )?;
-        Ok(MergeRequestResponse::builder()
-            .id(merge_request_json["iid"].as_i64().unwrap())
-            .web_url(merge_request_json["web_url"].as_str().unwrap().to_string())
-            .source_branch(
-                merge_request_json["source_branch"]
-                    .as_str()
-                    .unwrap()
-                    .to_string(),
-            )
-            .build()
-            .unwrap())
+        )
     }
 
     fn close(&self, id: i64) -> Result<MergeRequestResponse> {
@@ -282,6 +238,39 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
             BrowseOptions::MergeRequestId(id) => format!("{}/merge_requests/{}", base_url, id),
             BrowseOptions::Pipelines => format!("{}/pipelines", base_url),
         }
+    }
+}
+
+pub struct GitlabMergeRequestFields {
+    id: i64,
+    web_url: String,
+    source_branch: String,
+    author: String,
+    updated_at: String,
+}
+
+impl From<&serde_json::Value> for GitlabMergeRequestFields {
+    fn from(data: &serde_json::Value) -> Self {
+        GitlabMergeRequestFields {
+            id: data["iid"].as_i64().unwrap(),
+            web_url: data["web_url"].as_str().unwrap().to_string(),
+            source_branch: data["source_branch"].as_str().unwrap().to_string(),
+            author: data["author"]["username"].as_str().unwrap().to_string(),
+            updated_at: data["updated_at"].as_str().unwrap().to_string(),
+        }
+    }
+}
+
+impl From<GitlabMergeRequestFields> for MergeRequestResponse {
+    fn from(fields: GitlabMergeRequestFields) -> Self {
+        MergeRequestResponse::builder()
+            .id(fields.id)
+            .web_url(fields.web_url)
+            .source_branch(fields.source_branch)
+            .author(fields.author)
+            .updated_at(fields.updated_at)
+            .build()
+            .unwrap()
     }
 }
 
