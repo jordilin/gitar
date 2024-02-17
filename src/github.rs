@@ -12,12 +12,10 @@ use crate::http;
 use crate::http::Body;
 use crate::http::Headers;
 use crate::http::Method::{GET, PATCH, POST, PUT};
-use crate::http::Paginator;
 use crate::http::Resource;
 use crate::io::CmdInfo;
 use crate::io::HttpRunner;
 use crate::io::Response;
-use crate::json_load_page;
 use crate::json_loads;
 use crate::remote::query::github_list_members;
 use crate::remote::query::github_list_pipelines;
@@ -346,46 +344,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
 
     fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
         let mut url = self.url_list_merge_requests(&args);
-        let mut request: http::Request<()> =
-            self.http_request(&url, None, GET, ApiOperation::MergeRequest);
-        if args.list_args.is_some() {
-            let list_args = args.list_args.as_ref().unwrap();
-            let from_page = list_args.page;
-            let suffix = format!("&page={}", &from_page);
-            url.push_str(&suffix);
-            request.set_max_pages(list_args.max_pages);
-            request.set_url(&url);
-        }
-        let paginator = Paginator::new(&self.runner, request, &url);
-        paginator
-            .map(|response| {
-                let response = response?;
-                if response.status != 200 {
-                    return Err(error::gen(format!(
-                        "Failed to get project merge requests from Github: {}",
-                        response.body
-                    )));
-                }
-                let mergerequests = json_load_page(&response.body)?.iter().fold(
-                    Vec::new(),
-                    |mut mergerequests, mr_data| {
-                        mergerequests.push(
-                            MergeRequestResponse::builder()
-                                .id(mr_data["number"].as_i64().unwrap())
-                                .web_url(mr_data["html_url"].as_str().unwrap().to_string())
-                                .author(mr_data["user"]["login"].as_str().unwrap().to_string())
-                                .updated_at(mr_data["updated_at"].as_str().unwrap().to_string())
-                                .source_branch(mr_data["head"]["ref"].as_str().unwrap().to_string())
-                                .build()
-                                .unwrap(),
-                        );
-                        mergerequests
-                    },
-                );
-                Ok(mergerequests)
-            })
-            .collect::<Result<Vec<Vec<MergeRequestResponse>>>>()
-            .map(|mergerequests| mergerequests.into_iter().flatten().collect())
+        query::github_list_merge_requests(
+            &self.runner,
+            &mut url,
+            args.list_args,
+            self.request_headers(),
+            None,
+            ApiOperation::MergeRequest,
+        )
     }
 
     fn merge(&self, id: i64) -> Result<MergeRequestResponse> {
@@ -424,30 +390,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             "{}/repos/{}/pulls/{}",
             self.rest_api_basepath, self.path, id
         );
-        let merge_request_json = query::send::<_, ()>(
+        query::github_get_merge_request::<_, ()>(
             &self.runner,
             &url,
             None,
             self.request_headers(),
             GET,
             ApiOperation::MergeRequest,
-        )?;
-        Ok(MergeRequestResponse::builder()
-            .id(merge_request_json["id"].as_i64().unwrap())
-            .web_url(
-                merge_request_json["html_url"]
-                    .to_string()
-                    .trim_matches('"')
-                    .to_string(),
-            )
-            .source_branch(
-                merge_request_json["head"]["ref"]
-                    .to_string()
-                    .trim_matches('"')
-                    .to_string(),
-            )
-            .build()
-            .unwrap())
+        )
     }
 
     fn close(&self, _id: i64) -> Result<MergeRequestResponse> {
@@ -490,6 +440,48 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
         );
         let headers = self.request_headers();
         query::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
+    }
+}
+
+pub struct GithubMergeRequestFields {
+    id: i64,
+    web_url: String,
+    source_branch: String,
+    author: String,
+    updated_at: String,
+}
+
+impl From<&serde_json::Value> for GithubMergeRequestFields {
+    fn from(merge_request_data: &serde_json::Value) -> Self {
+        GithubMergeRequestFields {
+            id: merge_request_data["number"].as_i64().unwrap(),
+            web_url: merge_request_data["html_url"].as_str().unwrap().to_string(),
+            source_branch: merge_request_data["head"]["ref"]
+                .as_str()
+                .unwrap()
+                .to_string(),
+            author: merge_request_data["user"]["login"]
+                .as_str()
+                .unwrap()
+                .to_string(),
+            updated_at: merge_request_data["updated_at"]
+                .as_str()
+                .unwrap()
+                .to_string(),
+        }
+    }
+}
+
+impl From<GithubMergeRequestFields> for MergeRequestResponse {
+    fn from(fields: GithubMergeRequestFields) -> Self {
+        MergeRequestResponse::builder()
+            .id(fields.id)
+            .web_url(fields.web_url)
+            .source_branch(fields.source_branch)
+            .author(fields.author)
+            .updated_at(fields.updated_at)
+            .build()
+            .unwrap()
     }
 }
 

@@ -6,7 +6,9 @@ use serde::Serialize;
 use crate::{
     api_traits::ApiOperation,
     error,
-    github::{GithubMemberFields, GithubPipelineFields, GithubProjectFields},
+    github::{
+        GithubMemberFields, GithubMergeRequestFields, GithubPipelineFields, GithubProjectFields,
+    },
     gitlab::{GitlabMemberFields, GitlabPipelineFields, GitlabProjectFields},
     http::{self, Body, Headers, Paginator, Request, Resource},
     io::{HttpRunner, Response},
@@ -15,7 +17,7 @@ use crate::{
     Result,
 };
 
-use super::{Member, Pipeline, Project};
+use super::{Member, MergeRequestResponse, Pipeline, Project};
 
 pub fn num_pages<R: HttpRunner<Response = Response>>(
     runner: &Arc<R>,
@@ -128,8 +130,11 @@ macro_rules! paged {
             request.set_headers(request_headers);
             if list_args.is_some() {
                 let from_page = list_args.as_ref().unwrap().page;
-                let suffix = format!("?page={}", &from_page);
-                let url = format!("{}{}", url, suffix);
+                let url = if url.contains('?') {
+                    format!("{}&page={}", url, &from_page)
+                } else {
+                    format!("{}?page={}", url, &from_page)
+                };
                 request.set_max_pages(list_args.unwrap().max_pages);
                 request.set_url(&url);
             }
@@ -183,5 +188,17 @@ paged!(gitlab_list_members, GitlabMemberFields, Member);
 paged!(github_list_pipelines, GithubPipelineFields, Pipeline);
 paged!(gitlab_list_pipelines, GitlabPipelineFields, Pipeline);
 
+paged!(
+    github_list_merge_requests,
+    GithubMergeRequestFields,
+    MergeRequestResponse
+);
+
 get!(gitlab_project_data, GitlabProjectFields, Project);
 get!(github_project_data, GithubProjectFields, Project);
+
+get!(
+    github_get_merge_request,
+    GithubMergeRequestFields,
+    MergeRequestResponse
+);
