@@ -220,15 +220,15 @@ impl From<&serde_json::Value> for GithubMergeRequestFields {
             web_url: merge_request_data["html_url"].as_str().unwrap().to_string(),
             source_branch: merge_request_data["head"]["ref"]
                 .as_str()
-                .unwrap()
+                .unwrap_or_default()
                 .to_string(),
             author: merge_request_data["user"]["login"]
                 .as_str()
-                .unwrap()
+                .unwrap_or_default()
                 .to_string(),
             updated_at: merge_request_data["updated_at"]
                 .as_str()
-                .unwrap()
+                .unwrap_or_default()
                 .to_string(),
         }
     }
