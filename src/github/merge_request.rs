@@ -8,9 +8,34 @@ use crate::{
     },
     io::{HttpRunner, Response},
     json_loads,
-    remote::{query, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse},
+    remote::{
+        query, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse,
+        MergeRequestState,
+    },
 };
+
 use crate::{error, Result};
+
+impl<R> Github<R> {
+    fn url_list_merge_requests(&self, args: &MergeRequestListBodyArgs) -> String {
+        match args.state {
+            MergeRequestState::Opened => {
+                format!(
+                    "{}/repos/{}/pulls?state=open",
+                    self.rest_api_basepath, self.path
+                )
+            }
+            // Github has no distinction between closed and merged. A merged
+            // pull request is considered closed.
+            MergeRequestState::Closed | MergeRequestState::Merged => {
+                format!(
+                    "{}/repos/{}/pulls?state=closed",
+                    self.rest_api_basepath, self.path
+                )
+            }
+        }
+    }
+}
 
 impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
     fn open(&self, args: MergeRequestBodyArgs) -> Result<MergeRequestResponse> {
