@@ -1,6 +1,6 @@
 use super::Github;
 use crate::api_traits::ApiOperation;
-use crate::remote::query::{self, github_list_pipelines};
+use crate::remote::query;
 use crate::remote::Pipeline;
 use crate::Result;
 use crate::{
@@ -17,7 +17,7 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
             "{}/repos/{}/actions/runs",
             self.rest_api_basepath, self.path
         );
-        github_list_pipelines(
+        query::github_list_pipelines(
             &self.runner,
             &url,
             args.from_to_page,
