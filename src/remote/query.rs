@@ -6,9 +6,8 @@ use serde::Serialize;
 use crate::{
     api_traits::ApiOperation,
     error,
-    github::{
-        GithubMemberFields, GithubMergeRequestFields, GithubPipelineFields, GithubProjectFields,
-    },
+    github::merge_request::GithubMergeRequestFields,
+    github::{GithubMemberFields, GithubPipelineFields, GithubProjectFields},
     gitlab::cicd::GitlabPipelineFields,
     gitlab::merge_request::GitlabMergeRequestFields,
     gitlab::project::{GitlabMemberFields, GitlabProjectFields},
