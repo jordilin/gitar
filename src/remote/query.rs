@@ -102,7 +102,7 @@ fn send_request<R: HttpRunner<Response = Response>, T: Serialize>(
 ) -> Result<Response> {
     let mut request = if let Some(body) = body {
         http::Request::builder()
-            .method(method)
+            .method(method.clone())
             .resource(Resource::new(&url, Some(operation)))
             .body(body)
             .headers(request_headers)
@@ -110,14 +110,14 @@ fn send_request<R: HttpRunner<Response = Response>, T: Serialize>(
             .unwrap()
     } else {
         http::Request::builder()
-            .method(method)
+            .method(method.clone())
             .resource(Resource::new(&url, Some(operation)))
             .headers(request_headers)
             .build()
             .unwrap()
     };
     let response = runner.run(&mut request)?;
-    if !response.is_ok() {
+    if !response.is_ok(&method) {
         return Err(query_error(&url, &response).into());
     }
     Ok(response)
@@ -150,7 +150,7 @@ macro_rules! paged {
             let all_data = paginator
                 .map(|response| {
                     let response = response?;
-                    if !response.is_ok() {
+                    if !response.is_ok(&http::Method::GET) {
                         return Err(query_error(&url, &response).into());
                     }
                     if iter_over_sub_array.is_some() {
@@ -219,3 +219,5 @@ send!(
     GitlabMergeRequestFields,
     MergeRequestResponse
 );
+
+send!(gitlab_merge_request_response, Response);

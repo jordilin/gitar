@@ -1,5 +1,5 @@
 use crate::{
-    http::{Headers, Request},
+    http::{self, Headers, Request},
     remote::{Member, MergeRequestResponse, Project},
     time::Seconds,
     Result,
@@ -119,8 +119,14 @@ impl Response {
         self.header("etag")
     }
 
-    pub fn is_ok(&self) -> bool {
-        self.status == 200 || self.status == 201 || self.status == 422
+    pub fn is_ok(&self, method: &http::Method) -> bool {
+        match method {
+            http::Method::GET => self.status == 200,
+            http::Method::POST => {
+                self.status >= 200 && self.status < 300 || self.status == 409 || self.status == 422
+            }
+            http::Method::PATCH | http::Method::PUT => self.status >= 200 && self.status < 300,
+        }
     }
 }
 
@@ -314,11 +320,56 @@ mod test {
     }
 
     #[test]
-    fn test_response_ok_status_method() {
-        let ok_status = [200, 201];
-        for status in ok_status.iter() {
+    fn test_response_ok_status_get_request_200() {
+        assert!(Response::builder()
+            .status(200)
+            .build()
+            .unwrap()
+            .is_ok(&http::Method::GET));
+    }
+
+    #[test]
+    fn test_response_not_ok_if_get_request_400s() {
+        let not_ok_status = 400..=499;
+        for status in not_ok_status {
+            let response = Response::builder().status(status).build().unwrap();
+            assert!(!response.is_ok(&http::Method::GET));
+        }
+    }
+
+    #[test]
+    fn test_response_ok_status_post_request_201() {
+        assert!(Response::builder()
+            .status(201)
+            .build()
+            .unwrap()
+            .is_ok(&http::Method::POST));
+    }
+
+    #[test]
+    fn test_response_ok_if_post_request_409_422() {
+        // special case handled by the caller (merge_request)
+        let not_ok_status = [409, 422];
+        for status in not_ok_status.iter() {
             let response = Response::builder().status(*status).build().unwrap();
-            assert!(response.is_ok());
+            assert!(response.is_ok(&http::Method::POST));
+        }
+    }
+
+    #[test]
+    fn test_response_not_ok_if_500s_any_case() {
+        let methods = [
+            http::Method::GET,
+            http::Method::POST,
+            http::Method::PATCH,
+            http::Method::PUT,
+        ];
+        let not_ok_status = 500..=599;
+        for status in not_ok_status {
+            for method in methods.iter() {
+                let response = Response::builder().status(status).build().unwrap();
+                assert!(!response.is_ok(method));
+            }
         }
     }
 }

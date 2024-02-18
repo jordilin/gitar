@@ -310,7 +310,7 @@ impl<T> Request<T> {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub enum Method {
     #[default]
     GET,

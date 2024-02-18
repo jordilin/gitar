@@ -69,13 +69,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         body.add("description", args.description);
         body.add("remove_source_branch", args.remove_source_branch);
         let url = format!("{}/merge_requests", self.rest_api_basepath());
-        let mut request = http::Request::builder()
-            .method(http::Method::POST)
-            .resource(Resource::new(&url, Some(ApiOperation::MergeRequest)))
-            .body(body)
-            .headers(self.headers())
-            .build()?;
-        let response = self.runner.run(&mut request)?;
+        let response = query::gitlab_merge_request_response(
+            &self.runner,
+            &url,
+            Some(body),
+            self.headers(),
+            http::Method::POST,
+            ApiOperation::MergeRequest,
+        )?;
         // if status code is 409, it means that the merge request already
         // exists. We already pushed the branch, just return the merge request
         // as if it was created.
