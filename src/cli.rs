@@ -196,6 +196,9 @@ struct ListArgs {
     /// Do not print headers
     #[clap(long)]
     no_headers: bool,
+    /// List the given page number
+    #[clap(long)]
+    page: Option<i64>,
 }
 
 #[derive(Parser)]
@@ -288,6 +291,7 @@ impl From<ListMergeRequest> for MergeRequestOptions {
         let list_args = ListRemoteCliArgs::builder()
             .from_page(options.list_args.from_page)
             .to_page(options.list_args.to_page)
+            .page_number(options.list_args.page)
             .num_pages(options.list_args.num_pages)
             .refresh_cache(options.list_args.refresh)
             .no_headers(options.list_args.no_headers)
@@ -365,6 +369,7 @@ impl From<ListArgs> for PipelineOptions {
             ListRemoteCliArgs::builder()
                 .from_page(options.from_page)
                 .to_page(options.to_page)
+                .page_number(options.page)
                 .num_pages(options.num_pages)
                 .refresh_cache(options.refresh)
                 .no_headers(options.no_headers)

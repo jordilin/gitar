@@ -181,6 +181,8 @@ pub struct ListRemoteCliArgs {
     pub refresh_cache: bool,
     #[builder(default)]
     pub no_headers: bool,
+    #[builder(default)]
+    pub page_number: Option<i64>,
 }
 
 impl ListRemoteCliArgs {
@@ -207,6 +209,15 @@ impl ListBodyArgs {
 }
 
 pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Option<ListBodyArgs>> {
+    if remote_cli_args.page_number.is_some() {
+        return Ok(Some(
+            ListBodyArgs::builder()
+                .page(remote_cli_args.page_number.unwrap())
+                .max_pages(1)
+                .build()
+                .unwrap(),
+        ));
+    }
     return match (remote_cli_args.from_page, remote_cli_args.to_page) {
         (Some(from_page), Some(to_page)) => {
             if from_page < 0 || to_page < 0 {
@@ -458,5 +469,17 @@ mod test {
             },
             _ => panic!("Expected error"),
         }
+    }
+
+    #[test]
+    fn test_if_page_number_provided_max_pages_is_1() {
+        let page_number = Some(5);
+        let args = ListRemoteCliArgs::builder()
+            .page_number(page_number)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.page, 5);
+        assert_eq!(args.max_pages, 1);
     }
 }
