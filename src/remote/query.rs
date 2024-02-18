@@ -10,7 +10,7 @@ use crate::{
         GithubMemberFields, GithubMergeRequestFields, GithubPipelineFields, GithubProjectFields,
     },
     gitlab::cicd::GitlabPipelineFields,
-    gitlab::mr::GitlabMergeRequestFields,
+    gitlab::merge_request::GitlabMergeRequestFields,
     gitlab::pj::{GitlabMemberFields, GitlabProjectFields},
     http::{self, Body, Headers, Paginator, Request, Resource},
     io::{HttpRunner, Response},

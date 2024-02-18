@@ -2,7 +2,7 @@ use crate::config::ConfigProperties;
 use crate::http::Headers;
 use std::sync::Arc;
 pub mod cicd;
-pub mod mr;
+pub mod merge_request;
 pub mod pj;
 
 // https://docs.gitlab.com/ee/api/rest/
