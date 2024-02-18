@@ -137,10 +137,10 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
     }
 
     fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
-        let mut url = self.url_list_merge_requests(&args);
+        let url = self.url_list_merge_requests(&args);
         query::github_list_merge_requests(
             &self.runner,
-            &mut url,
+            &url,
             args.list_args,
             self.request_headers(),
             None,

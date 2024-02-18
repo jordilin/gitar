@@ -204,7 +204,7 @@ impl Resource {
     }
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct Body<T>(HashMap<String, T>);
 
 impl<T> Body<T> {

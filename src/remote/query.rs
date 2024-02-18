@@ -29,7 +29,7 @@ pub fn num_pages<R: HttpRunner<Response = Response>>(
 ) -> Result<Option<u32>> {
     let mut request: Request<()> = http::Request::builder()
         .method(http::Method::GET)
-        .resource(Resource::new(&url, Some(api_operation)))
+        .resource(Resource::new(url, Some(api_operation)))
         .headers(request_headers)
         .build()
         .unwrap();
@@ -103,7 +103,7 @@ fn send_request<R: HttpRunner<Response = Response>, T: Serialize>(
     let mut request = if let Some(body) = body {
         http::Request::builder()
             .method(method.clone())
-            .resource(Resource::new(&url, Some(operation)))
+            .resource(Resource::new(url, Some(operation)))
             .body(body)
             .headers(request_headers)
             .build()
@@ -111,14 +111,14 @@ fn send_request<R: HttpRunner<Response = Response>, T: Serialize>(
     } else {
         http::Request::builder()
             .method(method.clone())
-            .resource(Resource::new(&url, Some(operation)))
+            .resource(Resource::new(url, Some(operation)))
             .headers(request_headers)
             .build()
             .unwrap()
     };
     let response = runner.run(&mut request)?;
     if !response.is_ok(&method) {
-        return Err(query_error(&url, &response).into());
+        return Err(query_error(url, &response).into());
     }
     Ok(response)
 }
