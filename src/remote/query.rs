@@ -9,9 +9,9 @@ use crate::{
     github::{
         GithubMemberFields, GithubMergeRequestFields, GithubPipelineFields, GithubProjectFields,
     },
+    gitlab::cicd::GitlabPipelineFields,
     gitlab::mr::GitlabMergeRequestFields,
     gitlab::pj::{GitlabMemberFields, GitlabProjectFields},
-    gitlab::GitlabPipelineFields,
     http::{self, Body, Headers, Paginator, Request, Resource},
     io::{HttpRunner, Response},
     json_load_page, json_loads,
