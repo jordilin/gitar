@@ -11,7 +11,7 @@ use crate::{
     },
     gitlab::cicd::GitlabPipelineFields,
     gitlab::merge_request::GitlabMergeRequestFields,
-    gitlab::pj::{GitlabMemberFields, GitlabProjectFields},
+    gitlab::project::{GitlabMemberFields, GitlabProjectFields},
     http::{self, Body, Headers, Paginator, Request, Resource},
     io::{HttpRunner, Response},
     json_load_page, json_loads,

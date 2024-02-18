@@ -3,7 +3,7 @@ use crate::http::Headers;
 use std::sync::Arc;
 pub mod cicd;
 pub mod merge_request;
-pub mod pj;
+pub mod project;
 
 // https://docs.gitlab.com/ee/api/rest/
 
