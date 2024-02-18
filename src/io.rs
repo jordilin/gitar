@@ -1,12 +1,12 @@
 use crate::{
-    http::Request,
+    http::{self, Headers, Request},
     remote::{Member, MergeRequestResponse, Project},
     time::Seconds,
     Result,
 };
 use regex::Regex;
 use serde::Serialize;
-use std::{collections::HashMap, ffi::OsStr};
+use std::ffi::OsStr;
 
 pub trait Runner {
     type Response;
@@ -48,7 +48,7 @@ pub struct Response {
     pub body: String,
     /// Optional headers. Mostly used by HTTP downstream HTTP responses
     #[builder(setter(into, strip_option), default)]
-    pub(crate) headers: Option<HashMap<String, String>>,
+    pub(crate) headers: Option<Headers>,
     #[builder(default = "parse_link_headers")]
     link_header_processor: fn(&str) -> PageHeader,
 }
@@ -117,6 +117,16 @@ impl Response {
 
     pub fn get_etag(&self) -> Option<&str> {
         self.header("etag")
+    }
+
+    pub fn is_ok(&self, method: &http::Method) -> bool {
+        match method {
+            http::Method::GET => self.status == 200,
+            http::Method::POST => {
+                self.status >= 200 && self.status < 300 || self.status == 409 || self.status == 422
+            }
+            http::Method::PATCH | http::Method::PUT => self.status >= 200 && self.status < 300,
+        }
     }
 }
 
@@ -234,9 +244,9 @@ mod test {
     #[test]
     fn test_get_rate_limit_headers_github() {
         let body = "responsebody";
-        let mut headers = HashMap::new();
-        headers.insert("x-ratelimit-remaining".to_string(), "30".to_string());
-        headers.insert("x-ratelimit-reset".to_string(), "1658602270".to_string());
+        let mut headers = Headers::new();
+        headers.set("x-ratelimit-remaining".to_string(), "30".to_string());
+        headers.set("x-ratelimit-reset".to_string(), "1658602270".to_string());
         let response = Response::builder()
             .body(body.to_string())
             .headers(headers)
@@ -250,9 +260,9 @@ mod test {
     #[test]
     fn test_get_rate_limit_headers_gitlab() {
         let body = "responsebody";
-        let mut headers = HashMap::new();
-        headers.insert("ratelimit-remaining".to_string(), "30".to_string());
-        headers.insert("ratelimit-reset".to_string(), "1658602270".to_string());
+        let mut headers = Headers::new();
+        headers.set("ratelimit-remaining".to_string(), "30".to_string());
+        headers.set("ratelimit-reset".to_string(), "1658602270".to_string());
         let response = Response::builder()
             .body(body.to_string())
             .headers(headers)
@@ -266,9 +276,9 @@ mod test {
     #[test]
     fn test_get_rate_limit_headers_camelcase_gitlab() {
         let body = "responsebody";
-        let mut headers = HashMap::new();
-        headers.insert("RateLimit-remaining".to_string(), "30".to_string());
-        headers.insert("rateLimit-reset".to_string(), "1658602270".to_string());
+        let mut headers = Headers::new();
+        headers.set("RateLimit-remaining".to_string(), "30".to_string());
+        headers.set("rateLimit-reset".to_string(), "1658602270".to_string());
         let response = Response::builder()
             .body(body.to_string())
             .headers(headers)
@@ -307,5 +317,59 @@ mod test {
         let page_headers = parse_link_headers(link);
         assert_eq!(91, page_headers.last.unwrap().number);
         assert_eq!(2, page_headers.next.unwrap().number);
+    }
+
+    #[test]
+    fn test_response_ok_status_get_request_200() {
+        assert!(Response::builder()
+            .status(200)
+            .build()
+            .unwrap()
+            .is_ok(&http::Method::GET));
+    }
+
+    #[test]
+    fn test_response_not_ok_if_get_request_400s() {
+        let not_ok_status = 400..=499;
+        for status in not_ok_status {
+            let response = Response::builder().status(status).build().unwrap();
+            assert!(!response.is_ok(&http::Method::GET));
+        }
+    }
+
+    #[test]
+    fn test_response_ok_status_post_request_201() {
+        assert!(Response::builder()
+            .status(201)
+            .build()
+            .unwrap()
+            .is_ok(&http::Method::POST));
+    }
+
+    #[test]
+    fn test_response_ok_if_post_request_409_422() {
+        // special case handled by the caller (merge_request)
+        let not_ok_status = [409, 422];
+        for status in not_ok_status.iter() {
+            let response = Response::builder().status(*status).build().unwrap();
+            assert!(response.is_ok(&http::Method::POST));
+        }
+    }
+
+    #[test]
+    fn test_response_not_ok_if_500s_any_case() {
+        let methods = [
+            http::Method::GET,
+            http::Method::POST,
+            http::Method::PATCH,
+            http::Method::PUT,
+        ];
+        let not_ok_status = 500..=599;
+        for status in not_ok_status {
+            for method in methods.iter() {
+                let response = Response::builder().status(status).build().unwrap();
+                assert!(!response.is_ok(method));
+            }
+        }
     }
 }

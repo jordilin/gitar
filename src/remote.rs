@@ -11,6 +11,8 @@ use crate::{error, http};
 use std::convert::TryFrom;
 use std::sync::Arc;
 
+pub mod query;
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Project {
     id: i64,

@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
 use gr::cache::{Cache, InMemoryCache, NoCache};
 use gr::config::ConfigProperties;
 use gr::error::GRError;
-use gr::http::{Client, Method, Request};
+use gr::http::{Client, Headers, Method, Request};
 use gr::io::{HttpRunner, Response, ResponseField};
 use httpmock::prelude::*;
 use httpmock::Method::{GET, PATCH, POST};
@@ -145,9 +143,9 @@ fn test_http_gathers_from_inmemory_stale_cache_server_304() {
         "default_branch": "main",
     }"#;
 
-    let mut headers = HashMap::new();
-    headers.insert("etag".to_string(), "1234".to_string());
-    headers.insert("Max-Age".to_string(), "0".to_string());
+    let mut headers = Headers::new();
+    headers.set("etag".to_string(), "1234".to_string());
+    headers.set("Max-Age".to_string(), "0".to_string());
     let response = Response::builder()
         .status(200)
         .body(body_str.to_string())

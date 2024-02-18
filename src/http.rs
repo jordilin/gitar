@@ -5,8 +5,9 @@ use crate::io::{HttpRunner, Response, ResponseField};
 use crate::time::{now_epoch_seconds, Seconds};
 use crate::Result;
 use crate::{api_defaults, error};
-use serde::Serialize;
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use std::collections::{hash_map, HashMap};
+use std::iter::Iterator;
 use std::sync::{Arc, Mutex};
 use ureq::Error;
 
@@ -47,8 +48,8 @@ impl<C, D> Client<C, D> {
                     response
                         .headers_names()
                         .iter()
-                        .fold(HashMap::new(), |mut headers, name| {
-                            headers.insert(
+                        .fold(Headers::new(), |mut headers, name| {
+                            headers.set(
                                 name.to_lowercase(),
                                 response.header(name.as_str()).unwrap().to_string(),
                             );
@@ -195,10 +196,50 @@ pub struct Resource {
 }
 
 impl Resource {
-    fn new(url: &str, api_operation: Option<ApiOperation>) -> Self {
+    pub fn new(url: &str, api_operation: Option<ApiOperation>) -> Self {
         Resource {
             url: url.to_string(),
             api_operation,
+        }
+    }
+}
+
+#[derive(Serialize, Clone, Debug, Default)]
+pub struct Body<T>(HashMap<String, T>);
+
+impl<T> Body<T> {
+    pub fn new() -> Self {
+        Body(HashMap::new())
+    }
+
+    pub fn add<K: Into<String>>(&mut self, key: K, value: T) {
+        self.0.insert(key.into(), value);
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct Headers(HashMap<String, String>);
+
+impl Headers {
+    pub fn new() -> Self {
+        Headers(HashMap::new())
+    }
+
+    pub fn set<K: Into<String>, V: Into<String>>(&mut self, key: K, value: V) {
+        self.0.insert(key.into(), value.into());
+    }
+
+    pub fn get(&self, key: &str) -> Option<&String> {
+        self.0.get(key)
+    }
+
+    pub fn iter(&self) -> hash_map::Iter<String, String> {
+        self.0.iter()
+    }
+
+    pub fn extend(&mut self, headers: Headers) {
+        for (key, value) in headers.iter() {
+            self.0.insert(key.clone(), value.clone());
         }
     }
 }
@@ -207,9 +248,9 @@ impl Resource {
 #[builder(pattern = "owned")]
 pub struct Request<T> {
     #[builder(setter(into, strip_option), default)]
-    body: Option<T>,
+    body: Option<Body<T>>,
     #[builder(default)]
-    headers: HashMap<String, String>,
+    headers: Headers,
     method: Method,
     pub resource: Resource,
     #[builder(setter(into, strip_option), default)]
@@ -224,7 +265,7 @@ impl<T> Request<T> {
     pub fn new(url: &str, method: Method) -> Self {
         Request {
             body: None,
-            headers: HashMap::new(),
+            headers: Headers::new(),
             method,
             resource: Resource::new(url, None),
             max_pages: None,
@@ -244,16 +285,15 @@ impl<T> Request<T> {
         &self.resource.api_operation
     }
 
-    pub fn with_body(mut self, body: T) -> Self {
+    pub fn with_body(&mut self, body: Body<T>) {
         self.body = Some(body);
-        self
     }
 
     pub fn set_header(&mut self, key: &str, value: &str) {
-        self.headers.insert(key.to_string(), value.to_string());
+        self.headers.set(key.to_string(), value.to_string());
     }
 
-    pub fn set_headers(&mut self, headers: HashMap<String, String>) {
+    pub fn set_headers(&mut self, headers: Headers) {
         self.headers = headers;
     }
 
@@ -265,12 +305,12 @@ impl<T> Request<T> {
         &self.resource.url
     }
 
-    pub fn headers(&self) -> &HashMap<String, String> {
+    pub fn headers(&self) -> &Headers {
         &self.headers
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub enum Method {
     #[default]
     GET,
@@ -342,14 +382,14 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
 }
 
 pub struct Paginator<'a, R, T> {
-    runner: &'a R,
+    runner: &'a Arc<R>,
     request: Request<T>,
     page_url: Option<String>,
     iter: u32,
 }
 
 impl<'a, R, T> Paginator<'a, R, T> {
-    pub fn new(runner: &'a R, request: Request<T>, page_url: &str) -> Self {
+    pub fn new(runner: &'a Arc<R>, request: Request<T>, page_url: &str) -> Self {
         Paginator {
             runner,
             request,
@@ -359,7 +399,7 @@ impl<'a, R, T> Paginator<'a, R, T> {
     }
 }
 
-impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginator<'a, Arc<R>, T> {
+impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginator<'a, R, T> {
     type Item = Result<Response>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -424,8 +464,8 @@ mod test {
     }
 
     fn response_with_next_page() -> Response {
-        let mut headers = HashMap::new();
-        headers.insert("link".to_string(), "http://localhost?page=2".to_string());
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), "http://localhost?page=2".to_string());
         let response = Response::builder()
             .status(200)
             .headers(headers)
@@ -436,8 +476,8 @@ mod test {
     }
 
     fn response_with_last_page() -> Response {
-        let mut headers = HashMap::new();
-        headers.insert("link".to_string(), "http://localhost?page=2".to_string());
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), "http://localhost?page=2".to_string());
         let response = Response::builder()
             .status(200)
             .headers(headers)
@@ -461,8 +501,8 @@ mod test {
     #[test]
     fn test_paginator_with_link_headers_one_next_and_no_last_pages() {
         let response1 = response_with_next_page();
-        let mut headers = HashMap::new();
-        headers.insert("link".to_string(), "http://localhost?page=2".to_string());
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), "http://localhost?page=2".to_string());
         let response2 = Response::builder()
             .status(200)
             .headers(headers)
@@ -546,8 +586,8 @@ mod test {
 
     #[test]
     fn test_ratelimit_remaining_threshold_reached_is_error() {
-        let mut headers = HashMap::new();
-        headers.insert("x-ratelimit-remaining".to_string(), "10".to_string());
+        let mut headers = Headers::new();
+        headers.set("x-ratelimit-remaining".to_string(), "10".to_string());
         let response = Response::builder()
             .status(200)
             .headers(headers)
@@ -559,8 +599,8 @@ mod test {
 
     #[test]
     fn test_ratelimit_remaining_threshold_not_reached_is_ok() {
-        let mut headers = HashMap::new();
-        headers.insert("ratelimit-remaining".to_string(), "11".to_string());
+        let mut headers = Headers::new();
+        headers.set("ratelimit-remaining".to_string(), "11".to_string());
         let response = Response::builder()
             .status(200)
             .headers(headers)
