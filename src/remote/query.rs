@@ -185,7 +185,7 @@ fn build_list_request(
     operation: ApiOperation,
 ) -> Request<()> {
     let mut request: http::Request<()> =
-        http::Request::new(&url, http::Method::GET).with_api_operation(operation);
+        http::Request::new(url, http::Method::GET).with_api_operation(operation);
     request.set_headers(request_headers);
     if list_args.is_some() {
         let from_page = list_args.as_ref().unwrap().page;
