@@ -183,6 +183,8 @@ pub struct ListRemoteCliArgs {
     pub no_headers: bool,
     #[builder(default)]
     pub page_number: Option<i64>,
+    #[builder(default)]
+    pub created_after: Option<String>,
 }
 
 impl ListRemoteCliArgs {

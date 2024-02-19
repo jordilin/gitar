@@ -199,6 +199,9 @@ struct ListArgs {
     /// List the given page number
     #[clap(long)]
     page: Option<i64>,
+    /// Created after date (ISO 8601 YYYY-MM-DDTHH:MM:SSZ)
+    #[clap(long)]
+    created_after: Option<String>,
 }
 
 #[derive(Parser)]
@@ -295,6 +298,7 @@ impl From<ListMergeRequest> for MergeRequestOptions {
             .num_pages(options.list_args.num_pages)
             .refresh_cache(options.list_args.refresh)
             .no_headers(options.list_args.no_headers)
+            .created_after(options.list_args.created_after)
             .build()
             .unwrap();
         MergeRequestOptions::List(MergeRequestListCliArgs::new(
@@ -373,6 +377,7 @@ impl From<ListArgs> for PipelineOptions {
                 .num_pages(options.num_pages)
                 .refresh_cache(options.refresh)
                 .no_headers(options.no_headers)
+                .created_after(options.created_after)
                 .build()
                 .unwrap(),
         )
