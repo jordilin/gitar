@@ -1,9 +1,11 @@
 // Time utility functions
 
+use crate::api_traits::Timestamp;
 use crate::Error;
 
 use crate::error::{self, GRError};
 use crate::Result;
+use chrono::{DateTime, Local};
 use std;
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, Deref, Sub};
@@ -125,6 +127,33 @@ impl TryFrom<&str> for Seconds {
     }
 }
 
+pub fn filter_by_date<T: Timestamp>(data: Vec<T>, date: Option<String>) -> Result<Vec<T>> {
+    if date.is_none() {
+        return Ok(data);
+    }
+    let created_after = date
+        .as_ref()
+        .unwrap()
+        .parse::<DateTime<Local>>()
+        .map_err(|err| {
+            GRError::TimeConversionError(format!(
+                "Could not convert {} to date format: {}",
+                date.unwrap(),
+                err,
+            ))
+        })?;
+    Ok(data
+        .into_iter()
+        .filter_map(|item| {
+            let item_date = item.created_at().parse::<DateTime<Local>>().ok()?;
+            if item_date > created_after {
+                return Some(item);
+            }
+            None
+        })
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -175,5 +204,76 @@ mod tests {
     fn test_cannot_convert_time_formatted_string_to_seconds() {
         let input_err = "2x"; // user meant 2d and typed 2x
         assert!(string_to_seconds(input_err).is_err());
+    }
+
+    struct TimestampMock {
+        created_at: String,
+    }
+
+    impl TimestampMock {
+        fn new(created_at: &str) -> Self {
+            TimestampMock {
+                created_at: created_at.to_string(),
+            }
+        }
+    }
+
+    impl Timestamp for TimestampMock {
+        fn created_at(&self) -> String {
+            self.created_at.clone()
+        }
+    }
+
+    #[test]
+    fn test_filter_date_created_after_iso_8601() {
+        let created_after = "2021-01-01T00:00:00Z";
+        let data = vec![
+            TimestampMock::new("2021-01-01T00:00:00Z"),
+            TimestampMock::new("2020-12-31T00:00:00Z"),
+            TimestampMock::new("2021-01-02T00:00:00Z"),
+        ];
+        let filtered = filter_by_date(data, Some(created_after.to_string())).unwrap();
+        assert_eq!(1, filtered.len());
+    }
+
+    #[test]
+    fn test_filter_date_created_after_iso_8601_no_date() {
+        let data = vec![
+            TimestampMock::new("2021-01-01T00:00:00Z"),
+            TimestampMock::new("2020-12-31T00:00:00Z"),
+            TimestampMock::new("2021-01-02T00:00:00Z"),
+        ];
+        let filtered = filter_by_date(data, None).unwrap();
+        assert_eq!(3, filtered.len());
+    }
+
+    #[test]
+    fn test_filter_date_created_at_iso_8601_invalid_date_filtered_out() {
+        let created_after = "2021-01-01T00:00:00Z";
+        let data = vec![
+            TimestampMock::new("2021-01/01"),
+            TimestampMock::new("2020-12-31T00:00:00Z"),
+            TimestampMock::new("2021-01-02T00:00:00Z"),
+        ];
+        let filtered = filter_by_date(data, Some(created_after.to_string())).unwrap();
+        assert_eq!(1, filtered.len());
+    }
+
+    #[test]
+    fn test_created_after_invalid_date_is_error() {
+        let created_after = "2021-01/01";
+        let data = vec![
+            TimestampMock::new("2021-01/01"),
+            TimestampMock::new("2020-12-31T00:00:00Z"),
+            TimestampMock::new("2021-01-02T00:00:00Z"),
+        ];
+        let result = filter_by_date(data, Some(created_after.to_string()));
+        match result {
+            Err(err) => match err.downcast_ref::<GRError>() {
+                Some(GRError::TimeConversionError(_)) => (),
+                _ => panic!("Expected TimeConversionError"),
+            },
+            _ => panic!("Expected TimeConversionError"),
+        }
     }
 }

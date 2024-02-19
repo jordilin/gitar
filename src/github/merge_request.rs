@@ -211,6 +211,7 @@ pub struct GithubMergeRequestFields {
     source_branch: String,
     author: String,
     updated_at: String,
+    created_at: String,
 }
 
 impl From<&serde_json::Value> for GithubMergeRequestFields {
@@ -230,6 +231,10 @@ impl From<&serde_json::Value> for GithubMergeRequestFields {
                 .as_str()
                 .unwrap_or_default()
                 .to_string(),
+            created_at: merge_request_data["created_at"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
         }
     }
 }
@@ -242,6 +247,7 @@ impl From<GithubMergeRequestFields> for MergeRequestResponse {
             .source_branch(fields.source_branch)
             .author(fields.author)
             .updated_at(fields.updated_at)
+            .created_at(fields.created_at)
             .build()
             .unwrap()
     }

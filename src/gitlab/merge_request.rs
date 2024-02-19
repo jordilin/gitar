@@ -146,6 +146,7 @@ pub struct GitlabMergeRequestFields {
     source_branch: String,
     author: String,
     updated_at: String,
+    created_at: String,
 }
 
 impl From<&serde_json::Value> for GitlabMergeRequestFields {
@@ -156,6 +157,7 @@ impl From<&serde_json::Value> for GitlabMergeRequestFields {
             source_branch: data["source_branch"].as_str().unwrap().to_string(),
             author: data["author"]["username"].as_str().unwrap().to_string(),
             updated_at: data["updated_at"].as_str().unwrap().to_string(),
+            created_at: data["created_at"].as_str().unwrap().to_string(),
         }
     }
 }
@@ -168,6 +170,7 @@ impl From<GitlabMergeRequestFields> for MergeRequestResponse {
             .source_branch(fields.source_branch)
             .author(fields.author)
             .updated_at(fields.updated_at)
+            .created_at(fields.created_at)
             .build()
             .unwrap()
     }

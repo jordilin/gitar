@@ -75,6 +75,7 @@ pub struct GitlabMemberFields {
     id: i64,
     name: String,
     username: String,
+    created_at: String,
 }
 
 impl From<&serde_json::Value> for GitlabMemberFields {
@@ -83,6 +84,7 @@ impl From<&serde_json::Value> for GitlabMemberFields {
             id: data["id"].as_i64().unwrap(),
             name: data["name"].as_str().unwrap().to_string(),
             username: data["username"].as_str().unwrap().to_string(),
+            created_at: data["created_at"].as_str().unwrap().to_string(),
         }
     }
 }
@@ -93,6 +95,7 @@ impl From<GitlabMemberFields> for Member {
             .id(fields.id)
             .name(fields.name.to_string())
             .username(fields.username.to_string())
+            .created_at(fields.created_at.to_string())
             .build()
             .unwrap()
     }
