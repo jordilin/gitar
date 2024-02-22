@@ -259,6 +259,7 @@ mod tests {
             TimestampMock::new("2021-02-02T00:00:00Z"),
         ];
         let filtered = sort_filter_by_date(data, Some(list_args)).unwrap();
+        assert_eq!(2, filtered.len());
         assert_eq!("2021-02-02T00:00:00Z", filtered[0].created_at());
         assert_eq!("2021-03-02T00:00:00Z", filtered[1].created_at());
     }
@@ -272,6 +273,7 @@ mod tests {
         ];
         // no filter, just data sort ascending.
         let sorted = sort_filter_by_date(data, None).unwrap();
+        assert_eq!(3, sorted.len());
         assert_eq!("2020-12-31T00:00:00Z", sorted[0].created_at());
         assert_eq!("2021-01-01T00:00:00Z", sorted[1].created_at());
         assert_eq!("2021-01-02T00:00:00Z", sorted[2].created_at());
