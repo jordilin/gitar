@@ -38,6 +38,12 @@ impl Project {
         self
     }
 
+    // TODO - builder pattern
+    pub fn with_created_at(mut self, created_at: &str) -> Self {
+        self.created_at = created_at.to_string();
+        self
+    }
+
     pub fn default_branch(&self) -> &str {
         &self.default_branch
     }

@@ -65,6 +65,7 @@ pub struct GithubProjectFields {
     id: i64,
     default_branch: String,
     html_url: String,
+    created_at: String,
 }
 
 impl From<&serde_json::Value> for GithubProjectFields {
@@ -79,13 +80,19 @@ impl From<&serde_json::Value> for GithubProjectFields {
                 .to_string()
                 .trim_matches('"')
                 .to_string(),
+            created_at: project_data["created_at"]
+                .to_string()
+                .trim_matches('"')
+                .to_string(),
         }
     }
 }
 
 impl From<GithubProjectFields> for Project {
     fn from(fields: GithubProjectFields) -> Self {
-        Project::new(fields.id, &fields.default_branch).with_html_url(&fields.html_url)
+        Project::new(fields.id, &fields.default_branch)
+            .with_html_url(&fields.html_url)
+            .with_created_at(&fields.created_at)
     }
 }
 
@@ -93,6 +100,7 @@ pub struct GithubMemberFields {
     id: i64,
     login: String,
     name: String,
+    created_at: String,
 }
 
 impl From<&serde_json::Value> for GithubMemberFields {
@@ -101,6 +109,9 @@ impl From<&serde_json::Value> for GithubMemberFields {
             id: member_data["id"].as_i64().unwrap(),
             login: member_data["login"].as_str().unwrap().to_string(),
             name: "".to_string(),
+            // Github does not provide created_at field in the response for
+            // Members (aka contributors). Set it to UNIX epoch.
+            created_at: "1970-01-01T00:00:00Z".to_string(),
         }
     }
 }
@@ -111,6 +122,7 @@ impl From<GithubMemberFields> for Member {
             .id(fields.id)
             .username(fields.login)
             .name(fields.name)
+            .created_at(fields.created_at)
             .build()
             .unwrap()
     }

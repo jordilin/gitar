@@ -53,6 +53,7 @@ pub struct GitlabProjectFields {
     id: i64,
     default_branch: String,
     web_url: String,
+    created_at: String,
 }
 
 impl From<&serde_json::Value> for GitlabProjectFields {
@@ -61,13 +62,16 @@ impl From<&serde_json::Value> for GitlabProjectFields {
             id: data["id"].as_i64().unwrap(),
             default_branch: data["default_branch"].as_str().unwrap().to_string(),
             web_url: data["web_url"].as_str().unwrap().to_string(),
+            created_at: data["created_at"].as_str().unwrap().to_string(),
         }
     }
 }
 
 impl From<GitlabProjectFields> for Project {
     fn from(fields: GitlabProjectFields) -> Self {
-        Project::new(fields.id, &fields.default_branch).with_html_url(&fields.web_url)
+        Project::new(fields.id, &fields.default_branch)
+            .with_html_url(&fields.web_url)
+            .with_created_at(&fields.created_at)
     }
 }
 
