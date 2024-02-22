@@ -16,7 +16,7 @@ use crate::{
     io::{HttpRunner, Response},
     json_load_page, json_loads,
     remote::ListBodyArgs,
-    time::filter_by_date,
+    time::sort_filter_by_date,
     Result,
 };
 
@@ -172,14 +172,7 @@ macro_rules! paged {
                 .collect::<Result<Vec<Vec<$return_type>>>>()
                 .map(|paged_data| paged_data.into_iter().flatten().collect());
             match all_data {
-                Ok(paged_data) => {
-                    if list_args.is_some() {
-                        let created_after = list_args.unwrap().created_after;
-                        Ok(filter_by_date(paged_data, created_after)?)
-                    } else {
-                        Ok(paged_data)
-                    }
-                }
+                Ok(paged_data) => Ok(sort_filter_by_date(paged_data, list_args)?),
                 Err(err) => Err(err),
             }
         }
