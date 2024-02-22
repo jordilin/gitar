@@ -65,6 +65,7 @@ pub struct Member {
     pub id: i64,
     pub name: String,
     pub username: String,
+    #[builder(default)]
     pub created_at: String,
 }
 
