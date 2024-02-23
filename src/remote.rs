@@ -221,6 +221,8 @@ pub struct ListRemoteCliArgs {
     pub page_number: Option<i64>,
     #[builder(default)]
     pub created_after: Option<String>,
+    #[builder(default)]
+    pub sort: ListSortMode,
 }
 
 impl ListRemoteCliArgs {
@@ -242,6 +244,8 @@ pub struct ListBodyArgs {
     pub max_pages: Option<i64>,
     #[builder(default)]
     pub created_after: Option<String>,
+    #[builder(default)]
+    pub sort_mode: ListSortMode,
 }
 
 impl ListBodyArgs {
@@ -256,6 +260,8 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
             ListBodyArgs::builder()
                 .page(remote_cli_args.page_number.unwrap())
                 .max_pages(1)
+                .sort_mode(remote_cli_args.sort.clone())
+                .created_after(remote_cli_args.created_after.clone())
                 .build()
                 .unwrap(),
         ));
@@ -280,6 +286,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                 ListBodyArgs::builder()
                     .page(from_page)
                     .max_pages(max_pages)
+                    .sort_mode(remote_cli_args.sort.clone())
                     .build()
                     .unwrap(),
             )
@@ -300,6 +307,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                 ListBodyArgs::builder()
                     .page(1)
                     .max_pages(to_page)
+                    .sort_mode(remote_cli_args.sort.clone())
                     .build()
                     .unwrap(),
             )
@@ -313,6 +321,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .page(body_args.page.unwrap())
                     .max_pages(body_args.max_pages.unwrap())
                     .created_after(Some(created_after.to_string()))
+                    .sort_mode(remote_cli_args.sort.clone())
                     .build()
                     .unwrap(),
             ));
@@ -320,11 +329,19 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
         return Ok(Some(
             ListBodyArgs::builder()
                 .created_after(Some(created_after.to_string()))
+                .sort_mode(remote_cli_args.sort.clone())
                 .build()
                 .unwrap(),
         ));
     }
     Ok(body_args)
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum ListSortMode {
+    #[default]
+    Asc,
+    Desc,
 }
 
 #[derive(Builder, Clone)]
@@ -569,6 +586,58 @@ mod test {
         let args = validate_from_to_page(&args).unwrap().unwrap();
         assert_eq!(args.page, Some(1));
         assert_eq!(args.max_pages, Some(3));
+        assert_eq!(args.created_after.unwrap(), created_after);
+    }
+
+    #[test]
+    fn test_includes_sort_mode_in_list_body_args_used_with_created_after() {
+        let args = ListRemoteCliArgs::builder()
+            .created_after(Some("2021-01-01T00:00:00Z".to_string()))
+            .sort(ListSortMode::Desc)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.sort_mode, ListSortMode::Desc);
+    }
+
+    #[test]
+    fn test_includes_sort_mode_in_list_body_args_used_with_from_to_page() {
+        let from_page = Some(1);
+        let to_page = Some(3);
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .sort(ListSortMode::Desc)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.sort_mode, ListSortMode::Desc);
+    }
+
+    #[test]
+    fn test_includes_sort_mode_in_list_body_args_used_with_page_number() {
+        let page_number = Some(1);
+        let args = ListRemoteCliArgs::builder()
+            .page_number(page_number)
+            .sort(ListSortMode::Desc)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.sort_mode, ListSortMode::Desc);
+    }
+
+    #[test]
+    fn test_add_created_after_with_page_number() {
+        let page_number = Some(1);
+        let created_after = "2021-01-01T00:00:00Z";
+        let args = ListRemoteCliArgs::builder()
+            .page_number(page_number)
+            .created_after(Some(created_after.to_string()))
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.page.unwrap(), 1);
+        assert_eq!(args.max_pages.unwrap(), 1);
         assert_eq!(args.created_after.unwrap(), created_after);
     }
 }

@@ -1,7 +1,7 @@
 // Time utility functions
 
 use crate::api_traits::Timestamp;
-use crate::remote::ListBodyArgs;
+use crate::remote::{ListBodyArgs, ListSortMode};
 use crate::Error;
 
 use crate::error::{self, GRError};
@@ -146,13 +146,23 @@ pub fn sort_filter_by_date<T: Timestamp>(
                             err,
                         ))
                     })?;
-            return Ok(sort_by_date(data, Some(created_after), true));
+            return Ok(sort_by_date(
+                data,
+                Some(created_after),
+                true,
+                Some(list_args.sort_mode),
+            ));
         }
     }
-    Ok(sort_by_date(data, None, false))
+    Ok(sort_by_date(data, None, false, Some(ListSortMode::Asc)))
 }
 
-fn sort_by_date<T: Timestamp>(data: Vec<T>, date: Option<DateTime<Local>>, filter: bool) -> Vec<T> {
+fn sort_by_date<T: Timestamp>(
+    data: Vec<T>,
+    date: Option<DateTime<Local>>,
+    filter: bool,
+    sort_mode: Option<ListSortMode>,
+) -> Vec<T> {
     let mut data_dates = if filter {
         data.into_iter()
             .filter_map(|item| {
@@ -171,7 +181,12 @@ fn sort_by_date<T: Timestamp>(data: Vec<T>, date: Option<DateTime<Local>>, filte
             })
             .collect::<Vec<(T, DateTime<Local>)>>()
     };
-    data_dates.sort_by(|a, b| a.1.cmp(&b.1));
+    if let Some(sort_mode) = sort_mode {
+        match sort_mode {
+            ListSortMode::Asc => data_dates.sort_by(|a, b| a.1.cmp(&b.1)),
+            ListSortMode::Desc => data_dates.sort_by(|a, b| b.1.cmp(&a.1)),
+        }
+    }
     data_dates.into_iter().map(|(item, _)| item).collect()
 }
 
@@ -315,5 +330,19 @@ mod tests {
             },
             _ => panic!("Expected TimeConversionError"),
         }
+    }
+
+    #[test]
+    fn test_sort_by_date_descending_order() {
+        let data = vec![
+            TimestampMock::new("2021-01-01T00:00:00Z"),
+            TimestampMock::new("2020-12-31T00:00:00Z"),
+            TimestampMock::new("2021-01-02T00:00:00Z"),
+        ];
+        let sorted = sort_by_date(data, None, false, Some(ListSortMode::Desc));
+        assert_eq!(3, sorted.len());
+        assert_eq!("2021-01-02T00:00:00Z", sorted[0].created_at());
+        assert_eq!("2021-01-01T00:00:00Z", sorted[1].created_at());
+        assert_eq!("2020-12-31T00:00:00Z", sorted[2].created_at());
     }
 }
