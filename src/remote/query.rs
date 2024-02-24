@@ -16,6 +16,7 @@ use crate::{
     io::{HttpRunner, Response},
     json_load_page, json_loads,
     remote::ListBodyArgs,
+    time::sort_filter_by_date,
     Result,
 };
 
@@ -133,7 +134,7 @@ macro_rules! paged {
             iter_over_sub_array: Option<&str>,
             operation: ApiOperation,
         ) -> Result<Vec<$return_type>> {
-            let request = build_list_request(url, list_args, request_headers, operation);
+            let request = build_list_request(url, &list_args, request_headers, operation);
             let paginator = Paginator::new(&runner, request, url);
             let all_data = paginator
                 .map(|response| {
@@ -171,7 +172,7 @@ macro_rules! paged {
                 .collect::<Result<Vec<Vec<$return_type>>>>()
                 .map(|paged_data| paged_data.into_iter().flatten().collect());
             match all_data {
-                Ok(paged_data) => Ok(paged_data),
+                Ok(paged_data) => Ok(sort_filter_by_date(paged_data, list_args)?),
                 Err(err) => Err(err),
             }
         }
@@ -180,22 +181,23 @@ macro_rules! paged {
 
 fn build_list_request(
     url: &str,
-    list_args: Option<ListBodyArgs>,
+    list_args: &Option<ListBodyArgs>,
     request_headers: Headers,
     operation: ApiOperation,
 ) -> Request<()> {
     let mut request: http::Request<()> =
         http::Request::new(url, http::Method::GET).with_api_operation(operation);
     request.set_headers(request_headers);
-    if list_args.is_some() {
-        let from_page = list_args.as_ref().unwrap().page;
-        let url = if url.contains('?') {
-            format!("{}&page={}", url, &from_page)
-        } else {
-            format!("{}?page={}", url, &from_page)
-        };
-        request.set_max_pages(list_args.unwrap().max_pages);
-        request.set_url(&url);
+    if let Some(list_args) = list_args {
+        if let Some(from_page) = list_args.page {
+            let url = if url.contains('?') {
+                format!("{}&page={}", url, &from_page)
+            } else {
+                format!("{}?page={}", url, &from_page)
+            };
+            request.set_max_pages(list_args.max_pages.unwrap());
+            request.set_url(&url);
+        }
     }
     request
 }

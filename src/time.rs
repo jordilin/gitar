@@ -1,9 +1,12 @@
 // Time utility functions
 
+use crate::api_traits::Timestamp;
+use crate::remote::{ListBodyArgs, ListSortMode};
 use crate::Error;
 
 use crate::error::{self, GRError};
 use crate::Result;
+use chrono::{DateTime, Local};
 use std;
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, Deref, Sub};
@@ -125,6 +128,68 @@ impl TryFrom<&str> for Seconds {
     }
 }
 
+pub fn sort_filter_by_date<T: Timestamp>(
+    data: Vec<T>,
+    list_args: Option<ListBodyArgs>,
+) -> Result<Vec<T>> {
+    if let Some(list_args) = list_args {
+        let date = list_args.created_after;
+        if date.is_some() {
+            let created_after =
+                date.as_ref()
+                    .unwrap()
+                    .parse::<DateTime<Local>>()
+                    .map_err(|err| {
+                        GRError::TimeConversionError(format!(
+                            "Could not convert {} to date format: {}",
+                            date.unwrap(),
+                            err,
+                        ))
+                    })?;
+            return Ok(sort_by_date(
+                data,
+                Some(created_after),
+                true,
+                Some(list_args.sort_mode),
+            ));
+        }
+    }
+    Ok(sort_by_date(data, None, false, Some(ListSortMode::Asc)))
+}
+
+fn sort_by_date<T: Timestamp>(
+    data: Vec<T>,
+    date: Option<DateTime<Local>>,
+    filter: bool,
+    sort_mode: Option<ListSortMode>,
+) -> Vec<T> {
+    let mut data_dates = if filter {
+        data.into_iter()
+            .filter_map(|item| {
+                let item_date = item.created_at().parse::<DateTime<Local>>().ok()?;
+                if item_date > date.unwrap() {
+                    return Some((item, item_date));
+                }
+                None
+            })
+            .collect::<Vec<(T, DateTime<Local>)>>()
+    } else {
+        data.into_iter()
+            .map(|item| {
+                let item_date = item.created_at().parse::<DateTime<Local>>().unwrap();
+                (item, item_date)
+            })
+            .collect::<Vec<(T, DateTime<Local>)>>()
+    };
+    if let Some(sort_mode) = sort_mode {
+        match sort_mode {
+            ListSortMode::Asc => data_dates.sort_by(|a, b| a.1.cmp(&b.1)),
+            ListSortMode::Desc => data_dates.sort_by(|a, b| b.1.cmp(&a.1)),
+        }
+    }
+    data_dates.into_iter().map(|(item, _)| item).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -175,5 +240,109 @@ mod tests {
     fn test_cannot_convert_time_formatted_string_to_seconds() {
         let input_err = "2x"; // user meant 2d and typed 2x
         assert!(string_to_seconds(input_err).is_err());
+    }
+
+    struct TimestampMock {
+        created_at: String,
+    }
+
+    impl TimestampMock {
+        fn new(created_at: &str) -> Self {
+            TimestampMock {
+                created_at: created_at.to_string(),
+            }
+        }
+    }
+
+    impl Timestamp for TimestampMock {
+        fn created_at(&self) -> String {
+            self.created_at.clone()
+        }
+    }
+
+    #[test]
+    fn test_filter_date_created_after_iso_8601() {
+        let created_after = "2021-01-01T00:00:00Z".to_string();
+        let list_args = ListBodyArgs::builder()
+            .created_after(Some(created_after))
+            .build()
+            .unwrap();
+        let data = vec![
+            TimestampMock::new("2021-01-01T00:00:00Z"),
+            TimestampMock::new("2020-12-31T00:00:00Z"),
+            TimestampMock::new("2021-03-02T00:00:00Z"),
+            TimestampMock::new("2021-02-02T00:00:00Z"),
+        ];
+        let filtered = sort_filter_by_date(data, Some(list_args)).unwrap();
+        assert_eq!(2, filtered.len());
+        assert_eq!("2021-02-02T00:00:00Z", filtered[0].created_at());
+        assert_eq!("2021-03-02T00:00:00Z", filtered[1].created_at());
+    }
+
+    #[test]
+    fn test_filter_date_created_after_iso_8601_no_date() {
+        let data = vec![
+            TimestampMock::new("2021-01-01T00:00:00Z"),
+            TimestampMock::new("2020-12-31T00:00:00Z"),
+            TimestampMock::new("2021-01-02T00:00:00Z"),
+        ];
+        // no filter, just data sort ascending.
+        let sorted = sort_filter_by_date(data, None).unwrap();
+        assert_eq!(3, sorted.len());
+        assert_eq!("2020-12-31T00:00:00Z", sorted[0].created_at());
+        assert_eq!("2021-01-01T00:00:00Z", sorted[1].created_at());
+        assert_eq!("2021-01-02T00:00:00Z", sorted[2].created_at());
+    }
+
+    #[test]
+    fn test_filter_date_created_at_iso_8601_invalid_date_filtered_out() {
+        let created_after = "2021-01-01T00:00:00Z".to_string();
+        let list_args = ListBodyArgs::builder()
+            .created_after(Some(created_after))
+            .build()
+            .unwrap();
+        let data = vec![
+            TimestampMock::new("2021-01/01"),
+            TimestampMock::new("2020-12-31T00:00:00Z"),
+            TimestampMock::new("2021-01-02T00:00:00Z"),
+        ];
+        let filtered = sort_filter_by_date(data, Some(list_args)).unwrap();
+        assert_eq!(1, filtered.len());
+    }
+
+    #[test]
+    fn test_created_after_invalid_date_is_error() {
+        let created_after = "2021-01/01".to_string();
+        let list_args = ListBodyArgs::builder()
+            .created_after(Some(created_after))
+            .build()
+            .unwrap();
+        let data = vec![
+            TimestampMock::new("2021-01/01"),
+            TimestampMock::new("2020-12-31T00:00:00Z"),
+            TimestampMock::new("2021-01-02T00:00:00Z"),
+        ];
+        let result = sort_filter_by_date(data, Some(list_args));
+        match result {
+            Err(err) => match err.downcast_ref::<GRError>() {
+                Some(GRError::TimeConversionError(_)) => (),
+                _ => panic!("Expected TimeConversionError"),
+            },
+            _ => panic!("Expected TimeConversionError"),
+        }
+    }
+
+    #[test]
+    fn test_sort_by_date_descending_order() {
+        let data = vec![
+            TimestampMock::new("2021-01-01T00:00:00Z"),
+            TimestampMock::new("2020-12-31T00:00:00Z"),
+            TimestampMock::new("2021-01-02T00:00:00Z"),
+        ];
+        let sorted = sort_by_date(data, None, false, Some(ListSortMode::Desc));
+        assert_eq!(3, sorted.len());
+        assert_eq!("2021-01-02T00:00:00Z", sorted[0].created_at());
+        assert_eq!("2021-01-01T00:00:00Z", sorted[1].created_at());
+        assert_eq!("2020-12-31T00:00:00Z", sorted[2].created_at());
     }
 }

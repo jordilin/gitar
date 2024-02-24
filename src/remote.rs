@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::api_traits::{Cicd, MergeRequest, RemoteProject};
+use crate::api_traits::{Cicd, MergeRequest, RemoteProject, Timestamp};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
 use crate::error::GRError;
@@ -19,6 +19,7 @@ pub struct Project {
     default_branch: String,
     members: Vec<Member>,
     html_url: String,
+    created_at: String,
 }
 
 impl Project {
@@ -28,11 +29,18 @@ impl Project {
             default_branch: default_branch.to_string(),
             members: Vec::new(),
             html_url: String::new(),
+            created_at: String::new(),
         }
     }
 
     pub fn with_html_url(mut self, html_url: &str) -> Self {
         self.html_url = html_url.to_string();
+        self
+    }
+
+    // TODO - builder pattern
+    pub fn with_created_at(mut self, created_at: &str) -> Self {
+        self.created_at = created_at.to_string();
         self
     }
 
@@ -52,16 +60,30 @@ impl Display for Project {
     }
 }
 
+impl Timestamp for Project {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
+    }
+}
+
 #[derive(Builder, Clone, Debug, PartialEq, Default)]
 pub struct Member {
     pub id: i64,
     pub name: String,
     pub username: String,
+    #[builder(default)]
+    pub created_at: String,
 }
 
 impl Member {
     pub fn builder() -> MemberBuilder {
         MemberBuilder::default()
+    }
+}
+
+impl Timestamp for Member {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
     }
 }
 
@@ -77,11 +99,19 @@ pub struct MergeRequestResponse {
     pub updated_at: String,
     #[builder(default)]
     pub source_branch: String,
+    #[builder(default)]
+    pub created_at: String,
 }
 
 impl MergeRequestResponse {
     pub fn builder() -> MergeRequestResponseBuilder {
         MergeRequestResponseBuilder::default()
+    }
+}
+
+impl Timestamp for MergeRequestResponse {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
     }
 }
 
@@ -168,6 +198,12 @@ impl Pipeline {
     }
 }
 
+impl Timestamp for Pipeline {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
+    }
+}
+
 /// List cli args can be used across multiple APIs that support pagination.
 #[derive(Builder)]
 pub struct ListRemoteCliArgs {
@@ -183,6 +219,10 @@ pub struct ListRemoteCliArgs {
     pub no_headers: bool,
     #[builder(default)]
     pub page_number: Option<i64>,
+    #[builder(default)]
+    pub created_after: Option<String>,
+    #[builder(default)]
+    pub sort: ListSortMode,
 }
 
 impl ListRemoteCliArgs {
@@ -198,8 +238,14 @@ impl ListRemoteCliArgs {
 /// clients when executing HTTP requests.
 #[derive(Builder, Clone)]
 pub struct ListBodyArgs {
-    pub page: i64,
-    pub max_pages: i64,
+    #[builder(setter(strip_option), default)]
+    pub page: Option<i64>,
+    #[builder(setter(strip_option), default)]
+    pub max_pages: Option<i64>,
+    #[builder(default)]
+    pub created_after: Option<String>,
+    #[builder(default)]
+    pub sort_mode: ListSortMode,
 }
 
 impl ListBodyArgs {
@@ -214,11 +260,13 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
             ListBodyArgs::builder()
                 .page(remote_cli_args.page_number.unwrap())
                 .max_pages(1)
+                .sort_mode(remote_cli_args.sort.clone())
+                .created_after(remote_cli_args.created_after.clone())
                 .build()
                 .unwrap(),
         ));
     }
-    return match (remote_cli_args.from_page, remote_cli_args.to_page) {
+    let body_args = match (remote_cli_args.from_page, remote_cli_args.to_page) {
         (Some(from_page), Some(to_page)) => {
             if from_page < 0 || to_page < 0 {
                 return Err(GRError::PreconditionNotMet(
@@ -234,13 +282,14 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
             }
 
             let max_pages = to_page - from_page + 1;
-            Ok(Some(
+            Some(
                 ListBodyArgs::builder()
                     .page(from_page)
                     .max_pages(max_pages)
+                    .sort_mode(remote_cli_args.sort.clone())
                     .build()
                     .unwrap(),
-            ))
+            )
         }
         (Some(_), None) => {
             return Err(
@@ -254,16 +303,45 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                 )
                 .into());
             }
-            Ok(Some(
+            Some(
                 ListBodyArgs::builder()
                     .page(1)
                     .max_pages(to_page)
+                    .sort_mode(remote_cli_args.sort.clone())
                     .build()
                     .unwrap(),
-            ))
+            )
         }
-        (None, None) => Ok(None),
+        (None, None) => None,
     };
+    if let Some(created_after) = &remote_cli_args.created_after {
+        if let Some(body_args) = &body_args {
+            return Ok(Some(
+                ListBodyArgs::builder()
+                    .page(body_args.page.unwrap())
+                    .max_pages(body_args.max_pages.unwrap())
+                    .created_after(Some(created_after.to_string()))
+                    .sort_mode(remote_cli_args.sort.clone())
+                    .build()
+                    .unwrap(),
+            ));
+        }
+        return Ok(Some(
+            ListBodyArgs::builder()
+                .created_after(Some(created_after.to_string()))
+                .sort_mode(remote_cli_args.sort.clone())
+                .build()
+                .unwrap(),
+        ));
+    }
+    Ok(body_args)
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum ListSortMode {
+    #[default]
+    Asc,
+    Desc,
 }
 
 #[derive(Builder, Clone)]
@@ -372,8 +450,8 @@ mod test {
             .build()
             .unwrap();
         let args = validate_from_to_page(&args).unwrap().unwrap();
-        assert_eq!(args.page, 1);
-        assert_eq!(args.max_pages, 3);
+        assert_eq!(args.page, Some(1));
+        assert_eq!(args.max_pages, Some(3));
     }
 
     #[test]
@@ -479,7 +557,87 @@ mod test {
             .build()
             .unwrap();
         let args = validate_from_to_page(&args).unwrap().unwrap();
-        assert_eq!(args.page, 5);
-        assert_eq!(args.max_pages, 1);
+        assert_eq!(args.page, Some(5));
+        assert_eq!(args.max_pages, Some(1));
+    }
+
+    #[test]
+    fn test_include_created_after_in_list_body_args() {
+        let created_after = "2021-01-01T00:00:00Z";
+        let args = ListRemoteCliArgs::builder()
+            .created_after(Some(created_after.to_string()))
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.created_after.unwrap(), created_after);
+    }
+
+    #[test]
+    fn test_includes_from_to_page_and_created_after_in_list_body_args() {
+        let from_page = Some(1);
+        let to_page = Some(3);
+        let created_after = "2021-01-01T00:00:00Z";
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .created_after(Some(created_after.to_string()))
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.page, Some(1));
+        assert_eq!(args.max_pages, Some(3));
+        assert_eq!(args.created_after.unwrap(), created_after);
+    }
+
+    #[test]
+    fn test_includes_sort_mode_in_list_body_args_used_with_created_after() {
+        let args = ListRemoteCliArgs::builder()
+            .created_after(Some("2021-01-01T00:00:00Z".to_string()))
+            .sort(ListSortMode::Desc)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.sort_mode, ListSortMode::Desc);
+    }
+
+    #[test]
+    fn test_includes_sort_mode_in_list_body_args_used_with_from_to_page() {
+        let from_page = Some(1);
+        let to_page = Some(3);
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .sort(ListSortMode::Desc)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.sort_mode, ListSortMode::Desc);
+    }
+
+    #[test]
+    fn test_includes_sort_mode_in_list_body_args_used_with_page_number() {
+        let page_number = Some(1);
+        let args = ListRemoteCliArgs::builder()
+            .page_number(page_number)
+            .sort(ListSortMode::Desc)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.sort_mode, ListSortMode::Desc);
+    }
+
+    #[test]
+    fn test_add_created_after_with_page_number() {
+        let page_number = Some(1);
+        let created_after = "2021-01-01T00:00:00Z";
+        let args = ListRemoteCliArgs::builder()
+            .page_number(page_number)
+            .created_after(Some(created_after.to_string()))
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.page.unwrap(), 1);
+        assert_eq!(args.max_pages.unwrap(), 1);
+        assert_eq!(args.created_after.unwrap(), created_after);
     }
 }

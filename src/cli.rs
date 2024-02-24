@@ -1,6 +1,11 @@
 use crate::{
     merge_request::{MergeRequestCliArgs, MergeRequestListCliArgs},
-    remote::{ListRemoteCliArgs, MergeRequestState},
+    remote::{ListRemoteCliArgs, ListSortMode, MergeRequestState},
+};
+
+use std::{
+    fmt::{self, Display, Formatter},
+    option::Option,
 };
 
 use clap::{Parser, ValueEnum};
@@ -199,6 +204,26 @@ struct ListArgs {
     /// List the given page number
     #[clap(long)]
     page: Option<i64>,
+    /// Created after date (ISO 8601 YYYY-MM-DDTHH:MM:SSZ)
+    #[clap(long)]
+    created_after: Option<String>,
+    #[clap(long, default_value_t=SortModeCli::Asc)]
+    sort: SortModeCli,
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+enum SortModeCli {
+    Asc,
+    Desc,
+}
+
+impl Display for SortModeCli {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            SortModeCli::Asc => write!(f, "asc"),
+            SortModeCli::Desc => write!(f, "desc"),
+        }
+    }
 }
 
 #[derive(Parser)]
@@ -286,6 +311,15 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
     }
 }
 
+impl From<SortModeCli> for ListSortMode {
+    fn from(sort: SortModeCli) -> Self {
+        match sort {
+            SortModeCli::Asc => ListSortMode::Asc,
+            SortModeCli::Desc => ListSortMode::Desc,
+        }
+    }
+}
+
 impl From<ListMergeRequest> for MergeRequestOptions {
     fn from(options: ListMergeRequest) -> Self {
         let list_args = ListRemoteCliArgs::builder()
@@ -295,6 +329,8 @@ impl From<ListMergeRequest> for MergeRequestOptions {
             .num_pages(options.list_args.num_pages)
             .refresh_cache(options.list_args.refresh)
             .no_headers(options.list_args.no_headers)
+            .created_after(options.list_args.created_after)
+            .sort(options.list_args.sort.into())
             .build()
             .unwrap();
         MergeRequestOptions::List(MergeRequestListCliArgs::new(
@@ -373,6 +409,8 @@ impl From<ListArgs> for PipelineOptions {
                 .num_pages(options.num_pages)
                 .refresh_cache(options.refresh)
                 .no_headers(options.no_headers)
+                .created_after(options.created_after)
+                .sort(options.sort.into())
                 .build()
                 .unwrap(),
         )
