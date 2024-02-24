@@ -207,6 +207,8 @@ struct ListArgs {
     /// Created after date (ISO 8601 YYYY-MM-DDTHH:MM:SSZ)
     #[clap(long)]
     created_after: Option<String>,
+    #[clap(long)]
+    created_before: Option<String>,
     #[clap(long, default_value_t=SortModeCli::Asc)]
     sort: SortModeCli,
 }
@@ -330,6 +332,7 @@ impl From<ListMergeRequest> for MergeRequestOptions {
             .refresh_cache(options.list_args.refresh)
             .no_headers(options.list_args.no_headers)
             .created_after(options.list_args.created_after)
+            .created_before(options.list_args.created_before)
             .sort(options.list_args.sort.into())
             .build()
             .unwrap();
@@ -410,6 +413,7 @@ impl From<ListArgs> for PipelineOptions {
                 .refresh_cache(options.refresh)
                 .no_headers(options.no_headers)
                 .created_after(options.created_after)
+                .created_before(options.created_before)
                 .sort(options.sort.into())
                 .build()
                 .unwrap(),
