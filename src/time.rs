@@ -202,7 +202,7 @@ fn sort_by_date<T: Timestamp>(
             .into_iter()
             .filter_map(|item| {
                 let item_date = item.created_at().parse::<DateTime<Local>>().ok()?;
-                if item_date > created_after && item_date <= created_before {
+                if item_date >= created_after && item_date <= created_before {
                     return Some((item, item_date));
                 }
                 None
@@ -212,7 +212,7 @@ fn sort_by_date<T: Timestamp>(
             .into_iter()
             .filter_map(|item| {
                 let item_date = item.created_at().parse::<DateTime<Local>>().ok()?;
-                if item_date > created_after {
+                if item_date >= created_after {
                     return Some((item, item_date));
                 }
                 None
@@ -329,9 +329,10 @@ mod tests {
             TimestampMock::new("2021-02-02T00:00:00Z"),
         ];
         let filtered = sort_filter_by_date(data, Some(list_args)).unwrap();
-        assert_eq!(2, filtered.len());
-        assert_eq!("2021-02-02T00:00:00Z", filtered[0].created_at());
-        assert_eq!("2021-03-02T00:00:00Z", filtered[1].created_at());
+        assert_eq!(3, filtered.len());
+        assert_eq!("2021-01-01T00:00:00Z", filtered[0].created_at());
+        assert_eq!("2021-02-02T00:00:00Z", filtered[1].created_at());
+        assert_eq!("2021-03-02T00:00:00Z", filtered[2].created_at());
     }
 
     #[test]
@@ -430,14 +431,16 @@ mod tests {
             .build()
             .unwrap();
         let data = vec![
+            TimestampMock::new("2021-01-01T00:00:00Z"),
             TimestampMock::new("2021-01-20T00:00:00Z"),
             TimestampMock::new("2020-12-31T00:00:00Z"),
             TimestampMock::new("2021-03-02T00:00:00Z"),
             TimestampMock::new("2021-02-02T00:00:00Z"),
         ];
         let filtered = sort_filter_by_date(data, Some(list_args)).unwrap();
-        assert_eq!(1, filtered.len());
-        assert_eq!("2021-01-20T00:00:00Z", filtered[0].created_at());
+        assert_eq!(2, filtered.len());
+        assert_eq!("2021-01-01T00:00:00Z", filtered[0].created_at());
+        assert_eq!("2021-01-20T00:00:00Z", filtered[1].created_at());
     }
 
     #[test]
