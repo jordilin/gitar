@@ -222,6 +222,8 @@ pub struct ListRemoteCliArgs {
     #[builder(default)]
     pub created_after: Option<String>,
     #[builder(default)]
+    pub created_before: Option<String>,
+    #[builder(default)]
     pub sort: ListSortMode,
 }
 
@@ -245,6 +247,8 @@ pub struct ListBodyArgs {
     #[builder(default)]
     pub created_after: Option<String>,
     #[builder(default)]
+    pub created_before: Option<String>,
+    #[builder(default)]
     pub sort_mode: ListSortMode,
 }
 
@@ -262,6 +266,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                 .max_pages(1)
                 .sort_mode(remote_cli_args.sort.clone())
                 .created_after(remote_cli_args.created_after.clone())
+                .created_before(remote_cli_args.created_before.clone())
                 .build()
                 .unwrap(),
         ));
@@ -314,27 +319,74 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
         }
         (None, None) => None,
     };
-    if let Some(created_after) = &remote_cli_args.created_after {
-        if let Some(body_args) = &body_args {
+    match (
+        remote_cli_args.created_after.clone(),
+        remote_cli_args.created_before.clone(),
+    ) {
+        (Some(created_after), Some(created_before)) => {
+            if let Some(body_args) = &body_args {
+                return Ok(Some(
+                    ListBodyArgs::builder()
+                        .page(body_args.page.unwrap())
+                        .max_pages(body_args.max_pages.unwrap())
+                        .created_after(Some(created_after.to_string()))
+                        .created_before(Some(created_before.to_string()))
+                        .sort_mode(remote_cli_args.sort.clone())
+                        .build()
+                        .unwrap(),
+                ));
+            }
             return Ok(Some(
                 ListBodyArgs::builder()
-                    .page(body_args.page.unwrap())
-                    .max_pages(body_args.max_pages.unwrap())
+                    .created_after(Some(created_after.to_string()))
+                    .created_before(Some(created_before.to_string()))
+                    .sort_mode(remote_cli_args.sort.clone())
+                    .build()
+                    .unwrap(),
+            ));
+        }
+        (Some(created_after), None) => {
+            if let Some(body_args) = &body_args {
+                return Ok(Some(
+                    ListBodyArgs::builder()
+                        .page(body_args.page.unwrap())
+                        .max_pages(body_args.max_pages.unwrap())
+                        .created_after(Some(created_after.to_string()))
+                        .sort_mode(remote_cli_args.sort.clone())
+                        .build()
+                        .unwrap(),
+                ));
+            }
+            return Ok(Some(
+                ListBodyArgs::builder()
                     .created_after(Some(created_after.to_string()))
                     .sort_mode(remote_cli_args.sort.clone())
                     .build()
                     .unwrap(),
             ));
         }
-        return Ok(Some(
-            ListBodyArgs::builder()
-                .created_after(Some(created_after.to_string()))
-                .sort_mode(remote_cli_args.sort.clone())
-                .build()
-                .unwrap(),
-        ));
+        (None, Some(created_before)) => {
+            if let Some(body_args) = &body_args {
+                return Ok(Some(
+                    ListBodyArgs::builder()
+                        .page(body_args.page.unwrap())
+                        .max_pages(body_args.max_pages.unwrap())
+                        .created_before(Some(created_before.to_string()))
+                        .sort_mode(remote_cli_args.sort.clone())
+                        .build()
+                        .unwrap(),
+                ));
+            }
+            return Ok(Some(
+                ListBodyArgs::builder()
+                    .created_before(Some(created_before.to_string()))
+                    .sort_mode(remote_cli_args.sort.clone())
+                    .build()
+                    .unwrap(),
+            ));
+        }
+        (None, None) => Ok(body_args),
     }
-    Ok(body_args)
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -639,5 +691,119 @@ mod test {
         assert_eq!(args.page.unwrap(), 1);
         assert_eq!(args.max_pages.unwrap(), 1);
         assert_eq!(args.created_after.unwrap(), created_after);
+    }
+
+    #[test]
+    fn test_add_created_before_with_page_number() {
+        let page_number = Some(1);
+        let created_before = "2021-01-01T00:00:00Z";
+        let args = ListRemoteCliArgs::builder()
+            .page_number(page_number)
+            .created_before(Some(created_before.to_string()))
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.page.unwrap(), 1);
+        assert_eq!(args.max_pages.unwrap(), 1);
+        assert_eq!(args.created_before.unwrap(), created_before);
+    }
+
+    #[test]
+    fn test_add_created_before_with_from_to_page() {
+        let from_page = Some(1);
+        let to_page = Some(3);
+        let created_before = "2021-01-01T00:00:00Z";
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .created_before(Some(created_before.to_string()))
+            .sort(ListSortMode::Desc)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.page.unwrap(), 1);
+        assert_eq!(args.max_pages.unwrap(), 3);
+        assert_eq!(args.created_before.unwrap(), created_before);
+        assert_eq!(args.sort_mode, ListSortMode::Desc);
+    }
+
+    #[test]
+    fn test_add_crated_before_with_no_created_after_option_and_no_page_number() {
+        let created_before = "2021-01-01T00:00:00Z";
+        let args = ListRemoteCliArgs::builder()
+            .created_before(Some(created_before.to_string()))
+            .sort(ListSortMode::Desc)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.created_before.unwrap(), created_before);
+        assert_eq!(args.sort_mode, ListSortMode::Desc);
+    }
+
+    #[test]
+    fn test_adds_created_after_and_created_before_with_from_to_page() {
+        let from_page = Some(1);
+        let to_page = Some(3);
+        let created_after = "2021-01-01T00:00:00Z";
+        let created_before = "2021-01-02T00:00:00Z";
+        let args = ListRemoteCliArgs::builder()
+            .from_page(from_page)
+            .to_page(to_page)
+            .created_after(Some(created_after.to_string()))
+            .created_before(Some(created_before.to_string()))
+            .sort(ListSortMode::Desc)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.page.unwrap(), 1);
+        assert_eq!(args.max_pages.unwrap(), 3);
+        assert_eq!(args.created_after.unwrap(), created_after);
+        assert_eq!(args.created_before.unwrap(), created_before);
+        assert_eq!(args.sort_mode, ListSortMode::Desc);
+    }
+
+    #[test]
+    fn test_add_created_after_and_before_no_from_to_page_options() {
+        let created_after = "2021-01-01T00:00:00Z";
+        let created_before = "2021-01-02T00:00:00Z";
+        let args = ListRemoteCliArgs::builder()
+            .created_after(Some(created_after.to_string()))
+            .created_before(Some(created_before.to_string()))
+            .sort(ListSortMode::Desc)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.created_after.unwrap(), created_after);
+        assert_eq!(args.created_before.unwrap(), created_before);
+        assert_eq!(args.sort_mode, ListSortMode::Desc);
+    }
+
+    #[test]
+    fn test_if_only_to_page_provided_max_pages_is_to_page() {
+        let to_page = Some(3);
+        let args = ListRemoteCliArgs::builder()
+            .to_page(to_page)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.page, Some(1));
+        assert_eq!(args.max_pages, Some(3));
+    }
+
+    #[test]
+    fn test_if_only_to_page_provided_and_negative_number_is_error() {
+        let to_page = Some(-3);
+        let args = ListRemoteCliArgs::builder()
+            .to_page(to_page)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args);
+        match args {
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::PreconditionNotMet(_)) => (),
+                _ => panic!("Expected error::GRError::PreconditionNotMet"),
+            },
+            _ => panic!("Expected error"),
+        }
     }
 }
