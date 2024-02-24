@@ -207,6 +207,7 @@ struct ListArgs {
     /// Created after date (ISO 8601 YYYY-MM-DDTHH:MM:SSZ)
     #[clap(long)]
     created_after: Option<String>,
+    /// Created before date (ISO 8601 YYYY-MM-DDTHH:MM:SSZ)
     #[clap(long)]
     created_before: Option<String>,
     #[clap(long, default_value_t=SortModeCli::Asc)]
