@@ -14,14 +14,14 @@ use crate::error;
 use crate::error::AddContext;
 use crate::io::CmdInfo;
 use crate::io::Response;
-use crate::io::Runner;
+use crate::io::TaskRunner;
 use crate::Result;
 
 /// Gather the status of the local git repository.
 ///
 /// Takes a [`Runner`] as a parameter and returns a result encapsulating a
 /// [`CmdInfo::StatusModified`]. Untracked files are not being considered.
-pub fn status(exec: &impl Runner<Response = Response>) -> Result<CmdInfo> {
+pub fn status(exec: &impl TaskRunner<Response = Response>) -> Result<CmdInfo> {
     let cmd_params = ["git", "status", "--short"];
     let response = exec.run(cmd_params)?;
     handle_git_status(&response)
@@ -46,7 +46,7 @@ fn handle_git_status(response: &Response) -> Result<CmdInfo> {
 }
 
 /// Gather the current branch name in the local git repository.
-pub fn current_branch(runner: &impl Runner<Response = Response>) -> Result<CmdInfo> {
+pub fn current_branch(runner: &impl TaskRunner<Response = Response>) -> Result<CmdInfo> {
     // Does not work for git version at least 2.18
     // let cmd_params = ["git", "branch", "--show-current"];
     // Use rev-parse for older versions of git that don't support --show-current.
@@ -63,7 +63,7 @@ pub fn current_branch(runner: &impl Runner<Response = Response>) -> Result<CmdIn
 /// The remote is considered to be the default remote, .i.e origin.
 /// Takes a [`Runner`] as a parameter and the encapsulated result is a
 /// [`CmdInfo::Ignore`].
-pub fn fetch(exec: &impl Runner) -> Result<CmdInfo> {
+pub fn fetch(exec: &impl TaskRunner) -> Result<CmdInfo> {
     let cmd_params = ["git", "fetch"];
     exec.run(cmd_params).err_context(format!(
         "Failed to git fetch. Command: {}",
@@ -72,7 +72,7 @@ pub fn fetch(exec: &impl Runner) -> Result<CmdInfo> {
     Ok(CmdInfo::Ignore)
 }
 
-pub fn add(exec: &impl Runner) -> Result<CmdInfo> {
+pub fn add(exec: &impl TaskRunner) -> Result<CmdInfo> {
     let cmd_params = ["git", "add", "-u"];
     exec.run(cmd_params).err_context(format!(
         "Failed to git add changes. Command: {}",
@@ -81,7 +81,7 @@ pub fn add(exec: &impl Runner) -> Result<CmdInfo> {
     Ok(CmdInfo::Ignore)
 }
 
-pub fn commit(exec: &impl Runner, message: &str) -> Result<CmdInfo> {
+pub fn commit(exec: &impl TaskRunner, message: &str) -> Result<CmdInfo> {
     let cmd_params = ["git", "commit", "-m", message];
     exec.run(cmd_params).err_context(format!(
         "Failed to git commit changes. Command: {}",
@@ -91,7 +91,7 @@ pub fn commit(exec: &impl Runner, message: &str) -> Result<CmdInfo> {
 }
 
 /// Get the origin remote url from the local git repository.
-pub fn remote_url(exec: &impl Runner<Response = Response>) -> Result<CmdInfo> {
+pub fn remote_url(exec: &impl TaskRunner<Response = Response>) -> Result<CmdInfo> {
     let cmd_params = ["git", "remote", "get-url", "--all", "origin"];
     let response = exec.run(cmd_params)?;
     handle_git_remote_url(&response)
@@ -146,14 +146,14 @@ fn handle_git_remote_url(response: &Response) -> Result<CmdInfo> {
 /// This will be used as the default title for the merge request. Takes a
 /// [`Runner`] as a parameter and the encapsulated result is a
 /// [`CmdInfo::LastCommitSummary`].
-pub fn last_commit(runner: &impl Runner<Response = Response>) -> Result<CmdInfo> {
+pub fn last_commit(runner: &impl TaskRunner<Response = Response>) -> Result<CmdInfo> {
     let cmd_params = ["git", "log", "--format=%s", "-n1"];
     let response = runner.run(cmd_params)?;
     Ok(CmdInfo::LastCommitSummary(response.body))
 }
 
 pub fn outgoing_commits(
-    runner: &impl Runner<Response = Response>,
+    runner: &impl TaskRunner<Response = Response>,
     remote: &str,
     default_branch: &str,
 ) -> Result<String> {
@@ -168,27 +168,27 @@ pub fn outgoing_commits(
     Ok(response.body)
 }
 
-pub fn push(runner: &impl Runner, remote: &str, repo: &Repo) -> Result<CmdInfo> {
+pub fn push(runner: &impl TaskRunner, remote: &str, repo: &Repo) -> Result<CmdInfo> {
     let cmd = format!("git push {} {}", remote, repo.current_branch);
     let cmd_params = cmd.split(' ').collect::<Vec<&str>>();
     runner.run(cmd_params)?;
     Ok(CmdInfo::Ignore)
 }
 
-pub fn rebase(runner: &impl Runner, remote: &str, default_branch: &str) -> Result<CmdInfo> {
+pub fn rebase(runner: &impl TaskRunner, remote: &str, default_branch: &str) -> Result<CmdInfo> {
     let cmd = format!("git rebase {}/{}", remote, default_branch);
     let cmd_params = cmd.split(' ').collect::<Vec<&str>>();
     runner.run(cmd_params)?;
     Ok(CmdInfo::Ignore)
 }
 
-pub fn last_commit_message(runner: &impl Runner<Response = Response>) -> Result<CmdInfo> {
+pub fn last_commit_message(runner: &impl TaskRunner<Response = Response>) -> Result<CmdInfo> {
     let cmd_params = ["git", "log", "--pretty=format:%b", "-n1"];
     let response = runner.run(cmd_params)?;
     Ok(CmdInfo::LastCommitMessage(response.body))
 }
 
-pub fn checkout(runner: &impl Runner<Response = Response>, branch: &str) -> Result<()> {
+pub fn checkout(runner: &impl TaskRunner<Response = Response>, branch: &str) -> Result<()> {
     let git_cmd = format!("git checkout origin/{} -b {}", branch, branch);
     let cmd_params = ["/bin/sh", "-c", &git_cmd];
     runner.run(cmd_params).err_context(format!(

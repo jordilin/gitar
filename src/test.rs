@@ -8,7 +8,7 @@ pub mod utils {
 
     use crate::{
         http::Request,
-        io::{HttpRunner, Response, Runner},
+        io::{HttpRunner, Response, TaskRunner},
         Result,
     };
     use std::sync::Arc;
@@ -80,7 +80,7 @@ pub mod utils {
         }
     }
 
-    impl Runner for MockRunner {
+    impl TaskRunner for MockRunner {
         type Response = Response;
 
         fn run<T>(&self, cmd: T) -> Result<Self::Response>

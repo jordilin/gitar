@@ -1,4 +1,4 @@
-use gr::io::Runner;
+use gr::io::TaskRunner;
 use std::fs::File;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
