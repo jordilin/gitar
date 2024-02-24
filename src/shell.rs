@@ -1,6 +1,6 @@
 use crate::error;
 use crate::io::Response;
-use crate::io::Runner;
+use crate::io::TaskRunner;
 use crate::Result;
 use std::ffi::OsStr;
 use std::process;
@@ -8,7 +8,7 @@ use std::str;
 
 pub struct Shell;
 
-impl Runner for Shell {
+impl TaskRunner for Shell {
     type Response = Response;
 
     fn run<T>(&self, cmd: T) -> Result<Self::Response>

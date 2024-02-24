@@ -8,7 +8,11 @@ use regex::Regex;
 use serde::Serialize;
 use std::ffi::OsStr;
 
-pub trait Runner {
+/// A trait that handles the execution of processes with a finite lifetime. For
+/// example, it can be an in-memory process for testing or a shell command doing
+/// I/O. It handles all processes that do not conform with the HTTP protocol.
+/// For that, check the `HttpRunner`
+pub trait TaskRunner {
     type Response;
     fn run<T>(&self, cmd: T) -> Result<Self::Response>
     where
@@ -16,6 +20,10 @@ pub trait Runner {
         T::Item: AsRef<OsStr>;
 }
 
+/// A trait for the HTTP protocol. Implementors need to conform with the HTTP
+/// constraints and requirements. Implementors accept a `Request` that wraps
+/// headers, payloads and HTTP methods. Clients can potentially do HTTP calls
+/// against a remote server or mock the responses for testing purposes.
 pub trait HttpRunner {
     type Response;
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response>;
