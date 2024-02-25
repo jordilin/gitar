@@ -38,6 +38,7 @@ fn main() -> Result<()> {
             }
             CliOptions::Pipeline(options) => cicd::execute(options, config, domain, path),
             CliOptions::Project(options) => project::execute(options, config, domain, path),
+            CliOptions::Docker(_options) => todo!(),
             // Init command is handled above when user creates a new
             // configuration - this is unreachable
             CliOptions::Init(_) => unreachable!(),
