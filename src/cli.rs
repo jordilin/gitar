@@ -51,6 +51,9 @@ enum DockerSubCommand {
 
 #[derive(Parser)]
 struct ListDockerImages {
+    /// List image repositories in this projects' registry
+    #[clap(long, default_value = "false")]
+    repos: bool,
     #[command(flatten)]
     list_args: ListArgs,
 }
@@ -336,7 +339,13 @@ impl From<DockerCommand> for DockerOptions {
 impl From<ListDockerImages> for DockerOptions {
     fn from(options: ListDockerImages) -> Self {
         let list_args = gen_list_args(options.list_args);
-        DockerOptions::List(DockerListCliArgs::new(list_args))
+        DockerOptions::List(
+            DockerListCliArgs::builder()
+                .repos(options.repos)
+                .list_args(list_args)
+                .build()
+                .unwrap(),
+        )
     }
 }
 

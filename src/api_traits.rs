@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use crate::{
     cli::BrowseOptions,
+    docker::{DockerListBodyArgs, RegistryRepository},
     io::CmdInfo,
     remote::{
         MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Pipeline,
@@ -39,6 +40,10 @@ pub trait Timestamp {
     fn created_at(&self) -> String;
 }
 
+pub trait ContainerRegistry {
+    fn list_repositories(&self, args: DockerListBodyArgs) -> Result<Vec<RegistryRepository>>;
+}
+
 /// Types of API resources attached to a request. The request will carry this
 /// information so we can decide if we need to use the cache or not based on
 /// global configuration.
@@ -51,6 +56,7 @@ pub enum ApiOperation {
     // Project members, project data such as default upstream branch, project
     // id, etc...any metadata related to the project.
     Project,
+    ContainerRegistry,
 }
 
 impl Display for ApiOperation {
@@ -59,6 +65,7 @@ impl Display for ApiOperation {
             ApiOperation::MergeRequest => write!(f, "merge_request"),
             ApiOperation::Pipeline => write!(f, "pipeline"),
             ApiOperation::Project => write!(f, "project"),
+            ApiOperation::ContainerRegistry => write!(f, "container_registry"),
         }
     }
 }
@@ -72,5 +79,9 @@ mod tests {
         assert_eq!(format!("{}", ApiOperation::MergeRequest), "merge_request");
         assert_eq!(format!("{}", ApiOperation::Pipeline), "pipeline");
         assert_eq!(format!("{}", ApiOperation::Project), "project");
+        assert_eq!(
+            format!("{}", ApiOperation::ContainerRegistry),
+            "container_registry"
+        );
     }
 }
