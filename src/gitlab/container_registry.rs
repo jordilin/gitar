@@ -10,7 +10,10 @@ use super::Gitlab;
 
 impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
     fn list_repositories(&self, args: DockerListBodyArgs) -> Result<Vec<RegistryRepository>> {
-        let url = format!("{}/registry/repositories", self.rest_api_basepath());
+        let url = format!(
+            "{}/registry/repositories?tags_count=true",
+            self.rest_api_basepath()
+        );
         query::gitlab_project_registry_repositories(
             &self.runner,
             &url,
@@ -76,7 +79,7 @@ mod test {
         let args = DockerListBodyArgs::builder().repos(true).build().unwrap();
         gitlab.list_repositories(args).unwrap();
         assert_eq!(
-            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories",
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories?tags_count=true",
             client.url().to_string(),
         );
         assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
