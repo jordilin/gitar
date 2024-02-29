@@ -5,13 +5,19 @@ use serde::Serialize;
 
 use crate::{
     api_traits::ApiOperation,
+    docker::RegistryRepository,
     error,
-    github::cicd::GithubPipelineFields,
-    github::merge_request::GithubMergeRequestFields,
-    github::project::{GithubMemberFields, GithubProjectFields},
-    gitlab::cicd::GitlabPipelineFields,
-    gitlab::merge_request::GitlabMergeRequestFields,
-    gitlab::project::{GitlabMemberFields, GitlabProjectFields},
+    github::{
+        cicd::GithubPipelineFields,
+        merge_request::GithubMergeRequestFields,
+        project::{GithubMemberFields, GithubProjectFields},
+    },
+    gitlab::{
+        cicd::GitlabPipelineFields,
+        container_registry::GitlabRegistryRepositoryFields,
+        merge_request::GitlabMergeRequestFields,
+        project::{GitlabMemberFields, GitlabProjectFields},
+    },
     http::{self, Body, Headers, Paginator, Request, Resource},
     io::{HttpRunner, Response},
     json_load_page, json_loads,
@@ -215,6 +221,12 @@ paged!(
     gitlab_list_merge_requests,
     GitlabMergeRequestFields,
     MergeRequestResponse
+);
+
+paged!(
+    gitlab_project_registry_repositories,
+    GitlabRegistryRepositoryFields,
+    RegistryRepository
 );
 
 send!(gitlab_project_data, GitlabProjectFields, Project);

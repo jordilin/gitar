@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    api_traits::ContainerRegistry,
+    api_traits::{ContainerRegistry, Timestamp},
     cli::DockerOptions,
     config::Config,
     remote::{self, get_registry, ListBodyArgs, ListRemoteCliArgs},
@@ -60,6 +60,12 @@ impl Display for RegistryRepository {
             "{} | {} | {} | {}",
             self.id, self.location, self.tags_count, self.created_at
         )
+    }
+}
+
+impl Timestamp for RegistryRepository {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
     }
 }
 
