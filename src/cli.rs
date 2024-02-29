@@ -52,8 +52,14 @@ enum DockerSubCommand {
 #[derive(Parser)]
 struct ListDockerImages {
     /// List image repositories in this projects' registry
-    #[clap(long, default_value = "false")]
+    #[clap(long, default_value = "false", group = "list")]
     repos: bool,
+    /// List all image tags for a given repository id
+    #[clap(long, default_value = "false", group = "list", requires = "repo_id")]
+    tags: bool,
+    /// Repository ID to pull image tags from
+    #[clap(long)]
+    repo_id: Option<i64>,
     #[command(flatten)]
     list_args: ListArgs,
 }
@@ -342,6 +348,8 @@ impl From<ListDockerImages> for DockerOptions {
         DockerOptions::List(
             DockerListCliArgs::builder()
                 .repos(options.repos)
+                .tags(options.tags)
+                .repo_id(options.repo_id)
                 .list_args(list_args)
                 .build()
                 .unwrap(),
@@ -485,6 +493,40 @@ impl From<InitCommand> for InitCommandOptions {
     fn from(options: InitCommand) -> Self {
         InitCommandOptions {
             domain: options.domain,
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_docker_cli_repos() {
+        let args = Args::parse_from(vec!["gr", "dk", "list", "--repos"]);
+        match args.command {
+            Command::Docker(DockerCommand {
+                subcommand: DockerSubCommand::List(options),
+            }) => {
+                assert_eq!(options.repos, true);
+                assert_eq!(options.tags, false);
+            }
+            _ => panic!("Expected DockerCommand"),
+        }
+    }
+
+    #[test]
+    fn test_docker_cli_tags() {
+        let args = Args::parse_from(vec!["gr", "dk", "list", "--tags", "--repo-id", "12"]);
+        match args.command {
+            Command::Docker(DockerCommand {
+                subcommand: DockerSubCommand::List(options),
+            }) => {
+                assert_eq!(options.repos, false);
+                assert_eq!(options.tags, true);
+                assert_eq!(options.repo_id, Some(12));
+            }
+            _ => panic!("Expected DockerCommand"),
         }
     }
 }

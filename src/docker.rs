@@ -16,6 +16,9 @@ use crate::{
 pub struct DockerListCliArgs {
     // If set, list all remote repositories in project's registry
     pub repos: bool,
+    // If set, list all tags for a repository
+    pub tags: bool,
+    pub repo_id: Option<i64>,
     pub list_args: ListRemoteCliArgs,
 }
 
