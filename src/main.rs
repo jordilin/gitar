@@ -3,7 +3,7 @@ use std::{fs::File, path::Path, sync::Arc};
 use gr::{
     browse, cicd,
     cli::{parse_cli, CliOptions},
-    error, git, init,
+    docker, error, git, init,
     io::CmdInfo,
     merge_request, project,
     shell::Shell,
@@ -38,7 +38,7 @@ fn main() -> Result<()> {
             }
             CliOptions::Pipeline(options) => cicd::execute(options, config, domain, path),
             CliOptions::Project(options) => project::execute(options, config, domain, path),
-            CliOptions::Docker(_options) => todo!(),
+            CliOptions::Docker(options) => docker::execute(options, config, domain, path),
             // Init command is handled above when user creates a new
             // configuration - this is unreachable
             CliOptions::Init(_) => unreachable!(),
