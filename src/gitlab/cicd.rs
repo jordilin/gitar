@@ -92,7 +92,7 @@ mod test {
         let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
         let pipelines = gitlab.list(default_pipeline_body_args()).unwrap();
 
-        assert_eq!(2, pipelines.len());
+        assert_eq!(3, pipelines.len());
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines",
             *client.url(),

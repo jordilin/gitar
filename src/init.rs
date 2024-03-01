@@ -23,6 +23,8 @@ const CONFIG_TEMPLATE: &str = r#"
 <DOMAIN>.cache_api_project_expiration=5d
 # Pipelines are read often, change often, so expire soon.
 <DOMAIN>.cache_api_pipeline_expiration=30s
+# Container registry operations including listing image tags and repos
+<DOMAIN>.cache_api_container_registry_expiration=1h
 
 ## Max pages configuration
 
@@ -32,6 +34,8 @@ const CONFIG_TEMPLATE: &str = r#"
 <DOMAIN>.max_pages_api_project=5
 # Get up to 10 pages of pipelines when listing
 <DOMAIN>.max_pages_api_pipeline=10
+# Get up to 10 pages of container registry repositories when listing
+<DOMAIN>.max_pages_api_container_registry=10
 
 # Rate limit remaining threshold. Threshold by which the tool will stop
 # processing requests. Defaults to 10 if not provided. The remote has a counter

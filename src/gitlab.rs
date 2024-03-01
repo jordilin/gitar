@@ -2,6 +2,7 @@ use crate::config::ConfigProperties;
 use crate::http::Headers;
 use std::sync::Arc;
 pub mod cicd;
+pub mod container_registry;
 pub mod merge_request;
 pub mod project;
 

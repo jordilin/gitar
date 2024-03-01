@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::api_traits::{Cicd, MergeRequest, RemoteProject, Timestamp};
+use crate::api_traits::{Cicd, ContainerRegistry, MergeRequest, RemoteProject, Timestamp};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
 use crate::error::GRError;
@@ -205,7 +205,7 @@ impl Timestamp for Pipeline {
 }
 
 /// List cli args can be used across multiple APIs that support pagination.
-#[derive(Builder)]
+#[derive(Builder, Clone)]
 pub struct ListRemoteCliArgs {
     #[builder(default)]
     pub from_page: Option<i64>,
@@ -449,6 +449,7 @@ macro_rules! get {
 get!(get_mr, MergeRequest);
 get!(get_cicd, Cicd);
 get!(get_project, RemoteProject);
+get!(get_registry, ContainerRegistry);
 
 #[cfg(test)]
 mod test {

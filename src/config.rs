@@ -105,6 +105,13 @@ impl Config {
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(REST_API_MAX_PAGES),
         );
+        max_pages.insert(
+            ApiOperation::ContainerRegistry,
+            domain_config_data
+                .get("max_pages_api_container_registry")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(REST_API_MAX_PAGES),
+        );
         max_pages
     }
 
@@ -130,6 +137,13 @@ impl Config {
             ApiOperation::Project,
             domain_config_data
                 .get("cache_api_project_expiration")
+                .unwrap_or(&"".to_string())
+                .to_string(),
+        );
+        cache_expirations.insert(
+            ApiOperation::ContainerRegistry,
+            domain_config_data
+                .get("cache_api_container_registry_expiration")
                 .unwrap_or(&"".to_string())
                 .to_string(),
         );
@@ -340,7 +354,8 @@ mod test {
         github.com.merge_request_description_signature=- devops team :-)
         github.com.cache_api_merge_request_expiration=2h
         github.com.cache_api_pipeline_expiration=1h
-        github.com.cache_api_project_expiration=3h"#;
+        github.com.cache_api_project_expiration=3h
+        github.com.cache_api_container_registry_expiration=4h"#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(Config::new(reader, domain).unwrap());
@@ -350,6 +365,10 @@ mod test {
         );
         assert_eq!("1h", config.get_cache_expiration(&ApiOperation::Pipeline));
         assert_eq!("3h", config.get_cache_expiration(&ApiOperation::Project));
+        assert_eq!(
+            "4h",
+            config.get_cache_expiration(&ApiOperation::ContainerRegistry)
+        );
     }
 
     #[test]
@@ -465,5 +484,18 @@ mod test {
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!(15, config.rate_limit_remaining_threshold());
+    }
+
+    #[test]
+    fn test_get_max_pages_for_container_registry_operations() {
+        let config_data = r#"
+        gitlab.com.api_token=1234
+        gitlab.com.cache_location=/home/user/.config/mr_cache
+        gitlab.com.max_pages_api_container_registry=15
+        "#;
+        let domain = "gitlab.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Arc::new(Config::new(reader, domain).unwrap());
+        assert_eq!(15, config.get_max_pages(&ApiOperation::ContainerRegistry));
     }
 }
