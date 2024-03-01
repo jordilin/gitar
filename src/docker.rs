@@ -114,9 +114,11 @@ pub fn execute(
             let body_args = remote::validate_from_to_page(&cli_args.list_args)?;
             let body_args = DockerListBodyArgs::builder()
                 .repos(cli_args.repos)
+                .tags(cli_args.tags)
+                .repo_id(cli_args.repo_id)
                 .body_args(body_args)
                 .build()?;
-            list_repositories(remote, body_args, std::io::stdout())
+            list(remote, body_args, std::io::stdout())
         }
     }
 }
