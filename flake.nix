@@ -29,8 +29,12 @@
           cut -d"/" -f2- |
           xargs git push origin --delete
         '';
+        releaseScript = builtins.readFile ./release.sh;
+        release = pkgs.writeShellScriptBin "release" releaseScript;
+
         scripts = [
           gitcleanbranches
+          release
         ];
       in
       with pkgs;
