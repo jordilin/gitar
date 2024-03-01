@@ -14,7 +14,7 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Github<R> {
 
     fn list_repository_tags(
         &self,
-        _repository_id: i64,
+        _args: DockerListBodyArgs,
     ) -> Result<Vec<crate::docker::RepositoryTag>> {
         todo!()
     }

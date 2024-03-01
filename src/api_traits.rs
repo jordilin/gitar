@@ -42,7 +42,7 @@ pub trait Timestamp {
 
 pub trait ContainerRegistry {
     fn list_repositories(&self, args: DockerListBodyArgs) -> Result<Vec<RegistryRepository>>;
-    fn list_repository_tags(&self, repository_id: i64) -> Result<Vec<RepositoryTag>>;
+    fn list_repository_tags(&self, args: DockerListBodyArgs) -> Result<Vec<RepositoryTag>>;
 }
 
 /// Types of API resources attached to a request. The request will carry this

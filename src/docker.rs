@@ -92,9 +92,7 @@ impl RepositoryTag {
 
 impl Timestamp for RepositoryTag {
     fn created_at(&self) -> String {
-        // Repository tags don't have a creation date. It is included when
-        // querying a specific tag. Just return default UNIX epoch date.
-        "1970-01-01T00:00:00Z".to_string()
+        self.created_at.clone()
     }
 }
 
@@ -140,11 +138,8 @@ pub fn list_repository_tags<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     let headers = "Name | Path | Location\n";
-    // if tags is provided, then args.repo_id is Some at this point. This is
-    // enforced at the cli clap level.
-    let repo_id = args.repo_id.unwrap();
     writer.write_all(headers.as_bytes())?;
-    for tag in remote.list_repository_tags(repo_id)? {
+    for tag in remote.list_repository_tags(args)? {
         writer.write_all(format!("{}\n", tag).as_bytes())?;
     }
     Ok(())
@@ -187,7 +182,7 @@ mod tests {
             Ok(vec![repo])
         }
 
-        fn list_repository_tags(&self, _repository_id: i64) -> Result<Vec<RepositoryTag>> {
+        fn list_repository_tags(&self, _args: DockerListBodyArgs) -> Result<Vec<RepositoryTag>> {
             let tag = RepositoryTag::builder()
                 .name("v0.0.1".to_string())
                 .path("namespace/project:v0.0.1".to_string())
