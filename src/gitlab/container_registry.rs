@@ -23,6 +23,13 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
             ApiOperation::ContainerRegistry,
         )
     }
+
+    fn list_repository_tags(
+        &self,
+        repository_id: i64,
+    ) -> Result<Vec<crate::docker::RepositoryTag>> {
+        todo!()
+    }
 }
 
 pub struct GitlabRegistryRepositoryFields {

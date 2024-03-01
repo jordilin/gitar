@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::{
     cli::BrowseOptions,
-    docker::{DockerListBodyArgs, RegistryRepository},
+    docker::{DockerListBodyArgs, RegistryRepository, RepositoryTag},
     io::CmdInfo,
     remote::{
         MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Pipeline,
@@ -42,6 +42,7 @@ pub trait Timestamp {
 
 pub trait ContainerRegistry {
     fn list_repositories(&self, args: DockerListBodyArgs) -> Result<Vec<RegistryRepository>>;
+    fn list_repository_tags(&self, repository_id: i64) -> Result<Vec<RepositoryTag>>;
 }
 
 /// Types of API resources attached to a request. The request will carry this
