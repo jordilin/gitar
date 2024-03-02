@@ -111,27 +111,27 @@ pub fn execute(
     match options {
         DockerOptions::List(cli_args) => {
             let remote = get_registry(domain, path, config, cli_args.list_args.refresh_cache)?;
-            let body_args = remote::validate_from_to_page(&cli_args.list_args)?;
-            let body_args = DockerListBodyArgs::builder()
-                .repos(cli_args.repos)
-                .tags(cli_args.tags)
-                .repo_id(cli_args.repo_id)
-                .body_args(body_args)
-                .build()?;
-            list(remote, body_args, std::io::stdout())
+            validate_and_list(remote, cli_args, std::io::stdout())
         }
     }
 }
 
-pub fn list<W: Write>(
-    remote: Arc<dyn ContainerRegistry>,
-    args: DockerListBodyArgs,
+fn validate_and_list<W: Write>(
+    remote: Arc<dyn ContainerRegistry + Send + Sync>,
+    cli_args: DockerListCliArgs,
     writer: W,
 ) -> Result<()> {
-    if args.tags {
-        return list_repository_tags(remote, args, writer);
+    let body_args = remote::validate_from_to_page(&cli_args.list_args)?;
+    let body_args = DockerListBodyArgs::builder()
+        .repos(cli_args.repos)
+        .tags(cli_args.tags)
+        .repo_id(cli_args.repo_id)
+        .body_args(body_args)
+        .build()?;
+    if body_args.tags {
+        return list_repository_tags(remote, body_args, writer);
     }
-    list_repositories(remote, args, writer)
+    list_repositories(remote, body_args, writer)
 }
 
 pub fn list_repository_tags<W: Write>(
@@ -199,9 +199,20 @@ mod tests {
     #[test]
     fn test_execute_list_repositories() {
         let remote = Arc::new(MockContainerRegistry::new());
-        let args = DockerListBodyArgs::builder().repos(true).build().unwrap();
+        let args = DockerListCliArgs::builder()
+            .repos(true)
+            .tags(false)
+            .repo_id(None)
+            .list_args(
+                ListRemoteCliArgs::builder()
+                    .refresh_cache(false)
+                    .build()
+                    .unwrap(),
+            )
+            .build()
+            .unwrap();
         let mut buf = Vec::new();
-        list(remote, args, &mut buf).unwrap();
+        validate_and_list(remote, args, &mut buf).unwrap();
         assert_eq!(
             "ID | Location | Tags count | Created at\n\
              1 | registry.gitlab.com/namespace/project | 10 | 2021-01-01T00:00:00Z\n",
@@ -212,14 +223,20 @@ mod tests {
     #[test]
     fn test_execute_list_tags() {
         let remote = Arc::new(MockContainerRegistry::new());
-        let args = DockerListBodyArgs::builder()
+        let args = DockerListCliArgs::builder()
             .repos(false)
             .tags(true)
             .repo_id(Some(1))
+            .list_args(
+                ListRemoteCliArgs::builder()
+                    .refresh_cache(false)
+                    .build()
+                    .unwrap(),
+            )
             .build()
             .unwrap();
         let mut buf = Vec::new();
-        list(remote, args, &mut buf).unwrap();
+        validate_and_list(remote, args, &mut buf).unwrap();
         assert_eq!(
             "Name | Path | Location\n\
             v0.0.1 | namespace/project:v0.0.1 | registry.gitlab.com/namespace/project:v0.0.1\n",
