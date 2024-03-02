@@ -61,7 +61,13 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
     }
 
     fn num_pages_repositories(&self) -> Result<Option<u32>> {
-        todo!()
+        let url = format!("{}/registry/repositories?page=1", self.rest_api_basepath());
+        query::num_pages(
+            &self.runner,
+            &url,
+            self.headers(),
+            ApiOperation::ContainerRegistry,
+        )
     }
 }
 
@@ -216,6 +222,33 @@ mod test {
         assert_eq!(Some(1), gitlab.num_pages_repository_tags(1).unwrap());
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories/1/tags?page=1",
+            client.url().to_string(),
+        );
+        assert_eq!(
+            Some(ApiOperation::ContainerRegistry),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_query_num_pages_for_registry_repositories() {
+        let config = config();
+        let domain = "gitlab.com";
+        let path = "jordilin/gitlapi";
+        let link_headers = r#"<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories?page=1>; rel="next", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories?page=1>; rel="last""#;
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), link_headers.to_string());
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn ContainerRegistry> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert_eq!(Some(1), gitlab.num_pages_repositories().unwrap());
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories?page=1",
             client.url().to_string(),
         );
         assert_eq!(
