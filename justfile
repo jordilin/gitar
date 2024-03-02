@@ -2,7 +2,7 @@ export RUSTC_WRAPPER := "sccache"
 
 alias t:= cargo-test
 alias ta:= test-all
-alias tc:= test-coverage
+alias tc:= test-coverage-vscode
 alias b:= build
 alias br:= build-release
 alias mut:= mutation
@@ -34,7 +34,7 @@ test-all:
 test-watch:
     cargo watch --clear --exec test
 
-test-coverage:
+test-coverage-tarpaulin:
     cargo tarpaulin --frozen --exclude-files=src/main.rs --out Html
 
 test-coverage-llvm:
