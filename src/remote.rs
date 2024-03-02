@@ -385,7 +385,24 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .unwrap(),
             ));
         }
-        (None, None) => Ok(body_args),
+        (None, None) => {
+            if let Some(body_args) = &body_args {
+                return Ok(Some(
+                    ListBodyArgs::builder()
+                        .page(body_args.page.unwrap())
+                        .max_pages(body_args.max_pages.unwrap())
+                        .sort_mode(remote_cli_args.sort.clone())
+                        .build()
+                        .unwrap(),
+                ));
+            }
+            return Ok(Some(
+                ListBodyArgs::builder()
+                    .sort_mode(remote_cli_args.sort.clone())
+                    .build()
+                    .unwrap(),
+            ));
+        }
     }
 }
 
@@ -806,5 +823,15 @@ mod test {
             },
             _ => panic!("Expected error"),
         }
+    }
+
+    #[test]
+    fn test_if_sort_provided_use_it() {
+        let args = ListRemoteCliArgs::builder()
+            .sort(ListSortMode::Desc)
+            .build()
+            .unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert_eq!(args.sort_mode, ListSortMode::Desc);
     }
 }
