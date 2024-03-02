@@ -143,7 +143,7 @@ fn get_num_pages<W: Write>(
     writer: W,
 ) -> Result<()> {
     if cli_args.tags {
-        let result = remote.num_pages_repository_tags();
+        let result = remote.num_pages_repository_tags(cli_args.repo_id.unwrap());
         return report_num_pages(result, writer);
     }
     let result = remote.num_pages_repositories();
@@ -224,7 +224,7 @@ mod tests {
             Ok(vec![tag])
         }
 
-        fn num_pages_repository_tags(&self) -> Result<Option<u32>> {
+        fn num_pages_repository_tags(&self, _repository_id: i64) -> Result<Option<u32>> {
             Ok(Some(3))
         }
 

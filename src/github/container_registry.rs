@@ -19,7 +19,7 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Github<R> {
         todo!()
     }
 
-    fn num_pages_repository_tags(&self) -> Result<Option<u32>> {
+    fn num_pages_repository_tags(&self, _repository_id: i64) -> Result<Option<u32>> {
         todo!()
     }
 
