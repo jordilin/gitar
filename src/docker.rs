@@ -12,7 +12,7 @@ use crate::{
     Result,
 };
 
-#[derive(Builder, Clone)]
+#[derive(Builder)]
 pub struct DockerListCliArgs {
     // If set, list all remote repositories in project's registry
     pub repos: bool,
@@ -28,7 +28,7 @@ impl DockerListCliArgs {
     }
 }
 
-#[derive(Builder, Clone)]
+#[derive(Builder)]
 pub struct DockerListBodyArgs {
     #[builder(default)]
     pub repos: bool,
@@ -46,7 +46,7 @@ impl DockerListBodyArgs {
     }
 }
 
-#[derive(Builder, Clone)]
+#[derive(Builder)]
 pub struct RegistryRepository {
     pub id: i64,
     pub location: String,
@@ -76,7 +76,7 @@ impl Timestamp for RegistryRepository {
     }
 }
 
-#[derive(Builder, Clone)]
+#[derive(Builder)]
 pub struct RepositoryTag {
     pub name: String,
     pub path: String,
@@ -197,13 +197,24 @@ pub fn list_repositories<W: Write>(
 
 #[cfg(test)]
 mod tests {
+    use crate::error;
+
     use super::*;
 
-    struct MockContainerRegistry {}
+    #[derive(Builder, Default)]
+    struct MockContainerRegistry {
+        #[builder(default)]
+        num_pages_repos_ok_none: bool,
+        #[builder(default)]
+        num_pages_repos_err: bool,
+    }
 
     impl MockContainerRegistry {
-        pub fn new() -> Self {
-            MockContainerRegistry {}
+        pub fn new() -> MockContainerRegistry {
+            MockContainerRegistry::default()
+        }
+        pub fn builder() -> MockContainerRegistryBuilder {
+            MockContainerRegistryBuilder::default()
         }
     }
 
@@ -235,6 +246,12 @@ mod tests {
         }
 
         fn num_pages_repositories(&self) -> Result<Option<u32>> {
+            if self.num_pages_repos_ok_none {
+                return Ok(None);
+            }
+            if self.num_pages_repos_err {
+                return Err(error::gen("Error"));
+            }
             Ok(Some(1))
         }
     }
@@ -375,5 +392,61 @@ mod tests {
             "1 | registry.gitlab.com/namespace/project | 10 | 2021-01-01T00:00:00Z\n",
             String::from_utf8(buf).unwrap()
         );
+    }
+
+    #[test]
+    fn test_num_pages_not_available_in_headers() {
+        let remote = Arc::new(
+            MockContainerRegistry::builder()
+                .num_pages_repos_ok_none(true)
+                .build()
+                .unwrap(),
+        );
+        let args = DockerListCliArgs::builder()
+            .repos(true)
+            .tags(false)
+            .repo_id(None)
+            .list_args(
+                ListRemoteCliArgs::builder()
+                    .refresh_cache(false)
+                    .num_pages(true)
+                    .no_headers(true)
+                    .build()
+                    .unwrap(),
+            )
+            .build()
+            .unwrap();
+        let mut buf = Vec::new();
+        validate_and_list(remote, args, &mut buf).unwrap();
+        assert_eq!(
+            "Number of pages not available.\n",
+            String::from_utf8(buf).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_num_pages_error_in_remote_is_error() {
+        let remote = Arc::new(
+            MockContainerRegistry::builder()
+                .num_pages_repos_err(true)
+                .build()
+                .unwrap(),
+        );
+        let args = DockerListCliArgs::builder()
+            .repos(true)
+            .tags(false)
+            .repo_id(None)
+            .list_args(
+                ListRemoteCliArgs::builder()
+                    .refresh_cache(false)
+                    .num_pages(true)
+                    .no_headers(true)
+                    .build()
+                    .unwrap(),
+            )
+            .build()
+            .unwrap();
+        let mut buf = Vec::new();
+        assert!(validate_and_list(remote, args, &mut buf).is_err());
     }
 }
