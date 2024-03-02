@@ -45,6 +45,14 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
             ApiOperation::ContainerRegistry,
         )
     }
+
+    fn num_pages_repository_tags(&self) -> Result<Option<u32>> {
+        todo!()
+    }
+
+    fn num_pages_repositories(&self) -> Result<Option<u32>> {
+        todo!()
+    }
 }
 
 pub struct GitlabRegistryRepositoryFields {
