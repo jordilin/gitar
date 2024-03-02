@@ -119,7 +119,7 @@ pub fn execute(
 fn validate_and_list<W: Write>(
     remote: Arc<dyn ContainerRegistry + Send + Sync>,
     cli_args: DockerListCliArgs,
-    writer: W,
+    mut writer: W,
 ) -> Result<()> {
     if cli_args.list_args.num_pages {
         return get_num_pages(remote, cli_args, writer);
@@ -132,8 +132,18 @@ fn validate_and_list<W: Write>(
         .body_args(body_args)
         .build()?;
     if body_args.tags {
+        if cli_args.list_args.no_headers {
+            return list_repository_tags(remote, body_args, writer);
+        }
+        let headers = "Name | Path | Location\n";
+        writer.write_all(headers.as_bytes())?;
         return list_repository_tags(remote, body_args, writer);
     }
+    if cli_args.list_args.no_headers {
+        return list_repositories(remote, body_args, writer);
+    }
+    let headers = "ID | Location | Tags count | Created at\n";
+    writer.write_all(headers.as_bytes())?;
     list_repositories(remote, body_args, writer)
 }
 
@@ -168,8 +178,6 @@ pub fn list_repository_tags<W: Write>(
     args: DockerListBodyArgs,
     mut writer: W,
 ) -> Result<()> {
-    let headers = "Name | Path | Location\n";
-    writer.write_all(headers.as_bytes())?;
     for tag in remote.list_repository_tags(args)? {
         writer.write_all(format!("{}\n", tag).as_bytes())?;
     }
@@ -181,8 +189,6 @@ pub fn list_repositories<W: Write>(
     args: DockerListBodyArgs,
     mut writer: W,
 ) -> Result<()> {
-    let headers = "ID | Location | Tags count | Created at\n";
-    writer.write_all(headers.as_bytes())?;
     for repo in remote.list_repositories(args)? {
         writer.write_all(format!("{}\n", repo).as_bytes())?;
     }
@@ -321,5 +327,53 @@ mod tests {
         let mut buf = Vec::new();
         validate_and_list(remote, args, &mut buf).unwrap();
         assert_eq!("1\n", String::from_utf8(buf).unwrap());
+    }
+
+    #[test]
+    fn test_do_not_print_headers_if_no_headers_provided_for_tags() {
+        let remote = Arc::new(MockContainerRegistry::new());
+        let args = DockerListCliArgs::builder()
+            .repos(false)
+            .tags(true)
+            .repo_id(Some(1))
+            .list_args(
+                ListRemoteCliArgs::builder()
+                    .refresh_cache(false)
+                    .no_headers(true)
+                    .build()
+                    .unwrap(),
+            )
+            .build()
+            .unwrap();
+        let mut buf = Vec::new();
+        validate_and_list(remote, args, &mut buf).unwrap();
+        assert_eq!(
+            "v0.0.1 | namespace/project:v0.0.1 | registry.gitlab.com/namespace/project:v0.0.1\n",
+            String::from_utf8(buf).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_do_not_print_headers_if_no_headers_provided_for_repositories() {
+        let remote = Arc::new(MockContainerRegistry::new());
+        let args = DockerListCliArgs::builder()
+            .repos(true)
+            .tags(false)
+            .repo_id(None)
+            .list_args(
+                ListRemoteCliArgs::builder()
+                    .refresh_cache(false)
+                    .no_headers(true)
+                    .build()
+                    .unwrap(),
+            )
+            .build()
+            .unwrap();
+        let mut buf = Vec::new();
+        validate_and_list(remote, args, &mut buf).unwrap();
+        assert_eq!(
+            "1 | registry.gitlab.com/namespace/project | 10 | 2021-01-01T00:00:00Z\n",
+            String::from_utf8(buf).unwrap()
+        );
     }
 }
