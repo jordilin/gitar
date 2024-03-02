@@ -45,6 +45,30 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
             ApiOperation::ContainerRegistry,
         )
     }
+
+    fn num_pages_repository_tags(&self, repository_id: i64) -> Result<Option<u32>> {
+        let url = format!(
+            "{}/registry/repositories/{}/tags?page=1",
+            self.rest_api_basepath(),
+            repository_id
+        );
+        query::num_pages(
+            &self.runner,
+            &url,
+            self.headers(),
+            ApiOperation::ContainerRegistry,
+        )
+    }
+
+    fn num_pages_repositories(&self) -> Result<Option<u32>> {
+        let url = format!("{}/registry/repositories?page=1", self.rest_api_basepath());
+        query::num_pages(
+            &self.runner,
+            &url,
+            self.headers(),
+            ApiOperation::ContainerRegistry,
+        )
+    }
 }
 
 pub struct GitlabRegistryRepositoryFields {
@@ -112,7 +136,10 @@ impl From<GitlabRepositoryTagFields> for RepositoryTag {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::utils::{config, get_contract, ContractType, MockRunner};
+    use crate::{
+        http::Headers,
+        test::utils::{config, get_contract, ContractType, MockRunner},
+    };
     use std::sync::Arc;
 
     #[test]
@@ -170,6 +197,60 @@ mod test {
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories/1/tags"
         );
         assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(
+            Some(ApiOperation::ContainerRegistry),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_query_num_pages_for_tags() {
+        let config = config();
+        let domain = "gitlab.com";
+        let path = "jordilin/gitlapi";
+        let link_headers = r#"<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories/1/tags?page=1>; rel="next", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories/1/tags?page=1>; rel="last""#;
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), link_headers.to_string());
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn ContainerRegistry> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert_eq!(Some(1), gitlab.num_pages_repository_tags(1).unwrap());
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories/1/tags?page=1",
+            client.url().to_string(),
+        );
+        assert_eq!(
+            Some(ApiOperation::ContainerRegistry),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_query_num_pages_for_registry_repositories() {
+        let config = config();
+        let domain = "gitlab.com";
+        let path = "jordilin/gitlapi";
+        let link_headers = r#"<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories?page=1>; rel="next", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories?page=1>; rel="last""#;
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), link_headers.to_string());
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn ContainerRegistry> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        assert_eq!(Some(1), gitlab.num_pages_repositories().unwrap());
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories?page=1",
+            client.url().to_string(),
+        );
         assert_eq!(
             Some(ApiOperation::ContainerRegistry),
             *client.api_operation.borrow()
