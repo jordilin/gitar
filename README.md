@@ -10,6 +10,11 @@
     - [Worth a thousand words](#worth-a-thousand-words)
   - [Remotes supported](#remotes-supported)
   - [Operations supported](#operations-supported)
+    - [Merge requests](#merge-requests)
+    - [Pipeline](#pipeline)
+    - [Container registry](#container-registry)
+    - [Project](#project)
+    - [Browse remote using your browser](#browse-remote-using-your-browser)
   - [Not yet supported](#not-yet-supported)
   - [Unit tests](#unit-tests)
   - [License](#license)
@@ -175,9 +180,56 @@ Gitlab and Github.
 
 ## Operations supported
 
-* Open/Merge/List/Close a pull request
-* Browse repository, merge request
-* Clone remote feature branch locally
+### Merge requests
+
+In Gitlab they are known as merge requests and in Github as pull requests.
+
+| Operation | GitLab | GitHub |
+| --------- | -------------- | -------------- |
+| Open  | &#x2714; | &#x2714; |
+| Merge | &#x2714; | &#x2714; |
+| List | &#x2714;| &#x2714; |
+| Close | &#x2714; | &#x2716; |
+
+### Pipeline
+
+In Gitlab they are known as pipelines and in Github as actions.
+
+| Operation | GitLab | GitHub |
+| --------- | -------------- | -------------- |
+| List | &#x2714; | &#x2714; |
+
+
+### Container registry
+
+| Operation | GitLab | GitHub |
+| --------- | -------------- | -------------- |
+| List | &#x2714; | &#x2716; |
+
+### Project
+
+| Operation | GitLab | GitHub |
+| --------- | -------------- | -------------- |
+| Get | &#x2714; | &#x2714; |
+
+### Browse remote using your browser
+
+| Operation | GitLab | GitHub |
+| --------- | -------------- | -------------- |
+| Open git repo in browser | &#x2714; | &#x2714; |
+| Open merge request in browser | &#x2714; | &#x2714; |
+| Open pipeline in browser | &#x2714; | &#x2714; |
+
+
+All list operations support the following flags:
+
+- `--page` to specify the page to fetch.
+- `--from-page` and `--to-page` to specify a range of pages to fetch.
+- `--num-pages` queries how many pages of data are available
+- `--refresh` to force a refresh of the cache.
+- `--sort` sorts data by date ascending or descending. Ascending is the default.
+- `--created-after` and `--created-before` to filter by date if response
+  payloads support `created_at` field.
 
 ## Not yet supported
 
