@@ -188,7 +188,7 @@ In Gitlab they are known as merge requests and in Github as pull requests.
 | --------- | -------------- | -------------- |
 | Open  | &#x2714; | &#x2714; |
 | Merge | &#x2714; | &#x2714; |
-| List | &#x2714;| &#x2714; |
+| List merge requests by its state | &#x2714;| &#x2714; |
 | Close | &#x2714; | &#x2716; |
 
 ### Pipeline
@@ -197,14 +197,16 @@ In Gitlab they are known as pipelines and in Github as actions.
 
 | Operation | GitLab | GitHub |
 | --------- | -------------- | -------------- |
-| List | &#x2714; | &#x2714; |
+| List all pipelines | &#x2714; | &#x2714; |
 
 
 ### Container registry
 
 | Operation | GitLab | GitHub |
 | --------- | -------------- | -------------- |
-| List | &#x2714; | &#x2716; |
+| List repositories | &#x2714; | &#x2716; |
+| List tags | &#x2714; | &#x2716; |
+| Get image metadata | &#x2714; | &#x2716; |
 
 ### Project
 
