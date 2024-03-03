@@ -119,6 +119,16 @@ def list_registry_repository_tags_api():
     return data[0]
 
 
+def get_registry_repository_tag_api():
+    url = "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories/6120360/tags/v0.0.1"
+    headers = {"PRIVATE-TOKEN": PRIVATE_TOKEN}
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    if args.persist:
+        persist_contract("get_registry_repository_tag.json", REMOTE, data)
+    return data
+
+
 class TestAPI:
     def __init__(self, callback, msg, *expected):
         self.callback = callback
@@ -153,6 +163,11 @@ if __name__ == "__main__":
             list_registry_repository_tags_api,
             "list registry repository tags API contract",
             get_contract_json("list_registry_repository_tags.json", REMOTE),
+        ),
+        TestAPI(
+            get_registry_repository_tag_api,
+            "get registry repository tag API contract",
+            get_contract_json("get_registry_repository_tag.json", REMOTE),
         ),
     ]
     if not validate_responses(testcases):
