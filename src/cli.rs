@@ -1,5 +1,5 @@
 use crate::{
-    docker::DockerListCliArgs,
+    docker::{DockerImageCliArgs, DockerListCliArgs},
     merge_request::{MergeRequestCliArgs, MergeRequestListCliArgs},
     remote::{ListRemoteCliArgs, ListSortMode, MergeRequestState},
 };
@@ -47,6 +47,18 @@ struct DockerCommand {
 enum DockerSubCommand {
     #[clap(about = "List Docker images")]
     List(ListDockerImages),
+    #[clap(about = "Get docker image metadata")]
+    Image(DockerImageMetadata),
+}
+
+#[derive(Parser)]
+struct DockerImageMetadata {
+    /// Repository ID the image belongs to
+    #[clap(long)]
+    repo_id: i64,
+    /// Tag name
+    #[clap()]
+    tag: String,
 }
 
 #[derive(Parser)]
@@ -328,6 +340,7 @@ pub enum MergeRequestOptions {
 
 pub enum DockerOptions {
     List(DockerListCliArgs),
+    Get(DockerImageCliArgs),
 }
 
 // From impls - private clap structs to public domain structs
@@ -338,7 +351,20 @@ impl From<DockerCommand> for DockerOptions {
     fn from(options: DockerCommand) -> Self {
         match options.subcommand {
             DockerSubCommand::List(options) => options.into(),
+            DockerSubCommand::Image(options) => options.into(),
         }
+    }
+}
+
+impl From<DockerImageMetadata> for DockerOptions {
+    fn from(options: DockerImageMetadata) -> Self {
+        DockerOptions::Get(
+            DockerImageCliArgs::builder()
+                .repo_id(options.repo_id)
+                .tag(options.tag)
+                .build()
+                .unwrap(),
+        )
     }
 }
 

@@ -102,6 +102,33 @@ impl Display for RepositoryTag {
     }
 }
 
+#[derive(Builder)]
+pub struct DockerImageCliArgs {
+    pub tag: String,
+    pub repo_id: i64,
+}
+
+impl DockerImageCliArgs {
+    pub fn builder() -> DockerImageCliArgsBuilder {
+        DockerImageCliArgsBuilder::default()
+    }
+}
+
+#[derive(Builder)]
+pub struct RepositoryTagMetadata {
+    pub name: String,
+    pub location: String,
+    pub short_sha: String,
+    pub size: i64,
+    pub created_at: String,
+}
+
+impl RepositoryTagMetadata {
+    pub fn builder() -> RepositoryTagMetadataBuilder {
+        RepositoryTagMetadataBuilder::default()
+    }
+}
+
 pub fn execute(
     options: DockerOptions,
     config: Arc<Config>,
@@ -112,6 +139,9 @@ pub fn execute(
         DockerOptions::List(cli_args) => {
             let remote = get_registry(domain, path, config, cli_args.list_args.refresh_cache)?;
             validate_and_list(remote, cli_args, std::io::stdout())
+        }
+        DockerOptions::Get(_cli_args) => {
+            unimplemented!("Image command not implemented yet")
         }
     }
 }
