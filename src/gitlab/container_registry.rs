@@ -1,6 +1,7 @@
 use crate::{
     api_traits::{ApiOperation, ContainerRegistry},
-    docker::{DockerListBodyArgs, RegistryRepository, RepositoryTag},
+    docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
+    http,
     io::{HttpRunner, Response},
     remote::query,
     Result,
@@ -70,12 +71,21 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
         )
     }
 
-    fn get_image_metadata(
-        &self,
-        _repository_id: i64,
-        _tag: String,
-    ) -> Result<crate::docker::ImageMetadata> {
-        todo!()
+    fn get_image_metadata(&self, repository_id: i64, tag: &str) -> Result<ImageMetadata> {
+        let url = format!(
+            "{}/registry/repositories/{}/tags/{}",
+            self.rest_api_basepath(),
+            repository_id,
+            tag
+        );
+        query::gitlab_registry_image_tag_metadata::<_, ()>(
+            &self.runner,
+            &url,
+            None,
+            self.headers(),
+            http::Method::GET,
+            ApiOperation::ContainerRegistry,
+        )
     }
 }
 
@@ -135,6 +145,39 @@ impl From<GitlabRepositoryTagFields> for RepositoryTag {
             .name(data.name)
             .path(data.path)
             .location(data.location)
+            .created_at(data.created_at)
+            .build()
+            .unwrap()
+    }
+}
+
+pub struct GitlabImageMetadataFields {
+    name: String,
+    location: String,
+    short_sha: String,
+    size: i64,
+    created_at: String,
+}
+
+impl From<&serde_json::Value> for GitlabImageMetadataFields {
+    fn from(data: &serde_json::Value) -> Self {
+        GitlabImageMetadataFields {
+            name: data["name"].as_str().unwrap().to_string(),
+            location: data["location"].as_str().unwrap().to_string(),
+            short_sha: data["short_revision"].as_str().unwrap().to_string(),
+            size: data["total_size"].as_i64().unwrap(),
+            created_at: data["created_at"].as_str().unwrap().to_string(),
+        }
+    }
+}
+
+impl From<GitlabImageMetadataFields> for crate::docker::ImageMetadata {
+    fn from(data: GitlabImageMetadataFields) -> Self {
+        crate::docker::ImageMetadata::builder()
+            .name(data.name)
+            .location(data.location)
+            .short_sha(data.short_sha)
+            .size(data.size)
             .created_at(data.created_at)
             .build()
             .unwrap()
@@ -257,6 +300,32 @@ mod test {
         assert_eq!(Some(1), gitlab.num_pages_repositories().unwrap());
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories?page=1",
+            client.url().to_string(),
+        );
+        assert_eq!(
+            Some(ApiOperation::ContainerRegistry),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_get_gitlab_registry_image_metadata() {
+        let config = config();
+        let domain = "gitlab.com";
+        let path = "jordilin/gitlapi";
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(
+                ContractType::Gitlab,
+                "get_registry_repository_tag.json",
+            ))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn ContainerRegistry> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let _metadata = gitlab.get_image_metadata(1, "v0.0.1").unwrap();
+        assert_eq!("https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories/1/tags/v0.0.1",
             client.url().to_string(),
         );
         assert_eq!(

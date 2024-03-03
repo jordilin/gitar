@@ -164,7 +164,7 @@ fn get_image_metadata<W: Write>(
     cli_args: DockerImageCliArgs,
     mut writer: W,
 ) -> Result<()> {
-    let metadata = remote.get_image_metadata(cli_args.repo_id, cli_args.tag)?;
+    let metadata = remote.get_image_metadata(cli_args.repo_id, &cli_args.tag)?;
     if cli_args.no_headers {
         writer.write_all(format!("{}\n", metadata).as_bytes())?;
     } else {
@@ -314,9 +314,9 @@ mod tests {
             Ok(Some(1))
         }
 
-        fn get_image_metadata(&self, _repository_id: i64, tag: String) -> Result<ImageMetadata> {
+        fn get_image_metadata(&self, _repository_id: i64, tag: &str) -> Result<ImageMetadata> {
             let metadata = ImageMetadata::builder()
-                .name(tag.clone())
+                .name(tag.to_string())
                 .location(format!("registry.gitlab.com/namespace/project:{}", tag))
                 .short_sha("12345678".to_string())
                 .size(100)

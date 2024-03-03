@@ -45,7 +45,7 @@ pub trait ContainerRegistry {
     fn list_repository_tags(&self, args: DockerListBodyArgs) -> Result<Vec<RepositoryTag>>;
     fn num_pages_repository_tags(&self, repository_id: i64) -> Result<Option<u32>>;
     fn num_pages_repositories(&self) -> Result<Option<u32>>;
-    fn get_image_metadata(&self, repository_id: i64, tag: String) -> Result<ImageMetadata>;
+    fn get_image_metadata(&self, repository_id: i64, tag: &str) -> Result<ImageMetadata>;
 }
 
 /// Types of API resources attached to a request. The request will carry this

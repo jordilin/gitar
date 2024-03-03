@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::{
     api_traits::ApiOperation,
-    docker::{RegistryRepository, RepositoryTag},
+    docker::{ImageMetadata, RegistryRepository, RepositoryTag},
     error,
     github::{
         cicd::GithubPipelineFields,
@@ -14,7 +14,9 @@ use crate::{
     },
     gitlab::{
         cicd::GitlabPipelineFields,
-        container_registry::{GitlabRegistryRepositoryFields, GitlabRepositoryTagFields},
+        container_registry::{
+            GitlabImageMetadataFields, GitlabRegistryRepositoryFields, GitlabRepositoryTagFields,
+        },
         merge_request::GitlabMergeRequestFields,
         project::{GitlabMemberFields, GitlabProjectFields},
     },
@@ -251,3 +253,8 @@ send!(
 );
 
 send!(gitlab_merge_request_response, Response);
+send!(
+    gitlab_registry_image_tag_metadata,
+    GitlabImageMetadataFields,
+    ImageMetadata
+);

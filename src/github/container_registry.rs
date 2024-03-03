@@ -30,7 +30,7 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Github<R> {
     fn get_image_metadata(
         &self,
         _repository_id: i64,
-        _tag: String,
+        _tag: &str,
     ) -> Result<crate::docker::ImageMetadata> {
         todo!()
     }
