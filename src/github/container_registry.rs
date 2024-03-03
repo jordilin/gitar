@@ -26,4 +26,12 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Github<R> {
     fn num_pages_repositories(&self) -> Result<Option<u32>> {
         todo!()
     }
+
+    fn get_image_metadata(
+        &self,
+        _repository_id: i64,
+        _tag: &str,
+    ) -> Result<crate::docker::ImageMetadata> {
+        todo!()
+    }
 }

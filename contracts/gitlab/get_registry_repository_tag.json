@@ -1,0 +1,10 @@
+{
+  "name": "v0.0.1",
+  "path": "jordilin/gitlapi:v0.0.1",
+  "location": "registry.gitlab.com/jordilin/gitlapi:v0.0.1",
+  "revision": "0177c7f978f494fc26886fc558b1ad769993616ba1bf5269a52c349dd1de0546",
+  "short_revision": "0177c7f97",
+  "digest": "sha256:0785a267d4b41c6775fb9f9993d3c519510789ccb7fa908121d41b8eb8fbd2d6",
+  "created_at": "2024-02-27T04:54:35.725+00:00",
+  "total_size": 2829215
+}
