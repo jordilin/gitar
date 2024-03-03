@@ -69,6 +69,14 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
             ApiOperation::ContainerRegistry,
         )
     }
+
+    fn get_image_metadata(
+        &self,
+        _repository_id: i64,
+        _tag: String,
+    ) -> Result<crate::docker::ImageMetadata> {
+        todo!()
+    }
 }
 
 pub struct GitlabRegistryRepositoryFields {

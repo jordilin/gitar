@@ -106,6 +106,8 @@ impl Display for RepositoryTag {
 pub struct DockerImageCliArgs {
     pub tag: String,
     pub repo_id: i64,
+    pub refresh_cache: bool,
+    pub no_headers: bool,
 }
 
 impl DockerImageCliArgs {
@@ -115,7 +117,7 @@ impl DockerImageCliArgs {
 }
 
 #[derive(Builder)]
-pub struct RepositoryTagMetadata {
+pub struct ImageMetadata {
     pub name: String,
     pub location: String,
     pub short_sha: String,
@@ -123,9 +125,19 @@ pub struct RepositoryTagMetadata {
     pub created_at: String,
 }
 
-impl RepositoryTagMetadata {
-    pub fn builder() -> RepositoryTagMetadataBuilder {
-        RepositoryTagMetadataBuilder::default()
+impl ImageMetadata {
+    pub fn builder() -> ImageMetadataBuilder {
+        ImageMetadataBuilder::default()
+    }
+}
+
+impl Display for ImageMetadata {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} | {} | {} | {} | {}",
+            self.name, self.location, self.short_sha, self.size, self.created_at
+        )
     }
 }
 
@@ -140,10 +152,27 @@ pub fn execute(
             let remote = get_registry(domain, path, config, cli_args.list_args.refresh_cache)?;
             validate_and_list(remote, cli_args, std::io::stdout())
         }
-        DockerOptions::Get(_cli_args) => {
-            unimplemented!("Image command not implemented yet")
+        DockerOptions::Get(cli_args) => {
+            let remote = get_registry(domain, path, config, cli_args.refresh_cache)?;
+            get_image_metadata(remote, cli_args, std::io::stdout())
         }
     }
+}
+
+fn get_image_metadata<W: Write>(
+    remote: Arc<dyn ContainerRegistry + Send + Sync>,
+    cli_args: DockerImageCliArgs,
+    mut writer: W,
+) -> Result<()> {
+    let metadata = remote.get_image_metadata(cli_args.repo_id, cli_args.tag)?;
+    if cli_args.no_headers {
+        writer.write_all(format!("{}\n", metadata).as_bytes())?;
+    } else {
+        let headers = "Name | Location | Short SHA | Size | Created at\n";
+        writer.write_all(headers.as_bytes())?;
+        writer.write_all(format!("{}\n", metadata).as_bytes())?;
+    }
+    Ok(())
 }
 
 fn validate_and_list<W: Write>(
@@ -283,6 +312,18 @@ mod tests {
                 return Err(error::gen("Error"));
             }
             Ok(Some(1))
+        }
+
+        fn get_image_metadata(&self, _repository_id: i64, tag: String) -> Result<ImageMetadata> {
+            let metadata = ImageMetadata::builder()
+                .name(tag.clone())
+                .location(format!("registry.gitlab.com/namespace/project:{}", tag))
+                .short_sha("12345678".to_string())
+                .size(100)
+                .created_at("2021-01-01T00:00:00Z".to_string())
+                .build()
+                .unwrap();
+            Ok(metadata)
         }
     }
 
@@ -478,5 +519,42 @@ mod tests {
             .unwrap();
         let mut buf = Vec::new();
         assert!(validate_and_list(remote, args, &mut buf).is_err());
+    }
+
+    #[test]
+    fn test_get_image_metadata() {
+        let remote = Arc::new(MockContainerRegistry::new());
+        let args = DockerImageCliArgs::builder()
+            .tag("v0.0.1".to_string())
+            .repo_id(1)
+            .refresh_cache(false)
+            .no_headers(false)
+            .build()
+            .unwrap();
+        let mut buf = Vec::new();
+        get_image_metadata(remote, args, &mut buf).unwrap();
+        assert_eq!(
+            "Name | Location | Short SHA | Size | Created at\n\
+            v0.0.1 | registry.gitlab.com/namespace/project:v0.0.1 | 12345678 | 100 | 2021-01-01T00:00:00Z\n",
+            String::from_utf8(buf).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_get_image_metadata_no_headers() {
+        let remote = Arc::new(MockContainerRegistry::new());
+        let args = DockerImageCliArgs::builder()
+            .tag("v0.0.1".to_string())
+            .repo_id(1)
+            .refresh_cache(false)
+            .no_headers(true)
+            .build()
+            .unwrap();
+        let mut buf = Vec::new();
+        get_image_metadata(remote, args, &mut buf).unwrap();
+        assert_eq!(
+            "v0.0.1 | registry.gitlab.com/namespace/project:v0.0.1 | 12345678 | 100 | 2021-01-01T00:00:00Z\n",
+            String::from_utf8(buf).unwrap()
+        );
     }
 }

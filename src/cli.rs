@@ -59,6 +59,12 @@ struct DockerImageMetadata {
     /// Tag name
     #[clap()]
     tag: String,
+    /// Refresh the cache
+    #[clap(long, short)]
+    pub refresh: bool,
+    /// Do not print headers
+    #[clap(long)]
+    pub no_headers: bool,
 }
 
 #[derive(Parser)]
@@ -362,6 +368,8 @@ impl From<DockerImageMetadata> for DockerOptions {
             DockerImageCliArgs::builder()
                 .repo_id(options.repo_id)
                 .tag(options.tag)
+                .refresh_cache(options.refresh)
+                .no_headers(options.no_headers)
                 .build()
                 .unwrap(),
         )
@@ -534,8 +542,8 @@ mod test {
             Command::Docker(DockerCommand {
                 subcommand: DockerSubCommand::List(options),
             }) => {
-                assert_eq!(options.repos, true);
-                assert_eq!(options.tags, false);
+                assert!(options.repos);
+                assert!(!options.tags);
             }
             _ => panic!("Expected DockerCommand"),
         }
@@ -548,9 +556,34 @@ mod test {
             Command::Docker(DockerCommand {
                 subcommand: DockerSubCommand::List(options),
             }) => {
-                assert_eq!(options.repos, false);
-                assert_eq!(options.tags, true);
+                assert!(!options.repos);
+                assert!(options.tags);
                 assert_eq!(options.repo_id, Some(12));
+            }
+            _ => panic!("Expected DockerCommand"),
+        }
+    }
+
+    #[test]
+    fn test_docker_get_image_metadata_cli_args() {
+        let args = Args::parse_from(vec![
+            "gr",
+            "dk",
+            "image",
+            "--refresh",
+            "--no-headers",
+            "--repo-id",
+            "123",
+            "v0.0.1",
+        ]);
+        match args.command {
+            Command::Docker(DockerCommand {
+                subcommand: DockerSubCommand::Image(options),
+            }) => {
+                assert_eq!(options.repo_id, 123);
+                assert_eq!(options.tag, "v0.0.1");
+                assert!(options.refresh);
+                assert!(options.no_headers);
             }
             _ => panic!("Expected DockerCommand"),
         }
