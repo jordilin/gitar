@@ -346,13 +346,13 @@ fn list<W: Write>(
         return Ok(());
     }
     if !cli_args.list_args.no_headers {
-        writer.write_all(b"ID | URL | Author | Updated at\n")?;
+        writer.write_all(b"ID | Title | Author | URL | Updated at\n")?;
     }
     for mr in merge_requests {
         writer.write_all(
             format!(
-                "{} | {} | {} | {}\n",
-                mr.id, mr.web_url, mr.author, mr.updated_at
+                "{} | {} | {} | {} | {}\n",
+                mr.id, mr.title, mr.author, mr.web_url, mr.updated_at
             )
             .as_bytes(),
         )?;
@@ -526,6 +526,7 @@ mod tests {
             MergeRequestListMock::builder()
                 .merge_requests(vec![MergeRequestResponse::builder()
                     .id(1)
+                    .title("New feature".to_string())
                     .web_url("https://gitlab.com/owner/repo/-/merge_requests/1".to_string())
                     .author("author".to_string())
                     .updated_at("2021-01-01".to_string())
@@ -546,8 +547,8 @@ mod tests {
         );
         list(remote, body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
-            "ID | URL | Author | Updated at\n\
-             1 | https://gitlab.com/owner/repo/-/merge_requests/1 | author | 2021-01-01\n",
+            "ID | Title | Author | URL | Updated at\n\
+             1 | New feature | author | https://gitlab.com/owner/repo/-/merge_requests/1 | 2021-01-01\n",
             String::from_utf8(buf).unwrap(),
         )
     }
@@ -578,6 +579,7 @@ mod tests {
             MergeRequestListMock::builder()
                 .merge_requests(vec![MergeRequestResponse::builder()
                     .id(1)
+                    .title("New feature".to_string())
                     .web_url("https://gitlab.com/owner/repo/-/merge_requests/1".to_string())
                     .author("author".to_string())
                     .updated_at("2021-01-01".to_string())
@@ -601,7 +603,7 @@ mod tests {
         );
         list(remote, body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
-            "1 | https://gitlab.com/owner/repo/-/merge_requests/1 | author | 2021-01-01\n",
+            "1 | New feature | author | https://gitlab.com/owner/repo/-/merge_requests/1 | 2021-01-01\n",
             String::from_utf8(buf).unwrap(),
         )
     }
