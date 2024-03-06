@@ -101,6 +101,8 @@ pub struct MergeRequestResponse {
     pub source_branch: String,
     #[builder(default)]
     pub created_at: String,
+    #[builder(default)]
+    pub title: String,
 }
 
 impl MergeRequestResponse {
