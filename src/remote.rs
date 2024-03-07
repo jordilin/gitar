@@ -3,6 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use crate::api_traits::{Cicd, ContainerRegistry, MergeRequest, RemoteProject, Timestamp};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
+use crate::display::{Column, DisplayBody};
 use crate::error::GRError;
 use crate::github::Github;
 use crate::gitlab::Gitlab;
@@ -108,6 +109,20 @@ pub struct MergeRequestResponse {
 impl MergeRequestResponse {
     pub fn builder() -> MergeRequestResponseBuilder {
         MergeRequestResponseBuilder::default()
+    }
+}
+
+impl From<MergeRequestResponse> for DisplayBody {
+    fn from(mr: MergeRequestResponse) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("ID", mr.id.to_string()),
+                Column::new("Title", mr.title),
+                Column::new("Author", mr.author),
+                Column::new("URL", mr.web_url),
+                Column::new("Updated at", mr.updated_at),
+            ],
+        }
     }
 }
 

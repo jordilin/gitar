@@ -345,18 +345,12 @@ fn list<W: Write>(
         writer.write_all(b"No merge requests found.\n")?;
         return Ok(());
     }
-    if !cli_args.list_args.no_headers {
-        writer.write_all(b"ID | Title | Author | URL | Updated at\n")?;
-    }
-    for mr in merge_requests {
-        writer.write_all(
-            format!(
-                "{} | {} | {} | {} | {}\n",
-                mr.id, mr.title, mr.author, mr.web_url, mr.updated_at
-            )
-            .as_bytes(),
-        )?;
-    }
+    crate::display::print(
+        &mut writer,
+        merge_requests,
+        cli_args.list_args.no_headers,
+        &crate::display::Format::PIPE,
+    )?;
     Ok(())
 }
 
