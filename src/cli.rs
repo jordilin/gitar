@@ -264,7 +264,7 @@ struct ListArgs {
     created_before: Option<String>,
     #[clap(long, default_value_t=SortModeCli::Asc)]
     sort: SortModeCli,
-    /// Output format
+    /// Output format. pipe " | " or csv ","
     #[clap(long, default_value_t=FormatCli::PIPE)]
     format: FormatCli,
 }
@@ -278,8 +278,8 @@ enum FormatCli {
 impl Display for FormatCli {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            FormatCli::CSV => write!(f, ","),
-            FormatCli::PIPE => write!(f, " | "),
+            FormatCli::CSV => write!(f, "csv"),
+            FormatCli::PIPE => write!(f, "pipe"),
         }
     }
 }

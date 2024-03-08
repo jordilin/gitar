@@ -349,7 +349,7 @@ fn list<W: Write>(
         &mut writer,
         merge_requests,
         cli_args.list_args.no_headers,
-        &crate::display::Format::PIPE,
+        &cli_args.list_args.format,
     )?;
     Ok(())
 }
