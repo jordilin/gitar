@@ -3,8 +3,8 @@ use std::{fmt::Display, io::Write};
 
 #[derive(Clone, Default)]
 pub enum Format {
-    #[default]
     CSV,
+    #[default]
     PIPE,
 }
 

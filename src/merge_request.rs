@@ -4,6 +4,7 @@ use std::sync::Arc;
 use crate::api_traits::MergeRequest;
 use crate::api_traits::RemoteProject;
 use crate::config::ConfigProperties;
+use crate::display;
 use crate::error::GRError;
 use crate::exec;
 use crate::git::Repo;
@@ -345,7 +346,7 @@ fn list<W: Write>(
         writer.write_all(b"No merge requests found.\n")?;
         return Ok(());
     }
-    crate::display::print(
+    display::print(
         &mut writer,
         merge_requests,
         cli_args.list_args.no_headers,

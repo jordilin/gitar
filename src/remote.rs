@@ -221,6 +221,20 @@ impl Timestamp for Pipeline {
     }
 }
 
+impl From<Pipeline> for DisplayBody {
+    fn from(p: Pipeline) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("URL", p.web_url),
+                Column::new("Branch", p.branch),
+                Column::new("SHA", p.sha),
+                Column::new("Created at", p.created_at),
+                Column::new("Status", p.status),
+            ],
+        }
+    }
+}
+
 /// List cli args can be used across multiple APIs that support pagination.
 #[derive(Builder, Clone)]
 pub struct ListRemoteCliArgs {
