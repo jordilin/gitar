@@ -1,4 +1,5 @@
 use crate::{
+    display::Format,
     docker::{DockerImageCliArgs, DockerListCliArgs},
     merge_request::{MergeRequestCliArgs, MergeRequestListCliArgs},
     remote::{ListRemoteCliArgs, ListSortMode, MergeRequestState},
@@ -263,6 +264,24 @@ struct ListArgs {
     created_before: Option<String>,
     #[clap(long, default_value_t=SortModeCli::Asc)]
     sort: SortModeCli,
+    /// Output format
+    #[clap(long, default_value_t=FormatCli::PIPE)]
+    format: FormatCli,
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+enum FormatCli {
+    CSV,
+    PIPE,
+}
+
+impl Display for FormatCli {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            FormatCli::CSV => write!(f, ","),
+            FormatCli::PIPE => write!(f, " | "),
+        }
+    }
 }
 
 #[derive(ValueEnum, Clone, Debug)]
@@ -402,6 +421,7 @@ fn gen_list_args(list_args: ListArgs) -> ListRemoteCliArgs {
         .created_after(list_args.created_after)
         .created_before(list_args.created_before)
         .sort(list_args.sort.into())
+        .format(list_args.format.into())
         .build()
         .unwrap();
     list_args
@@ -423,6 +443,15 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .build()
                 .unwrap(),
         )
+    }
+}
+
+impl From<FormatCli> for Format {
+    fn from(format: FormatCli) -> Self {
+        match format {
+            FormatCli::CSV => Format::CSV,
+            FormatCli::PIPE => Format::PIPE,
+        }
     }
 }
 

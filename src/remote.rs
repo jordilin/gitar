@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use crate::api_traits::{Cicd, ContainerRegistry, MergeRequest, RemoteProject, Timestamp};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
-use crate::display::{Column, DisplayBody};
+use crate::display::{Column, DisplayBody, Format};
 use crate::error::GRError;
 use crate::github::Github;
 use crate::gitlab::Gitlab;
@@ -242,6 +242,8 @@ pub struct ListRemoteCliArgs {
     pub created_before: Option<String>,
     #[builder(default)]
     pub sort: ListSortMode,
+    #[builder(default)]
+    pub format: Format,
 }
 
 impl ListRemoteCliArgs {
