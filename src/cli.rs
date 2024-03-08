@@ -66,6 +66,9 @@ struct DockerImageMetadata {
     /// Do not print headers
     #[clap(long)]
     pub no_headers: bool,
+    /// Output format. pipe " | " or csv ","
+    #[clap(long, default_value_t=FormatCli::PIPE)]
+    format: FormatCli,
 }
 
 #[derive(Parser)]
@@ -389,6 +392,7 @@ impl From<DockerImageMetadata> for DockerOptions {
                 .tag(options.tag)
                 .refresh_cache(options.refresh)
                 .no_headers(options.no_headers)
+                .format(options.format.into())
                 .build()
                 .unwrap(),
         )

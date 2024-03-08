@@ -8,6 +8,7 @@ use crate::{
     api_traits::{ContainerRegistry, Timestamp},
     cli::DockerOptions,
     config::Config,
+    display::{self, Column, DisplayBody, Format},
     remote::{self, get_registry, ListBodyArgs, ListRemoteCliArgs},
     Result,
 };
@@ -108,6 +109,8 @@ pub struct DockerImageCliArgs {
     pub repo_id: i64,
     pub refresh_cache: bool,
     pub no_headers: bool,
+    #[builder(default)]
+    pub format: Format,
 }
 
 impl DockerImageCliArgs {
@@ -116,7 +119,7 @@ impl DockerImageCliArgs {
     }
 }
 
-#[derive(Builder)]
+#[derive(Builder, Clone)]
 pub struct ImageMetadata {
     pub name: String,
     pub location: String,
@@ -131,13 +134,15 @@ impl ImageMetadata {
     }
 }
 
-impl Display for ImageMetadata {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} | {} | {} | {} | {}",
-            self.name, self.location, self.short_sha, self.size, self.created_at
-        )
+impl From<ImageMetadata> for DisplayBody {
+    fn from(metadata: ImageMetadata) -> DisplayBody {
+        DisplayBody::new(vec![
+            Column::new("Name", metadata.name),
+            Column::new("Location", metadata.location),
+            Column::new("Short SHA", metadata.short_sha),
+            Column::new("Size", metadata.size.to_string()),
+            Column::new("Created at", metadata.created_at),
+        ])
     }
 }
 
@@ -165,13 +170,12 @@ fn get_image_metadata<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     let metadata = remote.get_image_metadata(cli_args.repo_id, &cli_args.tag)?;
-    if cli_args.no_headers {
-        writer.write_all(format!("{}\n", metadata).as_bytes())?;
-    } else {
-        let headers = "Name | Location | Short SHA | Size | Created at\n";
-        writer.write_all(headers.as_bytes())?;
-        writer.write_all(format!("{}\n", metadata).as_bytes())?;
-    }
+    display::print(
+        &mut writer,
+        vec![metadata],
+        cli_args.no_headers,
+        &cli_args.format,
+    )?;
     Ok(())
 }
 
