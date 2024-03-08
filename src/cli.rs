@@ -67,7 +67,7 @@ struct DockerImageMetadata {
     #[clap(long)]
     pub no_headers: bool,
     /// Output format. pipe " | " or csv ","
-    #[clap(long, default_value_t=FormatCli::PIPE)]
+    #[clap(long, default_value_t=FormatCli::Pipe)]
     format: FormatCli,
 }
 
@@ -113,7 +113,7 @@ struct ProjectInfo {
     #[clap(long)]
     pub id: Option<i64>,
     /// Output format. pipe " | " or csv ","
-    #[clap(long, default_value_t=FormatCli::PIPE)]
+    #[clap(long, default_value_t=FormatCli::Pipe)]
     format: FormatCli,
 }
 
@@ -271,21 +271,21 @@ struct ListArgs {
     #[clap(long, default_value_t=SortModeCli::Asc)]
     sort: SortModeCli,
     /// Output format. pipe " | " or csv ","
-    #[clap(long, default_value_t=FormatCli::PIPE)]
+    #[clap(long, default_value_t=FormatCli::Pipe)]
     format: FormatCli,
 }
 
 #[derive(ValueEnum, Clone, Debug)]
 enum FormatCli {
-    CSV,
-    PIPE,
+    Csv,
+    Pipe,
 }
 
 impl Display for FormatCli {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            FormatCli::CSV => write!(f, "csv"),
-            FormatCli::PIPE => write!(f, "pipe"),
+            FormatCli::Csv => write!(f, "csv"),
+            FormatCli::Pipe => write!(f, "pipe"),
         }
     }
 }
@@ -457,8 +457,8 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
 impl From<FormatCli> for Format {
     fn from(format: FormatCli) -> Self {
         match format {
-            FormatCli::CSV => Format::CSV,
-            FormatCli::PIPE => Format::PIPE,
+            FormatCli::Csv => Format::CSV,
+            FormatCli::Pipe => Format::PIPE,
         }
     }
 }

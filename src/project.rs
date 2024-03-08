@@ -37,7 +37,7 @@ fn project_info<W: Write>(
         )
         .into());
     };
-    display::print(&mut writer, vec![project_data], false, &format)?;
+    display::print(&mut writer, vec![project_data], false, format)?;
     Ok(())
 }
 
