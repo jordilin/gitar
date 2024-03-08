@@ -2,6 +2,8 @@ use crate::api_traits::RemoteProject;
 use crate::cli::ProjectOperation;
 use crate::cli::ProjectOptions;
 use crate::config::Config;
+use crate::display;
+use crate::display::Format;
 use crate::error;
 use crate::io::CmdInfo;
 use crate::remote;
@@ -18,7 +20,7 @@ pub fn execute(
     match options.operation {
         ProjectOperation::Info { id } => {
             let remote = remote::get_project(domain, path, config, options.refresh_cache)?;
-            project_info(remote, std::io::stdout(), id)
+            project_info(remote, std::io::stdout(), id, &options.format)
         }
     }
 }
@@ -27,6 +29,7 @@ fn project_info<W: Write>(
     remote: Arc<dyn RemoteProject>,
     mut writer: W,
     id: Option<i64>,
+    format: &Format,
 ) -> Result<()> {
     let CmdInfo::Project(project_data) = remote.get_project_data(id)? else {
         return Err(error::GRError::ApplicationError(
@@ -34,7 +37,7 @@ fn project_info<W: Write>(
         )
         .into());
     };
-    writer.write_all(format!("{}\n", project_data).as_bytes())?;
+    display::print(&mut writer, vec![project_data], false, &format)?;
     Ok(())
 }
 
@@ -79,7 +82,7 @@ mod test {
             .unwrap();
         let remote = Arc::new(remote);
         let mut writer = Vec::new();
-        project_info(remote, &mut writer, Some(1)).unwrap();
+        project_info(remote, &mut writer, Some(1), &Format::PIPE).unwrap();
         assert!(writer.len() > 0);
     }
 
@@ -92,7 +95,7 @@ mod test {
             .unwrap();
         let remote = Arc::new(remote);
         let mut writer = Vec::new();
-        project_info(remote, &mut writer, None).unwrap_err();
+        project_info(remote, &mut writer, None, &Format::PIPE).unwrap_err();
         assert!(writer.len() == 0);
     }
 
@@ -104,7 +107,7 @@ mod test {
             .unwrap();
         let remote = Arc::new(remote);
         let mut writer = Vec::new();
-        let result = project_info(remote, &mut writer, Some(1));
+        let result = project_info(remote, &mut writer, Some(1), &Format::PIPE);
         match result {
             Ok(_) => panic!("Expected error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {

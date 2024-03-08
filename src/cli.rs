@@ -112,6 +112,9 @@ struct ProjectInfo {
     /// ID of the project
     #[clap(long)]
     pub id: Option<i64>,
+    /// Output format. pipe " | " or csv ","
+    #[clap(long, default_value_t=FormatCli::PIPE)]
+    format: FormatCli,
 }
 
 #[derive(Parser)]
@@ -356,6 +359,7 @@ pub enum ProjectOperation {
 pub struct ProjectOptions {
     pub operation: ProjectOperation,
     pub refresh_cache: bool,
+    pub format: Format,
 }
 
 pub enum MergeRequestOptions {
@@ -551,6 +555,7 @@ impl From<ProjectCommand> for ProjectOptions {
                     id: options_info.id,
                 },
                 refresh_cache: options.refresh,
+                format: options_info.format.into(),
             },
         }
     }

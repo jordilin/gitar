@@ -50,14 +50,15 @@ impl Project {
     }
 }
 
-impl Display for Project {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "ID | Default Branch | URL")?;
-        write!(
-            f,
-            "{} | {} | {} ",
-            self.id, self.default_branch, self.html_url
-        )
+impl From<Project> for DisplayBody {
+    fn from(p: Project) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("ID", p.id.to_string()),
+                Column::new("Default Branch", p.default_branch),
+                Column::new("URL", p.html_url),
+            ],
+        }
     }
 }
 
@@ -454,16 +455,6 @@ pub struct PipelineBodyArgs {
 impl PipelineBodyArgs {
     pub fn builder() -> PipelineBodyArgsBuilder {
         PipelineBodyArgsBuilder::default()
-    }
-}
-
-impl Display for Pipeline {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} | {} | {} | {} | {}",
-            self.web_url, self.branch, self.sha, self.created_at, self.status
-        )
     }
 }
 

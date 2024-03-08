@@ -1,7 +1,7 @@
 use crate::Result;
 use std::{fmt::Display, io::Write};
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub enum Format {
     CSV,
     #[default]
