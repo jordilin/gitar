@@ -3,6 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use crate::api_traits::{Cicd, ContainerRegistry, MergeRequest, RemoteProject, Timestamp};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
+use crate::display::{Column, DisplayBody, Format};
 use crate::error::GRError;
 use crate::github::Github;
 use crate::gitlab::Gitlab;
@@ -49,14 +50,15 @@ impl Project {
     }
 }
 
-impl Display for Project {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "ID | Default Branch | URL")?;
-        write!(
-            f,
-            "{} | {} | {} ",
-            self.id, self.default_branch, self.html_url
-        )
+impl From<Project> for DisplayBody {
+    fn from(p: Project) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("ID", p.id.to_string()),
+                Column::new("Default Branch", p.default_branch),
+                Column::new("URL", p.html_url),
+            ],
+        }
     }
 }
 
@@ -108,6 +110,20 @@ pub struct MergeRequestResponse {
 impl MergeRequestResponse {
     pub fn builder() -> MergeRequestResponseBuilder {
         MergeRequestResponseBuilder::default()
+    }
+}
+
+impl From<MergeRequestResponse> for DisplayBody {
+    fn from(mr: MergeRequestResponse) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("ID", mr.id.to_string()),
+                Column::new("Title", mr.title),
+                Column::new("Author", mr.author),
+                Column::new("URL", mr.web_url),
+                Column::new("Updated at", mr.updated_at),
+            ],
+        }
     }
 }
 
@@ -206,6 +222,20 @@ impl Timestamp for Pipeline {
     }
 }
 
+impl From<Pipeline> for DisplayBody {
+    fn from(p: Pipeline) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("URL", p.web_url),
+                Column::new("Branch", p.branch),
+                Column::new("SHA", p.sha),
+                Column::new("Created at", p.created_at),
+                Column::new("Status", p.status),
+            ],
+        }
+    }
+}
+
 /// List cli args can be used across multiple APIs that support pagination.
 #[derive(Builder, Clone)]
 pub struct ListRemoteCliArgs {
@@ -227,6 +257,8 @@ pub struct ListRemoteCliArgs {
     pub created_before: Option<String>,
     #[builder(default)]
     pub sort: ListSortMode,
+    #[builder(default)]
+    pub format: Format,
 }
 
 impl ListRemoteCliArgs {
@@ -423,16 +455,6 @@ pub struct PipelineBodyArgs {
 impl PipelineBodyArgs {
     pub fn builder() -> PipelineBodyArgsBuilder {
         PipelineBodyArgsBuilder::default()
-    }
-}
-
-impl Display for Pipeline {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} | {} | {} | {} | {}",
-            self.web_url, self.branch, self.sha, self.created_at, self.status
-        )
     }
 }
 

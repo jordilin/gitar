@@ -1,13 +1,10 @@
-use std::{
-    fmt::{self, Display, Formatter},
-    io::Write,
-    sync::Arc,
-};
+use std::{io::Write, sync::Arc};
 
 use crate::{
     api_traits::{ContainerRegistry, Timestamp},
     cli::DockerOptions,
     config::Config,
+    display::{self, Column, DisplayBody, Format},
     remote::{self, get_registry, ListBodyArgs, ListRemoteCliArgs},
     Result,
 };
@@ -46,7 +43,7 @@ impl DockerListBodyArgs {
     }
 }
 
-#[derive(Builder)]
+#[derive(Builder, Clone)]
 pub struct RegistryRepository {
     pub id: i64,
     pub location: String,
@@ -60,13 +57,14 @@ impl RegistryRepository {
     }
 }
 
-impl Display for RegistryRepository {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} | {} | {} | {}",
-            self.id, self.location, self.tags_count, self.created_at
-        )
+impl From<RegistryRepository> for DisplayBody {
+    fn from(repo: RegistryRepository) -> DisplayBody {
+        DisplayBody::new(vec![
+            Column::new("ID", repo.id.to_string()),
+            Column::new("Location", repo.location),
+            Column::new("Tags count", repo.tags_count.to_string()),
+            Column::new("Created at", repo.created_at),
+        ])
     }
 }
 
@@ -76,7 +74,7 @@ impl Timestamp for RegistryRepository {
     }
 }
 
-#[derive(Builder)]
+#[derive(Builder, Clone)]
 pub struct RepositoryTag {
     pub name: String,
     pub path: String,
@@ -96,9 +94,13 @@ impl Timestamp for RepositoryTag {
     }
 }
 
-impl Display for RepositoryTag {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{} | {} | {}", self.name, self.path, self.location)
+impl From<RepositoryTag> for DisplayBody {
+    fn from(tag: RepositoryTag) -> DisplayBody {
+        DisplayBody::new(vec![
+            Column::new("Name", tag.name),
+            Column::new("Path", tag.path),
+            Column::new("Location", tag.location),
+        ])
     }
 }
 
@@ -108,6 +110,8 @@ pub struct DockerImageCliArgs {
     pub repo_id: i64,
     pub refresh_cache: bool,
     pub no_headers: bool,
+    #[builder(default)]
+    pub format: Format,
 }
 
 impl DockerImageCliArgs {
@@ -116,7 +120,7 @@ impl DockerImageCliArgs {
     }
 }
 
-#[derive(Builder)]
+#[derive(Builder, Clone)]
 pub struct ImageMetadata {
     pub name: String,
     pub location: String,
@@ -131,13 +135,15 @@ impl ImageMetadata {
     }
 }
 
-impl Display for ImageMetadata {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} | {} | {} | {} | {}",
-            self.name, self.location, self.short_sha, self.size, self.created_at
-        )
+impl From<ImageMetadata> for DisplayBody {
+    fn from(metadata: ImageMetadata) -> DisplayBody {
+        DisplayBody::new(vec![
+            Column::new("Name", metadata.name),
+            Column::new("Location", metadata.location),
+            Column::new("Short SHA", metadata.short_sha),
+            Column::new("Size", metadata.size.to_string()),
+            Column::new("Created at", metadata.created_at),
+        ])
     }
 }
 
@@ -165,13 +171,12 @@ fn get_image_metadata<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     let metadata = remote.get_image_metadata(cli_args.repo_id, &cli_args.tag)?;
-    if cli_args.no_headers {
-        writer.write_all(format!("{}\n", metadata).as_bytes())?;
-    } else {
-        let headers = "Name | Location | Short SHA | Size | Created at\n";
-        writer.write_all(headers.as_bytes())?;
-        writer.write_all(format!("{}\n", metadata).as_bytes())?;
-    }
+    display::print(
+        &mut writer,
+        vec![metadata],
+        cli_args.no_headers,
+        &cli_args.format,
+    )?;
     Ok(())
 }
 
@@ -191,19 +196,22 @@ fn validate_and_list<W: Write>(
         .body_args(body_args)
         .build()?;
     if body_args.tags {
-        if cli_args.list_args.no_headers {
-            return list_repository_tags(remote, body_args, writer);
-        }
-        let headers = "Name | Path | Location\n";
-        writer.write_all(headers.as_bytes())?;
-        return list_repository_tags(remote, body_args, writer);
+        let tags = remote.list_repository_tags(body_args)?;
+        display::print(
+            &mut writer,
+            tags,
+            cli_args.list_args.no_headers,
+            &cli_args.list_args.format,
+        )?;
+        return Ok(());
     }
-    if cli_args.list_args.no_headers {
-        return list_repositories(remote, body_args, writer);
-    }
-    let headers = "ID | Location | Tags count | Created at\n";
-    writer.write_all(headers.as_bytes())?;
-    list_repositories(remote, body_args, writer)
+    let repos = remote.list_repositories(body_args)?;
+    display::print(
+        &mut writer,
+        repos,
+        cli_args.list_args.no_headers,
+        &cli_args.list_args.format,
+    )
 }
 
 fn get_num_pages<W: Write>(
@@ -228,28 +236,6 @@ fn report_num_pages<W: Write>(pages: Result<Option<u32>>, mut writer: W) -> Resu
         Err(e) => {
             return Err(e);
         }
-    }
-    Ok(())
-}
-
-pub fn list_repository_tags<W: Write>(
-    remote: Arc<dyn ContainerRegistry>,
-    args: DockerListBodyArgs,
-    mut writer: W,
-) -> Result<()> {
-    for tag in remote.list_repository_tags(args)? {
-        writer.write_all(format!("{}\n", tag).as_bytes())?;
-    }
-    Ok(())
-}
-
-pub fn list_repositories<W: Write>(
-    remote: Arc<dyn ContainerRegistry>,
-    args: DockerListBodyArgs,
-    mut writer: W,
-) -> Result<()> {
-    for repo in remote.list_repositories(args)? {
-        writer.write_all(format!("{}\n", repo).as_bytes())?;
     }
     Ok(())
 }

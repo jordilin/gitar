@@ -1,4 +1,5 @@
 use crate::{
+    display::Format,
     docker::{DockerImageCliArgs, DockerListCliArgs},
     merge_request::{MergeRequestCliArgs, MergeRequestListCliArgs},
     remote::{ListRemoteCliArgs, ListSortMode, MergeRequestState},
@@ -65,6 +66,9 @@ struct DockerImageMetadata {
     /// Do not print headers
     #[clap(long)]
     pub no_headers: bool,
+    /// Output format. pipe " | " or csv ","
+    #[clap(long, default_value_t=FormatCli::Pipe)]
+    format: FormatCli,
 }
 
 #[derive(Parser)]
@@ -108,6 +112,9 @@ struct ProjectInfo {
     /// ID of the project
     #[clap(long)]
     pub id: Option<i64>,
+    /// Output format. pipe " | " or csv ","
+    #[clap(long, default_value_t=FormatCli::Pipe)]
+    format: FormatCli,
 }
 
 #[derive(Parser)]
@@ -263,6 +270,24 @@ struct ListArgs {
     created_before: Option<String>,
     #[clap(long, default_value_t=SortModeCli::Asc)]
     sort: SortModeCli,
+    /// Output format. pipe " | " or csv ","
+    #[clap(long, default_value_t=FormatCli::Pipe)]
+    format: FormatCli,
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+enum FormatCli {
+    Csv,
+    Pipe,
+}
+
+impl Display for FormatCli {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            FormatCli::Csv => write!(f, "csv"),
+            FormatCli::Pipe => write!(f, "pipe"),
+        }
+    }
 }
 
 #[derive(ValueEnum, Clone, Debug)]
@@ -334,6 +359,7 @@ pub enum ProjectOperation {
 pub struct ProjectOptions {
     pub operation: ProjectOperation,
     pub refresh_cache: bool,
+    pub format: Format,
 }
 
 pub enum MergeRequestOptions {
@@ -370,6 +396,7 @@ impl From<DockerImageMetadata> for DockerOptions {
                 .tag(options.tag)
                 .refresh_cache(options.refresh)
                 .no_headers(options.no_headers)
+                .format(options.format.into())
                 .build()
                 .unwrap(),
         )
@@ -402,6 +429,7 @@ fn gen_list_args(list_args: ListArgs) -> ListRemoteCliArgs {
         .created_after(list_args.created_after)
         .created_before(list_args.created_before)
         .sort(list_args.sort.into())
+        .format(list_args.format.into())
         .build()
         .unwrap();
     list_args
@@ -423,6 +451,15 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .build()
                 .unwrap(),
         )
+    }
+}
+
+impl From<FormatCli> for Format {
+    fn from(format: FormatCli) -> Self {
+        match format {
+            FormatCli::Csv => Format::CSV,
+            FormatCli::Pipe => Format::PIPE,
+        }
     }
 }
 
@@ -518,6 +555,7 @@ impl From<ProjectCommand> for ProjectOptions {
                     id: options_info.id,
                 },
                 refresh_cache: options.refresh,
+                format: options_info.format.into(),
             },
         }
     }

@@ -2,7 +2,7 @@ use crate::api_traits::Cicd;
 use crate::cli::PipelineOptions;
 use crate::config::Config;
 use crate::remote::{ListRemoteCliArgs, PipelineBodyArgs};
-use crate::{remote, Result};
+use crate::{display, remote, Result};
 use std::io::Write;
 use std::sync::Arc;
 
@@ -52,12 +52,12 @@ fn list_pipelines<W: Write>(
         writer.write_all(b"No pipelines found.\n")?;
         return Ok(());
     }
-    if !cli_args.no_headers {
-        writer.write_all(b"URL | Branch | SHA | Created at | Status\n")?;
-    }
-    for pipeline in pipelines {
-        writer.write_all(format!("{}\n", pipeline).as_bytes())?;
-    }
+    display::print(
+        &mut writer,
+        pipelines,
+        cli_args.no_headers,
+        &cli_args.format,
+    )?;
     Ok(())
 }
 
