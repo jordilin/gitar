@@ -23,7 +23,6 @@ pub type Error = anyhow::Error;
 pub type Cmd<T> = Box<dyn Fn() -> Result<T> + Send + Sync>;
 pub mod cmds;
 pub mod display;
-pub mod docker;
 
 #[macro_use]
 extern crate lazy_static;

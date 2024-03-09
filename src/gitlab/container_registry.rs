@@ -1,6 +1,6 @@
 use crate::{
     api_traits::{ApiOperation, ContainerRegistry},
-    docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
+    cmds::docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
     http,
     io::{HttpRunner, Response},
     remote::query,
@@ -25,10 +25,7 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
         )
     }
 
-    fn list_repository_tags(
-        &self,
-        args: DockerListBodyArgs,
-    ) -> Result<Vec<crate::docker::RepositoryTag>> {
+    fn list_repository_tags(&self, args: DockerListBodyArgs) -> Result<Vec<RepositoryTag>> {
         // if tags is provided, then args.repo_id is Some at this point. This is
         // enforced at the cli clap level.
         let repository_id = args.repo_id.unwrap();
@@ -141,7 +138,7 @@ impl From<&serde_json::Value> for GitlabRepositoryTagFields {
 
 impl From<GitlabRepositoryTagFields> for RepositoryTag {
     fn from(data: GitlabRepositoryTagFields) -> Self {
-        crate::docker::RepositoryTag::builder()
+        RepositoryTag::builder()
             .name(data.name)
             .path(data.path)
             .location(data.location)
@@ -171,9 +168,9 @@ impl From<&serde_json::Value> for GitlabImageMetadataFields {
     }
 }
 
-impl From<GitlabImageMetadataFields> for crate::docker::ImageMetadata {
+impl From<GitlabImageMetadataFields> for ImageMetadata {
     fn from(data: GitlabImageMetadataFields) -> Self {
-        crate::docker::ImageMetadata::builder()
+        ImageMetadata::builder()
             .name(data.name)
             .location(data.location)
             .short_sha(data.short_sha)

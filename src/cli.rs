@@ -1,7 +1,7 @@
 use crate::{
+    cmds::docker::{DockerImageCliArgs, DockerListCliArgs},
     cmds::merge_request::{MergeRequestCliArgs, MergeRequestListCliArgs},
     display::Format,
-    docker::{DockerImageCliArgs, DockerListCliArgs},
     remote::{ListRemoteCliArgs, ListSortMode, MergeRequestState},
 };
 
