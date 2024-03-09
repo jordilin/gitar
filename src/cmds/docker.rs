@@ -9,6 +9,8 @@ use crate::{
     Result,
 };
 
+use super::common::process_num_pages;
+
 #[derive(Builder)]
 pub struct DockerListCliArgs {
     // If set, list all remote repositories in project's registry
@@ -221,23 +223,10 @@ fn get_num_pages<W: Write>(
 ) -> Result<()> {
     if cli_args.tags {
         let result = remote.num_pages_repository_tags(cli_args.repo_id.unwrap());
-        return report_num_pages(result, writer);
+        return process_num_pages(result, writer);
     }
     let result = remote.num_pages_repositories();
-    report_num_pages(result, writer)
-}
-
-fn report_num_pages<W: Write>(pages: Result<Option<u32>>, mut writer: W) -> Result<()> {
-    match pages {
-        Ok(Some(pages)) => writer.write_all(format!("{pages}\n", pages = pages).as_bytes())?,
-        Ok(None) => {
-            writer.write_all(b"Number of pages not available.\n")?;
-        }
-        Err(e) => {
-            return Err(e);
-        }
-    }
-    Ok(())
+    process_num_pages(result, writer)
 }
 
 #[cfg(test)]
