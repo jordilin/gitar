@@ -22,7 +22,12 @@ impl<R: HttpRunner<Response = Response>> Deploy for Github<R> {
     }
 
     fn num_pages(&self) -> Result<Option<u32>> {
-        todo!();
+        let url = format!(
+            "{}/repos/{}/releases?page=1",
+            self.rest_api_basepath, self.path
+        );
+        let headers = self.request_headers();
+        query::num_pages(&self.runner, &url, headers, ApiOperation::Release)
     }
 }
 
@@ -71,6 +76,7 @@ mod test {
 
     use crate::{
         api_traits::ApiOperation,
+        http::Headers,
         test::utils::{config, get_contract, ContractType, MockRunner},
     };
 
@@ -99,5 +105,29 @@ mod test {
         );
         assert_eq!(Some(ApiOperation::Release), *client.api_operation.borrow());
         assert_eq!(1, runs.len());
+    }
+
+    #[test]
+    fn test_release_num_pages() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let link_header = "<https://api.github.com/repos/jordilin/githapi/releases?page=2>; rel=\"next\", <https://api.github.com/repos/jordilin/githapi/releases?page=2>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), link_header.to_string());
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn Deploy> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let runs = github.num_pages().unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/releases?page=1",
+            *client.url(),
+        );
+        assert_eq!(Some(ApiOperation::Release), *client.api_operation.borrow());
+        assert_eq!(Some(2), runs);
     }
 }

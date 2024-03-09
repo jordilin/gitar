@@ -8,7 +8,7 @@ use crate::{
 use super::Gitlab;
 
 impl<R: HttpRunner<Response = Response>> Deploy for Gitlab<R> {
-    fn list(&self, args: ReleaseBodyArgs) -> Result<Vec<Release>> {
+    fn list(&self, _args: ReleaseBodyArgs) -> Result<Vec<Release>> {
         todo!();
     }
 

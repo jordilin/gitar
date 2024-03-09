@@ -2,6 +2,7 @@ use std::io::Write;
 use std::sync::Arc;
 
 use crate::api_traits::{Deploy, Timestamp};
+use crate::cmds::common::num_release_pages;
 use crate::display::{Column, DisplayBody};
 use crate::remote::{ListBodyArgs, ListRemoteCliArgs};
 use crate::{cli::ReleaseOptions, config::Config};
@@ -64,6 +65,9 @@ pub fn execute(
     match options {
         ReleaseOptions::List(cli_args) => {
             let remote = crate::remote::get_deploy(domain, path, config, cli_args.refresh_cache)?;
+            if cli_args.num_pages {
+                return num_release_pages(remote, std::io::stdout());
+            }
             let from_to_args = crate::remote::validate_from_to_page(&cli_args)?;
             let body_args = ReleaseBodyArgs::builder()
                 .from_to_page(from_to_args)
