@@ -100,6 +100,10 @@ gitlab.com.cache_api_merge_request_expiration=5m
 gitlab.com.cache_api_project_expiration=5d
 # Pipelines are read often, change often, so expire immediately.
 gitlab.com.cache_api_pipeline_expiration=0s
+# Expire read container registry in 5 minutes
+gitlab.com.cache_api_container_registry_expiration=5m
+# Cache for reading releases
+gitlab.com.cache_api_release_expiration=1d
 
 ## Max pages configuration
 
@@ -109,6 +113,10 @@ gitlab.com.max_pages_api_merge_request=10
 gitlab.com.max_pages_api_project=5
 # Get up to 10 pages of pipelines when listing
 gitlab.com.max_pages_api_pipeline=10
+# Get up to 10 pages of container registry when listing
+gitlab.com.max_pages_api_container_registry=10
+# Get up to 10 pages of releases when listing
+gitlab.com.max_pages_api_release=10
 
 # Rate limit remaining threshold. Threshold by which the tool will stop
 # processing requests. Defaults to 10 if not provided. The remote has a counter
