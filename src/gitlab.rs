@@ -5,6 +5,7 @@ pub mod cicd;
 pub mod container_registry;
 pub mod merge_request;
 pub mod project;
+pub mod release;
 
 // https://docs.gitlab.com/ee/api/rest/
 

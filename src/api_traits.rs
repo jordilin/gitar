@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use crate::{
     cli::BrowseOptions,
+    cmds::release::{Release, ReleaseBodyArgs},
     docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
     io::CmdInfo,
     remote::{
@@ -33,6 +34,11 @@ pub trait RemoteProject {
 pub trait Cicd {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>>;
     fn get_pipeline(&self, id: i64) -> Result<Pipeline>;
+    fn num_pages(&self) -> Result<Option<u32>>;
+}
+
+pub trait Deploy {
+    fn list(&self, args: ReleaseBodyArgs) -> Result<Vec<Release>>;
     fn num_pages(&self) -> Result<Option<u32>>;
 }
 
