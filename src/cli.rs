@@ -270,7 +270,7 @@ struct ListArgs {
     created_before: Option<String>,
     #[clap(long, default_value_t=SortModeCli::Asc)]
     sort: SortModeCli,
-    /// Output format. pipe " | " or csv ","
+    /// Output format
     #[clap(long, default_value_t=FormatCli::Pipe)]
     format: FormatCli,
 }
@@ -278,6 +278,7 @@ struct ListArgs {
 #[derive(ValueEnum, Clone, Debug)]
 enum FormatCli {
     Csv,
+    Json,
     Pipe,
 }
 
@@ -286,6 +287,7 @@ impl Display for FormatCli {
         match self {
             FormatCli::Csv => write!(f, "csv"),
             FormatCli::Pipe => write!(f, "pipe"),
+            FormatCli::Json => write!(f, "json"),
         }
     }
 }
@@ -458,6 +460,7 @@ impl From<FormatCli> for Format {
     fn from(format: FormatCli) -> Self {
         match format {
             FormatCli::Csv => Format::CSV,
+            FormatCli::Json => Format::JSON,
             FormatCli::Pipe => Format::PIPE,
         }
     }

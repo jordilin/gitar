@@ -1,9 +1,10 @@
 use crate::Result;
-use std::{fmt::Display, io::Write};
+use std::{collections::HashMap, fmt::Display, io::Write};
 
 #[derive(Clone, Debug, Default)]
 pub enum Format {
     CSV,
+    JSON,
     #[default]
     PIPE,
 }
@@ -13,6 +14,7 @@ impl Display for Format {
         match self {
             Format::CSV => write!(f, ","),
             Format::PIPE => write!(f, " | "),
+            Format::JSON => write!(f, ""),
         }
     }
 }
@@ -22,6 +24,7 @@ impl From<&Format> for &str {
         match f {
             Format::CSV => ",",
             Format::PIPE => " | ",
+            Format::JSON => "",
         }
     }
 }
@@ -59,27 +62,92 @@ pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
     if data.is_empty() {
         return Ok(());
     }
-    if !no_headers {
-        // Get the headers from the first row of columns
-        let headers = data[0]
-            .clone()
-            .into()
-            .columns
-            .iter()
-            .map(|c| c.name.clone())
-            .collect::<Vec<_>>();
-        writeln!(w, "{}", headers.join(format.into()))?;
-    }
-    for d in data {
-        let d = d.into();
-        let num_columns = d.columns.len();
-        for i in 0..num_columns {
-            write!(w, "{}", d.columns[i].value)?;
-            if i < num_columns - 1 {
-                write!(w, "{}", format)?;
+    match format {
+        Format::JSON => {
+            for d in data {
+                let d = d.into();
+                let kvs: HashMap<String, String> = d
+                    .columns
+                    .into_iter()
+                    .map(|item| (item.name, item.value))
+                    .collect();
+                writeln!(w, "{}", serde_json::to_string(&kvs)?)?;
             }
         }
-        writeln!(w)?;
+        _ => {
+            // CSV and PIPE (" | ") formats
+            if !no_headers {
+                // Get the headers from the first row of columns
+                let headers = data[0]
+                    .clone()
+                    .into()
+                    .columns
+                    .iter()
+                    .map(|c| c.name.clone())
+                    .collect::<Vec<_>>();
+                writeln!(w, "{}", headers.join(format.into()))?;
+            }
+            for d in data {
+                let d = d.into();
+                let num_columns = d.columns.len();
+                for i in 0..num_columns {
+                    write!(w, "{}", d.columns[i].value)?;
+                    if i < num_columns - 1 {
+                        write!(w, "{}", format)?;
+                    }
+                }
+                writeln!(w)?;
+            }
+        }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[derive(Clone)]
+    struct Book {
+        pub title: String,
+        pub author: String,
+    }
+
+    impl Book {
+        pub fn new(title: impl Into<String>, author: impl Into<String>) -> Self {
+            Self {
+                title: title.into(),
+                author: author.into(),
+            }
+        }
+    }
+
+    impl From<Book> for DisplayBody {
+        fn from(b: Book) -> Self {
+            DisplayBody::new(vec![
+                Column::new("title", b.title),
+                Column::new("author", b.author),
+            ])
+        }
+    }
+
+    #[test]
+    fn test_json() {
+        let mut w = Vec::new();
+        let books = vec![
+            Book::new("The Catcher in the Rye", "J.D. Salinger"),
+            Book::new("The Adventures of Huckleberry Finn", "Mark Twain"),
+        ];
+        print(&mut w, books, true, &Format::JSON).unwrap();
+        let s = String::from_utf8(w).unwrap();
+        assert_eq!(2, s.lines().count());
+        for line in s.lines() {
+            let v: serde_json::Value = serde_json::from_str(line).unwrap();
+            assert!(v.is_object());
+            let obj = v.as_object().unwrap();
+            assert_eq!(obj.len(), 2);
+            assert!(obj.contains_key("title"));
+            assert!(obj.contains_key("author"));
+        }
+    }
 }
