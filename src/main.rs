@@ -3,9 +3,11 @@ use std::{fs::File, path::Path, sync::Arc};
 use gr::{
     browse, cicd,
     cli::{parse_cli, CliOptions},
-    cmds, docker, error, git, init,
+    cmds,
+    cmds::merge_request,
+    docker, error, git, init,
     io::CmdInfo,
-    merge_request, project,
+    project,
     shell::Shell,
     Result,
 };
