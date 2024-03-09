@@ -5,8 +5,8 @@ use serde::Serialize;
 
 use crate::{
     api_traits::ApiOperation,
+    cmds::docker::{ImageMetadata, RegistryRepository, RepositoryTag},
     cmds::release::Release,
-    docker::{ImageMetadata, RegistryRepository, RepositoryTag},
     error,
     github::{
         cicd::GithubPipelineFields,

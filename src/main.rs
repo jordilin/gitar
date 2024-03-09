@@ -1,11 +1,11 @@
 use std::{fs::File, path::Path, sync::Arc};
 
 use gr::{
-    browse, cicd,
     cli::{parse_cli, CliOptions},
-    cmds, docker, error, git, init,
+    cmds,
+    cmds::{browse, cicd, docker, merge_request, project},
+    error, git, init,
     io::CmdInfo,
-    merge_request, project,
     shell::Shell,
     Result,
 };

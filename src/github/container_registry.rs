@@ -1,6 +1,6 @@
 use crate::{
     api_traits::ContainerRegistry,
-    docker::{DockerListBodyArgs, RegistryRepository},
+    cmds::docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
     io::{HttpRunner, Response},
     Result,
 };
@@ -12,10 +12,7 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Github<R> {
         todo!("list_repositories")
     }
 
-    fn list_repository_tags(
-        &self,
-        _args: DockerListBodyArgs,
-    ) -> Result<Vec<crate::docker::RepositoryTag>> {
+    fn list_repository_tags(&self, _args: DockerListBodyArgs) -> Result<Vec<RepositoryTag>> {
         todo!()
     }
 
@@ -27,11 +24,7 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Github<R> {
         todo!()
     }
 
-    fn get_image_metadata(
-        &self,
-        _repository_id: i64,
-        _tag: &str,
-    ) -> Result<crate::docker::ImageMetadata> {
+    fn get_image_metadata(&self, _repository_id: i64, _tag: &str) -> Result<ImageMetadata> {
         todo!()
     }
 }

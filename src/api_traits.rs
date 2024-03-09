@@ -2,8 +2,8 @@ use std::fmt::Display;
 
 use crate::{
     cli::BrowseOptions,
+    cmds::docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
     cmds::release::{Release, ReleaseBodyArgs},
-    docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
     io::CmdInfo,
     remote::{
         MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Pipeline,
