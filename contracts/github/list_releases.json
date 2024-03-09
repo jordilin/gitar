@@ -1,0 +1,41 @@
+[
+  {
+    "url": "https://api.github.com/repos/jordilin/githapi/releases/145605187",
+    "assets_url": "https://api.github.com/repos/jordilin/githapi/releases/145605187/assets",
+    "upload_url": "https://uploads.github.com/repos/jordilin/githapi/releases/145605187/assets{?name,label}",
+    "html_url": "https://github.com/jordilin/githapi/releases/tag/v0.1.20",
+    "id": 145605187,
+    "author": {
+      "login": "jordilin",
+      "id": 123456,
+      "node_id": "abcdefg",
+      "avatar_url": "https://any_url_test.test",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/jordilin",
+      "html_url": "https://github.com/jordilin",
+      "followers_url": "https://api.github.com/users/jordilin/followers",
+      "following_url": "https://api.github.com/users/jordilin/following{/other_user}",
+      "gists_url": "https://api.github.com/users/jordilin/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/jordilin/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/jordilin/subscriptions",
+      "organizations_url": "https://api.github.com/users/jordilin/orgs",
+      "repos_url": "https://api.github.com/users/jordilin/repos",
+      "events_url": "https://api.github.com/users/jordilin/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/jordilin/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "node_id": "RE_kwDOJ8RDIc4IrcJD",
+    "tag_name": "v0.1.20",
+    "target_commitish": "main",
+    "name": "Test release",
+    "draft": false,
+    "prerelease": false,
+    "created_at": "2024-03-09T07:11:11Z",
+    "published_at": "2024-03-09T07:11:34Z",
+    "assets": [],
+    "tarball_url": "https://api.github.com/repos/jordilin/githapi/tarball/v0.1.20",
+    "zipball_url": "https://api.github.com/repos/jordilin/githapi/zipball/v0.1.20",
+    "body": "This is a test release"
+  }
+]
