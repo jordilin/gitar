@@ -12,7 +12,6 @@ pub mod gitlab;
 pub mod http;
 pub mod init;
 pub mod io;
-pub mod project;
 pub mod remote;
 pub mod shell;
 pub mod test;
