@@ -15,6 +15,7 @@
     - [Container registry](#container-registry)
     - [Project](#project)
     - [Browse remote using your browser](#browse-remote-using-your-browser)
+    - [Releases](#releases)
   - [Not yet supported](#not-yet-supported)
   - [Unit tests](#unit-tests)
   - [License](#license)
@@ -222,6 +223,12 @@ In Gitlab they are known as pipelines and in Github as actions.
 | Open merge request in browser | &#x2714; | &#x2714; |
 | Open pipeline in browser | &#x2714; | &#x2714; |
 
+### Releases
+
+| Operation | GitLab | GitHub |
+| --------- | -------------- | -------------- |
+| List releases | &#x2716; | &#x2714; |
+
 
 All list operations support the following flags:
 
@@ -232,6 +239,7 @@ All list operations support the following flags:
 - `--sort` sorts data by date ascending or descending. Ascending is the default.
 - `--created-after` and `--created-before` to filter by date if response
   payloads support `created_at` field.
+- `--format` to specify the output format. Delimit fields by using a pipe, i.e. ` | ` is the default.
 
 ## Not yet supported
 
