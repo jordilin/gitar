@@ -25,6 +25,8 @@ const CONFIG_TEMPLATE: &str = r#"
 <DOMAIN>.cache_api_pipeline_expiration=30s
 # Container registry operations including listing image tags and repos
 <DOMAIN>.cache_api_container_registry_expiration=1h
+# Expire read releases in 1 day
+<DOMAIN>.cache_api_release_expiration=1d
 
 ## Max pages configuration
 
