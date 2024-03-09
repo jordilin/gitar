@@ -3,7 +3,7 @@ use crate::Result;
 use std::io::Write;
 use std::sync::Arc;
 
-use crate::api_traits::Deploy;
+use crate::api_traits::{Cicd, Deploy};
 
 macro_rules! query_pages {
     ($func_name:ident, $trait_name:ident) => {
@@ -27,3 +27,4 @@ pub fn process_num_pages<W: Write>(num_pages: Result<Option<u32>>, mut writer: W
 }
 
 query_pages!(num_release_pages, Deploy);
+query_pages!(num_cicd_pages, Cicd);
