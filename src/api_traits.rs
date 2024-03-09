@@ -67,6 +67,7 @@ pub enum ApiOperation {
     // id, etc...any metadata related to the project.
     Project,
     ContainerRegistry,
+    Release,
 }
 
 impl Display for ApiOperation {
@@ -76,6 +77,7 @@ impl Display for ApiOperation {
             ApiOperation::Pipeline => write!(f, "pipeline"),
             ApiOperation::Project => write!(f, "project"),
             ApiOperation::ContainerRegistry => write!(f, "container_registry"),
+            ApiOperation::Release => write!(f, "release"),
         }
     }
 }

@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::sync::Arc;
 
-use crate::api_traits::Deploy;
+use crate::api_traits::{Deploy, Timestamp};
 use crate::display::{Column, DisplayBody};
 use crate::remote::{ListBodyArgs, ListRemoteCliArgs};
 use crate::{cli::ReleaseOptions, config::Config};
@@ -18,7 +18,7 @@ impl ReleaseBodyArgs {
     }
 }
 
-#[derive(Clone)]
+#[derive(Builder, Clone)]
 pub struct Release {
     id: i64,
     tag: String,
@@ -26,6 +26,12 @@ pub struct Release {
     description: String,
     created_at: String,
     updated_at: String,
+}
+
+impl Release {
+    pub fn builder() -> ReleaseBuilder {
+        ReleaseBuilder::default()
+    }
 }
 
 impl From<Release> for DisplayBody {
@@ -38,6 +44,12 @@ impl From<Release> for DisplayBody {
             Column::new("Created At", release.created_at),
             Column::new("Updated At", release.updated_at),
         ])
+    }
+}
+
+impl Timestamp for Release {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
     }
 }
 
