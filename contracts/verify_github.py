@@ -113,6 +113,19 @@ def list_pipelines_api():
     return data
 
 
+def list_releases_api():
+    url = "https://api.github.com/repos/jordilin/githapi/releases"
+    headers = get_headers()
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    release = data[0]
+    author = release["author"]
+    fake_user(author)
+    if args.persist:
+        persist_contract("list_releases.json", REMOTE, data)
+    return data
+
+
 class TestAPI:
     def __init__(self, callback, msg, *expected):
         self.callback = callback
@@ -137,6 +150,11 @@ if __name__ == "__main__":
             list_pipelines_api,
             "list pipelines API contract",
             get_contract_json("list_pipelines.json", REMOTE),
+        ),
+        TestAPI(
+            list_releases_api,
+            "list releases API contract",
+            get_contract_json("list_releases.json", REMOTE),
         ),
     ]
     if not validate_responses(testcases):

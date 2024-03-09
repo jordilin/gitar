@@ -15,6 +15,7 @@
     - [Container registry](#container-registry)
     - [Project](#project)
     - [Browse remote using your browser](#browse-remote-using-your-browser)
+    - [Releases](#releases)
   - [Not yet supported](#not-yet-supported)
   - [Unit tests](#unit-tests)
   - [License](#license)
@@ -99,6 +100,10 @@ gitlab.com.cache_api_merge_request_expiration=5m
 gitlab.com.cache_api_project_expiration=5d
 # Pipelines are read often, change often, so expire immediately.
 gitlab.com.cache_api_pipeline_expiration=0s
+# Expire read container registry in 5 minutes
+gitlab.com.cache_api_container_registry_expiration=5m
+# Cache for reading releases
+gitlab.com.cache_api_release_expiration=1d
 
 ## Max pages configuration
 
@@ -108,6 +113,10 @@ gitlab.com.max_pages_api_merge_request=10
 gitlab.com.max_pages_api_project=5
 # Get up to 10 pages of pipelines when listing
 gitlab.com.max_pages_api_pipeline=10
+# Get up to 10 pages of container registry when listing
+gitlab.com.max_pages_api_container_registry=10
+# Get up to 10 pages of releases when listing
+gitlab.com.max_pages_api_release=10
 
 # Rate limit remaining threshold. Threshold by which the tool will stop
 # processing requests. Defaults to 10 if not provided. The remote has a counter
@@ -222,6 +231,12 @@ In Gitlab they are known as pipelines and in Github as actions.
 | Open merge request in browser | &#x2714; | &#x2714; |
 | Open pipeline in browser | &#x2714; | &#x2714; |
 
+### Releases
+
+| Operation | GitLab | GitHub |
+| --------- | -------------- | -------------- |
+| List releases | &#x2716; | &#x2714; |
+
 
 All list operations support the following flags:
 
@@ -232,6 +247,7 @@ All list operations support the following flags:
 - `--sort` sorts data by date ascending or descending. Ascending is the default.
 - `--created-after` and `--created-before` to filter by date if response
   payloads support `created_at` field.
+- `--format` to specify the output format. Delimit fields by using a pipe, i.e. ` | ` is the default.
 
 ## Not yet supported
 

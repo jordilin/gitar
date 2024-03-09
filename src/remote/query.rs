@@ -5,12 +5,14 @@ use serde::Serialize;
 
 use crate::{
     api_traits::ApiOperation,
+    cmds::release::Release,
     docker::{ImageMetadata, RegistryRepository, RepositoryTag},
     error,
     github::{
         cicd::GithubPipelineFields,
         merge_request::GithubMergeRequestFields,
         project::{GithubMemberFields, GithubProjectFields},
+        release::GithubReleaseFields,
     },
     gitlab::{
         cicd::GitlabPipelineFields,
@@ -236,6 +238,8 @@ paged!(
     GitlabRepositoryTagFields,
     RepositoryTag
 );
+
+paged!(github_releases, GithubReleaseFields, Release);
 
 send!(gitlab_project_data, GitlabProjectFields, Project);
 send!(github_project_data, GithubProjectFields, Project);

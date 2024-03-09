@@ -36,6 +36,20 @@ enum Command {
         about = "Handles docker images in Gitlab/Github registries"
     )]
     Docker(DockerCommand),
+    #[clap(name = "rl", about = "Release operations")]
+    Release(ReleaseCommand),
+}
+
+#[derive(Parser)]
+struct ReleaseCommand {
+    #[clap(subcommand)]
+    pub subcommand: ReleaseSubcommand,
+}
+
+#[derive(Parser)]
+enum ReleaseSubcommand {
+    #[clap(about = "List releases")]
+    List(ListArgs),
 }
 
 #[derive(Parser)]
@@ -324,6 +338,7 @@ pub fn parse_cli() -> Option<CliOptions> {
         Command::Project(sub_matches) => Some(CliOptions::Project(sub_matches.into())),
         Command::Init(sub_matches) => Some(CliOptions::Init(sub_matches.into())),
         Command::Docker(sub_matches) => Some(CliOptions::Docker(sub_matches.into())),
+        Command::Release(sub_matches) => Some(CliOptions::Release(sub_matches.into())),
     }
 }
 
@@ -334,6 +349,7 @@ pub enum CliOptions {
     Project(ProjectOptions),
     Init(InitCommandOptions),
     Docker(DockerOptions),
+    Release(ReleaseOptions),
 }
 
 pub struct InitCommandOptions {
@@ -349,6 +365,10 @@ pub enum BrowseOptions {
 }
 
 pub enum PipelineOptions {
+    List(ListRemoteCliArgs),
+}
+
+pub enum ReleaseOptions {
     List(ListRemoteCliArgs),
 }
 
@@ -550,6 +570,20 @@ impl From<ListArgs> for PipelineOptions {
     }
 }
 
+impl From<ReleaseCommand> for ReleaseOptions {
+    fn from(options: ReleaseCommand) -> Self {
+        match options.subcommand {
+            ReleaseSubcommand::List(options) => options.into(),
+        }
+    }
+}
+
+impl From<ListArgs> for ReleaseOptions {
+    fn from(options: ListArgs) -> Self {
+        ReleaseOptions::List(gen_list_args(options))
+    }
+}
+
 impl From<ProjectCommand> for ProjectOptions {
     fn from(options: ProjectCommand) -> Self {
         match options.subcommand {
@@ -627,6 +661,28 @@ mod test {
                 assert!(options.no_headers);
             }
             _ => panic!("Expected DockerCommand"),
+        }
+    }
+
+    #[test]
+    fn test_release_cli_list() {
+        let args = Args::parse_from(vec![
+            "gr",
+            "rl",
+            "list",
+            "--from-page",
+            "1",
+            "--to-page",
+            "2",
+        ]);
+        match args.command {
+            Command::Release(ReleaseCommand {
+                subcommand: ReleaseSubcommand::List(options),
+            }) => {
+                assert_eq!(options.from_page, Some(1));
+                assert_eq!(options.to_page, Some(2));
+            }
+            _ => panic!("Expected ReleaseCommand"),
         }
     }
 }

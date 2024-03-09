@@ -6,6 +6,7 @@ pub mod cicd;
 pub mod container_registry;
 pub mod merge_request;
 pub mod project;
+pub mod release;
 
 #[derive(Clone)]
 pub struct Github<R> {

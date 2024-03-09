@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use crate::{
     cli::BrowseOptions,
+    cmds::release::{Release, ReleaseBodyArgs},
     docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
     io::CmdInfo,
     remote::{
@@ -36,6 +37,11 @@ pub trait Cicd {
     fn num_pages(&self) -> Result<Option<u32>>;
 }
 
+pub trait Deploy {
+    fn list(&self, args: ReleaseBodyArgs) -> Result<Vec<Release>>;
+    fn num_pages(&self) -> Result<Option<u32>>;
+}
+
 pub trait Timestamp {
     fn created_at(&self) -> String;
 }
@@ -61,6 +67,7 @@ pub enum ApiOperation {
     // id, etc...any metadata related to the project.
     Project,
     ContainerRegistry,
+    Release,
 }
 
 impl Display for ApiOperation {
@@ -70,6 +77,7 @@ impl Display for ApiOperation {
             ApiOperation::Pipeline => write!(f, "pipeline"),
             ApiOperation::Project => write!(f, "project"),
             ApiOperation::ContainerRegistry => write!(f, "container_registry"),
+            ApiOperation::Release => write!(f, "release"),
         }
     }
 }
