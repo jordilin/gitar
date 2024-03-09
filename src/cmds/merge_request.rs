@@ -27,6 +27,8 @@ use crate::remote;
 use crate::Cmd;
 use crate::Result;
 
+use super::common::process_num_pages;
+
 #[derive(Builder, Clone)]
 pub struct MergeRequestCliArgs {
     pub title: Option<String>,
@@ -91,19 +93,7 @@ pub fn execute(
                 .state(cli_args.state)
                 .build()?;
             if cli_args.list_args.num_pages {
-                match remote.num_pages(body_args) {
-                    Ok(Some(pages)) => {
-                        println!("{}", pages);
-                        return Ok(());
-                    }
-                    Ok(None) => {
-                        println!("Number of pages not available.");
-                        return Ok(());
-                    }
-                    Err(e) => {
-                        return Err(e);
-                    }
-                };
+                return process_num_pages(remote.num_pages(body_args), std::io::stdout());
             }
             list(remote, body_args, cli_args, std::io::stdout())
         }
