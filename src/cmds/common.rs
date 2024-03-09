@@ -1,5 +1,5 @@
-use crate::Result;
 /// Common functions and macros that are used by multiple commands
+use crate::Result;
 use std::io::Write;
 use std::sync::Arc;
 
