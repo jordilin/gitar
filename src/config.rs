@@ -112,6 +112,13 @@ impl Config {
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(REST_API_MAX_PAGES),
         );
+        max_pages.insert(
+            ApiOperation::Release,
+            domain_config_data
+                .get("max_pages_api_release")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(REST_API_MAX_PAGES),
+        );
         max_pages
     }
 
@@ -506,5 +513,18 @@ mod test {
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!(15, config.get_max_pages(&ApiOperation::ContainerRegistry));
+    }
+
+    #[test]
+    fn test_get_max_pages_for_read_releases() {
+        let config_data = r#"
+        gitlab.com.api_token=1234
+        gitlab.com.cache_location=/home/user/.config/mr_cache
+        gitlab.com.max_pages_api_release=15
+        "#;
+        let domain = "gitlab.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Arc::new(Config::new(reader, domain).unwrap());
+        assert_eq!(15, config.get_max_pages(&ApiOperation::Release));
     }
 }
