@@ -29,7 +29,7 @@ impl<R: HttpRunner<Response = Response>> Deploy for Gitlab<R> {
 }
 
 pub struct GitlabReleaseFields {
-    id: i64,
+    id: String,
     url: String,
     tag: String,
     title: String,
@@ -43,11 +43,7 @@ impl From<&serde_json::Value> for GitlabReleaseFields {
         Self {
             // There's no id available in the response per se. Grab the short commit
             // id instead
-            id: value["commit"]["short_id"]
-                .as_str()
-                .unwrap()
-                .parse()
-                .unwrap(),
+            id: value["commit"]["short_id"].as_str().unwrap().to_string(),
             url: value["_links"]["self"].as_str().unwrap().to_string(),
             tag: value["tag_name"].as_str().unwrap().to_string(),
             title: value["name"].as_str().unwrap().to_string(),

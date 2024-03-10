@@ -32,7 +32,7 @@ impl<R: HttpRunner<Response = Response>> Deploy for Github<R> {
 }
 
 pub struct GithubReleaseFields {
-    id: i64,
+    id: String,
     url: String,
     tag: String,
     title: String,
@@ -44,7 +44,7 @@ pub struct GithubReleaseFields {
 impl From<&serde_json::Value> for GithubReleaseFields {
     fn from(value: &serde_json::Value) -> Self {
         Self {
-            id: value["id"].as_i64().unwrap(),
+            id: value["id"].as_i64().unwrap().to_string(),
             url: value["html_url"].as_str().unwrap().to_string(),
             tag: value["tag_name"].as_str().unwrap().to_string(),
             title: value["name"].as_str().unwrap().to_string(),
