@@ -22,7 +22,9 @@ impl<R: HttpRunner<Response = Response>> Deploy for Gitlab<R> {
     }
 
     fn num_pages(&self) -> Result<Option<u32>> {
-        todo!();
+        let url = format!("{}/releases?page=1", self.rest_api_basepath());
+        let headers = self.headers();
+        query::num_pages(&self.runner, &url, headers, ApiOperation::Release)
     }
 }
 
@@ -76,7 +78,7 @@ mod test {
     use std::sync::Arc;
 
     use crate::{
-        api_traits::ApiOperation,
+        http::Headers,
         test::utils::{config, get_contract, ContractType, MockRunner},
     };
 
@@ -105,5 +107,29 @@ mod test {
         );
         assert_eq!(Some(ApiOperation::Release), *client.api_operation.borrow());
         assert_eq!(1, releases.len());
+    }
+
+    #[test]
+    fn test_release_num_pages() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi";
+        let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/releases?page=1>; rel=\"first\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/releases?page=1>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn Deploy> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let num_pages = gitlab.num_pages().unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/releases?page=1",
+            *client.url(),
+        );
+        assert_eq!(Some(ApiOperation::Release), *client.api_operation.borrow());
+        assert_eq!(Some(1), num_pages);
     }
 }
