@@ -326,17 +326,20 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
         match cmd.method {
             Method::GET => {
                 let mut default_response = Response::builder().build()?;
-                if !self.refresh_cache {
-                    match self.cache.get(&cmd.resource) {
-                        Ok(CacheState::Fresh(response)) => return Ok(response),
-                        Ok(CacheState::Stale(response)) => {
-                            default_response = response;
+                match self.cache.get(&cmd.resource) {
+                    Ok(CacheState::Fresh(response)) => {
+                        if !self.refresh_cache {
+                            return Ok(response);
                         }
-                        Ok(CacheState::None) => {}
-                        Err(err) => return Err(err),
+                        default_response = response;
                     }
+                    Ok(CacheState::Stale(response)) => {
+                        default_response = response;
+                    }
+                    Ok(CacheState::None) => {}
+                    Err(err) => return Err(err),
                 }
-                // check Etag is available in the default response.
+                // check ETag is available in the default response.
                 // If so, then we need to set the If-None-Match header.
                 if let Some(etag) = default_response.get_etag() {
                     cmd.set_header("If-None-Match", etag);
