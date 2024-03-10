@@ -336,7 +336,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                         Err(err) => return Err(err),
                     }
                 }
-                // check Etag is available in the default response.
+                // check ETag is available in the default response.
                 // If so, then we need to set the If-None-Match header.
                 if let Some(etag) = default_response.get_etag() {
                     cmd.set_header("If-None-Match", etag);
