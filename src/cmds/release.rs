@@ -21,7 +21,7 @@ impl ReleaseBodyArgs {
 
 #[derive(Builder, Clone)]
 pub struct Release {
-    id: i64,
+    id: String,
     url: String,
     tag: String,
     title: String,
@@ -43,7 +43,7 @@ impl From<Release> for DisplayBody {
             Column::new("Title", release.title),
             Column::new("Description", release.description),
             Column::new("URL", release.url),
-            Column::new("ID", release.id.to_string()),
+            Column::new("ID", release.id),
             Column::new("Created At", release.created_at),
             Column::new("Updated At", release.updated_at),
         ])
@@ -112,7 +112,7 @@ mod test {
                 return Ok(vec![]);
             }
             Ok(vec![Release {
-                id: 1,
+                id: String::from("1"),
                 url: String::from("https://github.com/jordilin/githapi/releases/tag/v0.1.20"),
                 tag: String::from("v1.0.0"),
                 title: String::from("First release"),
