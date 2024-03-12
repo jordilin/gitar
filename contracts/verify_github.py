@@ -123,7 +123,7 @@ def list_releases_api():
     fake_user(author)
     if args.persist:
         persist_contract("list_releases.json", REMOTE, data)
-    return data
+    return data[0]
 
 
 class TestAPI:
