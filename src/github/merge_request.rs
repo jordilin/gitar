@@ -443,7 +443,7 @@ mod test {
             Ok(_) => panic!("Expected error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
                 Some(error::GRError::ApplicationError(_)) => (),
-                _ => panic!("Expected error::GRError::ApjplicationError"),
+                _ => panic!("Expected error::GRError::ApplicationError"),
             },
         }
     }
