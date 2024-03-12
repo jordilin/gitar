@@ -17,6 +17,7 @@ pub struct Pipeline {
     sha: String,
     created_at: String,
     updated_at: String,
+    duration: u64,
 }
 
 impl Pipeline {
@@ -40,6 +41,7 @@ impl From<Pipeline> for DisplayBody {
                 Column::new("SHA", p.sha),
                 Column::new("Created at", p.created_at),
                 Column::new("Updated at", p.updated_at),
+                Column::new("Duration", p.duration.to_string()),
                 Column::new("Status", p.status),
             ],
         }
@@ -152,6 +154,7 @@ mod test {
                     .sha("1234567890abcdef".to_string())
                     .created_at("2020-01-01T00:00:00Z".to_string())
                     .updated_at("2020-01-01T00:01:00Z".to_string())
+                    .duration(60)
                     .build()
                     .unwrap(),
                 Pipeline::builder()
@@ -160,7 +163,8 @@ mod test {
                     .branch("master".to_string())
                     .sha("1234567890abcdef".to_string())
                     .created_at("2020-01-01T00:00:00Z".to_string())
-                    .updated_at("2020-01-01T00:01:00Z".to_string())
+                    .updated_at("2020-01-01T00:01:01Z".to_string())
+                    .duration(61)
                     .build()
                     .unwrap(),
             ])
@@ -175,9 +179,9 @@ mod test {
         list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
             String::from_utf8(buf).unwrap(),
-            "URL | Branch | SHA | Created at | Updated at | Status\n\
-             https://gitlab.com/owner/repo/-/pipelines/123 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | success\n\
-             https://gitlab.com/owner/repo/-/pipelines/456 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | failed\n")
+            "URL | Branch | SHA | Created at | Updated at | Duration | Status\n\
+             https://gitlab.com/owner/repo/-/pipelines/123 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | 60 | success\n\
+             https://gitlab.com/owner/repo/-/pipelines/456 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:01Z | 61 | failed\n")
     }
 
     #[test]
@@ -246,6 +250,7 @@ mod test {
                     .sha("1234567890abcdef".to_string())
                     .created_at("2020-01-01T00:00:00Z".to_string())
                     .updated_at("2020-01-01T00:01:00Z".to_string())
+                    .duration(60)
                     .build()
                     .unwrap(),
                 Pipeline::builder()
@@ -255,6 +260,7 @@ mod test {
                     .sha("1234567890abcdef".to_string())
                     .created_at("2020-01-01T00:00:00Z".to_string())
                     .updated_at("2020-01-01T00:01:00Z".to_string())
+                    .duration(60)
                     .build()
                     .unwrap(),
             ])
@@ -271,8 +277,8 @@ mod test {
             .unwrap();
         list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
-            "https://gitlab.com/owner/repo/-/pipelines/123 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | success\n\
-             https://gitlab.com/owner/repo/-/pipelines/456 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | failed\n",
+            "https://gitlab.com/owner/repo/-/pipelines/123 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | 60 | success\n\
+             https://gitlab.com/owner/repo/-/pipelines/456 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | 60 | failed\n",
             String::from_utf8(buf).unwrap(),
         )
     }

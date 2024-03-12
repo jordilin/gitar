@@ -3,11 +3,11 @@ use crate::api_traits::ApiOperation;
 use crate::cmds::cicd::{Pipeline, PipelineBodyArgs};
 use crate::http::Headers;
 use crate::remote::query;
-use crate::Result;
 use crate::{
     api_traits::Cicd,
     io::{HttpRunner, Response},
 };
+use crate::{time, Result};
 
 impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
@@ -65,6 +65,10 @@ impl From<GitlabPipelineFields> for Pipeline {
             .sha(fields.sha.to_string())
             .created_at(fields.created_at.to_string())
             .updated_at(fields.updated_at.to_string())
+            .duration(time::compute_duration(
+                &fields.created_at,
+                &fields.updated_at,
+            ))
             .build()
             .unwrap()
     }
