@@ -96,8 +96,16 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                         // namespace:branch
 
                         // The path has owner/repo format.
-                        let owner = self.path.split('/').collect::<Vec<&str>>()[0];
-                        let remote_pr_branch = format!("{}:{}", owner, args.source_branch);
+                        let owner_path = self.path.split('/').collect::<Vec<&str>>();
+                        if owner_path.len() != 2 {
+                            return Err(error::GRError::ApplicationError(format!(
+                                "Invalid path format in git config: [{}] while attempting \
+                                to retrieve existing pull request. Expected owner/repo",
+                                self.path
+                            ))
+                            .into());
+                        }
+                        let remote_pr_branch = format!("{}:{}", owner_path[0], args.source_branch);
                         let existing_mr_url = format!("{}?head={}", mr_url, remote_pr_branch);
                         let response = query::github_merge_request_response::<_, ()>(
                             &self.runner,
@@ -402,6 +410,44 @@ mod test {
             },
         }
     }
+
+    #[test]
+    fn test_open_merge_request_cannot_get_owner_org_namespace_in_existing_pull_request() {
+        let config = config();
+        let mr_args = MergeRequestBodyArgs::builder()
+            .source_branch("feature".to_string())
+            .build()
+            .unwrap();
+
+        let domain = "github.com".to_string();
+        // missing the repo name
+        let path = "jordilin";
+        let response1 = Response::builder()
+            .status(422)
+            .body(get_contract(
+                ContractType::Github,
+                "merge_request_conflict.json",
+            ))
+            .build()
+            .unwrap();
+        let response2 = Response::builder()
+            .status(200)
+            .body("[]".to_string())
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response2, response1]));
+        let github = Github::new(config, &domain, &path, client.clone());
+
+        let result = github.open(mr_args);
+        match result {
+            Ok(_) => panic!("Expected error"),
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::ApplicationError(_)) => (),
+                _ => panic!("Expected error::GRError::ApjplicationError"),
+            },
+        }
+    }
+
     #[test]
     fn test_merge_request_num_pages() {
         let config = config();
