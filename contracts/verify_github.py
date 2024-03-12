@@ -20,6 +20,7 @@ def get_headers():
     return {
         "Authorization": f"bearer {API_TOKEN}",
         "Accept": "application/vnd.github.v3+json",
+        "X-GitHub-Api-Version": "2022-11-28",
     }
 
 
@@ -123,7 +124,7 @@ def list_releases_api():
     fake_user(author)
     if args.persist:
         persist_contract("list_releases.json", REMOTE, data)
-    return data
+    return data[0]
 
 
 class TestAPI:
