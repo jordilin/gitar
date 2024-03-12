@@ -20,6 +20,7 @@ def get_headers():
     return {
         "Authorization": f"bearer {API_TOKEN}",
         "Accept": "application/vnd.github.v3+json",
+        "X-GitHub-Api-Version": "2022-11-28",
     }
 
 

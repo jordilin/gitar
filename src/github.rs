@@ -41,6 +41,7 @@ impl<R> Github<R> {
             "application/vnd.github.v3+json".to_string(),
         );
         headers.set("User-Agent".to_string(), "gg".to_string());
+        headers.set("X-GitHub-Api-Version".to_string(), "2022-11-28".to_string());
         headers
     }
 }
