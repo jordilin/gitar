@@ -93,7 +93,9 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                     422 => {
                         // There is an existing pull request already.
                         // Gather its URL by querying Github pull requests filtering by
-                        // namespace:branch
+                        // head owner:branch
+                        // Ref:
+                        // https://docs.github.com/en/rest/pulls/pulls?apiVersion=2022-11-28#list-pull-requests--parameters
 
                         // The path has owner/repo format.
                         let owner_path = self.path.split('/').collect::<Vec<&str>>();
