@@ -6,6 +6,7 @@ use serde::Serialize;
 use crate::{
     api_traits::ApiOperation,
     cmds::{
+        cicd::Pipeline,
         docker::{ImageMetadata, RegistryRepository, RepositoryTag},
         release::Release,
     },
@@ -33,7 +34,7 @@ use crate::{
     Result,
 };
 
-use super::{Member, MergeRequestResponse, Pipeline, Project};
+use super::{Member, MergeRequestResponse, Project};
 
 pub fn num_pages<R: HttpRunner<Response = Response>>(
     runner: &Arc<R>,

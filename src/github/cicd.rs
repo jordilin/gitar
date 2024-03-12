@@ -1,12 +1,11 @@
 use super::Github;
 use crate::api_traits::ApiOperation;
+use crate::cmds::cicd::{Pipeline, PipelineBodyArgs};
 use crate::remote::query;
-use crate::remote::Pipeline;
 use crate::Result;
 use crate::{
     api_traits::Cicd,
     io::{HttpRunner, Response},
-    remote::PipelineBodyArgs,
 };
 
 impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {

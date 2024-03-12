@@ -1,12 +1,12 @@
 use super::Gitlab;
 use crate::api_traits::ApiOperation;
+use crate::cmds::cicd::{Pipeline, PipelineBodyArgs};
 use crate::http::Headers;
-use crate::remote::{query, Pipeline};
+use crate::remote::query;
 use crate::Result;
 use crate::{
     api_traits::Cicd,
     io::{HttpRunner, Response},
-    remote::PipelineBodyArgs,
 };
 
 impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {

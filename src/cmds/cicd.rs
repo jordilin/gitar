@@ -1,12 +1,59 @@
-use crate::api_traits::Cicd;
+use crate::api_traits::{Cicd, Timestamp};
 use crate::cli::PipelineOptions;
 use crate::config::Config;
-use crate::remote::{ListRemoteCliArgs, PipelineBodyArgs};
+use crate::display::{Column, DisplayBody};
+use crate::remote::{ListBodyArgs, ListRemoteCliArgs};
 use crate::{display, remote, Result};
 use std::io::Write;
 use std::sync::Arc;
 
 use super::common::num_cicd_pages;
+
+#[derive(Builder, Clone, Debug)]
+pub struct Pipeline {
+    pub status: String,
+    web_url: String,
+    branch: String,
+    sha: String,
+    created_at: String,
+}
+
+impl Pipeline {
+    pub fn builder() -> PipelineBuilder {
+        PipelineBuilder::default()
+    }
+}
+
+impl Timestamp for Pipeline {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
+    }
+}
+
+impl From<Pipeline> for DisplayBody {
+    fn from(p: Pipeline) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("URL", p.web_url),
+                Column::new("Branch", p.branch),
+                Column::new("SHA", p.sha),
+                Column::new("Created at", p.created_at),
+                Column::new("Status", p.status),
+            ],
+        }
+    }
+}
+
+#[derive(Builder, Clone)]
+pub struct PipelineBodyArgs {
+    pub from_to_page: Option<ListBodyArgs>,
+}
+
+impl PipelineBodyArgs {
+    pub fn builder() -> PipelineBodyArgsBuilder {
+        PipelineBodyArgsBuilder::default()
+    }
+}
 
 pub fn execute(
     options: PipelineOptions,
@@ -51,10 +98,8 @@ fn list_pipelines<W: Write>(
 
 #[cfg(test)]
 mod test {
-    use crate::error;
-    use crate::remote::Pipeline;
-
     use super::*;
+    use crate::error;
 
     #[derive(Clone, Builder)]
     struct PipelineListMock {
