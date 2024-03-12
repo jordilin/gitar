@@ -94,7 +94,10 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                         // There is an existing pull request already.
                         // Gather its URL by querying Github pull requests filtering by
                         // namespace:branch
-                        let remote_pr_branch = format!("{}:{}", self.path, args.source_branch);
+
+                        // The path has owner/repo format.
+                        let owner = self.path.split('/').collect::<Vec<&str>>()[0];
+                        let remote_pr_branch = format!("{}:{}", owner, args.source_branch);
                         let existing_mr_url = format!("{}?head={}", mr_url, remote_pr_branch);
                         let response = query::github_merge_request_response::<_, ()>(
                             &self.runner,
@@ -355,7 +358,7 @@ mod test {
 
         github.open(mr_args).unwrap();
         assert_eq!(
-            "https://api.github.com/repos/jordilin/githapi/pulls?head=jordilin/githapi:feature",
+            "https://api.github.com/repos/jordilin/githapi/pulls?head=jordilin:feature",
             *client.url(),
         );
         assert_eq!(
