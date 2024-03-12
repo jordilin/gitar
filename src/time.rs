@@ -246,8 +246,8 @@ fn sort_by_date<T: Timestamp>(
 }
 
 pub fn compute_duration(start: &str, end: &str) -> u64 {
-    let created_at = chrono::DateTime::parse_from_rfc3339(&start).unwrap();
-    let updated_at = chrono::DateTime::parse_from_rfc3339(&end).unwrap();
+    let created_at = chrono::DateTime::parse_from_rfc3339(start).unwrap();
+    let updated_at = chrono::DateTime::parse_from_rfc3339(end).unwrap();
     updated_at.signed_duration_since(created_at).num_seconds() as u64
 }
 
