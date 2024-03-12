@@ -1,13 +1,12 @@
 use super::Github;
 use crate::api_traits::ApiOperation;
+use crate::cmds::cicd::{Pipeline, PipelineBodyArgs};
 use crate::remote::query;
-use crate::remote::Pipeline;
-use crate::Result;
 use crate::{
     api_traits::Cicd,
     io::{HttpRunner, Response},
-    remote::PipelineBodyArgs,
 };
+use crate::{time, Result};
 
 impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
@@ -47,6 +46,7 @@ pub struct GithubPipelineFields {
     branch: String,
     sha: String,
     created_at: String,
+    updated_at: String,
 }
 
 impl From<&serde_json::Value> for GithubPipelineFields {
@@ -75,6 +75,7 @@ impl From<&serde_json::Value> for GithubPipelineFields {
             branch: pipeline_data["head_branch"].as_str().unwrap().to_string(),
             sha: pipeline_data["head_sha"].as_str().unwrap().to_string(),
             created_at: pipeline_data["created_at"].as_str().unwrap().to_string(),
+            updated_at: pipeline_data["updated_at"].as_str().unwrap().to_string(),
         }
     }
 }
@@ -86,7 +87,12 @@ impl From<GithubPipelineFields> for Pipeline {
             .web_url(fields.web_url)
             .branch(fields.branch)
             .sha(fields.sha)
-            .created_at(fields.created_at)
+            .created_at(fields.created_at.to_string())
+            .updated_at(fields.updated_at.to_string())
+            .duration(time::compute_duration(
+                &fields.created_at,
+                &fields.updated_at,
+            ))
             .build()
             .unwrap()
     }

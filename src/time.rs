@@ -245,6 +245,12 @@ fn sort_by_date<T: Timestamp>(
     data_dates.into_iter().map(|(item, _)| item).collect()
 }
 
+pub fn compute_duration(start: &str, end: &str) -> u64 {
+    let created_at = chrono::DateTime::parse_from_rfc3339(start).unwrap();
+    let updated_at = chrono::DateTime::parse_from_rfc3339(end).unwrap();
+    updated_at.signed_duration_since(created_at).num_seconds() as u64
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -524,5 +530,13 @@ mod tests {
             },
             _ => panic!("Expected TimeConversionError"),
         }
+    }
+
+    #[test]
+    fn test_compute_duration() {
+        let created_at = "2020-01-01T00:00:00Z";
+        let updated_at = "2020-01-01T00:01:00Z";
+        let duration = compute_duration(created_at, updated_at);
+        assert_eq!(60, duration);
     }
 }

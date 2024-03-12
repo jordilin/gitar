@@ -201,41 +201,6 @@ impl MergeRequestListBodyArgs {
     }
 }
 
-#[derive(Builder, Clone, Debug)]
-pub struct Pipeline {
-    pub status: String,
-    web_url: String,
-    branch: String,
-    sha: String,
-    created_at: String,
-}
-
-impl Pipeline {
-    pub fn builder() -> PipelineBuilder {
-        PipelineBuilder::default()
-    }
-}
-
-impl Timestamp for Pipeline {
-    fn created_at(&self) -> String {
-        self.created_at.clone()
-    }
-}
-
-impl From<Pipeline> for DisplayBody {
-    fn from(p: Pipeline) -> DisplayBody {
-        DisplayBody {
-            columns: vec![
-                Column::new("URL", p.web_url),
-                Column::new("Branch", p.branch),
-                Column::new("SHA", p.sha),
-                Column::new("Created at", p.created_at),
-                Column::new("Status", p.status),
-            ],
-        }
-    }
-}
-
 /// List cli args can be used across multiple APIs that support pagination.
 #[derive(Builder, Clone)]
 pub struct ListRemoteCliArgs {
@@ -445,17 +410,6 @@ pub enum ListSortMode {
     #[default]
     Asc,
     Desc,
-}
-
-#[derive(Builder, Clone)]
-pub struct PipelineBodyArgs {
-    pub from_to_page: Option<ListBodyArgs>,
-}
-
-impl PipelineBodyArgs {
-    pub fn builder() -> PipelineBodyArgsBuilder {
-        PipelineBodyArgsBuilder::default()
-    }
 }
 
 macro_rules! get {

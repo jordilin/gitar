@@ -1,13 +1,13 @@
 use super::Gitlab;
 use crate::api_traits::ApiOperation;
+use crate::cmds::cicd::{Pipeline, PipelineBodyArgs};
 use crate::http::Headers;
-use crate::remote::{query, Pipeline};
-use crate::Result;
+use crate::remote::query;
 use crate::{
     api_traits::Cicd,
     io::{HttpRunner, Response},
-    remote::PipelineBodyArgs,
 };
+use crate::{time, Result};
 
 impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
@@ -40,6 +40,7 @@ pub struct GitlabPipelineFields {
     ref_: String,
     sha: String,
     created_at: String,
+    updated_at: String,
 }
 
 impl From<&serde_json::Value> for GitlabPipelineFields {
@@ -50,6 +51,7 @@ impl From<&serde_json::Value> for GitlabPipelineFields {
             ref_: data["ref"].as_str().unwrap().to_string(),
             sha: data["sha"].as_str().unwrap().to_string(),
             created_at: data["created_at"].as_str().unwrap().to_string(),
+            updated_at: data["updated_at"].as_str().unwrap().to_string(),
         }
     }
 }
@@ -62,6 +64,11 @@ impl From<GitlabPipelineFields> for Pipeline {
             .branch(fields.ref_.to_string())
             .sha(fields.sha.to_string())
             .created_at(fields.created_at.to_string())
+            .updated_at(fields.updated_at.to_string())
+            .duration(time::compute_duration(
+                &fields.created_at,
+                &fields.updated_at,
+            ))
             .build()
             .unwrap()
     }

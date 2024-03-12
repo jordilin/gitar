@@ -2,13 +2,11 @@ use std::fmt::Display;
 
 use crate::{
     cli::BrowseOptions,
+    cmds::cicd::{Pipeline, PipelineBodyArgs},
     cmds::docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
     cmds::release::{Release, ReleaseBodyArgs},
     io::CmdInfo,
-    remote::{
-        MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Pipeline,
-        PipelineBodyArgs,
-    },
+    remote::{MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse},
     Result,
 };
 

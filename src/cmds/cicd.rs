@@ -1,12 +1,63 @@
-use crate::api_traits::Cicd;
+use crate::api_traits::{Cicd, Timestamp};
 use crate::cli::PipelineOptions;
 use crate::config::Config;
-use crate::remote::{ListRemoteCliArgs, PipelineBodyArgs};
+use crate::display::{Column, DisplayBody};
+use crate::remote::{ListBodyArgs, ListRemoteCliArgs};
 use crate::{display, remote, Result};
 use std::io::Write;
 use std::sync::Arc;
 
 use super::common::num_cicd_pages;
+
+#[derive(Builder, Clone, Debug)]
+pub struct Pipeline {
+    pub status: String,
+    web_url: String,
+    branch: String,
+    sha: String,
+    created_at: String,
+    updated_at: String,
+    duration: u64,
+}
+
+impl Pipeline {
+    pub fn builder() -> PipelineBuilder {
+        PipelineBuilder::default()
+    }
+}
+
+impl Timestamp for Pipeline {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
+    }
+}
+
+impl From<Pipeline> for DisplayBody {
+    fn from(p: Pipeline) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("URL", p.web_url),
+                Column::new("Branch", p.branch),
+                Column::new("SHA", p.sha),
+                Column::new("Created at", p.created_at),
+                Column::new("Updated at", p.updated_at),
+                Column::new("Duration", p.duration.to_string()),
+                Column::new("Status", p.status),
+            ],
+        }
+    }
+}
+
+#[derive(Builder, Clone)]
+pub struct PipelineBodyArgs {
+    pub from_to_page: Option<ListBodyArgs>,
+}
+
+impl PipelineBodyArgs {
+    pub fn builder() -> PipelineBodyArgsBuilder {
+        PipelineBodyArgsBuilder::default()
+    }
+}
 
 pub fn execute(
     options: PipelineOptions,
@@ -51,10 +102,8 @@ fn list_pipelines<W: Write>(
 
 #[cfg(test)]
 mod test {
-    use crate::error;
-    use crate::remote::Pipeline;
-
     use super::*;
+    use crate::error;
 
     #[derive(Clone, Builder)]
     struct PipelineListMock {
@@ -104,6 +153,8 @@ mod test {
                     .branch("master".to_string())
                     .sha("1234567890abcdef".to_string())
                     .created_at("2020-01-01T00:00:00Z".to_string())
+                    .updated_at("2020-01-01T00:01:00Z".to_string())
+                    .duration(60)
                     .build()
                     .unwrap(),
                 Pipeline::builder()
@@ -112,6 +163,8 @@ mod test {
                     .branch("master".to_string())
                     .sha("1234567890abcdef".to_string())
                     .created_at("2020-01-01T00:00:00Z".to_string())
+                    .updated_at("2020-01-01T00:01:01Z".to_string())
+                    .duration(61)
                     .build()
                     .unwrap(),
             ])
@@ -126,9 +179,9 @@ mod test {
         list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
             String::from_utf8(buf).unwrap(),
-            "URL | Branch | SHA | Created at | Status\n\
-             https://gitlab.com/owner/repo/-/pipelines/123 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | success\n\
-             https://gitlab.com/owner/repo/-/pipelines/456 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | failed\n")
+            "URL | Branch | SHA | Created at | Updated at | Duration | Status\n\
+             https://gitlab.com/owner/repo/-/pipelines/123 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | 60 | success\n\
+             https://gitlab.com/owner/repo/-/pipelines/456 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:01Z | 61 | failed\n")
     }
 
     #[test]
@@ -196,6 +249,8 @@ mod test {
                     .branch("master".to_string())
                     .sha("1234567890abcdef".to_string())
                     .created_at("2020-01-01T00:00:00Z".to_string())
+                    .updated_at("2020-01-01T00:01:00Z".to_string())
+                    .duration(60)
                     .build()
                     .unwrap(),
                 Pipeline::builder()
@@ -204,6 +259,8 @@ mod test {
                     .branch("master".to_string())
                     .sha("1234567890abcdef".to_string())
                     .created_at("2020-01-01T00:00:00Z".to_string())
+                    .updated_at("2020-01-01T00:01:00Z".to_string())
+                    .duration(60)
                     .build()
                     .unwrap(),
             ])
@@ -220,8 +277,8 @@ mod test {
             .unwrap();
         list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
-            "https://gitlab.com/owner/repo/-/pipelines/123 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | success\n\
-             https://gitlab.com/owner/repo/-/pipelines/456 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | failed\n",
+            "https://gitlab.com/owner/repo/-/pipelines/123 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | 60 | success\n\
+             https://gitlab.com/owner/repo/-/pipelines/456 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | 60 | failed\n",
             String::from_utf8(buf).unwrap(),
         )
     }
