@@ -46,6 +46,7 @@ pub struct GithubPipelineFields {
     branch: String,
     sha: String,
     created_at: String,
+    updated_at: String,
 }
 
 impl From<&serde_json::Value> for GithubPipelineFields {
@@ -74,6 +75,7 @@ impl From<&serde_json::Value> for GithubPipelineFields {
             branch: pipeline_data["head_branch"].as_str().unwrap().to_string(),
             sha: pipeline_data["head_sha"].as_str().unwrap().to_string(),
             created_at: pipeline_data["created_at"].as_str().unwrap().to_string(),
+            updated_at: pipeline_data["updated_at"].as_str().unwrap().to_string(),
         }
     }
 }
@@ -86,6 +88,7 @@ impl From<GithubPipelineFields> for Pipeline {
             .branch(fields.branch)
             .sha(fields.sha)
             .created_at(fields.created_at)
+            .updated_at(fields.updated_at)
             .build()
             .unwrap()
     }
