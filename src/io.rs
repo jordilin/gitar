@@ -37,7 +37,7 @@ pub enum CmdInfo {
     RemoteUrl { domain: String, path: String },
     Branch(String),
     CommitSummary(String),
-    LastCommitMessage(String),
+    CommitMessage(String),
     Project(Project),
     Members(Vec<Member>),
     MergeRequest(MergeRequestResponse),

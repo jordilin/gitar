@@ -197,7 +197,7 @@ pub fn commit_message(
         cmd_params.push(commit);
     }
     let response = runner.run(cmd_params)?;
-    Ok(CmdInfo::LastCommitMessage(response.body))
+    Ok(CmdInfo::CommitMessage(response.body))
 }
 
 pub fn checkout(runner: &impl TaskRunner<Response = Response>, branch: &str) -> Result<()> {

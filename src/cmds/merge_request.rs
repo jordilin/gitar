@@ -241,7 +241,7 @@ fn cmds(
         if description.is_empty() {
             git::commit_message(&Shell, &description_commit)
         } else {
-            Ok(CmdInfo::LastCommitMessage(description.clone()))
+            Ok(CmdInfo::CommitMessage(description.clone()))
         }
     };
     let cmds: Vec<Cmd<CmdInfo>> = vec![
@@ -293,7 +293,7 @@ fn get_repo_project_info(cmds: Vec<Cmd<CmdInfo>>) -> Result<MergeRequestBody> {
             Ok(CmdInfo::StatusModified(status)) => repo.with_status(status),
             Ok(CmdInfo::Branch(branch)) => repo.with_branch(&branch),
             Ok(CmdInfo::CommitSummary(title)) => repo.with_title(&title),
-            Ok(CmdInfo::LastCommitMessage(message)) => repo.with_last_commit_message(&message),
+            Ok(CmdInfo::CommitMessage(message)) => repo.with_last_commit_message(&message),
             // bail on first error found
             Err(e) => return Err(e),
             _ => {}
@@ -417,7 +417,7 @@ mod tests {
         };
         let message_cmd = cmd.clone();
         let git_message_cmd = move || -> Result<CmdInfo> {
-            Ok(CmdInfo::LastCommitMessage(
+            Ok(CmdInfo::CommitMessage(
                 message_cmd.last_commit_message.clone(),
             ))
         };
