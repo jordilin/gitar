@@ -32,6 +32,7 @@ use super::common::process_num_pages;
 #[derive(Builder, Clone)]
 pub struct MergeRequestCliArgs {
     pub title: Option<String>,
+    pub title_from_commit: Option<String>,
     pub description: Option<String>,
     pub target_branch: Option<String>,
     pub auto: bool,
@@ -221,11 +222,16 @@ fn cmds(
     let git_fetch_cmd = || -> Result<CmdInfo> { git::fetch(&Shell) };
     let title = cli_args.title.clone();
     let title = title.unwrap_or("".to_string());
+    let title_from_commit = cli_args.title_from_commit.clone();
+    // if we are required to gather the title from specific commit, gather also
+    // its description. The description will be pulled from the same commit as
+    // the title.
+    let description_commit = cli_args.title_from_commit.clone();
     let git_title_cmd = move || -> Result<CmdInfo> {
         if title.is_empty() {
-            git::last_commit(&Shell)
+            git::commit_summary(&Shell, &title_from_commit)
         } else {
-            Ok(CmdInfo::LastCommitSummary(title.clone()))
+            Ok(CmdInfo::CommitSummary(title.clone()))
         }
     };
     let git_current_branch = || -> Result<CmdInfo> { git::current_branch(&Shell) };
@@ -233,9 +239,9 @@ fn cmds(
     let description = description.unwrap_or("".to_string());
     let git_last_commit_message = move || -> Result<CmdInfo> {
         if description.is_empty() {
-            git::last_commit_message(&Shell)
+            git::commit_message(&Shell, &description_commit)
         } else {
-            Ok(CmdInfo::LastCommitMessage(description.clone()))
+            Ok(CmdInfo::CommitMessage(description.clone()))
         }
     };
     let cmds: Vec<Cmd<CmdInfo>> = vec![
@@ -286,8 +292,8 @@ fn get_repo_project_info(cmds: Vec<Cmd<CmdInfo>>) -> Result<MergeRequestBody> {
             }
             Ok(CmdInfo::StatusModified(status)) => repo.with_status(status),
             Ok(CmdInfo::Branch(branch)) => repo.with_branch(&branch),
-            Ok(CmdInfo::LastCommitSummary(title)) => repo.with_title(&title),
-            Ok(CmdInfo::LastCommitMessage(message)) => repo.with_last_commit_message(&message),
+            Ok(CmdInfo::CommitSummary(title)) => repo.with_title(&title),
+            Ok(CmdInfo::CommitMessage(message)) => repo.with_last_commit_message(&message),
             // bail on first error found
             Err(e) => return Err(e),
             _ => {}
@@ -405,13 +411,13 @@ mod tests {
             move || -> Result<CmdInfo> { Ok(CmdInfo::StatusModified(cmd_status.status_modified)) };
         let title_cmd = cmd.clone();
         let git_title_cmd = move || -> Result<CmdInfo> {
-            Ok(CmdInfo::LastCommitSummary(
+            Ok(CmdInfo::CommitSummary(
                 title_cmd.last_commit_summary.clone(),
             ))
         };
         let message_cmd = cmd.clone();
         let git_message_cmd = move || -> Result<CmdInfo> {
-            Ok(CmdInfo::LastCommitMessage(
+            Ok(CmdInfo::CommitMessage(
                 message_cmd.last_commit_message.clone(),
             ))
         };

@@ -146,10 +146,16 @@ fn handle_git_remote_url(response: &Response) -> Result<CmdInfo> {
 /// This will be used as the default title for the merge request. Takes a
 /// [`Runner`] as a parameter and the encapsulated result is a
 /// [`CmdInfo::LastCommitSummary`].
-pub fn last_commit(runner: &impl TaskRunner<Response = Response>) -> Result<CmdInfo> {
-    let cmd_params = ["git", "log", "--format=%s", "-n1"];
+pub fn commit_summary(
+    runner: &impl TaskRunner<Response = Response>,
+    commit: &Option<String>,
+) -> Result<CmdInfo> {
+    let mut cmd_params = vec!["git", "log", "--format=%s", "-n1"];
+    if let Some(commit) = commit {
+        cmd_params.push(commit);
+    }
     let response = runner.run(cmd_params)?;
-    Ok(CmdInfo::LastCommitSummary(response.body))
+    Ok(CmdInfo::CommitSummary(response.body))
 }
 
 pub fn outgoing_commits(
@@ -182,10 +188,16 @@ pub fn rebase(runner: &impl TaskRunner, remote: &str, default_branch: &str) -> R
     Ok(CmdInfo::Ignore)
 }
 
-pub fn last_commit_message(runner: &impl TaskRunner<Response = Response>) -> Result<CmdInfo> {
-    let cmd_params = ["git", "log", "--pretty=format:%b", "-n1"];
+pub fn commit_message(
+    runner: &impl TaskRunner<Response = Response>,
+    commit: &Option<String>,
+) -> Result<CmdInfo> {
+    let mut cmd_params = vec!["git", "log", "--pretty=format:%b", "-n1"];
+    if let Some(commit) = commit {
+        cmd_params.push(commit);
+    }
     let response = runner.run(cmd_params)?;
-    Ok(CmdInfo::LastCommitMessage(response.body))
+    Ok(CmdInfo::CommitMessage(response.body))
 }
 
 pub fn checkout(runner: &impl TaskRunner<Response = Response>, branch: &str) -> Result<()> {
@@ -451,7 +463,7 @@ mod tests {
             .build()
             .unwrap();
         let runner = MockRunner::new(vec![response]);
-        last_commit(&runner).unwrap();
+        commit_summary(&runner, &None).unwrap();
         assert_eq!("git log --format=%s -n1", *runner.cmd());
     }
 
@@ -462,8 +474,8 @@ mod tests {
             .build()
             .unwrap();
         let runner = MockRunner::new(vec![response]);
-        let title = last_commit(&runner).unwrap();
-        if let CmdInfo::LastCommitSummary(title) = title {
+        let title = commit_summary(&runner, &None).unwrap();
+        if let CmdInfo::CommitSummary(title) = title {
             assert_eq!("Add README", title);
         } else {
             panic!("Expected CmdInfo::LastCommitSummary");
@@ -478,7 +490,18 @@ mod tests {
             .build()
             .unwrap();
         let runner = MockRunner::new(vec![response]);
-        assert!(last_commit(&runner).is_err());
+        assert!(commit_summary(&runner, &None).is_err());
+    }
+
+    #[test]
+    fn test_commit_summary_specific_sha_cmd_is_correct() {
+        let response = Response::builder()
+            .body("Add README".to_string())
+            .build()
+            .unwrap();
+        let runner = MockRunner::new(vec![response]);
+        commit_summary(&runner, &Some("123456".to_string())).unwrap();
+        assert_eq!("git log --format=%s -n1 123456", *runner.cmd());
     }
 
     #[test]
@@ -560,8 +583,17 @@ mod tests {
     fn test_last_commit_message_cmd_is_ok() {
         let response = Response::builder().build().unwrap();
         let runner = MockRunner::new(vec![response]);
-        last_commit_message(&runner).unwrap();
+        commit_message(&runner, &None).unwrap();
         let expected_cmd = "git log --pretty=format:%b -n1".to_string();
+        assert_eq!(expected_cmd, *runner.cmd());
+    }
+
+    #[test]
+    fn test_commit_message_from_specific_commit_cmd_is_ok() {
+        let response = Response::builder().build().unwrap();
+        let runner = MockRunner::new(vec![response]);
+        commit_message(&runner, &Some("123456".to_string())).unwrap();
+        let expected_cmd = "git log --pretty=format:%b -n1 123456".to_string();
         assert_eq!(expected_cmd, *runner.cmd());
     }
 
