@@ -188,8 +188,14 @@ pub fn rebase(runner: &impl TaskRunner, remote: &str, default_branch: &str) -> R
     Ok(CmdInfo::Ignore)
 }
 
-pub fn last_commit_message(runner: &impl TaskRunner<Response = Response>) -> Result<CmdInfo> {
-    let cmd_params = ["git", "log", "--pretty=format:%b", "-n1"];
+pub fn commit_message(
+    runner: &impl TaskRunner<Response = Response>,
+    commit: &Option<String>,
+) -> Result<CmdInfo> {
+    let mut cmd_params = vec!["git", "log", "--pretty=format:%b", "-n1"];
+    if let Some(commit) = commit {
+        cmd_params.push(commit);
+    }
     let response = runner.run(cmd_params)?;
     Ok(CmdInfo::LastCommitMessage(response.body))
 }
@@ -577,8 +583,17 @@ mod tests {
     fn test_last_commit_message_cmd_is_ok() {
         let response = Response::builder().build().unwrap();
         let runner = MockRunner::new(vec![response]);
-        last_commit_message(&runner).unwrap();
+        commit_message(&runner, &None).unwrap();
         let expected_cmd = "git log --pretty=format:%b -n1".to_string();
+        assert_eq!(expected_cmd, *runner.cmd());
+    }
+
+    #[test]
+    fn test_commit_message_from_specific_commit_cmd_is_ok() {
+        let response = Response::builder().build().unwrap();
+        let runner = MockRunner::new(vec![response]);
+        commit_message(&runner, &Some("123456".to_string())).unwrap();
+        let expected_cmd = "git log --pretty=format:%b -n1 123456".to_string();
         assert_eq!(expected_cmd, *runner.cmd());
     }
 

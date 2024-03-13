@@ -223,6 +223,10 @@ fn cmds(
     let title = cli_args.title.clone();
     let title = title.unwrap_or("".to_string());
     let title_from_commit = cli_args.title_from_commit.clone();
+    // if we are required to gather the title from specific commit, gather also
+    // its description. The description will be pulled from the same commit as
+    // the title.
+    let description_commit = cli_args.title_from_commit.clone();
     let git_title_cmd = move || -> Result<CmdInfo> {
         if title.is_empty() {
             git::commit_summary(&Shell, &title_from_commit)
@@ -235,7 +239,7 @@ fn cmds(
     let description = description.unwrap_or("".to_string());
     let git_last_commit_message = move || -> Result<CmdInfo> {
         if description.is_empty() {
-            git::last_commit_message(&Shell)
+            git::commit_message(&Shell, &description_commit)
         } else {
             Ok(CmdInfo::LastCommitMessage(description.clone()))
         }
