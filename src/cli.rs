@@ -156,7 +156,7 @@ struct CreateMergeRequest {
     /// Title of the merge request
     #[clap(long, group = "title_msg")]
     pub title: Option<String>,
-    /// Gather title from the specified commit message
+    /// Gather title and description from the specified commit message
     #[clap(long, group = "title_msg", value_name = "SHA")]
     pub title_from_commit: Option<String>,
     /// Description of the merge request
