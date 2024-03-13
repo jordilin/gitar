@@ -222,9 +222,10 @@ fn cmds(
     let git_fetch_cmd = || -> Result<CmdInfo> { git::fetch(&Shell) };
     let title = cli_args.title.clone();
     let title = title.unwrap_or("".to_string());
+    let title_from_commit = cli_args.title_from_commit.clone();
     let git_title_cmd = move || -> Result<CmdInfo> {
         if title.is_empty() {
-            git::last_commit(&Shell)
+            git::commit_summary(&Shell, &title_from_commit)
         } else {
             Ok(CmdInfo::LastCommitSummary(title.clone()))
         }
