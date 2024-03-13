@@ -36,7 +36,7 @@ pub enum CmdInfo {
     StatusModified(bool),
     RemoteUrl { domain: String, path: String },
     Branch(String),
-    LastCommitSummary(String),
+    CommitSummary(String),
     LastCommitMessage(String),
     Project(Project),
     Members(Vec<Member>),

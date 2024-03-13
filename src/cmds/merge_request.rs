@@ -227,7 +227,7 @@ fn cmds(
         if title.is_empty() {
             git::commit_summary(&Shell, &title_from_commit)
         } else {
-            Ok(CmdInfo::LastCommitSummary(title.clone()))
+            Ok(CmdInfo::CommitSummary(title.clone()))
         }
     };
     let git_current_branch = || -> Result<CmdInfo> { git::current_branch(&Shell) };
@@ -288,7 +288,7 @@ fn get_repo_project_info(cmds: Vec<Cmd<CmdInfo>>) -> Result<MergeRequestBody> {
             }
             Ok(CmdInfo::StatusModified(status)) => repo.with_status(status),
             Ok(CmdInfo::Branch(branch)) => repo.with_branch(&branch),
-            Ok(CmdInfo::LastCommitSummary(title)) => repo.with_title(&title),
+            Ok(CmdInfo::CommitSummary(title)) => repo.with_title(&title),
             Ok(CmdInfo::LastCommitMessage(message)) => repo.with_last_commit_message(&message),
             // bail on first error found
             Err(e) => return Err(e),
@@ -407,7 +407,7 @@ mod tests {
             move || -> Result<CmdInfo> { Ok(CmdInfo::StatusModified(cmd_status.status_modified)) };
         let title_cmd = cmd.clone();
         let git_title_cmd = move || -> Result<CmdInfo> {
-            Ok(CmdInfo::LastCommitSummary(
+            Ok(CmdInfo::CommitSummary(
                 title_cmd.last_commit_summary.clone(),
             ))
         };

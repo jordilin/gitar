@@ -155,7 +155,7 @@ pub fn commit_summary(
         cmd_params.push(commit);
     }
     let response = runner.run(cmd_params)?;
-    Ok(CmdInfo::LastCommitSummary(response.body))
+    Ok(CmdInfo::CommitSummary(response.body))
 }
 
 pub fn outgoing_commits(
@@ -469,7 +469,7 @@ mod tests {
             .unwrap();
         let runner = MockRunner::new(vec![response]);
         let title = commit_summary(&runner, &None).unwrap();
-        if let CmdInfo::LastCommitSummary(title) = title {
+        if let CmdInfo::CommitSummary(title) = title {
             assert_eq!("Add README", title);
         } else {
             panic!("Expected CmdInfo::LastCommitSummary");
