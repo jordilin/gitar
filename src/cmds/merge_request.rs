@@ -214,6 +214,7 @@ fn open(
 ///
 /// The order of the commands being declared is not important as they will be
 /// executed in parallel.
+
 fn cmds(
     remote: Arc<dyn RemoteProject + Send + Sync + 'static>,
     cli_args: &MergeRequestCliArgs,
@@ -380,6 +381,8 @@ fn close(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
+
     use crate::{error, remote::MergeRequestResponse};
 
     use super::*;
@@ -639,5 +642,159 @@ mod tests {
         fn num_pages(&self, _args: MergeRequestListBodyArgs) -> Result<Option<u32>> {
             Ok(None)
         }
+    }
+
+    struct MockRemoteProject;
+    impl RemoteProject for MockRemoteProject {
+        fn get_project_data(&self, _id: Option<i64>) -> Result<CmdInfo> {
+            let project = Project::new(1, "main");
+            Ok(CmdInfo::Project(project))
+        }
+
+        fn get_project_members(&self) -> Result<CmdInfo> {
+            let members = vec![
+                Member::builder()
+                    .id(1)
+                    .username("user1".to_string())
+                    .name("User 1".to_string())
+                    .build()
+                    .unwrap(),
+                Member::builder()
+                    .id(2)
+                    .username("user2".to_string())
+                    .name("User 2".to_string())
+                    .build()
+                    .unwrap(),
+            ];
+            Ok(CmdInfo::Members(members))
+        }
+
+        fn get_url(&self, _option: crate::cli::BrowseOptions) -> String {
+            todo!()
+        }
+    }
+
+    struct MockShellRunner {
+        responses: Mutex<Vec<Response>>,
+    }
+
+    impl MockShellRunner {
+        pub fn new(response: Vec<Response>) -> MockShellRunner {
+            MockShellRunner {
+                responses: Mutex::new(response),
+            }
+        }
+    }
+
+    impl TaskRunner for MockShellRunner {
+        type Response = Response;
+
+        fn run<T>(&self, _cmd: T) -> Result<Self::Response>
+        where
+            T: IntoIterator,
+            T::Item: AsRef<std::ffi::OsStr>,
+        {
+            let response = self.responses.lock().unwrap().pop().unwrap();
+            Ok(Response::builder().body(response.body).build().unwrap())
+        }
+    }
+
+    fn gen_cmd_responses() -> Vec<Response> {
+        let responses = vec![
+            Response::builder()
+                .body("last commit message cmd".to_string())
+                .build()
+                .unwrap(),
+            Response::builder()
+                .body("current branch cmd".to_string())
+                .build()
+                .unwrap(),
+            Response::builder()
+                .body("title git cmd".to_string())
+                .build()
+                .unwrap(),
+            Response::builder()
+                .body("fetch cmd".to_string())
+                .build()
+                .unwrap(),
+            Response::builder()
+                .body("status cmd".to_string())
+                .build()
+                .unwrap(),
+        ];
+        responses
+    }
+
+    #[test]
+    fn test_cmds_gather_title_from_cli_arg() {
+        let remote = Arc::new(MockRemoteProject);
+        let cli_args = MergeRequestCliArgs::builder()
+            .title(Some("title cli".to_string()))
+            .title_from_commit(None)
+            .description(None)
+            .description_from_file(None)
+            .target_branch(Some("target-branch".to_string()))
+            .auto(false)
+            .refresh_cache(false)
+            .open_browser(false)
+            .accept_summary(false)
+            .commit(Some("commit".to_string()))
+            .draft(false)
+            .build()
+            .unwrap();
+
+        let responses = gen_cmd_responses();
+
+        let task_runner = Arc::new(MockShellRunner::new(responses));
+
+        let cmds = cmds(remote, &cli_args, task_runner);
+        assert_eq!(cmds.len(), 7);
+        let cmds = cmds
+            .into_iter()
+            .map(|cmd| cmd())
+            .collect::<Result<Vec<CmdInfo>>>()
+            .unwrap();
+        let title_result = cmds[4].clone();
+        let title = match title_result {
+            CmdInfo::CommitSummary(title) => title,
+            _ => "".to_string(),
+        };
+        assert_eq!("title cli", title);
+    }
+
+    #[test]
+    fn test_cmds_gather_title_from_git_commit_summary() {
+        let remote = Arc::new(MockRemoteProject);
+        let cli_args = MergeRequestCliArgs::builder()
+            .title(None)
+            .title_from_commit(None)
+            .description(None)
+            .description_from_file(None)
+            .target_branch(Some("target-branch".to_string()))
+            .auto(false)
+            .refresh_cache(false)
+            .open_browser(false)
+            .accept_summary(false)
+            .commit(None)
+            .draft(false)
+            .build()
+            .unwrap();
+
+        let responses = gen_cmd_responses();
+
+        let task_runner = Arc::new(MockShellRunner::new(responses));
+
+        let cmds = cmds(remote, &cli_args, task_runner);
+        let results = cmds
+            .into_iter()
+            .map(|cmd| cmd())
+            .collect::<Result<Vec<CmdInfo>>>()
+            .unwrap();
+        let title_result = results[4].clone();
+        let title = match title_result {
+            CmdInfo::CommitSummary(title) => title,
+            _ => "".to_string(),
+        };
+        assert_eq!("title git cmd", title);
     }
 }
