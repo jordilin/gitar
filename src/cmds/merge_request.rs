@@ -8,6 +8,8 @@ use crate::display;
 use crate::error::GRError;
 use crate::exec;
 use crate::git::Repo;
+use crate::io::Response;
+use crate::io::TaskRunner;
 use crate::remote::ListRemoteCliArgs;
 use crate::remote::Member;
 use crate::remote::MergeRequestBodyArgs;
@@ -84,7 +86,7 @@ pub fn execute(
                 git::add(&Shell)?;
                 git::commit(&Shell, commit_message)?;
             }
-            let mr_body = get_repo_project_info(cmds(project_remote, &cli_args))?;
+            let mr_body = get_repo_project_info(cmds(project_remote, &cli_args, Arc::new(Shell)))?;
             open(mr_remote, config, mr_body, &cli_args)
         }
         MergeRequestOptions::List(cli_args) => {
@@ -215,12 +217,15 @@ fn open(
 fn cmds(
     remote: Arc<dyn RemoteProject + Send + Sync + 'static>,
     cli_args: &MergeRequestCliArgs,
+    task_runner: Arc<impl TaskRunner<Response = Response> + Send + Sync + 'static>,
 ) -> Vec<Cmd<CmdInfo>> {
     let remote_cl = remote.clone();
     let remote_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data(None) };
     let remote_members_cmd = move || -> Result<CmdInfo> { remote.get_project_members() };
-    let git_status_cmd = || -> Result<CmdInfo> { git::status(&Shell) };
-    let git_fetch_cmd = || -> Result<CmdInfo> { git::fetch(&Shell) };
+    let status_runner = task_runner.clone();
+    let git_status_cmd = || -> Result<CmdInfo> { git::status(status_runner) };
+    let fetch_runner = task_runner.clone();
+    let git_fetch_cmd = || -> Result<CmdInfo> { git::fetch(fetch_runner) };
     let title = cli_args.title.clone();
     let title = title.unwrap_or("".to_string());
     let title_from_commit = cli_args.title_from_commit.clone();
@@ -228,19 +233,22 @@ fn cmds(
     // its description. The description will be pulled from the same commit as
     // the title.
     let description_commit = cli_args.title_from_commit.clone();
+    let commit_summary_runner = task_runner.clone();
     let git_title_cmd = move || -> Result<CmdInfo> {
         if title.is_empty() {
-            git::commit_summary(&Shell, &title_from_commit)
+            git::commit_summary(commit_summary_runner, &title_from_commit)
         } else {
             Ok(CmdInfo::CommitSummary(title.clone()))
         }
     };
-    let git_current_branch = || -> Result<CmdInfo> { git::current_branch(&Shell) };
+    let current_branch_runner = task_runner.clone();
+    let git_current_branch = || -> Result<CmdInfo> { git::current_branch(current_branch_runner) };
     let description = cli_args.description.clone();
     let description = description.unwrap_or("".to_string());
+    let commit_msg_runner = task_runner.clone();
     let git_last_commit_message = move || -> Result<CmdInfo> {
         if description.is_empty() {
-            git::commit_message(&Shell, &description_commit)
+            git::commit_message(commit_msg_runner, &description_commit)
         } else {
             Ok(CmdInfo::CommitMessage(description.clone()))
         }
@@ -360,7 +368,7 @@ fn merge(remote: Arc<dyn MergeRequest>, merge_request_id: i64) -> Result<()> {
 
 fn checkout(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
     let merge_request = remote.get(id)?;
-    git::fetch(&Shell)?;
+    git::fetch(Arc::new(Shell))?;
     git::checkout(&Shell, &merge_request.source_branch)
 }
 

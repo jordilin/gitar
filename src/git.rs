@@ -10,6 +10,8 @@
 //! All public functions take a [`Runner`] as a parameter and return a
 //! [`Result<CmdInfo>`].
 
+use std::sync::Arc;
+
 use crate::error;
 use crate::error::AddContext;
 use crate::io::CmdInfo;
@@ -21,7 +23,7 @@ use crate::Result;
 ///
 /// Takes a [`Runner`] as a parameter and returns a result encapsulating a
 /// [`CmdInfo::StatusModified`]. Untracked files are not being considered.
-pub fn status(exec: &impl TaskRunner<Response = Response>) -> Result<CmdInfo> {
+pub fn status(exec: Arc<impl TaskRunner<Response = Response>>) -> Result<CmdInfo> {
     let cmd_params = ["git", "status", "--short"];
     let response = exec.run(cmd_params)?;
     handle_git_status(&response)
@@ -46,7 +48,7 @@ fn handle_git_status(response: &Response) -> Result<CmdInfo> {
 }
 
 /// Gather the current branch name in the local git repository.
-pub fn current_branch(runner: &impl TaskRunner<Response = Response>) -> Result<CmdInfo> {
+pub fn current_branch(runner: Arc<impl TaskRunner<Response = Response>>) -> Result<CmdInfo> {
     // Does not work for git version at least 2.18
     // let cmd_params = ["git", "branch", "--show-current"];
     // Use rev-parse for older versions of git that don't support --show-current.
@@ -63,7 +65,7 @@ pub fn current_branch(runner: &impl TaskRunner<Response = Response>) -> Result<C
 /// The remote is considered to be the default remote, .i.e origin.
 /// Takes a [`Runner`] as a parameter and the encapsulated result is a
 /// [`CmdInfo::Ignore`].
-pub fn fetch(exec: &impl TaskRunner) -> Result<CmdInfo> {
+pub fn fetch(exec: Arc<impl TaskRunner>) -> Result<CmdInfo> {
     let cmd_params = ["git", "fetch"];
     exec.run(cmd_params).err_context(format!(
         "Failed to git fetch. Command: {}",
@@ -147,7 +149,7 @@ fn handle_git_remote_url(response: &Response) -> Result<CmdInfo> {
 /// [`Runner`] as a parameter and the encapsulated result is a
 /// [`CmdInfo::LastCommitSummary`].
 pub fn commit_summary(
-    runner: &impl TaskRunner<Response = Response>,
+    runner: Arc<impl TaskRunner<Response = Response>>,
     commit: &Option<String>,
 ) -> Result<CmdInfo> {
     let mut cmd_params = vec!["git", "log", "--format=%s", "-n1"];
@@ -189,7 +191,7 @@ pub fn rebase(runner: &impl TaskRunner, remote: &str, default_branch: &str) -> R
 }
 
 pub fn commit_message(
-    runner: &impl TaskRunner<Response = Response>,
+    runner: Arc<impl TaskRunner<Response = Response>>,
     commit: &Option<String>,
 ) -> Result<CmdInfo> {
     let mut cmd_params = vec!["git", "log", "--pretty=format:%b", "-n1"];
@@ -276,8 +278,8 @@ mod tests {
             ))
             .build()
             .unwrap();
-        let runner = MockRunner::new(vec![response]);
-        let cmd_info = status(&runner).unwrap();
+        let runner = Arc::new(MockRunner::new(vec![response]));
+        let cmd_info = status(runner).unwrap();
         if let CmdInfo::StatusModified(dirty) = cmd_info {
             assert_eq!(true, dirty);
         } else {
@@ -294,8 +296,8 @@ mod tests {
             ))
             .build()
             .unwrap();
-        let runner = MockRunner::new(vec![response]);
-        let cmd_info = status(&runner).unwrap();
+        let runner = Arc::new(MockRunner::new(vec![response]));
+        let cmd_info = status(runner).unwrap();
         if let CmdInfo::StatusModified(dirty) = cmd_info {
             assert_eq!(true, dirty);
         } else {
@@ -306,8 +308,8 @@ mod tests {
     #[test]
     fn test_git_status_command_is_correct() {
         let response = Response::builder().build().unwrap();
-        let runner = MockRunner::new(vec![response]);
-        status(&runner).unwrap();
+        let runner = Arc::new(MockRunner::new(vec![response]));
+        status(runner.clone()).unwrap();
         // assert_eq!("git status --short", runner.cmd.borrow().as_str());
         assert_eq!("git status --short", *runner.cmd());
     }
@@ -318,8 +320,8 @@ mod tests {
             .body(get_contract(ContractType::Git, "git_status_clean_repo.txt"))
             .build()
             .unwrap();
-        let runner = MockRunner::new(vec![response]);
-        let cmd_info = status(&runner).unwrap();
+        let runner = Arc::new(MockRunner::new(vec![response]));
+        let cmd_info = status(runner).unwrap();
         if let CmdInfo::StatusModified(dirty) = cmd_info {
             assert_eq!(false, dirty);
         } else {
@@ -336,8 +338,8 @@ mod tests {
             ))
             .build()
             .unwrap();
-        let runner = MockRunner::new(vec![response]);
-        let cmd_info = status(&runner).unwrap();
+        let runner = Arc::new(MockRunner::new(vec![response]));
+        let cmd_info = status(runner).unwrap();
         if let CmdInfo::StatusModified(dirty) = cmd_info {
             assert_eq!(false, dirty);
         } else {
@@ -428,16 +430,16 @@ mod tests {
     #[test]
     fn test_git_fetch_cmd_is_correct() {
         let response = Response::builder().build().unwrap();
-        let runner = MockRunner::new(vec![response]);
-        fetch(&runner).unwrap();
+        let runner = Arc::new(MockRunner::new(vec![response]));
+        fetch(runner.clone()).unwrap();
         assert_eq!("git fetch", *runner.cmd());
     }
 
     #[test]
     fn test_gather_current_branch_cmd_is_correct() {
         let response = Response::builder().build().unwrap();
-        let runner = MockRunner::new(vec![response]);
-        current_branch(&runner).unwrap();
+        let runner = Arc::new(MockRunner::new(vec![response]));
+        current_branch(runner.clone()).unwrap();
         assert_eq!("git rev-parse --abbrev-ref HEAD", *runner.cmd());
     }
 
@@ -447,8 +449,8 @@ mod tests {
             .body(get_contract(ContractType::Git, "git_current_branch.txt"))
             .build()
             .unwrap();
-        let runner = MockRunner::new(vec![response]);
-        let cmdinfo = current_branch(&runner).unwrap();
+        let runner = Arc::new(MockRunner::new(vec![response]));
+        let cmdinfo = current_branch(runner).unwrap();
         if let CmdInfo::Branch(branch) = cmdinfo {
             assert_eq!("main", branch);
         } else {
@@ -462,8 +464,8 @@ mod tests {
             .body("Add README".to_string())
             .build()
             .unwrap();
-        let runner = MockRunner::new(vec![response]);
-        commit_summary(&runner, &None).unwrap();
+        let runner = Arc::new(MockRunner::new(vec![response]));
+        commit_summary(runner.clone(), &None).unwrap();
         assert_eq!("git log --format=%s -n1", *runner.cmd());
     }
 
@@ -474,7 +476,7 @@ mod tests {
             .build()
             .unwrap();
         let runner = MockRunner::new(vec![response]);
-        let title = commit_summary(&runner, &None).unwrap();
+        let title = commit_summary(Arc::new(runner), &None).unwrap();
         if let CmdInfo::CommitSummary(title) = title {
             assert_eq!("Add README", title);
         } else {
@@ -489,8 +491,8 @@ mod tests {
             .body("Could not retrieve last commit".to_string())
             .build()
             .unwrap();
-        let runner = MockRunner::new(vec![response]);
-        assert!(commit_summary(&runner, &None).is_err());
+        let runner = Arc::new(MockRunner::new(vec![response]));
+        assert!(commit_summary(runner, &None).is_err());
     }
 
     #[test]
@@ -499,8 +501,8 @@ mod tests {
             .body("Add README".to_string())
             .build()
             .unwrap();
-        let runner = MockRunner::new(vec![response]);
-        commit_summary(&runner, &Some("123456".to_string())).unwrap();
+        let runner = Arc::new(MockRunner::new(vec![response]));
+        commit_summary(runner.clone(), &Some("123456".to_string())).unwrap();
         assert_eq!("git log --format=%s -n1 123456", *runner.cmd());
     }
 
@@ -582,8 +584,8 @@ mod tests {
     #[test]
     fn test_last_commit_message_cmd_is_ok() {
         let response = Response::builder().build().unwrap();
-        let runner = MockRunner::new(vec![response]);
-        commit_message(&runner, &None).unwrap();
+        let runner = Arc::new(MockRunner::new(vec![response]));
+        commit_message(runner.clone(), &None).unwrap();
         let expected_cmd = "git log --pretty=format:%b -n1".to_string();
         assert_eq!(expected_cmd, *runner.cmd());
     }
@@ -591,8 +593,8 @@ mod tests {
     #[test]
     fn test_commit_message_from_specific_commit_cmd_is_ok() {
         let response = Response::builder().build().unwrap();
-        let runner = MockRunner::new(vec![response]);
-        commit_message(&runner, &Some("123456".to_string())).unwrap();
+        let runner = Arc::new(MockRunner::new(vec![response]));
+        commit_message(runner.clone(), &Some("123456".to_string())).unwrap();
         let expected_cmd = "git log --pretty=format:%b -n1 123456".to_string();
         assert_eq!(expected_cmd, *runner.cmd());
     }
