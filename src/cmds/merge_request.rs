@@ -211,10 +211,6 @@ fn open(
 }
 
 /// Required commands to build a Project and a Repository
-///
-/// The order of the commands being declared is not important as they will be
-/// executed in parallel.
-
 fn cmds(
     remote: Arc<dyn RemoteProject + Send + Sync + 'static>,
     cli_args: &MergeRequestCliArgs,
