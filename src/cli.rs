@@ -162,6 +162,9 @@ struct CreateMergeRequest {
     /// Description of the merge request
     #[clap(long)]
     pub description: Option<String>,
+    /// Gather merge request description from the specified file
+    #[clap(long, value_name = "FILE")]
+    pub description_from_file: Option<String>,
     /// Accept the default title, description, and target branch
     #[clap(long)]
     pub auto: bool,
@@ -467,6 +470,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .title(options.title)
                 .title_from_commit(options.title_from_commit)
                 .description(options.description)
+                .description_from_file(options.description_from_file)
                 .target_branch(options.target_branch)
                 .auto(options.auto)
                 .refresh_cache(options.refresh)

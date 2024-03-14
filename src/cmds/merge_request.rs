@@ -34,6 +34,7 @@ pub struct MergeRequestCliArgs {
     pub title: Option<String>,
     pub title_from_commit: Option<String>,
     pub description: Option<String>,
+    pub description_from_file: Option<String>,
     pub target_branch: Option<String>,
     pub auto: bool,
     pub refresh_cache: bool,
