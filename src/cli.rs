@@ -162,7 +162,8 @@ struct CreateMergeRequest {
     /// Description of the merge request
     #[clap(long)]
     pub description: Option<String>,
-    /// Gather merge request description from the specified file
+    /// Gather merge request description from the specified file. If "-" is
+    /// provided, read from STDIN
     #[clap(long, value_name = "FILE")]
     pub description_from_file: Option<String>,
     /// Accept the default title, description, and target branch
