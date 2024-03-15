@@ -1,40 +1,20 @@
-use std::fs;
-use std::fs::File;
-use std::io::BufRead;
-use std::io::BufReader;
-use std::io::Cursor;
-use std::io::Read;
-use std::io::Write;
-use std::sync::Arc;
-
-use crate::api_traits::MergeRequest;
-use crate::api_traits::RemoteProject;
-use crate::config::ConfigProperties;
-use crate::display;
-use crate::error::AddContext;
-use crate::error::GRError;
-use crate::exec;
-use crate::git::Repo;
-use crate::io::Response;
-use crate::io::TaskRunner;
-use crate::remote::ListRemoteCliArgs;
-use crate::remote::Member;
-use crate::remote::MergeRequestBodyArgs;
-use crate::remote::MergeRequestListBodyArgs;
-use crate::remote::MergeRequestState;
-use crate::remote::Project;
-use crate::shell::Shell;
-
-use crate::dialog;
-
-use crate::git;
-
+use crate::api_traits::{MergeRequest, RemoteProject};
 use crate::cli::MergeRequestOptions;
-use crate::config::Config;
-use crate::io::CmdInfo;
-use crate::remote;
-use crate::Cmd;
-use crate::Result;
+use crate::config::{Config, ConfigProperties};
+use crate::error::{AddContext, GRError};
+use crate::git::Repo;
+use crate::io::{CmdInfo, Response, TaskRunner};
+use crate::remote::{
+    ListRemoteCliArgs, Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestState,
+    Project,
+};
+use crate::shell::Shell;
+use crate::{dialog, display, exec, git, remote, Cmd, Result};
+use std::{
+    fs::File,
+    io::{BufRead, BufReader, Cursor, Read, Write},
+    sync::Arc,
+};
 
 use super::common::process_num_pages;
 
