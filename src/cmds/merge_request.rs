@@ -269,7 +269,7 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
                 for line in reader.lines() {
                     let line = line?;
                     description.push_str(&line);
-                    description.push_str("\n");
+                    description.push('\n');
                 }
                 Ok(CmdInfo::CommitMessage(description))
             } else {
