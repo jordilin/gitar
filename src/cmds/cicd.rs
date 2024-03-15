@@ -1,5 +1,5 @@
 use crate::api_traits::{Cicd, Timestamp};
-use crate::cli::PipelineOptions;
+use crate::cli::cicd::PipelineOptions;
 use crate::config::Config;
 use crate::display::{Column, DisplayBody};
 use crate::remote::{ListBodyArgs, ListRemoteCliArgs};

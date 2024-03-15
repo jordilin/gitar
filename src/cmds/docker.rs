@@ -2,7 +2,7 @@ use std::{io::Write, sync::Arc};
 
 use crate::{
     api_traits::{ContainerRegistry, Timestamp},
-    cli::DockerOptions,
+    cli::docker::DockerOptions,
     config::Config,
     display::{self, Column, DisplayBody, Format},
     remote::{self, get_registry, ListBodyArgs, ListRemoteCliArgs},

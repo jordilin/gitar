@@ -2,7 +2,7 @@ use std::fs::OpenOptions;
 use std::io::{ErrorKind, Write};
 use std::path::Path;
 
-use crate::cli::InitCommandOptions;
+use crate::cli::init::InitCommandOptions;
 use crate::error::{AddContext, GRError};
 use crate::Result;
 

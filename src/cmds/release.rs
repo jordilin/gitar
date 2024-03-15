@@ -2,10 +2,11 @@ use std::io::Write;
 use std::sync::Arc;
 
 use crate::api_traits::{Deploy, Timestamp};
+use crate::cli::release::ReleaseOptions;
 use crate::cmds::common::num_release_pages;
+use crate::config::Config;
 use crate::display::{Column, DisplayBody};
 use crate::remote::{ListBodyArgs, ListRemoteCliArgs};
-use crate::{cli::ReleaseOptions, config::Config};
 use crate::{display, Result};
 
 #[derive(Builder, Clone)]

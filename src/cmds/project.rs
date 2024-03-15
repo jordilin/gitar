@@ -1,6 +1,5 @@
 use crate::api_traits::RemoteProject;
-use crate::cli::ProjectOperation;
-use crate::cli::ProjectOptions;
+use crate::cli::project::{ProjectOperation, ProjectOptions};
 use crate::config::Config;
 use crate::display;
 use crate::display::Format;
@@ -45,7 +44,7 @@ fn project_info<W: Write>(
 mod test {
 
     use super::*;
-    use crate::remote::Project;
+    use crate::{cli::browse::BrowseOptions, remote::Project};
 
     #[derive(Builder)]
     struct ProjectDataProvider {
@@ -69,7 +68,7 @@ mod test {
             todo!()
         }
 
-        fn get_url(&self, _option: crate::cli::BrowseOptions) -> String {
+        fn get_url(&self, _option: BrowseOptions) -> String {
             todo!()
         }
     }

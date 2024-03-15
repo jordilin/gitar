@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::cli::BrowseOptions;
+use crate::cli::browse::BrowseOptions;
 use crate::config::Config;
 use crate::remote;
 use crate::Result;
