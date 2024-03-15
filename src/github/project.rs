@@ -1,6 +1,6 @@
 use crate::{
     api_traits::{ApiOperation, RemoteProject},
-    cli::BrowseOptions,
+    cli::browse::BrowseOptions,
     error::GRError,
     http::Method::GET,
     io::{CmdInfo, HttpRunner, Response},

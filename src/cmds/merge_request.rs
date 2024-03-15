@@ -1,5 +1,5 @@
 use crate::api_traits::{MergeRequest, RemoteProject};
-use crate::cli::MergeRequestOptions;
+use crate::cli::merge_request::MergeRequestOptions;
 use crate::config::{Config, ConfigProperties};
 use crate::error::{AddContext, GRError};
 use crate::git::Repo;
@@ -408,7 +408,7 @@ fn close(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
 mod tests {
     use std::{io::Cursor, sync::Mutex};
 
-    use crate::{error, remote::MergeRequestResponse};
+    use crate::{cli::browse::BrowseOptions, error, remote::MergeRequestResponse};
 
     use super::*;
 
@@ -694,7 +694,7 @@ mod tests {
             Ok(CmdInfo::Members(members))
         }
 
-        fn get_url(&self, _option: crate::cli::BrowseOptions) -> String {
+        fn get_url(&self, _option: BrowseOptions) -> String {
             todo!()
         }
     }

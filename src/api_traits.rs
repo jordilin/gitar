@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
-    cli::BrowseOptions,
+    cli::browse::BrowseOptions,
     cmds::cicd::{Pipeline, PipelineBodyArgs},
     cmds::docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
     cmds::release::{Release, ReleaseBodyArgs},

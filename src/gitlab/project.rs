@@ -1,5 +1,5 @@
 use crate::api_traits::{ApiOperation, RemoteProject};
-use crate::cli::BrowseOptions;
+use crate::cli::browse::BrowseOptions;
 use crate::http::{self};
 use crate::io::{CmdInfo, HttpRunner, Response};
 use crate::remote::query::{self, gitlab_list_members};

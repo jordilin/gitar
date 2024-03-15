@@ -1,7 +1,7 @@
 use super::Github;
 use crate::{
     api_traits::{ApiOperation, MergeRequest, RemoteProject},
-    cli::BrowseOptions,
+    cli::browse::BrowseOptions,
     http::{
         Body,
         Method::{GET, PATCH, POST, PUT},
