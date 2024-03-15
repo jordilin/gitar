@@ -1,31 +1,20 @@
-use std::io::Write;
-use std::sync::Arc;
-
-use crate::api_traits::MergeRequest;
-use crate::api_traits::RemoteProject;
-use crate::config::ConfigProperties;
-use crate::display;
-use crate::error::GRError;
-use crate::exec;
-use crate::git::Repo;
-use crate::remote::ListRemoteCliArgs;
-use crate::remote::Member;
-use crate::remote::MergeRequestBodyArgs;
-use crate::remote::MergeRequestListBodyArgs;
-use crate::remote::MergeRequestState;
-use crate::remote::Project;
-use crate::shell::Shell;
-
-use crate::dialog;
-
-use crate::git;
-
+use crate::api_traits::{MergeRequest, RemoteProject};
 use crate::cli::MergeRequestOptions;
-use crate::config::Config;
-use crate::io::CmdInfo;
-use crate::remote;
-use crate::Cmd;
-use crate::Result;
+use crate::config::{Config, ConfigProperties};
+use crate::error::{AddContext, GRError};
+use crate::git::Repo;
+use crate::io::{CmdInfo, Response, TaskRunner};
+use crate::remote::{
+    ListRemoteCliArgs, Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestState,
+    Project,
+};
+use crate::shell::Shell;
+use crate::{dialog, display, exec, git, remote, Cmd, Result};
+use std::{
+    fs::File,
+    io::{BufRead, BufReader, Cursor, Read, Write},
+    sync::Arc,
+};
 
 use super::common::process_num_pages;
 
@@ -34,6 +23,7 @@ pub struct MergeRequestCliArgs {
     pub title: Option<String>,
     pub title_from_commit: Option<String>,
     pub description: Option<String>,
+    pub description_from_file: Option<String>,
     pub target_branch: Option<String>,
     pub auto: bool,
     pub refresh_cache: bool,
@@ -83,7 +73,38 @@ pub fn execute(
                 git::add(&Shell)?;
                 git::commit(&Shell, commit_message)?;
             }
-            let mr_body = get_repo_project_info(cmds(project_remote, &cli_args))?;
+            let cmds = if let Some(description_file) = &cli_args.description_from_file {
+                if description_file == "-" {
+                    let mut description = String::new();
+                    std::io::stdin().read_to_string(&mut description)?;
+                    let reader = Cursor::new(description);
+                    cmds(
+                        project_remote,
+                        &cli_args,
+                        Arc::new(Shell),
+                        Some(BufReader::new(reader)),
+                    )
+                } else {
+                    let file =
+                        File::open(description_file).err_context(GRError::PreconditionNotMet(
+                            format!("Cannot open file {}", description_file),
+                        ))?;
+                    cmds(
+                        project_remote,
+                        &cli_args,
+                        Arc::new(Shell),
+                        Some(BufReader::new(file)),
+                    )
+                }
+            } else {
+                cmds(
+                    project_remote,
+                    &cli_args,
+                    Arc::new(Shell),
+                    None::<Cursor<&str>>,
+                )
+            };
+            let mr_body = get_repo_project_info(cmds)?;
             open(mr_remote, config, mr_body, &cli_args)
         }
         MergeRequestOptions::List(cli_args) => {
@@ -208,18 +229,19 @@ fn open(
 }
 
 /// Required commands to build a Project and a Repository
-///
-/// The order of the commands being declared is not important as they will be
-/// executed in parallel.
-fn cmds(
+fn cmds<R: BufRead + Send + Sync + 'static>(
     remote: Arc<dyn RemoteProject + Send + Sync + 'static>,
     cli_args: &MergeRequestCliArgs,
+    task_runner: Arc<impl TaskRunner<Response = Response> + Send + Sync + 'static>,
+    reader: Option<R>,
 ) -> Vec<Cmd<CmdInfo>> {
     let remote_cl = remote.clone();
     let remote_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data(None) };
     let remote_members_cmd = move || -> Result<CmdInfo> { remote.get_project_members() };
-    let git_status_cmd = || -> Result<CmdInfo> { git::status(&Shell) };
-    let git_fetch_cmd = || -> Result<CmdInfo> { git::fetch(&Shell) };
+    let status_runner = task_runner.clone();
+    let git_status_cmd = || -> Result<CmdInfo> { git::status(status_runner) };
+    let fetch_runner = task_runner.clone();
+    let git_fetch_cmd = || -> Result<CmdInfo> { git::fetch(fetch_runner) };
     let title = cli_args.title.clone();
     let title = title.unwrap_or("".to_string());
     let title_from_commit = cli_args.title_from_commit.clone();
@@ -227,19 +249,32 @@ fn cmds(
     // its description. The description will be pulled from the same commit as
     // the title.
     let description_commit = cli_args.title_from_commit.clone();
+    let commit_summary_runner = task_runner.clone();
     let git_title_cmd = move || -> Result<CmdInfo> {
         if title.is_empty() {
-            git::commit_summary(&Shell, &title_from_commit)
+            git::commit_summary(commit_summary_runner, &title_from_commit)
         } else {
             Ok(CmdInfo::CommitSummary(title.clone()))
         }
     };
-    let git_current_branch = || -> Result<CmdInfo> { git::current_branch(&Shell) };
+    let current_branch_runner = task_runner.clone();
+    let git_current_branch = || -> Result<CmdInfo> { git::current_branch(current_branch_runner) };
     let description = cli_args.description.clone();
     let description = description.unwrap_or("".to_string());
+    let commit_msg_runner = task_runner.clone();
     let git_last_commit_message = move || -> Result<CmdInfo> {
         if description.is_empty() {
-            git::commit_message(&Shell, &description_commit)
+            if let Some(reader) = reader {
+                let mut description = String::new();
+                for line in reader.lines() {
+                    let line = line?;
+                    description.push_str(&line);
+                    description.push('\n');
+                }
+                Ok(CmdInfo::CommitMessage(description))
+            } else {
+                git::commit_message(commit_msg_runner, &description_commit)
+            }
         } else {
             Ok(CmdInfo::CommitMessage(description.clone()))
         }
@@ -359,7 +394,7 @@ fn merge(remote: Arc<dyn MergeRequest>, merge_request_id: i64) -> Result<()> {
 
 fn checkout(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
     let merge_request = remote.get(id)?;
-    git::fetch(&Shell)?;
+    git::fetch(Arc::new(Shell))?;
     git::checkout(&Shell, &merge_request.source_branch)
 }
 
@@ -371,6 +406,8 @@ fn close(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use std::{io::Cursor, sync::Mutex};
+
     use crate::{error, remote::MergeRequestResponse};
 
     use super::*;
@@ -630,5 +667,196 @@ mod tests {
         fn num_pages(&self, _args: MergeRequestListBodyArgs) -> Result<Option<u32>> {
             Ok(None)
         }
+    }
+
+    struct MockRemoteProject;
+    impl RemoteProject for MockRemoteProject {
+        fn get_project_data(&self, _id: Option<i64>) -> Result<CmdInfo> {
+            let project = Project::new(1, "main");
+            Ok(CmdInfo::Project(project))
+        }
+
+        fn get_project_members(&self) -> Result<CmdInfo> {
+            let members = vec![
+                Member::builder()
+                    .id(1)
+                    .username("user1".to_string())
+                    .name("User 1".to_string())
+                    .build()
+                    .unwrap(),
+                Member::builder()
+                    .id(2)
+                    .username("user2".to_string())
+                    .name("User 2".to_string())
+                    .build()
+                    .unwrap(),
+            ];
+            Ok(CmdInfo::Members(members))
+        }
+
+        fn get_url(&self, _option: crate::cli::BrowseOptions) -> String {
+            todo!()
+        }
+    }
+
+    struct MockShellRunner {
+        responses: Mutex<Vec<Response>>,
+    }
+
+    impl MockShellRunner {
+        pub fn new(response: Vec<Response>) -> MockShellRunner {
+            MockShellRunner {
+                responses: Mutex::new(response),
+            }
+        }
+    }
+
+    impl TaskRunner for MockShellRunner {
+        type Response = Response;
+
+        fn run<T>(&self, _cmd: T) -> Result<Self::Response>
+        where
+            T: IntoIterator,
+            T::Item: AsRef<std::ffi::OsStr>,
+        {
+            let response = self.responses.lock().unwrap().pop().unwrap();
+            Ok(Response::builder().body(response.body).build().unwrap())
+        }
+    }
+
+    fn gen_cmd_responses() -> Vec<Response> {
+        let responses = vec![
+            Response::builder()
+                .body("last commit message cmd".to_string())
+                .build()
+                .unwrap(),
+            Response::builder()
+                .body("current branch cmd".to_string())
+                .build()
+                .unwrap(),
+            Response::builder()
+                .body("title git cmd".to_string())
+                .build()
+                .unwrap(),
+            Response::builder()
+                .body("fetch cmd".to_string())
+                .build()
+                .unwrap(),
+            Response::builder()
+                .body("status cmd".to_string())
+                .build()
+                .unwrap(),
+        ];
+        responses
+    }
+
+    #[test]
+    fn test_cmds_gather_title_from_cli_arg() {
+        let remote = Arc::new(MockRemoteProject);
+        let cli_args = MergeRequestCliArgs::builder()
+            .title(Some("title cli".to_string()))
+            .title_from_commit(None)
+            .description(None)
+            .description_from_file(None)
+            .target_branch(Some("target-branch".to_string()))
+            .auto(false)
+            .refresh_cache(false)
+            .open_browser(false)
+            .accept_summary(false)
+            .commit(Some("commit".to_string()))
+            .draft(false)
+            .build()
+            .unwrap();
+
+        let responses = gen_cmd_responses();
+
+        let task_runner = Arc::new(MockShellRunner::new(responses));
+        let cmds = cmds(remote, &cli_args, task_runner, None::<Cursor<&str>>);
+        assert_eq!(cmds.len(), 7);
+        let cmds = cmds
+            .into_iter()
+            .map(|cmd| cmd())
+            .collect::<Result<Vec<CmdInfo>>>()
+            .unwrap();
+        let title_result = cmds[4].clone();
+        let title = match title_result {
+            CmdInfo::CommitSummary(title) => title,
+            _ => "".to_string(),
+        };
+        assert_eq!("title cli", title);
+    }
+
+    #[test]
+    fn test_cmds_gather_title_from_git_commit_summary() {
+        let remote = Arc::new(MockRemoteProject);
+        let cli_args = MergeRequestCliArgs::builder()
+            .title(None)
+            .title_from_commit(None)
+            .description(None)
+            .description_from_file(None)
+            .target_branch(Some("target-branch".to_string()))
+            .auto(false)
+            .refresh_cache(false)
+            .open_browser(false)
+            .accept_summary(false)
+            .commit(None)
+            .draft(false)
+            .build()
+            .unwrap();
+
+        let responses = gen_cmd_responses();
+
+        let task_runner = Arc::new(MockShellRunner::new(responses));
+
+        let cmds = cmds(remote, &cli_args, task_runner, None::<Cursor<&str>>);
+        let results = cmds
+            .into_iter()
+            .map(|cmd| cmd())
+            .collect::<Result<Vec<CmdInfo>>>()
+            .unwrap();
+        let title_result = results[4].clone();
+        let title = match title_result {
+            CmdInfo::CommitSummary(title) => title,
+            _ => "".to_string(),
+        };
+        assert_eq!("title git cmd", title);
+    }
+
+    #[test]
+    fn test_read_description_from_file() {
+        let remote = Arc::new(MockRemoteProject);
+        let cli_args = MergeRequestCliArgs::builder()
+            .title(None)
+            .title_from_commit(None)
+            .description(None)
+            .description_from_file(Some("description_file.txt".to_string()))
+            .target_branch(Some("target-branch".to_string()))
+            .auto(false)
+            .refresh_cache(false)
+            .open_browser(false)
+            .accept_summary(false)
+            .commit(None)
+            .draft(false)
+            .build()
+            .unwrap();
+
+        let responses = gen_cmd_responses();
+
+        let task_runner = Arc::new(MockShellRunner::new(responses));
+
+        let description_contents = "This merge requests adds a new feature\n";
+        let reader = Cursor::new(description_contents);
+        let cmds = cmds(remote, &cli_args, task_runner, Some(reader));
+        let results = cmds
+            .into_iter()
+            .map(|cmd| cmd())
+            .collect::<Result<Vec<CmdInfo>>>()
+            .unwrap();
+        let description_result = results[6].clone();
+        let description = match description_result {
+            CmdInfo::CommitMessage(description) => description,
+            _ => "".to_string(),
+        };
+        assert_eq!(description_contents, description);
     }
 }
