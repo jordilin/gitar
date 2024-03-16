@@ -469,6 +469,7 @@ mod test {
         let args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
+            .assignee_id(None)
             .build()
             .unwrap();
         assert_eq!(Some(2), github.num_pages(args).unwrap());
@@ -504,6 +505,7 @@ mod test {
                     .build()
                     .unwrap(),
             ))
+            .assignee_id(None)
             .build()
             .unwrap();
         github.list(args).unwrap();

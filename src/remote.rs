@@ -1,6 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::api_traits::{Cicd, ContainerRegistry, Deploy, MergeRequest, RemoteProject, Timestamp};
+use crate::api_traits::{
+    Cicd, ContainerRegistry, Deploy, MergeRequest, RemoteProject, Timestamp, UserInfo,
+};
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
 use crate::display::{Column, DisplayBody, Format};
@@ -193,6 +195,7 @@ impl MergeRequestBodyArgs {
 pub struct MergeRequestListBodyArgs {
     pub state: MergeRequestState,
     pub list_args: Option<ListBodyArgs>,
+    pub assignee_id: Option<i64>,
 }
 
 impl MergeRequestListBodyArgs {
@@ -446,6 +449,7 @@ get!(get_cicd, Cicd);
 get!(get_project, RemoteProject);
 get!(get_registry, ContainerRegistry);
 get!(get_deploy, Deploy);
+get!(get_auth_user, UserInfo);
 
 #[cfg(test)]
 mod test {

@@ -72,11 +72,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     }
 
     fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
-        let url = format!(
-            "{}/merge_requests?state={}",
-            self.rest_api_basepath(),
-            args.state
-        );
+        let url = self.list_merge_request_url(&args, false);
         query::gitlab_list_merge_requests(
             &self.runner,
             &url,
@@ -128,15 +124,31 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     }
 
     fn num_pages(&self, args: MergeRequestListBodyArgs) -> Result<Option<u32>> {
-        let state = args.state.to_string();
-        let url = format!(
-            "{}/merge_requests?state={}&page=1",
-            self.rest_api_basepath(),
-            state
-        );
+        let url = self.list_merge_request_url(&args, true);
         let mut headers = Headers::new();
         headers.set("PRIVATE-TOKEN", self.api_token());
         query::num_pages(&self.runner, &url, headers, ApiOperation::MergeRequest)
+    }
+}
+
+impl<R> Gitlab<R> {
+    fn list_merge_request_url(&self, args: &MergeRequestListBodyArgs, num_pages: bool) -> String {
+        let mut url = if let Some(assignee_id) = args.assignee_id {
+            format!(
+                "{}?state={}&assignee_id={}",
+                self.merge_requests_url, args.state, assignee_id
+            )
+        } else {
+            format!(
+                "{}/merge_requests?state={}",
+                self.rest_api_basepath(),
+                args.state
+            )
+        };
+        if num_pages {
+            url.push_str("&page=1");
+        }
+        url
     }
 }
 
@@ -211,11 +223,38 @@ mod test {
                     .build()
                     .unwrap(),
             ))
+            .assignee_id(None)
             .build()
             .unwrap();
         gitlab.list(args).unwrap();
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=2",
+            *client.url(),
+        );
+    }
+
+    #[test]
+    fn test_list_all_merge_requests_assigned_for_current_user() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body("[]".to_string())
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn MergeRequest> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(None)
+            .assignee_id(Some(1234))
+            .build()
+            .unwrap();
+        gitlab.list(args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/merge_requests?state=opened&assignee_id=1234",
             *client.url(),
         );
     }
@@ -299,11 +338,41 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
+            .assignee_id(None)
             .build()
             .unwrap();
         assert_eq!(Some(2), gitlab.num_pages(body_args).unwrap());
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=1",
+            *client.url(),
+        );
+    }
+
+    #[test]
+    fn test_gitlab_merge_request_num_pages_current_auth_user() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let link_header = "<https://gitlab.com/api/v4/merge_requests?state=opened&assignee_id=1234&page=1>; rel=\"next\", <https://gitlab.com/api/v4/merge_requests?state=opened&assignee_id=1234&page=2>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn MergeRequest> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let body_args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(None)
+            .assignee_id(Some(1234))
+            .build()
+            .unwrap();
+        assert_eq!(Some(2), gitlab.num_pages(body_args).unwrap());
+        assert_eq!(
+            "https://gitlab.com/api/v4/merge_requests?state=opened&assignee_id=1234&page=1",
             *client.url(),
         );
     }
@@ -320,6 +389,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
+            .assignee_id(None)
             .build()
             .unwrap();
         assert!(gitlab.num_pages(body_args).is_err());
@@ -337,6 +407,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
+            .assignee_id(None)
             .build()
             .unwrap();
         assert!(gitlab.num_pages(body_args).is_err());
@@ -361,6 +432,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
+            .assignee_id(None)
             .build()
             .unwrap();
         assert_eq!(None, gitlab.num_pages(body_args).unwrap());

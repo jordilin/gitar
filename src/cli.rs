@@ -4,6 +4,7 @@ pub mod common;
 pub mod docker;
 pub mod init;
 pub mod merge_request;
+pub mod my;
 pub mod project;
 pub mod release;
 
@@ -12,6 +13,8 @@ use self::browse::BrowseOptions;
 use self::cicd::{PipelineCommand, PipelineOptions};
 use self::docker::{DockerCommand, DockerOptions};
 use self::init::{InitCommand, InitCommandOptions};
+use self::my::MyCommand;
+use self::my::MyOptions;
 use self::project::{ProjectCommand, ProjectOptions};
 use self::release::{ReleaseCommand, ReleaseOptions};
 use merge_request::{MergeRequestCommand, MergeRequestOptions};
@@ -37,8 +40,6 @@ enum Command {
     Pipeline(PipelineCommand),
     #[clap(name = "pj", about = "Gather project information metadata")]
     Project(ProjectCommand),
-    #[clap(name = "init", about = "Initialize the config file")]
-    Init(InitCommand),
     #[clap(
         name = "dk",
         about = "Handles docker images in Gitlab/Github registries"
@@ -46,6 +47,13 @@ enum Command {
     Docker(DockerCommand),
     #[clap(name = "rl", about = "Release operations")]
     Release(ReleaseCommand),
+    #[clap(
+        name = "my",
+        about = "Your user information, such as assigned merge requests, etc..."
+    )]
+    My(MyCommand),
+    #[clap(name = "init", about = "Initialize the config file")]
+    Init(InitCommand),
 }
 
 // Parse cli and return CliOptions
@@ -59,6 +67,7 @@ pub fn parse_cli() -> Option<CliOptions> {
         Command::Init(sub_matches) => Some(CliOptions::Init(sub_matches.into())),
         Command::Docker(sub_matches) => Some(CliOptions::Docker(sub_matches.into())),
         Command::Release(sub_matches) => Some(CliOptions::Release(sub_matches.into())),
+        Command::My(sub_matches) => Some(CliOptions::My(sub_matches.into())),
     }
 }
 
@@ -70,4 +79,5 @@ pub enum CliOptions {
     Init(InitCommandOptions),
     Docker(DockerOptions),
     Release(ReleaseOptions),
+    My(MyOptions),
 }

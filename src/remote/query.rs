@@ -8,6 +8,7 @@ use crate::{
     cmds::{
         cicd::Pipeline,
         docker::{ImageMetadata, RegistryRepository, RepositoryTag},
+        my::User,
         release::Release,
     },
     error,
@@ -25,6 +26,7 @@ use crate::{
         merge_request::GitlabMergeRequestFields,
         project::{GitlabMemberFields, GitlabProjectFields},
         release::GitlabReleaseFields,
+        user::GitlabUserFields,
     },
     http::{self, Body, Headers, Paginator, Request, Resource},
     io::{HttpRunner, Response},
@@ -267,3 +269,5 @@ send!(
     GitlabImageMetadataFields,
     ImageMetadata
 );
+
+send!(gitlab_auth_user, GitlabUserFields, User);

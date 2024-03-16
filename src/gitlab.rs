@@ -6,6 +6,7 @@ pub mod container_registry;
 pub mod merge_request;
 pub mod project;
 pub mod release;
+pub mod user;
 
 // https://docs.gitlab.com/ee/api/rest/
 
@@ -17,6 +18,8 @@ pub struct Gitlab<R> {
     rest_api_basepath: String,
     runner: Arc<R>,
     base_project_url: String,
+    base_user_url: String,
+    merge_requests_url: String,
 }
 
 impl<R> Gitlab<R> {
@@ -24,7 +27,11 @@ impl<R> Gitlab<R> {
         let api_token = config.api_token().to_string();
         let domain = domain.to_string();
         let encoded_path = path.replace('/', "%2F");
-        let base_project_url = format!("https://{}/api/v4/projects", domain);
+        let api_path = "api/v4";
+        let protocol = "https";
+        let base_user_url = format!("{}://{}/{}/user", protocol, domain, api_path);
+        let merge_requests_url = format!("{}://{}/{}/merge_requests", protocol, domain, api_path);
+        let base_project_url = format!("{}://{}/{}/projects", protocol, domain, api_path);
         let rest_api_basepath = format!("{}/{}", base_project_url, encoded_path);
 
         Gitlab {
@@ -34,6 +41,8 @@ impl<R> Gitlab<R> {
             rest_api_basepath,
             runner,
             base_project_url,
+            base_user_url,
+            merge_requests_url,
         }
     }
 
