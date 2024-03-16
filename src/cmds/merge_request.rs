@@ -42,13 +42,19 @@ impl MergeRequestCliArgs {
 pub struct MergeRequestListCliArgs {
     pub state: MergeRequestState,
     pub list_args: ListRemoteCliArgs,
+    pub my_merge_request: bool,
 }
 
 impl MergeRequestListCliArgs {
-    pub fn new(state: MergeRequestState, args: ListRemoteCliArgs) -> MergeRequestListCliArgs {
+    pub fn new(
+        state: MergeRequestState,
+        args: ListRemoteCliArgs,
+        my_merge_request: bool,
+    ) -> MergeRequestListCliArgs {
         MergeRequestListCliArgs {
             state,
             list_args: args,
+            my_merge_request,
         }
     }
 }
@@ -107,18 +113,7 @@ pub fn execute(
             let mr_body = get_repo_project_info(cmds)?;
             open(mr_remote, config, mr_body, &cli_args)
         }
-        MergeRequestOptions::List(cli_args) => {
-            let remote = remote::get_mr(domain, path, config, cli_args.list_args.refresh_cache)?;
-            let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
-            let body_args = MergeRequestListBodyArgs::builder()
-                .list_args(from_to_args)
-                .state(cli_args.state)
-                .build()?;
-            if cli_args.list_args.num_pages {
-                return process_num_pages(remote.num_pages(body_args), std::io::stdout());
-            }
-            list(remote, body_args, cli_args, std::io::stdout())
-        }
+        MergeRequestOptions::List(cli_args) => list_merge_requests(domain, path, config, cli_args),
         MergeRequestOptions::Merge { id } => {
             let remote = remote::get_mr(domain, path, config, false)?;
             merge(remote, id)
@@ -132,6 +127,24 @@ pub fn execute(
             close(remote, id)
         }
     }
+}
+
+pub fn list_merge_requests(
+    domain: String,
+    path: String,
+    config: Arc<Config>,
+    cli_args: MergeRequestListCliArgs,
+) -> Result<()> {
+    let remote = remote::get_mr(domain, path, config, cli_args.list_args.refresh_cache)?;
+    let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
+    let body_args = MergeRequestListBodyArgs::builder()
+        .list_args(from_to_args)
+        .state(cli_args.state)
+        .build()?;
+    if cli_args.list_args.num_pages {
+        return process_num_pages(remote.num_pages(body_args), std::io::stdout());
+    }
+    list(remote, body_args, cli_args, std::io::stdout())
 }
 
 fn user_prompt_confirmation(
@@ -572,6 +585,7 @@ mod tests {
         let cli_args = MergeRequestListCliArgs::new(
             MergeRequestState::Opened,
             ListRemoteCliArgs::builder().build().unwrap(),
+            false,
         );
         list(remote, body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
@@ -593,6 +607,7 @@ mod tests {
         let cli_args = MergeRequestListCliArgs::new(
             MergeRequestState::Opened,
             ListRemoteCliArgs::builder().build().unwrap(),
+            false,
         );
         list(remote, body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
@@ -628,6 +643,7 @@ mod tests {
                 .no_headers(true)
                 .build()
                 .unwrap(),
+            false,
         );
         list(remote, body_args, cli_args, &mut buf).unwrap();
         assert_eq!(

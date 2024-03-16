@@ -120,6 +120,7 @@ impl From<ListMergeRequest> for MergeRequestOptions {
         MergeRequestOptions::List(MergeRequestListCliArgs::new(
             options.state.into(),
             list_args,
+            false,
         ))
     }
 }
