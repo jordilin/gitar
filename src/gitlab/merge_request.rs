@@ -72,11 +72,18 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     }
 
     fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
-        let url = format!(
-            "{}/merge_requests?state={}",
-            self.rest_api_basepath(),
-            args.state
-        );
+        let url = if args.my_merge_requests {
+            format!(
+                "{}/merge_requests?state={}&scope=assigned_to_me",
+                self.base_project_url, args.state
+            )
+        } else {
+            format!(
+                "{}/merge_requests?state={}",
+                self.rest_api_basepath(),
+                args.state
+            )
+        };
         query::gitlab_list_merge_requests(
             &self.runner,
             &url,
@@ -217,6 +224,32 @@ mod test {
         gitlab.list(args).unwrap();
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=2",
+            *client.url(),
+        );
+    }
+
+    #[test]
+    fn test_list_all_merge_requests_assigned_for_current_user() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body("[]".to_string())
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn MergeRequest> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(None)
+            .my_merge_requests(true)
+            .build()
+            .unwrap();
+        gitlab.list(args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/merge_requests?state=opened&scope=assigned_to_me",
             *client.url(),
         );
     }
