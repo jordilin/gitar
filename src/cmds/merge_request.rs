@@ -140,6 +140,7 @@ pub fn list_merge_requests(
     let body_args = MergeRequestListBodyArgs::builder()
         .list_args(from_to_args)
         .state(cli_args.state)
+        .my_merge_requests(cli_args.my_merge_request)
         .build()?;
     if cli_args.list_args.num_pages {
         return process_num_pages(remote.num_pages(body_args), std::io::stdout());
