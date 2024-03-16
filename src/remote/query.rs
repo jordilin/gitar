@@ -17,6 +17,7 @@ use crate::{
         merge_request::GithubMergeRequestFields,
         project::{GithubMemberFields, GithubProjectFields},
         release::GithubReleaseFields,
+        user::GithubUserFields,
     },
     gitlab::{
         cicd::GitlabPipelineFields,
@@ -271,3 +272,4 @@ send!(
 );
 
 send!(gitlab_auth_user, GitlabUserFields, User);
+send!(github_auth_user, GithubUserFields, User);
