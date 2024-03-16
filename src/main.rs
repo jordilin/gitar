@@ -40,6 +40,7 @@ fn main() -> Result<()> {
             CliOptions::Project(options) => project::execute(options, config, domain, path),
             CliOptions::Docker(options) => docker::execute(options, config, domain, path),
             CliOptions::Release(options) => cmds::release::execute(options, config, domain, path),
+            CliOptions::My(_options) => todo!(),
             // Init command is handled above when user creates a new
             // configuration - this is unreachable
             CliOptions::Init(_) => unreachable!(),

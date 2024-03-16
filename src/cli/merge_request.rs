@@ -86,11 +86,11 @@ impl From<MergeRequestStateStateCli> for MergeRequestState {
 }
 
 #[derive(Parser)]
-struct ListMergeRequest {
+pub struct ListMergeRequest {
     #[clap()]
     pub state: MergeRequestStateStateCli,
     #[command(flatten)]
-    list_args: ListArgs,
+    pub list_args: ListArgs,
 }
 
 #[derive(Parser)]
