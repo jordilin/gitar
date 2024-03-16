@@ -16,6 +16,7 @@
     - [Project](#project)
     - [Browse remote using your browser](#browse-remote-using-your-browser)
     - [Releases](#releases)
+    - [Auth User](#auth-user)
   - [Not yet supported](#not-yet-supported)
   - [Unit tests](#unit-tests)
   - [License](#license)
@@ -236,6 +237,15 @@ In Gitlab they are known as pipelines and in Github as actions.
 | Operation | GitLab | GitHub |
 | --------- | -------------- | -------------- |
 | List releases | &#x2714; | &#x2714; |
+
+### Auth User
+
+Provided by the `gr my` command provides information about the user that holds
+the auth token.
+
+| Operation | GitLab | GitHub |
+| --------- | -------------- | -------------- |
+| List assigned merge requests | &#x2714; | &#x2716; |
 
 
 All list operations support the following flags:
