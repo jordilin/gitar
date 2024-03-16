@@ -47,7 +47,10 @@ enum Command {
     Docker(DockerCommand),
     #[clap(name = "rl", about = "Release operations")]
     Release(ReleaseCommand),
-    #[clap(name = "my", about = "Your user information and operations")]
+    #[clap(
+        name = "my",
+        about = "Your user information, such as assigned merge requests, etc..."
+    )]
     My(MyCommand),
     #[clap(name = "init", about = "Initialize the config file")]
     Init(InitCommand),
