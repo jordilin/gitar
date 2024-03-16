@@ -580,6 +580,7 @@ mod tests {
         let body_args = MergeRequestListBodyArgs::builder()
             .list_args(None)
             .state(MergeRequestState::Opened)
+            .my_merge_requests(false)
             .build()
             .unwrap();
         let cli_args = MergeRequestListCliArgs::new(
@@ -602,6 +603,7 @@ mod tests {
         let body_args = MergeRequestListBodyArgs::builder()
             .list_args(None)
             .state(MergeRequestState::Opened)
+            .my_merge_requests(false)
             .build()
             .unwrap();
         let cli_args = MergeRequestListCliArgs::new(
@@ -635,6 +637,7 @@ mod tests {
         let body_args = MergeRequestListBodyArgs::builder()
             .list_args(None)
             .state(MergeRequestState::Opened)
+            .my_merge_requests(false)
             .build()
             .unwrap();
         let cli_args = MergeRequestListCliArgs::new(

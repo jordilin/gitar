@@ -193,6 +193,7 @@ impl MergeRequestBodyArgs {
 pub struct MergeRequestListBodyArgs {
     pub state: MergeRequestState,
     pub list_args: Option<ListBodyArgs>,
+    pub my_merge_requests: bool,
 }
 
 impl MergeRequestListBodyArgs {

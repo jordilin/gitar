@@ -211,6 +211,7 @@ mod test {
                     .build()
                     .unwrap(),
             ))
+            .my_merge_requests(false)
             .build()
             .unwrap();
         gitlab.list(args).unwrap();
@@ -299,6 +300,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
+            .my_merge_requests(false)
             .build()
             .unwrap();
         assert_eq!(Some(2), gitlab.num_pages(body_args).unwrap());
@@ -320,6 +322,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
+            .my_merge_requests(false)
             .build()
             .unwrap();
         assert!(gitlab.num_pages(body_args).is_err());
@@ -337,6 +340,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
+            .my_merge_requests(false)
             .build()
             .unwrap();
         assert!(gitlab.num_pages(body_args).is_err());
@@ -361,6 +365,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
+            .my_merge_requests(false)
             .build()
             .unwrap();
         assert_eq!(None, gitlab.num_pages(body_args).unwrap());
