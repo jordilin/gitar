@@ -4,6 +4,7 @@ use crate::{
     cli::browse::BrowseOptions,
     cmds::cicd::{Pipeline, PipelineBodyArgs},
     cmds::docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
+    cmds::my::User,
     cmds::release::{Release, ReleaseBodyArgs},
     io::CmdInfo,
     remote::{MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse},
@@ -38,6 +39,11 @@ pub trait Cicd {
 pub trait Deploy {
     fn list(&self, args: ReleaseBodyArgs) -> Result<Vec<Release>>;
     fn num_pages(&self) -> Result<Option<u32>>;
+}
+
+pub trait UserInfo {
+    /// Get the user's information from the remote API.
+    fn get(&self) -> Result<User>;
 }
 
 pub trait Timestamp {

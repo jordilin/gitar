@@ -16,3 +16,13 @@ pub fn execute(
         }
     }
 }
+
+pub struct User {
+    pub id: i64,
+}
+
+impl User {
+    pub fn new(id: i64) -> Self {
+        User { id }
+    }
+}
