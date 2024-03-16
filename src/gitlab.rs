@@ -19,6 +19,7 @@ pub struct Gitlab<R> {
     runner: Arc<R>,
     base_project_url: String,
     base_user_url: String,
+    merge_requests_url: String,
 }
 
 impl<R> Gitlab<R> {
@@ -29,6 +30,7 @@ impl<R> Gitlab<R> {
         let api_path = "api/v4";
         let protocol = "https";
         let base_user_url = format!("{}://{}/{}/user", protocol, domain, api_path);
+        let merge_requests_url = format!("{}://{}/{}/merge_requests", protocol, domain, api_path);
         let base_project_url = format!("{}://{}/{}/projects", protocol, domain, api_path);
         let rest_api_basepath = format!("{}/{}", base_project_url, encoded_path);
 
@@ -40,6 +42,7 @@ impl<R> Gitlab<R> {
             runner,
             base_project_url,
             base_user_url,
+            merge_requests_url,
         }
     }
 

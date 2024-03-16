@@ -35,7 +35,6 @@ impl From<ListMergeRequest> for MyOptions {
         MyOptions::MergeRequest(MergeRequestListCliArgs::new(
             options.state.into(),
             list_args,
-            true,
         ))
     }
 }

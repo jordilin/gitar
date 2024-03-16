@@ -72,10 +72,10 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     }
 
     fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
-        let url = if args.my_merge_requests {
+        let url = if let Some(assignee_id) = args.assignee_id {
             format!(
-                "{}/merge_requests?state={}&scope=assigned_to_me",
-                self.base_project_url, args.state
+                "{}?state={}&assignee_id={}",
+                self.merge_requests_url, args.state, assignee_id
             )
         } else {
             format!(
@@ -218,7 +218,7 @@ mod test {
                     .build()
                     .unwrap(),
             ))
-            .my_merge_requests(false)
+            .assignee_id(None)
             .build()
             .unwrap();
         gitlab.list(args).unwrap();
@@ -244,12 +244,12 @@ mod test {
         let args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
-            .my_merge_requests(true)
+            .assignee_id(Some(1234))
             .build()
             .unwrap();
         gitlab.list(args).unwrap();
         assert_eq!(
-            "https://gitlab.com/api/v4/projects/merge_requests?state=opened&scope=assigned_to_me",
+            "https://gitlab.com/api/v4/merge_requests?state=opened&assignee_id=1234",
             *client.url(),
         );
     }
@@ -333,7 +333,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
-            .my_merge_requests(false)
+            .assignee_id(None)
             .build()
             .unwrap();
         assert_eq!(Some(2), gitlab.num_pages(body_args).unwrap());
@@ -355,7 +355,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
-            .my_merge_requests(false)
+            .assignee_id(None)
             .build()
             .unwrap();
         assert!(gitlab.num_pages(body_args).is_err());
@@ -373,7 +373,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
-            .my_merge_requests(false)
+            .assignee_id(None)
             .build()
             .unwrap();
         assert!(gitlab.num_pages(body_args).is_err());
@@ -398,7 +398,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
-            .my_merge_requests(false)
+            .assignee_id(None)
             .build()
             .unwrap();
         assert_eq!(None, gitlab.num_pages(body_args).unwrap());
