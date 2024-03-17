@@ -1,7 +1,7 @@
 use crate::api_traits::{Cicd, Timestamp};
 use crate::cli::cicd::PipelineOptions;
 use crate::config::Config;
-use crate::display::{Column, DisplayBody};
+use crate::display::{Column, DisplayBody, Format};
 use crate::remote::{ListBodyArgs, ListRemoteCliArgs};
 use crate::{display, remote, Result};
 use std::io::Write;
@@ -59,6 +59,59 @@ impl PipelineBodyArgs {
     }
 }
 
+#[derive(Builder, Clone)]
+pub struct Runner {
+    pub id: i64,
+    pub active: bool,
+    pub description: String,
+    pub ip_address: String,
+    pub name: String,
+    pub online: bool,
+    pub status: RunnerStatus,
+}
+
+impl Runner {
+    pub fn builder() -> RunnerBuilder {
+        RunnerBuilder::default()
+    }
+}
+
+#[derive(Builder, Clone)]
+pub struct RunnerListCliArgs {
+    pub status: RunnerStatus,
+    pub tags: Option<String>,
+    pub list_args: ListRemoteCliArgs,
+}
+
+impl RunnerListCliArgs {
+    pub fn builder() -> RunnerListCliArgsBuilder {
+        RunnerListCliArgsBuilder::default()
+    }
+}
+
+#[derive(Builder, Clone)]
+pub struct RunnerMetadataCliArgs {
+    pub id: i64,
+    pub refresh_cache: bool,
+    pub no_headers: bool,
+    #[builder(default)]
+    pub format: Format,
+}
+
+impl RunnerMetadataCliArgs {
+    pub fn builder() -> RunnerMetadataCliArgsBuilder {
+        RunnerMetadataCliArgsBuilder::default()
+    }
+}
+
+#[derive(Clone)]
+pub enum RunnerStatus {
+    Online,
+    Offline,
+    Stale,
+    NeverContacted,
+}
+
 pub fn execute(
     options: PipelineOptions,
     config: Arc<Config>,
@@ -76,6 +129,9 @@ pub fn execute(
                 .from_to_page(from_to_args)
                 .build()?;
             list_pipelines(remote, body_args, cli_args, std::io::stdout())
+        }
+        PipelineOptions::Runners(_cli_args) => {
+            todo!("Runners not implemented yet")
         }
     }
 }
