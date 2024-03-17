@@ -245,7 +245,7 @@ the auth token.
 
 | Operation | GitLab | GitHub |
 | --------- | -------------- | -------------- |
-| List assigned merge requests | &#x2714; | &#x2716; |
+| List assigned merge requests | &#x2714; | &#x2714; |
 
 
 All list operations support the following flags:
