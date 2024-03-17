@@ -24,13 +24,13 @@ impl<R> Github<R> {
             // pull request is considered closed.
             MergeRequestState::Closed | MergeRequestState::Merged => "closed".to_string(),
         };
-        if let Some(_) = args.assignee_id {
+        if args.assignee_id.is_some() {
             return format!("{}/issues?state={}", self.rest_api_basepath, state);
-        };
-        return format!(
+        }
+        format!(
             "{}/repos/{}/pulls?state={}",
             self.rest_api_basepath, self.path, state
-        );
+        )
     }
 }
 
@@ -156,7 +156,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             None,
             ApiOperation::MergeRequest,
         );
-        if let Some(_) = args.assignee_id {
+        if args.assignee_id.is_some() {
             // Pull requests for the current authenticated user.
             // Filter those reponses that have pull_request not empty See ref:
             // https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28#list-issues-assigned-to-the-authenticated-user
