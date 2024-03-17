@@ -107,6 +107,9 @@ pub struct MergeRequestResponse {
     pub created_at: String,
     #[builder(default)]
     pub title: String,
+    // For Github to filter pull requests from issues.
+    #[builder(default)]
+    pub pull_request: String,
 }
 
 impl MergeRequestResponse {

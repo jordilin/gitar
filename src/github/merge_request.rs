@@ -18,22 +18,19 @@ use crate::{error, Result};
 
 impl<R> Github<R> {
     fn url_list_merge_requests(&self, args: &MergeRequestListBodyArgs) -> String {
-        match args.state {
-            MergeRequestState::Opened => {
-                format!(
-                    "{}/repos/{}/pulls?state=open",
-                    self.rest_api_basepath, self.path
-                )
-            }
+        let state = match args.state {
+            MergeRequestState::Opened => "open".to_string(),
             // Github has no distinction between closed and merged. A merged
             // pull request is considered closed.
-            MergeRequestState::Closed | MergeRequestState::Merged => {
-                format!(
-                    "{}/repos/{}/pulls?state=closed",
-                    self.rest_api_basepath, self.path
-                )
-            }
-        }
+            MergeRequestState::Closed | MergeRequestState::Merged => "closed".to_string(),
+        };
+        if let Some(_) = args.assignee_id {
+            return format!("{}/issues?state={}", self.rest_api_basepath, state);
+        };
+        return format!(
+            "{}/repos/{}/pulls?state={}",
+            self.rest_api_basepath, self.path, state
+        );
     }
 }
 
@@ -151,14 +148,34 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
 
     fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
         let url = self.url_list_merge_requests(&args);
-        query::github_list_merge_requests(
+        let response = query::github_list_merge_requests(
             &self.runner,
             &url,
             args.list_args,
             self.request_headers(),
             None,
             ApiOperation::MergeRequest,
-        )
+        );
+        if let Some(_) = args.assignee_id {
+            // Pull requests for the current authenticated user.
+            // Filter those reponses that have pull_request not empty See ref:
+            // https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28#list-issues-assigned-to-the-authenticated-user
+            // Quoting Github's docs: Note: GitHub's REST API considers every
+            // pull request an issue, but not every issue is a pull request. For
+            // this reason, "Issues" endpoints may return both issues and pull
+            // requests in the response. You can identify pull requests by the
+            // pull_request key. Be aware that the id of a pull request returned
+            // from "Issues" endpoints will be an issue id. To find out the pull
+            // request id, use the "List pull requests" endpoint.
+            let mut merge_requests = vec![];
+            for mr in response? {
+                if !mr.pull_request.is_empty() {
+                    merge_requests.push(mr);
+                }
+            }
+            return Ok(merge_requests);
+        }
+        response
     }
 
     fn merge(&self, id: i64) -> Result<MergeRequestResponse> {
@@ -226,6 +243,7 @@ pub struct GithubMergeRequestFields {
     updated_at: String,
     created_at: String,
     title: String,
+    pull_request: String,
 }
 
 impl From<&serde_json::Value> for GithubMergeRequestFields {
@@ -253,6 +271,10 @@ impl From<&serde_json::Value> for GithubMergeRequestFields {
                 .as_str()
                 .unwrap_or_default()
                 .to_string(),
+            pull_request: merge_request_data["pull_request"]["html_url"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
         }
     }
 }
@@ -267,6 +289,7 @@ impl From<GithubMergeRequestFields> for MergeRequestResponse {
             .updated_at(fields.updated_at)
             .created_at(fields.created_at)
             .title(fields.title)
+            .pull_request(fields.pull_request)
             .build()
             .unwrap()
     }
@@ -513,6 +536,34 @@ mod test {
             "https://api.github.com/repos/jordilin/githapi/pulls?state=open&page=2",
             *client.url(),
         );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_get_pull_requests_for_auth_user() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Github, "list_issues_user.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn MergeRequest> =
+            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(None)
+            .assignee_id(Some(123456))
+            .build()
+            .unwrap();
+        let merge_requests = github.list(args).unwrap();
+        assert_eq!("https://api.github.com/issues?state=open", *client.url());
+        assert!(merge_requests.len() == 1);
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
