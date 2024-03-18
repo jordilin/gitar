@@ -1,9 +1,10 @@
-use crate::api_traits::{Cicd, Timestamp};
-use crate::cli::cicd::PipelineOptions;
+use crate::api_traits::{Cicd, CicdRunner, Timestamp};
+use crate::cli::cicd::{PipelineOptions, RunnerOptions};
 use crate::config::Config;
 use crate::display::{Column, DisplayBody, Format};
 use crate::remote::{ListBodyArgs, ListRemoteCliArgs};
 use crate::{display, remote, Result};
+use std::fmt::Display;
 use std::io::Write;
 use std::sync::Arc;
 
@@ -76,9 +77,26 @@ impl Runner {
     }
 }
 
+impl From<Runner> for DisplayBody {
+    fn from(r: Runner) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("ID", r.id.to_string()),
+                Column::new("Active", r.active.to_string()),
+                Column::new("Description", r.description),
+                Column::new("IP Address", r.ip_address),
+                Column::new("Name", r.name),
+                Column::new("Online", r.online.to_string()),
+                Column::new("Status", r.status.to_string()),
+            ],
+        }
+    }
+}
+
 #[derive(Builder, Clone)]
 pub struct RunnerListCliArgs {
     pub status: RunnerStatus,
+    #[builder(default)]
     pub tags: Option<String>,
     pub list_args: ListRemoteCliArgs,
 }
@@ -86,6 +104,20 @@ pub struct RunnerListCliArgs {
 impl RunnerListCliArgs {
     pub fn builder() -> RunnerListCliArgsBuilder {
         RunnerListCliArgsBuilder::default()
+    }
+}
+
+#[derive(Builder, Clone)]
+pub struct RunnerListBodyArgs {
+    pub list_args: Option<ListBodyArgs>,
+    pub status: RunnerStatus,
+    #[builder(default)]
+    pub tags: Option<String>,
+}
+
+impl RunnerListBodyArgs {
+    pub fn builder() -> RunnerListBodyArgsBuilder {
+        RunnerListBodyArgsBuilder::default()
     }
 }
 
@@ -104,12 +136,23 @@ impl RunnerMetadataCliArgs {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum RunnerStatus {
     Online,
     Offline,
     Stale,
     NeverContacted,
+}
+
+impl Display for RunnerStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RunnerStatus::Online => write!(f, "online"),
+            RunnerStatus::Offline => write!(f, "offline"),
+            RunnerStatus::Stale => write!(f, "stale"),
+            RunnerStatus::NeverContacted => write!(f, "never_contacted"),
+        }
+    }
 }
 
 pub fn execute(
@@ -130,10 +173,49 @@ pub fn execute(
                 .build()?;
             list_pipelines(remote, body_args, cli_args, std::io::stdout())
         }
-        PipelineOptions::Runners(_cli_args) => {
-            todo!("Runners not implemented yet")
-        }
+        PipelineOptions::Runners(options) => match options {
+            RunnerOptions::List(cli_args) => {
+                let remote = remote::get_cicd_runner(
+                    domain,
+                    path,
+                    config,
+                    cli_args.list_args.refresh_cache,
+                )?;
+
+                let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
+                let tags = cli_args.tags.clone();
+                let body_args = RunnerListBodyArgs::builder()
+                    .list_args(from_to_args)
+                    .status(cli_args.status)
+                    .tags(tags)
+                    .build()?;
+                list_runners(remote, body_args, cli_args, std::io::stdout())
+            }
+            RunnerOptions::Get(_cli_args) => {
+                todo!();
+            }
+        },
     }
+}
+
+fn list_runners<W: Write>(
+    remote: Arc<dyn CicdRunner>,
+    body_args: RunnerListBodyArgs,
+    cli_args: RunnerListCliArgs,
+    mut writer: W,
+) -> Result<()> {
+    let runners = remote.list(body_args)?;
+    if runners.is_empty() {
+        writer.write_all(b"No runners found.\n")?;
+        return Ok(());
+    }
+    display::print(
+        &mut writer,
+        runners,
+        cli_args.list_args.no_headers,
+        &cli_args.list_args.format,
+    )?;
+    Ok(())
 }
 
 fn list_pipelines<W: Write>(
@@ -336,6 +418,86 @@ mod test {
             "https://gitlab.com/owner/repo/-/pipelines/123 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | 60 | success\n\
              https://gitlab.com/owner/repo/-/pipelines/456 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | 60 | failed\n",
             String::from_utf8(buf).unwrap(),
+        )
+    }
+
+    #[derive(Builder, Clone)]
+    struct RunnerMock {
+        runners: Vec<Runner>,
+        #[builder(default)]
+        error: bool,
+    }
+
+    impl RunnerMock {
+        pub fn builder() -> RunnerMockBuilder {
+            RunnerMockBuilder::default()
+        }
+    }
+
+    impl CicdRunner for RunnerMock {
+        fn list(&self, _args: RunnerListBodyArgs) -> Result<Vec<Runner>> {
+            if self.error {
+                return Err(error::gen("Error"));
+            }
+            let rr = self.runners.clone();
+            Ok(rr)
+        }
+
+        fn get(&self, _id: i64) -> Result<Runner> {
+            let rr = self.runners.clone();
+            Ok(rr[0].clone())
+        }
+
+        fn num_pages(&self) -> Result<Option<u32>> {
+            if self.error {
+                return Err(error::gen("Error"));
+            }
+            Ok(None)
+        }
+    }
+
+    #[test]
+    fn test_list_runners() {
+        let runners = vec![
+            Runner::builder()
+                .id(1)
+                .active(true)
+                .description("Runner 1".to_string())
+                .ip_address("10.0.0.1".to_string())
+                .name("runner1".to_string())
+                .online(true)
+                .status(RunnerStatus::Online)
+                .build()
+                .unwrap(),
+            Runner::builder()
+                .id(2)
+                .active(true)
+                .description("Runner 2".to_string())
+                .ip_address("10.0.0.2".to_string())
+                .name("runner2".to_string())
+                .online(true)
+                .status(RunnerStatus::Online)
+                .build()
+                .unwrap(),
+        ];
+        let remote = RunnerMock::builder().runners(runners).build().unwrap();
+        let mut buf = Vec::new();
+        let body_args = RunnerListBodyArgs::builder()
+            .list_args(None)
+            .status(RunnerStatus::Online)
+            .build()
+            .unwrap();
+        let cli_args = RunnerListCliArgs::builder()
+            .status(RunnerStatus::Online)
+            .list_args(ListRemoteCliArgs::builder().build().unwrap())
+            .build()
+            .unwrap();
+        list_runners(Arc::new(remote), body_args, cli_args, &mut buf).unwrap();
+        assert_eq!(
+            "ID | Active | Description | IP Address | Name | Online | Status\n\
+             1 | true | Runner 1 | 10.0.0.1 | runner1 | true | online\n\
+             2 | true | Runner 2 | 10.0.0.2 | runner2 | true | online\n",
+            String::from_utf8(buf).unwrap()
         )
     }
 }

@@ -1,7 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
 use crate::api_traits::{
-    Cicd, ContainerRegistry, Deploy, MergeRequest, RemoteProject, Timestamp, UserInfo,
+    Cicd, CicdRunner, ContainerRegistry, Deploy, MergeRequest, RemoteProject, Timestamp, UserInfo,
 };
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
@@ -453,6 +453,7 @@ get!(get_project, RemoteProject);
 get!(get_registry, ContainerRegistry);
 get!(get_deploy, Deploy);
 get!(get_auth_user, UserInfo);
+get!(get_cicd_runner, CicdRunner);
 
 #[cfg(test)]
 mod test {

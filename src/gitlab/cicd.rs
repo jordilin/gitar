@@ -1,6 +1,6 @@
 use super::Gitlab;
-use crate::api_traits::ApiOperation;
-use crate::cmds::cicd::{Pipeline, PipelineBodyArgs};
+use crate::api_traits::{ApiOperation, CicdRunner};
+use crate::cmds::cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs};
 use crate::http::Headers;
 use crate::remote::query;
 use crate::{
@@ -31,6 +31,20 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
         let mut headers = Headers::new();
         headers.set("PRIVATE-TOKEN", self.api_token());
         query::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
+    fn list(&self, _args: RunnerListBodyArgs) -> Result<Vec<crate::cmds::cicd::Runner>> {
+        todo!();
+    }
+
+    fn get(&self, _id: i64) -> Result<Runner> {
+        todo!();
+    }
+
+    fn num_pages(&self) -> Result<Option<u32>> {
+        todo!();
     }
 }
 
