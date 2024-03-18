@@ -8,7 +8,7 @@ use std::fmt::Display;
 use std::io::Write;
 use std::sync::Arc;
 
-use super::common::num_cicd_pages;
+use super::common::{num_cicd_pages, process_num_pages};
 
 #[derive(Builder, Clone, Debug)]
 pub struct Pipeline {
@@ -194,7 +194,6 @@ pub fn execute(
                     config,
                     cli_args.list_args.refresh_cache,
                 )?;
-
                 let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
                 let tags = cli_args.tags.clone();
                 let body_args = RunnerListBodyArgs::builder()
@@ -202,6 +201,10 @@ pub fn execute(
                     .status(cli_args.status)
                     .tags(tags)
                     .build()?;
+                if cli_args.list_args.num_pages {
+                    return process_num_pages(remote.num_pages(body_args), std::io::stdout());
+                }
+
                 list_runners(remote, body_args, cli_args, std::io::stdout())
             }
             RunnerOptions::Get(_cli_args) => {
@@ -362,7 +365,7 @@ mod test {
     }
 
     #[test]
-    fn test_list_number_of_pages() {
+    fn test_list_number_of_pipelines_pages() {
         let pp_remote = PipelineListMock::builder()
             .num_pages(3 as u32)
             .build()
@@ -461,7 +464,7 @@ mod test {
             Ok(rr[0].clone())
         }
 
-        fn num_pages(&self) -> Result<Option<u32>> {
+        fn num_pages(&self, _args: RunnerListBodyArgs) -> Result<Option<u32>> {
             if self.error {
                 return Err(error::gen("Error"));
             }

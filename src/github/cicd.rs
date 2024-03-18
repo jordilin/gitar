@@ -49,7 +49,7 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Github<R> {
         todo!();
     }
 
-    fn num_pages(&self) -> Result<Option<u32>> {
+    fn num_pages(&self, _args: RunnerListBodyArgs) -> Result<Option<u32>> {
         todo!();
     }
 }

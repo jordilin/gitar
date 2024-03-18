@@ -41,7 +41,7 @@ pub trait Cicd {
 pub trait CicdRunner {
     fn list(&self, args: RunnerListBodyArgs) -> Result<Vec<Runner>>;
     fn get(&self, id: i64) -> Result<Runner>;
-    fn num_pages(&self) -> Result<Option<u32>>;
+    fn num_pages(&self, args: RunnerListBodyArgs) -> Result<Option<u32>>;
 }
 
 pub trait Deploy {
