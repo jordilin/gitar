@@ -1,6 +1,6 @@
 use super::Github;
-use crate::api_traits::ApiOperation;
-use crate::cmds::cicd::{Pipeline, PipelineBodyArgs};
+use crate::api_traits::{ApiOperation, CicdRunner};
+use crate::cmds::cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs};
 use crate::remote::query;
 use crate::{
     api_traits::Cicd,
@@ -37,6 +37,20 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
         );
         let headers = self.request_headers();
         query::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> CicdRunner for Github<R> {
+    fn list(&self, _args: RunnerListBodyArgs) -> Result<Vec<crate::cmds::cicd::Runner>> {
+        todo!();
+    }
+
+    fn get(&self, _id: i64) -> Result<Runner> {
+        todo!();
+    }
+
+    fn num_pages(&self, _args: RunnerListBodyArgs) -> Result<Option<u32>> {
+        todo!();
     }
 }
 

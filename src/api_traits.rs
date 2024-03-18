@@ -2,10 +2,12 @@ use std::fmt::Display;
 
 use crate::{
     cli::browse::BrowseOptions,
-    cmds::cicd::{Pipeline, PipelineBodyArgs},
-    cmds::docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
-    cmds::my::User,
-    cmds::release::{Release, ReleaseBodyArgs},
+    cmds::{
+        cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs},
+        docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
+        my::User,
+        release::{Release, ReleaseBodyArgs},
+    },
     io::CmdInfo,
     remote::{MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse},
     Result,
@@ -34,6 +36,12 @@ pub trait Cicd {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>>;
     fn get_pipeline(&self, id: i64) -> Result<Pipeline>;
     fn num_pages(&self) -> Result<Option<u32>>;
+}
+
+pub trait CicdRunner {
+    fn list(&self, args: RunnerListBodyArgs) -> Result<Vec<Runner>>;
+    fn get(&self, id: i64) -> Result<Runner>;
+    fn num_pages(&self, args: RunnerListBodyArgs) -> Result<Option<u32>>;
 }
 
 pub trait Deploy {

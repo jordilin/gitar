@@ -149,6 +149,16 @@ def list_get_user_info():
     return data
 
 
+def list_gitlab_project_runners_api():
+    url = "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/runners"
+    headers = {"PRIVATE-TOKEN": PRIVATE_TOKEN}
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    if args.persist:
+        persist_contract("list_project_runners.json", REMOTE, data)
+    return data[0]
+
+
 class TestAPI:
     def __init__(self, callback, msg, *expected):
         self.callback = callback
@@ -198,6 +208,11 @@ if __name__ == "__main__":
             list_get_user_info,
             "get user info API contract",
             get_contract_json("get_user_info.json", REMOTE),
+        ),
+        TestAPI(
+            list_gitlab_project_runners_api,
+            "list gitlab project runners API contract",
+            get_contract_json("list_project_runners.json", REMOTE),
         ),
     ]
     if not validate_responses(testcases):

@@ -1,6 +1,6 @@
 use super::Gitlab;
-use crate::api_traits::ApiOperation;
-use crate::cmds::cicd::{Pipeline, PipelineBodyArgs};
+use crate::api_traits::{ApiOperation, CicdRunner};
+use crate::cmds::cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs};
 use crate::http::Headers;
 use crate::remote::query;
 use crate::{
@@ -31,6 +31,97 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
         let mut headers = Headers::new();
         headers.set("PRIVATE-TOKEN", self.api_token());
         query::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
+    fn list(&self, args: RunnerListBodyArgs) -> Result<Vec<crate::cmds::cicd::Runner>> {
+        let url = self.list_runners_url(&args, false);
+        query::gitlab_list_project_runners(
+            &self.runner,
+            &url,
+            args.list_args,
+            self.headers(),
+            None,
+            ApiOperation::Pipeline,
+        )
+    }
+
+    fn get(&self, _id: i64) -> Result<Runner> {
+        todo!();
+    }
+
+    fn num_pages(&self, args: RunnerListBodyArgs) -> Result<Option<u32>> {
+        let url = self.list_runners_url(&args, true);
+        query::num_pages(&self.runner, &url, self.headers(), ApiOperation::Pipeline)
+    }
+}
+
+impl<R> Gitlab<R> {
+    fn list_runners_url(&self, args: &RunnerListBodyArgs, num_pages: bool) -> String {
+        let mut url = format!(
+            "{}/runners?status={}",
+            self.rest_api_basepath(),
+            args.status
+        );
+        if num_pages {
+            url.push_str("&page=1");
+        }
+        url
+    }
+}
+
+pub struct GitlabRunnerFields {
+    id: i64,
+    description: String,
+    ip_address: String,
+    active: bool,
+    paused: bool,
+    is_shared: bool,
+    runner_type: String,
+    name: String,
+    online: bool,
+    status: String,
+}
+
+impl From<&serde_json::Value> for GitlabRunnerFields {
+    fn from(value: &serde_json::Value) -> Self {
+        Self {
+            id: value["id"].as_i64().unwrap(),
+            description: value["description"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+            ip_address: value["ip_address"].as_str().unwrap_or_default().to_string(),
+            active: value["active"].as_bool().unwrap_or_default(),
+            paused: value["paused"].as_bool().unwrap_or_default(),
+            is_shared: value["is_shared"].as_bool().unwrap_or_default(),
+            runner_type: value["runner_type"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+            name: value["name"].as_str().unwrap_or_default().to_string(),
+            online: value["online"].as_bool().unwrap_or_default(),
+            status: value["status"].as_str().unwrap_or_default().to_string(),
+        }
+    }
+}
+
+impl From<GitlabRunnerFields> for Runner {
+    fn from(fields: GitlabRunnerFields) -> Self {
+        Runner::builder()
+            .id(fields.id)
+            .description(fields.description)
+            .ip_address(fields.ip_address)
+            .active(fields.active)
+            .paused(fields.paused)
+            .is_shared(fields.is_shared)
+            .runner_type(fields.runner_type)
+            .name(fields.name)
+            .online(fields.online)
+            .status(fields.status)
+            .build()
+            .unwrap()
     }
 }
 
@@ -79,6 +170,7 @@ mod test {
 
     use std::sync::Arc;
 
+    use crate::cmds::cicd::RunnerStatus;
     use crate::remote::ListBodyArgs;
     use crate::test::utils::{config, get_contract, ContractType, MockRunner};
 
@@ -223,5 +315,64 @@ mod test {
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
         assert!(gitlab.num_pages().is_err());
+    }
+
+    #[test]
+    fn test_list_project_runners() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(
+                ContractType::Gitlab,
+                "list_project_runners.json",
+            ))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn CicdRunner> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let body_args = RunnerListBodyArgs::builder()
+            .status(RunnerStatus::Online)
+            .list_args(None)
+            .build()
+            .unwrap();
+        gitlab.list(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/runners?status=online",
+            *client.url(),
+        );
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_project_runner_num_pages() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/runners?status=online&page=1>; rel=\"first\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/runners?status=online&page=1>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn CicdRunner> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let body_args = RunnerListBodyArgs::builder()
+            .status(RunnerStatus::Online)
+            .list_args(None)
+            .build()
+            .unwrap();
+        let num_pages = gitlab.num_pages(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/runners?status=online&page=1",
+            *client.url(),
+        );
+        assert_eq!(Some(1), num_pages);
     }
 }

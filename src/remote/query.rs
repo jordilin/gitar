@@ -6,7 +6,7 @@ use serde::Serialize;
 use crate::{
     api_traits::ApiOperation,
     cmds::{
-        cicd::Pipeline,
+        cicd::{Pipeline, Runner},
         docker::{ImageMetadata, RegistryRepository, RepositoryTag},
         my::User,
         release::Release,
@@ -20,7 +20,7 @@ use crate::{
         user::GithubUserFields,
     },
     gitlab::{
-        cicd::GitlabPipelineFields,
+        cicd::{GitlabPipelineFields, GitlabRunnerFields},
         container_registry::{
             GitlabImageMetadataFields, GitlabRegistryRepositoryFields, GitlabRepositoryTagFields,
         },
@@ -248,6 +248,8 @@ paged!(
 
 paged!(github_releases, GithubReleaseFields, Release);
 paged!(gitlab_releases, GitlabReleaseFields, Release);
+
+paged!(gitlab_list_project_runners, GitlabRunnerFields, Runner);
 
 send!(gitlab_project_data, GitlabProjectFields, Project);
 send!(github_project_data, GithubProjectFields, Project);

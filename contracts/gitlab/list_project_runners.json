@@ -1,0 +1,26 @@
+[
+    {
+        "id": 11573930,
+        "description": "1-manager.gitlab.com",
+        "ip_address": "10.1.5.7",
+        "active": true,
+        "paused": false,
+        "is_shared": true,
+        "runner_type": "instance_type",
+        "name": "gitlab-runner",
+        "online": false,
+        "status": "offline"
+    },
+    {
+        "id": 11728750,
+        "description": "2-runners-manager.gitlab.com/dind",
+        "ip_address": "10.1.5.6",
+        "active": true,
+        "paused": false,
+        "is_shared": true,
+        "runner_type": "instance_type",
+        "name": "gitlab-runner",
+        "online": true,
+        "status": "online"
+    }
+]
