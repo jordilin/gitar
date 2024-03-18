@@ -68,7 +68,10 @@ pub struct Runner {
     pub ip_address: String,
     pub name: String,
     pub online: bool,
-    pub status: RunnerStatus,
+    pub paused: bool,
+    pub is_shared: bool,
+    pub runner_type: String,
+    pub status: String,
 }
 
 impl Runner {
@@ -86,10 +89,20 @@ impl From<Runner> for DisplayBody {
                 Column::new("Description", r.description),
                 Column::new("IP Address", r.ip_address),
                 Column::new("Name", r.name),
+                Column::new("Paused", r.paused.to_string()),
+                Column::new("Shared", r.is_shared.to_string()),
+                Column::new("Type", r.runner_type),
                 Column::new("Online", r.online.to_string()),
                 Column::new("Status", r.status.to_string()),
             ],
         }
+    }
+}
+
+impl Timestamp for Runner {
+    fn created_at(&self) -> String {
+        // There is no created_at field for runners, set it to UNIX epoch
+        "1970-01-01T00:00:00Z".to_string()
     }
 }
 
@@ -466,7 +479,10 @@ mod test {
                 .ip_address("10.0.0.1".to_string())
                 .name("runner1".to_string())
                 .online(true)
-                .status(RunnerStatus::Online)
+                .status("online".to_string())
+                .paused(false)
+                .is_shared(true)
+                .runner_type("shared".to_string())
                 .build()
                 .unwrap(),
             Runner::builder()
@@ -476,7 +492,10 @@ mod test {
                 .ip_address("10.0.0.2".to_string())
                 .name("runner2".to_string())
                 .online(true)
-                .status(RunnerStatus::Online)
+                .status("online".to_string())
+                .paused(false)
+                .is_shared(true)
+                .runner_type("shared".to_string())
                 .build()
                 .unwrap(),
         ];
@@ -494,9 +513,9 @@ mod test {
             .unwrap();
         list_runners(Arc::new(remote), body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
-            "ID | Active | Description | IP Address | Name | Online | Status\n\
-             1 | true | Runner 1 | 10.0.0.1 | runner1 | true | online\n\
-             2 | true | Runner 2 | 10.0.0.2 | runner2 | true | online\n",
+            "ID | Active | Description | IP Address | Name | Paused | Shared | Type | Online | Status\n\
+             1 | true | Runner 1 | 10.0.0.1 | runner1 | false | true | shared | true | online\n\
+             2 | true | Runner 2 | 10.0.0.2 | runner2 | false | true | shared | true | online\n",
             String::from_utf8(buf).unwrap()
         )
     }
