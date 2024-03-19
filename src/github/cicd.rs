@@ -1,6 +1,6 @@
 use super::Github;
 use crate::api_traits::{ApiOperation, CicdRunner};
-use crate::cmds::cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs};
+use crate::cmds::cicd::{Pipeline, PipelineBodyArgs, RunnerListBodyArgs, RunnerMetadata};
 use crate::remote::query;
 use crate::{
     api_traits::Cicd,
@@ -45,7 +45,7 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Github<R> {
         todo!();
     }
 
-    fn get(&self, _id: i64) -> Result<Runner> {
+    fn get(&self, _id: i64) -> Result<RunnerMetadata> {
         todo!();
     }
 

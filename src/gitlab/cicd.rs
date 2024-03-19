@@ -1,6 +1,6 @@
 use super::Gitlab;
 use crate::api_traits::{ApiOperation, CicdRunner};
-use crate::cmds::cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs};
+use crate::cmds::cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata};
 use crate::http::Headers;
 use crate::remote::query;
 use crate::{
@@ -47,7 +47,7 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
         )
     }
 
-    fn get(&self, _id: i64) -> Result<Runner> {
+    fn get(&self, _id: i64) -> Result<RunnerMetadata> {
         todo!();
     }
 

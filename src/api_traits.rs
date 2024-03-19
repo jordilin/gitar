@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::{
     cli::browse::BrowseOptions,
     cmds::{
-        cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs},
+        cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata},
         docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
         my::User,
         release::{Release, ReleaseBodyArgs},
@@ -40,7 +40,7 @@ pub trait Cicd {
 
 pub trait CicdRunner {
     fn list(&self, args: RunnerListBodyArgs) -> Result<Vec<Runner>>;
-    fn get(&self, id: i64) -> Result<Runner>;
+    fn get(&self, id: i64) -> Result<RunnerMetadata>;
     fn num_pages(&self, args: RunnerListBodyArgs) -> Result<Option<u32>>;
 }
 
