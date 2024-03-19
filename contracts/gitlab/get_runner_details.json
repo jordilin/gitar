@@ -1,0 +1,27 @@
+{
+    "id": 11573930,
+    "description": "1-blue.shared-gitlab-org.runners-manager.gitlab.com",
+    "ip_address": "10.1.5.7",
+    "active": true,
+    "paused": false,
+    "is_shared": true,
+    "runner_type": "instance_type",
+    "name": "gitlab-runner",
+    "online": false,
+    "status": "offline",
+    "tag_list": [
+        "gitlab-org"
+    ],
+    "run_untagged": false,
+    "locked": true,
+    "maximum_timeout": 5400,
+    "access_level": "not_protected",
+    "version": "16.8.0~beta.67.gb5664e8e",
+    "revision": "b5664e8e",
+    "platform": "linux",
+    "architecture": "amd64",
+    "contacted_at": "2024-03-05T14:31:52.591Z",
+    "maintenance_note": null,
+    "projects": [],
+    "groups": []
+}

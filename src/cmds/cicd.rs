@@ -106,6 +106,42 @@ impl Timestamp for Runner {
     }
 }
 
+/// Used when getting runner details. Adds extra fields to the runner struct.
+#[derive(Builder, Clone)]
+pub struct RunnerMetadata {
+    pub id: i64,
+    pub run_untagged: bool,
+    pub tag_list: Vec<String>,
+    pub version: String,
+    pub architecture: String,
+    pub platform: String,
+    pub contacted_at: String,
+    pub revision: String,
+}
+
+impl RunnerMetadata {
+    pub fn builder() -> RunnerMetadataBuilder {
+        RunnerMetadataBuilder::default()
+    }
+}
+
+impl From<RunnerMetadata> for DisplayBody {
+    fn from(r: RunnerMetadata) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("ID", r.id.to_string()),
+                Column::new("Run untagged", r.run_untagged.to_string()),
+                Column::new("Tags", r.tag_list.join(", ")),
+                Column::new("Architecture", r.architecture),
+                Column::new("Platform", r.platform),
+                Column::new("Contacted at", r.contacted_at),
+                Column::new("Version", r.version),
+                Column::new("Revision", r.revision),
+            ],
+        }
+    }
+}
+
 #[derive(Builder, Clone)]
 pub struct RunnerListCliArgs {
     pub status: RunnerStatus,
@@ -207,11 +243,27 @@ pub fn execute(
 
                 list_runners(remote, body_args, cli_args, std::io::stdout())
             }
-            RunnerOptions::Get(_cli_args) => {
-                todo!();
+            RunnerOptions::Get(cli_args) => {
+                let remote = remote::get_cicd_runner(domain, path, config, cli_args.refresh_cache)?;
+                get_runner_details(remote, cli_args, std::io::stdout())
             }
         },
     }
+}
+
+fn get_runner_details<W: Write>(
+    remote: Arc<dyn CicdRunner>,
+    cli_args: RunnerMetadataCliArgs,
+    mut writer: W,
+) -> Result<()> {
+    let runner = remote.get(cli_args.id)?;
+    display::print(
+        &mut writer,
+        vec![runner],
+        cli_args.no_headers,
+        &cli_args.format,
+    )?;
+    Ok(())
 }
 
 fn list_runners<W: Write>(
@@ -439,9 +491,12 @@ mod test {
 
     #[derive(Builder, Clone)]
     struct RunnerMock {
+        #[builder(default = "vec![]")]
         runners: Vec<Runner>,
         #[builder(default)]
         error: bool,
+        #[builder(default)]
+        one_runner: Option<RunnerMetadata>,
     }
 
     impl RunnerMock {
@@ -459,9 +514,9 @@ mod test {
             Ok(rr)
         }
 
-        fn get(&self, _id: i64) -> Result<Runner> {
-            let rr = self.runners.clone();
-            Ok(rr[0].clone())
+        fn get(&self, _id: i64) -> Result<RunnerMetadata> {
+            let rr = self.one_runner.as_ref().unwrap();
+            Ok(rr.clone())
         }
 
         fn num_pages(&self, _args: RunnerListBodyArgs) -> Result<Option<u32>> {
@@ -519,6 +574,38 @@ mod test {
             "ID | Active | Description | IP Address | Name | Paused | Shared | Type | Online | Status\n\
              1 | true | Runner 1 | 10.0.0.1 | runner1 | false | true | shared | true | online\n\
              2 | true | Runner 2 | 10.0.0.2 | runner2 | false | true | shared | true | online\n",
+            String::from_utf8(buf).unwrap()
+        )
+    }
+
+    #[test]
+    fn test_get_gitlab_runner_metadata() {
+        let runner_metadata = RunnerMetadata::builder()
+            .id(1)
+            .run_untagged(true)
+            .tag_list(vec!["tag1".to_string(), "tag2".to_string()])
+            .version("13.0.0".to_string())
+            .architecture("amd64".to_string())
+            .platform("linux".to_string())
+            .contacted_at("2020-01-01T00:00:00Z".to_string())
+            .revision("1234567890abcdef".to_string())
+            .build()
+            .unwrap();
+        let remote = RunnerMock::builder()
+            .one_runner(Some(runner_metadata))
+            .build()
+            .unwrap();
+        let mut buf = Vec::new();
+        let cli_args = RunnerMetadataCliArgs::builder()
+            .id(1)
+            .refresh_cache(false)
+            .no_headers(false)
+            .build()
+            .unwrap();
+        get_runner_details(Arc::new(remote), cli_args, &mut buf).unwrap();
+        assert_eq!(
+            "ID | Run untagged | Tags | Architecture | Platform | Contacted at | Version | Revision\n\
+             1 | true | tag1, tag2 | amd64 | linux | 2020-01-01T00:00:00Z | 13.0.0 | 1234567890abcdef\n",
             String::from_utf8(buf).unwrap()
         )
     }
