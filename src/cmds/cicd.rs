@@ -117,7 +117,6 @@ pub struct RunnerMetadata {
     pub platform: String,
     pub contacted_at: String,
     pub revision: String,
-    pub platform_type: String,
 }
 
 impl RunnerMetadata {
@@ -138,7 +137,6 @@ impl From<RunnerMetadata> for DisplayBody {
                 Column::new("Contacted at", r.contacted_at),
                 Column::new("Version", r.version),
                 Column::new("Revision", r.revision),
-                Column::new("Platform type", r.platform_type),
             ],
         }
     }
@@ -591,7 +589,6 @@ mod test {
             .platform("linux".to_string())
             .contacted_at("2020-01-01T00:00:00Z".to_string())
             .revision("1234567890abcdef".to_string())
-            .platform_type("linux".to_string())
             .build()
             .unwrap();
         let remote = RunnerMock::builder()
@@ -607,8 +604,8 @@ mod test {
             .unwrap();
         get_runner_details(Arc::new(remote), cli_args, &mut buf).unwrap();
         assert_eq!(
-            "ID | Run untagged | Tags | Architecture | Platform | Contacted at | Version | Revision | Platform type\n\
-             1 | true | tag1, tag2 | amd64 | linux | 2020-01-01T00:00:00Z | 13.0.0 | 1234567890abcdef | linux\n",
+            "ID | Run untagged | Tags | Architecture | Platform | Contacted at | Version | Revision\n\
+             1 | true | tag1, tag2 | amd64 | linux | 2020-01-01T00:00:00Z | 13.0.0 | 1234567890abcdef\n",
             String::from_utf8(buf).unwrap()
         )
     }

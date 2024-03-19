@@ -1,7 +1,7 @@
 use super::Gitlab;
 use crate::api_traits::{ApiOperation, CicdRunner};
 use crate::cmds::cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata};
-use crate::http::Headers;
+use crate::http::{self, Headers};
 use crate::remote::query;
 use crate::{
     api_traits::Cicd,
@@ -47,8 +47,16 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
         )
     }
 
-    fn get(&self, _id: i64) -> Result<RunnerMetadata> {
-        todo!();
+    fn get(&self, id: i64) -> Result<RunnerMetadata> {
+        let url = format!("{}/{}", self.base_runner_url, id);
+        query::gitlab_get_runner_metadata::<_, ()>(
+            &self.runner,
+            &url,
+            None,
+            self.headers(),
+            http::Method::GET,
+            ApiOperation::Pipeline,
+        )
     }
 
     fn num_pages(&self, args: RunnerListBodyArgs) -> Result<Option<u32>> {
@@ -120,6 +128,53 @@ impl From<GitlabRunnerFields> for Runner {
             .name(fields.name)
             .online(fields.online)
             .status(fields.status)
+            .build()
+            .unwrap()
+    }
+}
+
+pub struct GitlabRunnerMetadataFields {
+    pub id: i64,
+    pub run_untagged: bool,
+    pub tag_list: Vec<String>,
+    pub version: String,
+    pub architecture: String,
+    pub platform: String,
+    pub contacted_at: String,
+    pub revision: String,
+}
+
+impl From<&serde_json::Value> for GitlabRunnerMetadataFields {
+    fn from(value: &serde_json::Value) -> Self {
+        Self {
+            id: value["id"].as_i64().unwrap(),
+            run_untagged: value["run_untagged"].as_bool().unwrap(),
+            tag_list: value["tag_list"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap().to_string())
+                .collect(),
+            version: value["version"].as_str().unwrap().to_string(),
+            architecture: value["architecture"].as_str().unwrap().to_string(),
+            platform: value["platform"].as_str().unwrap().to_string(),
+            contacted_at: value["contacted_at"].as_str().unwrap().to_string(),
+            revision: value["revision"].as_str().unwrap().to_string(),
+        }
+    }
+}
+
+impl From<GitlabRunnerMetadataFields> for RunnerMetadata {
+    fn from(fields: GitlabRunnerMetadataFields) -> Self {
+        RunnerMetadata::builder()
+            .id(fields.id)
+            .run_untagged(fields.run_untagged)
+            .tag_list(fields.tag_list)
+            .version(fields.version)
+            .architecture(fields.architecture)
+            .platform(fields.platform)
+            .contacted_at(fields.contacted_at)
+            .revision(fields.revision)
             .build()
             .unwrap()
     }
@@ -374,5 +429,27 @@ mod test {
             *client.url(),
         );
         assert_eq!(Some(1), num_pages);
+    }
+
+    #[test]
+    fn test_get_gitlab_runner_metadata() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(
+                ContractType::Gitlab,
+                "get_runner_details.json",
+            ))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn CicdRunner> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        gitlab.get(11573930).unwrap();
+        assert_eq!("https://gitlab.com/api/v4/runners/11573930", *client.url(),);
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
     }
 }
