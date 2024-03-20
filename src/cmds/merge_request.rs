@@ -587,8 +587,8 @@ mod tests {
         );
         list(remote, body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
-            "ID | Title | Author | URL | Updated at\n\
-             1 | New feature | author | https://gitlab.com/owner/repo/-/merge_requests/1 | 2021-01-01\n",
+            "ID|Title|Author|URL|Updated at\n\
+             1|New feature|author|https://gitlab.com/owner/repo/-/merge_requests/1|2021-01-01\n",
             String::from_utf8(buf).unwrap(),
         )
     }
@@ -645,7 +645,7 @@ mod tests {
         );
         list(remote, body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
-            "1 | New feature | author | https://gitlab.com/owner/repo/-/merge_requests/1 | 2021-01-01\n",
+            "1|New feature|author|https://gitlab.com/owner/repo/-/merge_requests/1|2021-01-01\n",
             String::from_utf8(buf).unwrap(),
         )
     }

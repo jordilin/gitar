@@ -320,8 +320,8 @@ mod tests {
         let mut buf = Vec::new();
         validate_and_list(remote, args, &mut buf).unwrap();
         assert_eq!(
-            "ID | Location | Tags count | Created at\n\
-             1 | registry.gitlab.com/namespace/project | 10 | 2021-01-01T00:00:00Z\n",
+            "ID|Location|Tags count|Created at\n\
+             1|registry.gitlab.com/namespace/project|10|2021-01-01T00:00:00Z\n",
             String::from_utf8(buf).unwrap()
         );
     }
@@ -344,8 +344,8 @@ mod tests {
         let mut buf = Vec::new();
         validate_and_list(remote, args, &mut buf).unwrap();
         assert_eq!(
-            "Name | Path | Location\n\
-            v0.0.1 | namespace/project:v0.0.1 | registry.gitlab.com/namespace/project:v0.0.1\n",
+            "Name|Path|Location\n\
+            v0.0.1|namespace/project:v0.0.1|registry.gitlab.com/namespace/project:v0.0.1\n",
             String::from_utf8(buf).unwrap()
         );
     }
@@ -411,7 +411,7 @@ mod tests {
         let mut buf = Vec::new();
         validate_and_list(remote, args, &mut buf).unwrap();
         assert_eq!(
-            "v0.0.1 | namespace/project:v0.0.1 | registry.gitlab.com/namespace/project:v0.0.1\n",
+            "v0.0.1|namespace/project:v0.0.1|registry.gitlab.com/namespace/project:v0.0.1\n",
             String::from_utf8(buf).unwrap()
         );
     }
@@ -435,7 +435,7 @@ mod tests {
         let mut buf = Vec::new();
         validate_and_list(remote, args, &mut buf).unwrap();
         assert_eq!(
-            "1 | registry.gitlab.com/namespace/project | 10 | 2021-01-01T00:00:00Z\n",
+            "1|registry.gitlab.com/namespace/project|10|2021-01-01T00:00:00Z\n",
             String::from_utf8(buf).unwrap()
         );
     }
@@ -509,8 +509,8 @@ mod tests {
         let mut buf = Vec::new();
         get_image_metadata(remote, args, &mut buf).unwrap();
         assert_eq!(
-            "Name | Location | Short SHA | Size | Created at\n\
-            v0.0.1 | registry.gitlab.com/namespace/project:v0.0.1 | 12345678 | 100 | 2021-01-01T00:00:00Z\n",
+            "Name|Location|Short SHA|Size|Created at\n\
+            v0.0.1|registry.gitlab.com/namespace/project:v0.0.1|12345678|100|2021-01-01T00:00:00Z\n",
             String::from_utf8(buf).unwrap()
         );
     }
@@ -528,7 +528,7 @@ mod tests {
         let mut buf = Vec::new();
         get_image_metadata(remote, args, &mut buf).unwrap();
         assert_eq!(
-            "v0.0.1 | registry.gitlab.com/namespace/project:v0.0.1 | 12345678 | 100 | 2021-01-01T00:00:00Z\n",
+            "v0.0.1|registry.gitlab.com/namespace/project:v0.0.1|12345678|100|2021-01-01T00:00:00Z\n",
             String::from_utf8(buf).unwrap()
         );
     }

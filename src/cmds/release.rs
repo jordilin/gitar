@@ -139,7 +139,7 @@ mod test {
         let mut writer = Vec::new();
         list_releases(remote, body_args, cli_args, &mut writer).unwrap();
         assert_eq!(
-            "Tag | Title | Description | URL | ID | Created At | Updated At\nv1.0.0 | First release | Initial release | https://github.com/jordilin/githapi/releases/tag/v0.1.20 | 1 | 2021-01-01T00:00:00Z | 2021-01-01T00:00:01Z\n",
+            "Tag|Title|Description|URL|ID|Created At|Updated At\nv1.0.0|First release|Initial release|https://github.com/jordilin/githapi/releases/tag/v0.1.20|1|2021-01-01T00:00:00Z|2021-01-01T00:00:01Z\n",
             String::from_utf8(writer).unwrap(),
         );
     }

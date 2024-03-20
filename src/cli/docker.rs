@@ -32,7 +32,7 @@ struct DockerImageMetadata {
     /// Do not print headers
     #[clap(long)]
     pub no_headers: bool,
-    /// Output format. pipe " | " or csv ","
+    /// Output format
     #[clap(long, default_value_t=FormatCli::Pipe)]
     format: FormatCli,
 }
