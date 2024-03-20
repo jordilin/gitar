@@ -102,15 +102,10 @@ impl From<RunnerStatusCli> for RunnerStatus {
 
 impl From<ListRunner> for RunnerOptions {
     fn from(options: ListRunner) -> Self {
-        let tags = if let Some(tags) = options.tags {
-            Some(tags.join(",").to_string())
-        } else {
-            None
-        };
         RunnerOptions::List(
             RunnerListCliArgs::builder()
                 .status(options.status.into())
-                .tags(tags)
+                .tags(options.tags.map(|tags| tags.join(",").to_string()))
                 .list_args(gen_list_args(options.list_args))
                 .build()
                 .unwrap(),
