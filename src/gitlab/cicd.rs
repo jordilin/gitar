@@ -75,6 +75,9 @@ impl<R> Gitlab<R> {
         if num_pages {
             url.push_str("&page=1");
         }
+        if let Some(tags) = &args.tags {
+            url.push_str(&format!("&tag_list={}", tags));
+        }
         url
     }
 }
@@ -449,6 +452,37 @@ mod test {
             Box::new(Gitlab::new(config, &domain, &path, client.clone()));
         gitlab.get(11573930).unwrap();
         assert_eq!("https://gitlab.com/api/v4/runners/11573930", *client.url(),);
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_list_gitlab_runners_with_a_tag_list() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(
+                ContractType::Gitlab,
+                "list_project_runners.json",
+            ))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn CicdRunner> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let body_args = RunnerListBodyArgs::builder()
+            .status(RunnerStatus::Online)
+            .list_args(None)
+            .tags(Some("tag1,tag2".to_string()))
+            .build()
+            .unwrap();
+        gitlab.list(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/runners?status=online&tag_list=tag1,tag2",
+            *client.url(),
+        );
         assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
         assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
     }

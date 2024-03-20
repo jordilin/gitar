@@ -43,8 +43,8 @@ struct ListRunner {
     #[clap()]
     status: RunnerStatusCli,
     /// Comma separated list of tags
-    #[clap(long)]
-    tags: Option<String>,
+    #[clap(long, value_delimiter = ',')]
+    tags: Option<Vec<String>>,
     #[command(flatten)]
     list_args: ListArgs,
 }
@@ -105,7 +105,7 @@ impl From<ListRunner> for RunnerOptions {
         RunnerOptions::List(
             RunnerListCliArgs::builder()
                 .status(options.status.into())
-                .tags(options.tags)
+                .tags(options.tags.map(|tags| tags.join(",").to_string()))
                 .list_args(gen_list_args(options.list_args))
                 .build()
                 .unwrap(),
