@@ -29,6 +29,16 @@ impl From<&Format> for &str {
     }
 }
 
+impl From<&Format> for u8 {
+    fn from(f: &Format) -> Self {
+        match f {
+            Format::CSV => b',',
+            Format::PIPE => b'|',
+            Format::JSON => 0,
+        }
+    }
+}
+
 pub struct DisplayBody {
     pub columns: Vec<Column>,
 }
@@ -75,7 +85,9 @@ pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
             }
         }
         _ => {
-            // CSV and PIPE (" | ") formats
+            let mut wtr = csv::WriterBuilder::new()
+                .delimiter(format.into())
+                .from_writer(w);
             if !no_headers {
                 // Get the headers from the first row of columns
                 let headers = data[0]
@@ -85,19 +97,14 @@ pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
                     .iter()
                     .map(|c| c.name.clone())
                     .collect::<Vec<_>>();
-                writeln!(w, "{}", headers.join(format.into()))?;
+                wtr.write_record(&headers)?;
             }
             for d in data {
                 let d = d.into();
-                let num_columns = d.columns.len();
-                for i in 0..num_columns {
-                    write!(w, "{}", d.columns[i].value)?;
-                    if i < num_columns - 1 {
-                        write!(w, "{}", format)?;
-                    }
-                }
-                writeln!(w)?;
+                let row = d.columns.into_iter().map(|c| c.value).collect::<Vec<_>>();
+                wtr.write_record(&row)?;
             }
+            wtr.flush()?;
         }
     }
     Ok(())
@@ -149,5 +156,22 @@ mod test {
             assert!(obj.contains_key("title"));
             assert!(obj.contains_key("author"));
         }
+    }
+
+    #[test]
+    fn test_csv_multiple_commas_one_field() {
+        let mut w = Vec::new();
+        let books = vec![
+            Book::new("Faust, Part One", "Goethe"),
+            Book::new("The Adventures of Huckleberry Finn", "Mark Twain"),
+        ];
+        print(&mut w, books, true, &Format::CSV).unwrap();
+        let mut reader = csv::ReaderBuilder::new()
+            .has_headers(false)
+            .from_reader(w.as_slice());
+        assert_eq!(
+            "Faust, Part One",
+            &reader.records().next().unwrap().unwrap()[0]
+        );
     }
 }

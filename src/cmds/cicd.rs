@@ -385,9 +385,9 @@ mod test {
         list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
             String::from_utf8(buf).unwrap(),
-            "URL | Branch | SHA | Created at | Updated at | Duration | Status\n\
-             https://gitlab.com/owner/repo/-/pipelines/123 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | 60 | success\n\
-             https://gitlab.com/owner/repo/-/pipelines/456 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:01Z | 61 | failed\n")
+            "URL|Branch|SHA|Created at|Updated at|Duration|Status\n\
+             https://gitlab.com/owner/repo/-/pipelines/123|master|1234567890abcdef|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|60|success\n\
+             https://gitlab.com/owner/repo/-/pipelines/456|master|1234567890abcdef|2020-01-01T00:00:00Z|2020-01-01T00:01:01Z|61|failed\n")
     }
 
     #[test]
@@ -483,8 +483,8 @@ mod test {
             .unwrap();
         list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
-            "https://gitlab.com/owner/repo/-/pipelines/123 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | 60 | success\n\
-             https://gitlab.com/owner/repo/-/pipelines/456 | master | 1234567890abcdef | 2020-01-01T00:00:00Z | 2020-01-01T00:01:00Z | 60 | failed\n",
+            "https://gitlab.com/owner/repo/-/pipelines/123|master|1234567890abcdef|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|60|success\n\
+             https://gitlab.com/owner/repo/-/pipelines/456|master|1234567890abcdef|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|60|failed\n",
             String::from_utf8(buf).unwrap(),
         )
     }
@@ -571,9 +571,9 @@ mod test {
             .unwrap();
         list_runners(Arc::new(remote), body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
-            "ID | Active | Description | IP Address | Name | Paused | Shared | Type | Online | Status\n\
-             1 | true | Runner 1 | 10.0.0.1 | runner1 | false | true | shared | true | online\n\
-             2 | true | Runner 2 | 10.0.0.2 | runner2 | false | true | shared | true | online\n",
+            "ID|Active|Description|IP Address|Name|Paused|Shared|Type|Online|Status\n\
+             1|true|Runner 1|10.0.0.1|runner1|false|true|shared|true|online\n\
+             2|true|Runner 2|10.0.0.2|runner2|false|true|shared|true|online\n",
             String::from_utf8(buf).unwrap()
         )
     }
@@ -604,8 +604,8 @@ mod test {
             .unwrap();
         get_runner_details(Arc::new(remote), cli_args, &mut buf).unwrap();
         assert_eq!(
-            "ID | Run untagged | Tags | Architecture | Platform | Contacted at | Version | Revision\n\
-             1 | true | tag1, tag2 | amd64 | linux | 2020-01-01T00:00:00Z | 13.0.0 | 1234567890abcdef\n",
+            "ID|Run untagged|Tags|Architecture|Platform|Contacted at|Version|Revision\n\
+             1|true|tag1, tag2|amd64|linux|2020-01-01T00:00:00Z|13.0.0|1234567890abcdef\n",
             String::from_utf8(buf).unwrap()
         )
     }
