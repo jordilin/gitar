@@ -43,8 +43,8 @@ struct ListRunner {
     #[clap()]
     status: RunnerStatusCli,
     /// Comma separated list of tags
-    #[clap(long)]
-    tags: Option<String>,
+    #[clap(long, value_delimiter = ',')]
+    tags: Option<Vec<String>>,
     #[command(flatten)]
     list_args: ListArgs,
 }
@@ -102,10 +102,15 @@ impl From<RunnerStatusCli> for RunnerStatus {
 
 impl From<ListRunner> for RunnerOptions {
     fn from(options: ListRunner) -> Self {
+        let tags = if let Some(tags) = options.tags {
+            Some(tags.into_iter().map(|tag| tag.trim().to_string()).collect())
+        } else {
+            None
+        };
         RunnerOptions::List(
             RunnerListCliArgs::builder()
                 .status(options.status.into())
-                .tags(options.tags)
+                .tags(tags)
                 .list_args(gen_list_args(options.list_args))
                 .build()
                 .unwrap(),
