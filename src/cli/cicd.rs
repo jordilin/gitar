@@ -103,7 +103,7 @@ impl From<RunnerStatusCli> for RunnerStatus {
 impl From<ListRunner> for RunnerOptions {
     fn from(options: ListRunner) -> Self {
         let tags = if let Some(tags) = options.tags {
-            Some(tags.into_iter().map(|tag| tag.trim().to_string()).collect())
+            Some(tags.join(",").to_string())
         } else {
             None
         };
