@@ -76,7 +76,7 @@ impl<R> Gitlab<R> {
             url.push_str("&page=1");
         }
         if let Some(tags) = &args.tags {
-            url.push_str(&format!("?tag_list={}", tags));
+            url.push_str(&format!("&tag_list={}", tags));
         }
         url
     }
@@ -480,7 +480,7 @@ mod test {
             .unwrap();
         gitlab.list(body_args).unwrap();
         assert_eq!(
-            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/runners?status=online?tag_list=tag1,tag2",
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/runners?status=online&tag_list=tag1,tag2",
             *client.url(),
         );
         assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
