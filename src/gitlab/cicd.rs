@@ -4,7 +4,7 @@ use crate::cmds::cicd::{
     Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata, RunnerStatus,
 };
 use crate::http::{self, Headers};
-use crate::remote::query;
+use crate::remote::{query, URLQueryParamBuilder};
 use crate::{
     api_traits::Cicd,
     io::{HttpRunner, Response},
@@ -69,34 +69,25 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
 
 impl<R> Gitlab<R> {
     fn list_runners_url(&self, args: &RunnerListBodyArgs, num_pages: bool) -> String {
-        let mut url = if args.all {
+        let base_url = if args.all {
             format!("{}/all", self.base_runner_url)
         } else {
             format!("{}/runners", self.rest_api_basepath(),)
         };
-        let mut query_params = vec![];
+        let mut url = URLQueryParamBuilder::new(&base_url);
         match args.status {
             RunnerStatus::All => {}
             _ => {
-                query_params.push(format!("?status={}", args.status));
+                url.add_param("status", &args.status.to_string());
             }
         }
         if num_pages {
-            if query_params.is_empty() {
-                query_params.push("?page=1".to_string());
-            } else {
-                query_params.push("&page=1".to_string());
-            }
+            url.add_param("page", "1");
         }
         if let Some(tags) = &args.tags {
-            if query_params.is_empty() {
-                query_params.push(format!("?tag_list={}", tags));
-            } else {
-                query_params.push(format!("&tag_list={}", tags));
-            }
+            url.add_param("tag_list", &tags);
         }
-        url.push_str(&query_params.join(""));
-        url
+        url.build()
     }
 }
 
