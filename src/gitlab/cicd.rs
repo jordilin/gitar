@@ -85,7 +85,7 @@ impl<R> Gitlab<R> {
             url.add_param("page", "1");
         }
         if let Some(tags) = &args.tags {
-            url.add_param("tag_list", &tags);
+            url.add_param("tag_list", tags);
         }
         url.build()
     }

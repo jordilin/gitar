@@ -423,7 +423,7 @@ impl URLQueryParamBuilder {
     }
 
     pub fn add_param(&mut self, key: &str, value: &str) -> &mut Self {
-        if self.url.contains("?") {
+        if self.url.contains('?') {
             self.url.push_str(&format!("&{}={}", key, value));
         } else {
             self.url.push_str(&format!("?{}={}", key, value));
