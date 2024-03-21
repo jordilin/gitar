@@ -1,8 +1,10 @@
 use super::Gitlab;
 use crate::api_traits::{ApiOperation, CicdRunner};
-use crate::cmds::cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata};
+use crate::cmds::cicd::{
+    Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata, RunnerStatus,
+};
 use crate::http::{self, Headers};
-use crate::remote::query;
+use crate::remote::{query, URLQueryParamBuilder};
 use crate::{
     api_traits::Cicd,
     io::{HttpRunner, Response},
@@ -67,18 +69,25 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
 
 impl<R> Gitlab<R> {
     fn list_runners_url(&self, args: &RunnerListBodyArgs, num_pages: bool) -> String {
-        let mut url = format!(
-            "{}/runners?status={}",
-            self.rest_api_basepath(),
-            args.status
-        );
+        let base_url = if args.all {
+            format!("{}/all", self.base_runner_url)
+        } else {
+            format!("{}/runners", self.rest_api_basepath(),)
+        };
+        let mut url = URLQueryParamBuilder::new(&base_url);
+        match args.status {
+            RunnerStatus::All => {}
+            _ => {
+                url.add_param("status", &args.status.to_string());
+            }
+        }
         if num_pages {
-            url.push_str("&page=1");
+            url.add_param("page", "1");
         }
         if let Some(tags) = &args.tags {
-            url.push_str(&format!("&tag_list={}", tags));
+            url.add_param("tag_list", tags);
         }
-        url
+        url.build()
     }
 }
 
@@ -485,5 +494,131 @@ mod test {
         );
         assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
         assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_get_all_gitlab_runners() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            // using same contract as listing project's runners. The schema is
+            // the same
+            .body(get_contract(
+                ContractType::Gitlab,
+                "list_project_runners.json",
+            ))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn CicdRunner> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let body_args = RunnerListBodyArgs::builder()
+            .status(RunnerStatus::Online)
+            .list_args(None)
+            .all(true)
+            .build()
+            .unwrap();
+        gitlab.list(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/runners/all?status=online",
+            *client.url(),
+        );
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_get_project_runners_in_any_status() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(
+                ContractType::Gitlab,
+                "list_project_runners.json",
+            ))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn CicdRunner> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let body_args = RunnerListBodyArgs::builder()
+            .status(RunnerStatus::All)
+            .list_args(None)
+            .build()
+            .unwrap();
+        gitlab.list(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/runners",
+            *client.url(),
+        );
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_all_runners_at_any_status_with_tags() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(
+                ContractType::Gitlab,
+                "list_project_runners.json",
+            ))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn CicdRunner> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let body_args = RunnerListBodyArgs::builder()
+            .status(RunnerStatus::All)
+            .list_args(None)
+            .tags(Some("tag1,tag2".to_string()))
+            .all(true)
+            .build()
+            .unwrap();
+        gitlab.list(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/runners/all?tag_list=tag1,tag2",
+            *client.url(),
+        );
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_all_runners_at_any_status_with_tags_num_pages() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let link_header = "<https://gitlab.com/api/v4/runners/all?tag_list=tag1,tag2&page=1>; rel=\"first\", <https://gitlab.com/api/v4/runners/all?tag_list=tag1,tag2&page=1>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn CicdRunner> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let body_args = RunnerListBodyArgs::builder()
+            .status(RunnerStatus::All)
+            .list_args(None)
+            .tags(Some("tag1,tag2".to_string()))
+            .all(true)
+            .build()
+            .unwrap();
+        let num_pages = gitlab.num_pages(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/runners/all?page=1&tag_list=tag1,tag2",
+            *client.url(),
+        );
+        assert_eq!(Some(1), num_pages);
     }
 }

@@ -411,6 +411,31 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
     }
 }
 
+pub struct URLQueryParamBuilder {
+    url: String,
+}
+
+impl URLQueryParamBuilder {
+    pub fn new(url: &str) -> Self {
+        URLQueryParamBuilder {
+            url: url.to_string(),
+        }
+    }
+
+    pub fn add_param(&mut self, key: &str, value: &str) -> &mut Self {
+        if self.url.contains('?') {
+            self.url.push_str(&format!("&{}={}", key, value));
+        } else {
+            self.url.push_str(&format!("?{}={}", key, value));
+        }
+        self
+    }
+
+    pub fn build(&self) -> String {
+        self.url.clone()
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum ListSortMode {
     #[default]
@@ -820,5 +845,22 @@ mod test {
             .unwrap();
         let args = validate_from_to_page(&args).unwrap().unwrap();
         assert_eq!(args.sort_mode, ListSortMode::Desc);
+    }
+
+    #[test]
+    fn test_query_param_builder_no_params() {
+        let url = "https://example.com";
+        let url = URLQueryParamBuilder::new(url).build();
+        assert_eq!(url, "https://example.com");
+    }
+
+    #[test]
+    fn test_query_param_builder_with_params() {
+        let url = "https://example.com";
+        let url = URLQueryParamBuilder::new(url)
+            .add_param("key", "value")
+            .add_param("key2", "value2")
+            .build();
+        assert_eq!(url, "https://example.com?key=value&key2=value2");
     }
 }

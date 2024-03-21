@@ -147,6 +147,8 @@ pub struct RunnerListCliArgs {
     pub status: RunnerStatus,
     #[builder(default)]
     pub tags: Option<String>,
+    #[builder(default)]
+    pub all: bool,
     pub list_args: ListRemoteCliArgs,
 }
 
@@ -162,6 +164,8 @@ pub struct RunnerListBodyArgs {
     pub status: RunnerStatus,
     #[builder(default)]
     pub tags: Option<String>,
+    #[builder(default)]
+    pub all: bool,
 }
 
 impl RunnerListBodyArgs {
@@ -191,6 +195,7 @@ pub enum RunnerStatus {
     Offline,
     Stale,
     NeverContacted,
+    All,
 }
 
 impl Display for RunnerStatus {
@@ -200,6 +205,7 @@ impl Display for RunnerStatus {
             RunnerStatus::Offline => write!(f, "offline"),
             RunnerStatus::Stale => write!(f, "stale"),
             RunnerStatus::NeverContacted => write!(f, "never_contacted"),
+            RunnerStatus::All => write!(f, "all"),
         }
     }
 }
@@ -236,11 +242,11 @@ pub fn execute(
                     .list_args(from_to_args)
                     .status(cli_args.status)
                     .tags(tags)
+                    .all(cli_args.all)
                     .build()?;
                 if cli_args.list_args.num_pages {
                     return process_num_pages(remote.num_pages(body_args), std::io::stdout());
                 }
-
                 list_runners(remote, body_args, cli_args, std::io::stdout())
             }
             RunnerOptions::Get(cli_args) => {
