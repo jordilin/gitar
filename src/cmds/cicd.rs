@@ -195,6 +195,7 @@ pub enum RunnerStatus {
     Offline,
     Stale,
     NeverContacted,
+    All,
 }
 
 impl Display for RunnerStatus {
@@ -204,6 +205,7 @@ impl Display for RunnerStatus {
             RunnerStatus::Offline => write!(f, "offline"),
             RunnerStatus::Stale => write!(f, "stale"),
             RunnerStatus::NeverContacted => write!(f, "never_contacted"),
+            RunnerStatus::All => write!(f, "all"),
         }
     }
 }

@@ -35,6 +35,7 @@ enum RunnerStatusCli {
     Offline,
     Stale,
     NeverContacted,
+    All,
 }
 
 #[derive(Parser)]
@@ -99,6 +100,7 @@ impl From<RunnerStatusCli> for RunnerStatus {
             RunnerStatusCli::Offline => RunnerStatus::Offline,
             RunnerStatusCli::Stale => RunnerStatus::Stale,
             RunnerStatusCli::NeverContacted => RunnerStatus::NeverContacted,
+            RunnerStatusCli::All => RunnerStatus::All,
         }
     }
 }
