@@ -164,6 +164,8 @@ pub struct RunnerListBodyArgs {
     pub status: RunnerStatus,
     #[builder(default)]
     pub tags: Option<String>,
+    #[builder(default)]
+    pub all: bool,
 }
 
 impl RunnerListBodyArgs {
@@ -238,11 +240,11 @@ pub fn execute(
                     .list_args(from_to_args)
                     .status(cli_args.status)
                     .tags(tags)
+                    .all(cli_args.all)
                     .build()?;
                 if cli_args.list_args.num_pages {
                     return process_num_pages(remote.num_pages(body_args), std::io::stdout());
                 }
-
                 list_runners(remote, body_args, cli_args, std::io::stdout())
             }
             RunnerOptions::Get(cli_args) => {
