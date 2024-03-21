@@ -147,6 +147,8 @@ pub struct RunnerListCliArgs {
     pub status: RunnerStatus,
     #[builder(default)]
     pub tags: Option<String>,
+    #[builder(default)]
+    pub all: bool,
     pub list_args: ListRemoteCliArgs,
 }
 

@@ -45,6 +45,9 @@ struct ListRunner {
     /// Comma separated list of tags
     #[clap(long, value_delimiter = ',')]
     tags: Option<Vec<String>>,
+    /// List all runners available across all projects. Gitlab admins only.
+    #[clap(long)]
+    all: bool,
     #[command(flatten)]
     list_args: ListArgs,
 }
@@ -106,6 +109,7 @@ impl From<ListRunner> for RunnerOptions {
             RunnerListCliArgs::builder()
                 .status(options.status.into())
                 .tags(options.tags.map(|tags| tags.join(",").to_string()))
+                .all(options.all)
                 .list_args(gen_list_args(options.list_args))
                 .build()
                 .unwrap(),
