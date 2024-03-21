@@ -208,6 +208,8 @@ In Gitlab they are known as pipelines and in Github as actions.
 | Operation | GitLab | GitHub |
 | --------- | -------------- | -------------- |
 | List all pipelines | &#x2714; | &#x2714; |
+| List pipeline runners | &#x2714; | &#x2716; |
+| Get pipeline runner details | &#x2714; | &#x2716; |
 
 
 ### Container registry
