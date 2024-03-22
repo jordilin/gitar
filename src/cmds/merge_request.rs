@@ -12,7 +12,7 @@ use crate::shell::Shell;
 use crate::{dialog, display, exec, git, remote, Cmd, Result};
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Cursor, Read, Write},
+    io::{BufRead, BufReader, Cursor, Write},
     sync::Arc,
 };
 
@@ -99,28 +99,8 @@ pub fn execute(
                 git::commit(&Shell, commit_message)?;
             }
             let cmds = if let Some(description_file) = &cli_args.description_from_file {
-                if description_file == "-" {
-                    let mut description = String::new();
-                    std::io::stdin().read_to_string(&mut description)?;
-                    let reader = Cursor::new(description);
-                    cmds(
-                        project_remote,
-                        &cli_args,
-                        Arc::new(Shell),
-                        Some(BufReader::new(reader)),
-                    )
-                } else {
-                    let file =
-                        File::open(description_file).err_context(GRError::PreconditionNotMet(
-                            format!("Cannot open file {}", description_file),
-                        ))?;
-                    cmds(
-                        project_remote,
-                        &cli_args,
-                        Arc::new(Shell),
-                        Some(BufReader::new(file)),
-                    )
-                }
+                let reader = get_reader_file_cli(description_file)?;
+                cmds(project_remote, &cli_args, Arc::new(Shell), Some(reader))
             } else {
                 cmds(
                     project_remote,
@@ -150,18 +130,24 @@ pub fn execute(
         MergeRequestOptions::Comment(cli_args) => {
             let remote = remote::get_comment_mr(domain, path, config, false)?;
             if let Some(comment_file) = &cli_args.comment_from_file {
-                if comment_file == "-" {
-                    return create_comment(remote, cli_args, Some(std::io::stdin()));
-                } else {
-                    let file = File::open(comment_file).err_context(
-                        GRError::PreconditionNotMet(format!("Cannot open file {}", comment_file)),
-                    )?;
-                    create_comment(remote, cli_args, Some(BufReader::new(file)))
-                }
+                let reader = get_reader_file_cli(comment_file)?;
+                create_comment(remote, cli_args, Some(reader))
             } else {
                 create_comment(remote, cli_args, None::<Cursor<&str>>)
             }
         }
+    }
+}
+
+pub fn get_reader_file_cli(file_path: &str) -> Result<Box<dyn BufRead + Send + Sync>> {
+    if file_path == "-" {
+        Ok(Box::new(BufReader::new(std::io::stdin())))
+    } else {
+        let file = File::open(file_path).err_context(GRError::PreconditionNotMet(format!(
+            "Cannot open file {}",
+            file_path
+        )))?;
+        Ok(Box::new(BufReader::new(file)))
     }
 }
 
@@ -455,7 +441,7 @@ fn close(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
     Ok(())
 }
 
-fn create_comment<R: Read>(
+fn create_comment<R: BufRead>(
     remote: Arc<dyn CommentMergeRequest>,
     args: CommentMergeRequestCliArgs,
     reader: Option<R>,
@@ -480,7 +466,10 @@ fn create_comment<R: Read>(
 
 #[cfg(test)]
 mod tests {
-    use std::{io::Cursor, sync::Mutex};
+    use std::{
+        io::{Cursor, Read},
+        sync::Mutex,
+    };
 
     use crate::{
         api_traits::CommentMergeRequest, cli::browse::BrowseOptions, error,
@@ -999,6 +988,16 @@ mod tests {
                 "Error reading from reader",
             ))
         }
+    }
+
+    impl BufRead for ErrorReader {
+        fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Error reading from reader",
+            ))
+        }
+        fn consume(&mut self, _amt: usize) {}
     }
 
     #[test]
