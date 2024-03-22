@@ -1,7 +1,8 @@
 use super::Github;
 use crate::{
-    api_traits::{ApiOperation, MergeRequest, RemoteProject},
+    api_traits::{ApiOperation, CommentMergeRequest, MergeRequest, RemoteProject},
     cli::browse::BrowseOptions,
+    cmds::merge_request::CommentMergeRequestBodyArgs,
     http::{
         Body,
         Method::{GET, PATCH, POST, PUT},
@@ -232,6 +233,12 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         let url = self.url_list_merge_requests(&args) + "&page=1";
         let headers = self.request_headers();
         query::num_pages(&self.runner, &url, headers, ApiOperation::MergeRequest)
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Github<R> {
+    fn create(&self, _args: CommentMergeRequestBodyArgs) -> Result<()> {
+        todo!()
     }
 }
 

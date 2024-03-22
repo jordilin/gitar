@@ -1,4 +1,5 @@
-use crate::api_traits::ApiOperation;
+use crate::api_traits::{ApiOperation, CommentMergeRequest};
+use crate::cmds::merge_request::CommentMergeRequestBodyArgs;
 use crate::error;
 use crate::http::Method::GET;
 use crate::http::{self, Body, Headers};
@@ -149,6 +150,12 @@ impl<R> Gitlab<R> {
             url.push_str("&page=1");
         }
         url
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Gitlab<R> {
+    fn create(&self, args: CommentMergeRequestBodyArgs) -> Result<()> {
+        todo!()
     }
 }
 

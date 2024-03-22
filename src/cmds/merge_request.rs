@@ -148,7 +148,19 @@ pub fn execute(
             close(remote, id)
         }
         MergeRequestOptions::Comment(cli_args) => {
-            todo!()
+            let remote = remote::get_comment_mr(domain, path, config, false)?;
+            if let Some(comment_file) = &cli_args.comment_from_file {
+                if comment_file == "-" {
+                    return create_comment(remote, cli_args, Some(std::io::stdin()));
+                } else {
+                    let file = File::open(comment_file).err_context(
+                        GRError::PreconditionNotMet(format!("Cannot open file {}", comment_file)),
+                    )?;
+                    create_comment(remote, cli_args, Some(BufReader::new(file)))
+                }
+            } else {
+                create_comment(remote, cli_args, None::<Cursor<&str>>)
+            }
         }
     }
 }
