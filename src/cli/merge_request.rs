@@ -28,6 +28,21 @@ enum MergeRequestSubcommand {
     Checkout(CheckoutMergeRequest),
     #[clap(about = "Close a merge request")]
     Close(CloseMergeRequest),
+    #[clap(about = "Comment on a merge request")]
+    Comment(CommentMergeRequest),
+}
+
+#[derive(Parser)]
+struct CommentMergeRequest {
+    /// Id of the merge request
+    #[clap(long)]
+    pub id: i64,
+    /// Comment to add to the merge request
+    #[clap(group = "comment_msg")]
+    pub comment: Option<String>,
+    /// Gather comment from the specified file. If "-" is provided, read from STDIN
+    #[clap(long, value_name = "FILE", group = "comment_msg")]
+    pub comment_from_file: Option<String>,
 }
 
 #[derive(Parser)]
@@ -150,6 +165,9 @@ impl From<MergeRequestCommand> for MergeRequestOptions {
             MergeRequestSubcommand::Merge(options) => options.into(),
             MergeRequestSubcommand::Checkout(options) => options.into(),
             MergeRequestSubcommand::Close(options) => options.into(),
+            MergeRequestSubcommand::Comment(_options) => {
+                todo!("Implement comment merge request")
+            }
         }
     }
 }
