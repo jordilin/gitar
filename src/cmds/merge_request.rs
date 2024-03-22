@@ -53,6 +53,25 @@ impl MergeRequestListCliArgs {
     }
 }
 
+#[derive(Builder)]
+pub struct CommentMergeRequestCliArgs {
+    pub id: i64,
+    pub comment: Option<String>,
+    pub comment_from_file: Option<String>,
+}
+
+impl CommentMergeRequestCliArgs {
+    pub fn builder() -> CommentMergeRequestCliArgsBuilder {
+        CommentMergeRequestCliArgsBuilder::default()
+    }
+}
+
+#[derive(Builder)]
+pub struct CommentMergeRequestBodyArgs {
+    pub id: i64,
+    pub comment: String,
+}
+
 pub fn execute(
     options: MergeRequestOptions,
     config: Arc<Config>,
@@ -121,6 +140,9 @@ pub fn execute(
         MergeRequestOptions::Close { id } => {
             let remote = remote::get_mr(domain, path, config, false)?;
             close(remote, id)
+        }
+        MergeRequestOptions::Comment(_cli_args) => {
+            todo!()
         }
     }
 }

@@ -3,7 +3,9 @@ use std::option::Option;
 use clap::{Parser, ValueEnum};
 
 use crate::{
-    cmds::merge_request::{MergeRequestCliArgs, MergeRequestListCliArgs},
+    cmds::merge_request::{
+        CommentMergeRequestCliArgs, MergeRequestCliArgs, MergeRequestListCliArgs,
+    },
     remote::MergeRequestState,
 };
 use common::ListArgs;
@@ -165,9 +167,7 @@ impl From<MergeRequestCommand> for MergeRequestOptions {
             MergeRequestSubcommand::Merge(options) => options.into(),
             MergeRequestSubcommand::Checkout(options) => options.into(),
             MergeRequestSubcommand::Close(options) => options.into(),
-            MergeRequestSubcommand::Comment(_options) => {
-                todo!("Implement comment merge request")
-            }
+            MergeRequestSubcommand::Comment(options) => options.into(),
         }
     }
 }
@@ -193,9 +193,23 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
     }
 }
 
+impl From<CommentMergeRequest> for MergeRequestOptions {
+    fn from(options: CommentMergeRequest) -> Self {
+        MergeRequestOptions::Comment(
+            CommentMergeRequestCliArgs::builder()
+                .id(options.id)
+                .comment(options.comment)
+                .comment_from_file(options.comment_from_file)
+                .build()
+                .unwrap(),
+        )
+    }
+}
+
 pub enum MergeRequestOptions {
     Create(MergeRequestCliArgs),
     List(MergeRequestListCliArgs),
+    Comment(CommentMergeRequestCliArgs),
     Merge { id: i64 },
     Checkout { id: i64 },
     Close { id: i64 },
