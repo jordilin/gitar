@@ -5,6 +5,7 @@ use crate::{
     cmds::{
         cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata},
         docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
+        merge_request::CommentMergeRequestBodyArgs,
         my::User,
         release::{Release, ReleaseBodyArgs},
     },
@@ -64,6 +65,10 @@ pub trait ContainerRegistry {
     fn num_pages_repository_tags(&self, repository_id: i64) -> Result<Option<u32>>;
     fn num_pages_repositories(&self) -> Result<Option<u32>>;
     fn get_image_metadata(&self, repository_id: i64, tag: &str) -> Result<ImageMetadata>;
+}
+
+pub trait CommentMergeRequest {
+    fn create(&self, args: CommentMergeRequestBodyArgs) -> Result<()>;
 }
 
 /// Types of API resources attached to a request. The request will carry this
