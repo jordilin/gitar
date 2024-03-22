@@ -34,11 +34,23 @@ pub mod utils {
         }
     }
 
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+
+    lazy_static::lazy_static! {
+        static ref CACHE: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
+    }
+
     pub fn get_contract(contract_type: ContractType, filename: &str) -> String {
         let contracts_path = format!("contracts/{}/{}", contract_type.as_str(), filename);
-        let mut file = File::open(contracts_path).unwrap();
+        let mut cache = CACHE.lock().unwrap();
+        if let Some(contents) = cache.get(&contracts_path) {
+            return contents.clone();
+        }
+        let mut file = File::open(&contracts_path).unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
+        cache.insert(contracts_path, contents.clone());
         contents
     }
 
