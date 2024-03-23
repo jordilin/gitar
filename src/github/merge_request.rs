@@ -231,8 +231,8 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             self.rest_api_basepath, self.path, id
         );
         let mut body = Body::new();
-        body.add("state".to_string(), "closed".to_string());
-        query::github_merge_request::<_, String>(
+        body.add("state", "closed");
+        query::github_merge_request::<_, &str>(
             &self.runner,
             &url,
             Some(body),
