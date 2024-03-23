@@ -2,7 +2,7 @@ use clap::Parser;
 
 use crate::cmds::docker::{DockerImageCliArgs, DockerListCliArgs};
 
-use super::common::{gen_list_args, FormatCli, ListArgs};
+use super::common::{gen_list_args, GetArgs, ListArgs};
 
 #[derive(Parser)]
 pub struct DockerCommand {
@@ -26,15 +26,8 @@ struct DockerImageMetadata {
     /// Tag name
     #[clap()]
     tag: String,
-    /// Refresh the cache
-    #[clap(long, short)]
-    pub refresh: bool,
-    /// Do not print headers
-    #[clap(long)]
-    pub no_headers: bool,
-    /// Output format
-    #[clap(long, default_value_t=FormatCli::Pipe)]
-    format: FormatCli,
+    #[clap(flatten)]
+    get_args: GetArgs,
 }
 
 #[derive(Parser)]
@@ -67,9 +60,9 @@ impl From<DockerImageMetadata> for DockerOptions {
             DockerImageCliArgs::builder()
                 .repo_id(options.repo_id)
                 .tag(options.tag)
-                .refresh_cache(options.refresh)
-                .no_headers(options.no_headers)
-                .format(options.format.into())
+                .refresh_cache(options.get_args.refresh)
+                .no_headers(options.get_args.no_headers)
+                .format(options.get_args.format.into())
                 .build()
                 .unwrap(),
         )
@@ -149,8 +142,8 @@ mod test {
             }) => {
                 assert_eq!(options.repo_id, 123);
                 assert_eq!(options.tag, "v0.0.1");
-                assert!(options.refresh);
-                assert!(options.no_headers);
+                assert!(options.get_args.refresh);
+                assert!(options.get_args.no_headers);
             }
             _ => panic!("Expected DockerCommand"),
         }

@@ -37,10 +37,10 @@ pub struct ListArgs {
 pub struct GetArgs {
     /// Do not print headers
     #[clap(long)]
-    no_headers: bool,
+    pub no_headers: bool,
     /// Output format
     #[clap(long, default_value_t=FormatCli::Pipe)]
-    format: FormatCli,
+    pub format: FormatCli,
     /// Refresh the cache
     #[clap(long, short)]
     pub refresh: bool,
