@@ -335,7 +335,7 @@ mod test {
     use std::sync::Arc;
 
     use crate::{
-        http::Headers,
+        http::{self, Headers},
         remote::{ListBodyArgs, MergeRequestState},
         test::utils::{config, get_contract, ContractType, MockRunner},
     };
@@ -664,6 +664,7 @@ mod test {
             "https://api.github.com/repos/jordilin/githapi/pulls/23",
             *client.url(),
         );
+        assert_eq!(http::Method::PATCH, *client.http_method.borrow());
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()

@@ -1,6 +1,6 @@
 #[cfg(test)]
 pub mod utils {
-    use crate::http::Headers;
+    use crate::http::{self, Headers};
     use crate::{api_traits::ApiOperation, config::ConfigProperties, error};
     use serde::Serialize;
 
@@ -49,6 +49,7 @@ pub mod utils {
         url: RefCell<String>,
         pub api_operation: RefCell<Option<ApiOperation>>,
         pub config: ConfigMock,
+        pub http_method: RefCell<http::Method>,
     }
 
     impl MockRunner {
@@ -60,6 +61,7 @@ pub mod utils {
                 url: RefCell::new(String::new()),
                 api_operation: RefCell::new(None),
                 config: ConfigMock::default(),
+                http_method: RefCell::new(http::Method::GET),
             }
         }
 
@@ -110,6 +112,7 @@ pub mod utils {
             self.headers.replace(cmd.headers().clone());
             self.api_operation.replace(cmd.api_operation().clone());
             let response = self.responses.borrow_mut().pop().unwrap();
+            self.http_method.replace(cmd.method.clone());
             match response.status {
                 // 409 Conflict - Merge request already exists. - Gitlab
                 // 422 Conflict - Merge request already exists. - Github
