@@ -1,7 +1,8 @@
 use super::Github;
 use crate::{
-    api_traits::{ApiOperation, MergeRequest, RemoteProject},
+    api_traits::{ApiOperation, CommentMergeRequest, MergeRequest, RemoteProject},
     cli::browse::BrowseOptions,
+    cmds::merge_request::CommentMergeRequestBodyArgs,
     http::{
         Body,
         Method::{GET, PATCH, POST, PUT},
@@ -232,6 +233,26 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         let url = self.url_list_merge_requests(&args) + "&page=1";
         let headers = self.request_headers();
         query::num_pages(&self.runner, &url, headers, ApiOperation::MergeRequest)
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Github<R> {
+    fn create(&self, args: CommentMergeRequestBodyArgs) -> Result<()> {
+        let url = format!(
+            "{}/repos/{}/issues/{}/comments",
+            self.rest_api_basepath, self.path, args.id
+        );
+        let mut body = Body::new();
+        body.add("body", args.comment);
+        query::create_merge_request_comment(
+            &self.runner,
+            &url,
+            Some(body),
+            self.request_headers(),
+            POST,
+            ApiOperation::MergeRequest,
+        )?;
+        Ok(())
     }
 }
 
@@ -568,5 +589,47 @@ mod test {
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
         );
+    }
+
+    #[test]
+    fn test_create_merge_request_comment() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder().status(201).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn CommentMergeRequest> =
+            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = CommentMergeRequestBodyArgs::builder()
+            .id(23)
+            .comment("Looks good to me".to_string())
+            .build()
+            .unwrap();
+        github.create(args).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/issues/23/comments",
+            *client.url(),
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_create_merge_request_comment_error_status_code() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder().status(500).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn CommentMergeRequest> =
+            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = CommentMergeRequestBodyArgs::builder()
+            .id(23)
+            .comment("Looks good to me".to_string())
+            .build()
+            .unwrap();
+        assert!(github.create(args).is_err());
     }
 }

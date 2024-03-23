@@ -1,4 +1,4 @@
-use crate::api_traits::{MergeRequest, RemoteProject};
+use crate::api_traits::{CommentMergeRequest, MergeRequest, RemoteProject};
 use crate::cli::merge_request::MergeRequestOptions;
 use crate::config::{Config, ConfigProperties};
 use crate::error::{AddContext, GRError};
@@ -12,7 +12,7 @@ use crate::shell::Shell;
 use crate::{dialog, display, exec, git, remote, Cmd, Result};
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Cursor, Read, Write},
+    io::{BufRead, BufReader, Cursor, Write},
     sync::Arc,
 };
 
@@ -53,6 +53,31 @@ impl MergeRequestListCliArgs {
     }
 }
 
+#[derive(Builder)]
+pub struct CommentMergeRequestCliArgs {
+    pub id: i64,
+    pub comment: Option<String>,
+    pub comment_from_file: Option<String>,
+}
+
+impl CommentMergeRequestCliArgs {
+    pub fn builder() -> CommentMergeRequestCliArgsBuilder {
+        CommentMergeRequestCliArgsBuilder::default()
+    }
+}
+
+#[derive(Builder)]
+pub struct CommentMergeRequestBodyArgs {
+    pub id: i64,
+    pub comment: String,
+}
+
+impl CommentMergeRequestBodyArgs {
+    pub fn builder() -> CommentMergeRequestBodyArgsBuilder {
+        CommentMergeRequestBodyArgsBuilder::default()
+    }
+}
+
 pub fn execute(
     options: MergeRequestOptions,
     config: Arc<Config>,
@@ -74,28 +99,8 @@ pub fn execute(
                 git::commit(&Shell, commit_message)?;
             }
             let cmds = if let Some(description_file) = &cli_args.description_from_file {
-                if description_file == "-" {
-                    let mut description = String::new();
-                    std::io::stdin().read_to_string(&mut description)?;
-                    let reader = Cursor::new(description);
-                    cmds(
-                        project_remote,
-                        &cli_args,
-                        Arc::new(Shell),
-                        Some(BufReader::new(reader)),
-                    )
-                } else {
-                    let file =
-                        File::open(description_file).err_context(GRError::PreconditionNotMet(
-                            format!("Cannot open file {}", description_file),
-                        ))?;
-                    cmds(
-                        project_remote,
-                        &cli_args,
-                        Arc::new(Shell),
-                        Some(BufReader::new(file)),
-                    )
-                }
+                let reader = get_reader_file_cli(description_file)?;
+                cmds(project_remote, &cli_args, Arc::new(Shell), Some(reader))
             } else {
                 cmds(
                     project_remote,
@@ -122,6 +127,27 @@ pub fn execute(
             let remote = remote::get_mr(domain, path, config, false)?;
             close(remote, id)
         }
+        MergeRequestOptions::Comment(cli_args) => {
+            let remote = remote::get_comment_mr(domain, path, config, false)?;
+            if let Some(comment_file) = &cli_args.comment_from_file {
+                let reader = get_reader_file_cli(comment_file)?;
+                create_comment(remote, cli_args, Some(reader))
+            } else {
+                create_comment(remote, cli_args, None::<Cursor<&str>>)
+            }
+        }
+    }
+}
+
+pub fn get_reader_file_cli(file_path: &str) -> Result<Box<dyn BufRead + Send + Sync>> {
+    if file_path == "-" {
+        Ok(Box::new(BufReader::new(std::io::stdin())))
+    } else {
+        let file = File::open(file_path).err_context(GRError::PreconditionNotMet(format!(
+            "Cannot open file {}",
+            file_path
+        )))?;
+        Ok(Box::new(BufReader::new(file)))
     }
 }
 
@@ -415,11 +441,40 @@ fn close(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
     Ok(())
 }
 
+fn create_comment<R: BufRead>(
+    remote: Arc<dyn CommentMergeRequest>,
+    args: CommentMergeRequestCliArgs,
+    reader: Option<R>,
+) -> Result<()> {
+    let comment = if let Some(comment) = args.comment {
+        comment
+    } else {
+        let mut comment = String::new();
+        // The unwrap is Ok here. This is enforced at the CLI interface. The
+        // user is required to provide a file or a comment.
+        reader.unwrap().read_to_string(&mut comment)?;
+        comment
+    };
+    remote.create(
+        CommentMergeRequestBodyArgs::builder()
+            .id(args.id)
+            .comment(comment)
+            .build()
+            .unwrap(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{io::Cursor, sync::Mutex};
+    use std::{
+        io::{Cursor, Read},
+        sync::Mutex,
+    };
 
-    use crate::{cli::browse::BrowseOptions, error, remote::MergeRequestResponse};
+    use crate::{
+        api_traits::CommentMergeRequest, cli::browse::BrowseOptions, error,
+        remote::MergeRequestResponse,
+    };
 
     use super::*;
 
@@ -683,7 +738,11 @@ mod tests {
         }
     }
 
-    struct MockRemoteProject;
+    #[derive(Default)]
+    struct MockRemoteProject {
+        comment_called: Mutex<bool>,
+        comment_argument: Mutex<String>,
+    }
     impl RemoteProject for MockRemoteProject {
         fn get_project_data(&self, _id: Option<i64>) -> Result<CmdInfo> {
             let project = Project::new(1, "main");
@@ -710,6 +769,16 @@ mod tests {
 
         fn get_url(&self, _option: BrowseOptions) -> String {
             todo!()
+        }
+    }
+
+    impl CommentMergeRequest for MockRemoteProject {
+        fn create(&self, args: CommentMergeRequestBodyArgs) -> Result<()> {
+            let mut called = self.comment_called.lock().unwrap();
+            *called = true;
+            let mut argument = self.comment_argument.lock().unwrap();
+            *argument = args.comment;
+            Ok(())
         }
     }
 
@@ -766,7 +835,7 @@ mod tests {
 
     #[test]
     fn test_cmds_gather_title_from_cli_arg() {
-        let remote = Arc::new(MockRemoteProject);
+        let remote = Arc::new(MockRemoteProject::default());
         let cli_args = MergeRequestCliArgs::builder()
             .title(Some("title cli".to_string()))
             .title_from_commit(None)
@@ -802,7 +871,7 @@ mod tests {
 
     #[test]
     fn test_cmds_gather_title_from_git_commit_summary() {
-        let remote = Arc::new(MockRemoteProject);
+        let remote = Arc::new(MockRemoteProject::default());
         let cli_args = MergeRequestCliArgs::builder()
             .title(None)
             .title_from_commit(None)
@@ -838,7 +907,7 @@ mod tests {
 
     #[test]
     fn test_read_description_from_file() {
-        let remote = Arc::new(MockRemoteProject);
+        let remote = Arc::new(MockRemoteProject::default());
         let cli_args = MergeRequestCliArgs::builder()
             .title(None)
             .title_from_commit(None)
@@ -872,5 +941,75 @@ mod tests {
             _ => "".to_string(),
         };
         assert_eq!(description_contents, description);
+    }
+
+    #[test]
+    fn test_create_comment_on_a_merge_request_with_cli_comment_ok() {
+        let remote = Arc::new(MockRemoteProject::default());
+        let cli_args = CommentMergeRequestCliArgs::builder()
+            .id(1)
+            .comment(Some("All features complete, ship it".to_string()))
+            .comment_from_file(None)
+            .build()
+            .unwrap();
+        let reader = Cursor::new("comment");
+        assert!(create_comment(remote.clone(), cli_args, Some(reader)).is_ok());
+        assert!(remote.comment_called.lock().unwrap().clone());
+        assert_eq!(
+            "All features complete, ship it",
+            remote.comment_argument.lock().unwrap().clone(),
+        );
+    }
+
+    #[test]
+    fn test_create_comment_on_a_merge_request_with_comment_from_file_ok() {
+        let remote = Arc::new(MockRemoteProject::default());
+        let cli_args = CommentMergeRequestCliArgs::builder()
+            .id(1)
+            .comment(None)
+            .comment_from_file(Some("comment_file.txt".to_string()))
+            .build()
+            .unwrap();
+        let reader = Cursor::new("Just a long, long comment from a file");
+        assert!(create_comment(remote.clone(), cli_args, Some(reader)).is_ok());
+        assert!(remote.comment_called.lock().unwrap().clone());
+        assert_eq!(
+            "Just a long, long comment from a file",
+            remote.comment_argument.lock().unwrap().clone(),
+        );
+    }
+
+    struct ErrorReader {}
+
+    impl Read for ErrorReader {
+        fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Error reading from reader",
+            ))
+        }
+    }
+
+    impl BufRead for ErrorReader {
+        fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Error reading from reader",
+            ))
+        }
+        fn consume(&mut self, _amt: usize) {}
+    }
+
+    #[test]
+    fn test_create_comment_on_a_merge_request_fail_to_read_comment_from_file() {
+        let remote = Arc::new(MockRemoteProject::default());
+        let cli_args = CommentMergeRequestCliArgs::builder()
+            .id(1)
+            .comment(None)
+            .comment_from_file(Some("comment_file.txt".to_string()))
+            .build()
+            .unwrap();
+        let reader = ErrorReader {};
+        assert!(create_comment(remote.clone(), cli_args, Some(reader)).is_err());
     }
 }

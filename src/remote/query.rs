@@ -281,3 +281,5 @@ send!(
     GitlabRunnerMetadataFields,
     RunnerMetadata
 );
+
+send!(create_merge_request_comment, Response);

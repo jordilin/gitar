@@ -3,7 +3,9 @@ use std::option::Option;
 use clap::{Parser, ValueEnum};
 
 use crate::{
-    cmds::merge_request::{MergeRequestCliArgs, MergeRequestListCliArgs},
+    cmds::merge_request::{
+        CommentMergeRequestCliArgs, MergeRequestCliArgs, MergeRequestListCliArgs,
+    },
     remote::MergeRequestState,
 };
 use common::ListArgs;
@@ -28,6 +30,21 @@ enum MergeRequestSubcommand {
     Checkout(CheckoutMergeRequest),
     #[clap(about = "Close a merge request")]
     Close(CloseMergeRequest),
+    #[clap(about = "Comment on a merge request")]
+    Comment(CommentMergeRequest),
+}
+
+#[derive(Parser)]
+struct CommentMergeRequest {
+    /// Id of the merge request
+    #[clap(long)]
+    pub id: i64,
+    /// Comment to add to the merge request
+    #[clap(group = "comment_msg")]
+    pub comment: Option<String>,
+    /// Gather comment from the specified file. If "-" is provided, read from STDIN
+    #[clap(long, value_name = "FILE", group = "comment_msg")]
+    pub comment_from_file: Option<String>,
 }
 
 #[derive(Parser)]
@@ -150,6 +167,7 @@ impl From<MergeRequestCommand> for MergeRequestOptions {
             MergeRequestSubcommand::Merge(options) => options.into(),
             MergeRequestSubcommand::Checkout(options) => options.into(),
             MergeRequestSubcommand::Close(options) => options.into(),
+            MergeRequestSubcommand::Comment(options) => options.into(),
         }
     }
 }
@@ -175,9 +193,23 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
     }
 }
 
+impl From<CommentMergeRequest> for MergeRequestOptions {
+    fn from(options: CommentMergeRequest) -> Self {
+        MergeRequestOptions::Comment(
+            CommentMergeRequestCliArgs::builder()
+                .id(options.id)
+                .comment(options.comment)
+                .comment_from_file(options.comment_from_file)
+                .build()
+                .unwrap(),
+        )
+    }
+}
+
 pub enum MergeRequestOptions {
     Create(MergeRequestCliArgs),
     List(MergeRequestListCliArgs),
+    Comment(CommentMergeRequestCliArgs),
     Merge { id: i64 },
     Checkout { id: i64 },
     Close { id: i64 },

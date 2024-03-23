@@ -1,4 +1,5 @@
-use crate::api_traits::ApiOperation;
+use crate::api_traits::{ApiOperation, CommentMergeRequest};
+use crate::cmds::merge_request::CommentMergeRequestBodyArgs;
 use crate::error;
 use crate::http::Method::GET;
 use crate::http::{self, Body, Headers};
@@ -149,6 +150,27 @@ impl<R> Gitlab<R> {
             url.push_str("&page=1");
         }
         url
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Gitlab<R> {
+    fn create(&self, args: CommentMergeRequestBodyArgs) -> Result<()> {
+        let url = format!(
+            "{}/merge_requests/{}/notes",
+            self.rest_api_basepath(),
+            args.id
+        );
+        let mut body = Body::new();
+        body.add("body", args.comment);
+        query::create_merge_request_comment(
+            &self.runner,
+            &url,
+            Some(body),
+            self.headers(),
+            http::Method::POST,
+            ApiOperation::MergeRequest,
+        )?;
+        Ok(())
     }
 }
 
@@ -436,5 +458,47 @@ mod test {
             .build()
             .unwrap();
         assert_eq!(None, gitlab.num_pages(body_args).unwrap());
+    }
+
+    #[test]
+    fn test_gitlab_create_merge_request_comment_ok() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder().status(201).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn CommentMergeRequest> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let comment_args = CommentMergeRequestBodyArgs::builder()
+            .id(1456)
+            .comment("LGTM, ship it".to_string())
+            .build()
+            .unwrap();
+        gitlab.create(comment_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/1456/notes",
+            *client.url()
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_gitlab_create_merge_request_comment_error() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder().status(400).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn CommentMergeRequest> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let comment_args = CommentMergeRequestBodyArgs::builder()
+            .id(1456)
+            .comment("LGTM, ship it".to_string())
+            .build()
+            .unwrap();
+        assert!(gitlab.create(comment_args).is_err());
     }
 }
