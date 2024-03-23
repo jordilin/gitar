@@ -9,6 +9,9 @@ use crate::{
 
 #[derive(Clone, Parser)]
 pub struct ListArgs {
+    /// List the given page number
+    #[clap(long)]
+    page: Option<i64>,
     /// From page
     #[clap(long)]
     pub from_page: Option<i64>,
@@ -18,15 +21,6 @@ pub struct ListArgs {
     /// How many pages are available
     #[clap(long)]
     num_pages: bool,
-    /// Refresh the cache
-    #[clap(long, short)]
-    pub refresh: bool,
-    /// Do not print headers
-    #[clap(long)]
-    no_headers: bool,
-    /// List the given page number
-    #[clap(long)]
-    page: Option<i64>,
     /// Created after date (ISO 8601 YYYY-MM-DDTHH:MM:SSZ)
     #[clap(long)]
     created_after: Option<String>,
@@ -35,9 +29,21 @@ pub struct ListArgs {
     created_before: Option<String>,
     #[clap(long, default_value_t=SortModeCli::Asc)]
     sort: SortModeCli,
+    #[clap(flatten)]
+    pub get_args: GetArgs,
+}
+
+#[derive(Clone, Parser)]
+pub struct GetArgs {
+    /// Do not print headers
+    #[clap(long)]
+    no_headers: bool,
     /// Output format
     #[clap(long, default_value_t=FormatCli::Pipe)]
     format: FormatCli,
+    /// Refresh the cache
+    #[clap(long, short)]
+    pub refresh: bool,
 }
 
 #[derive(ValueEnum, Clone, Debug)]
@@ -78,12 +84,12 @@ pub fn gen_list_args(list_args: ListArgs) -> ListRemoteCliArgs {
         .to_page(list_args.to_page)
         .page_number(list_args.page)
         .num_pages(list_args.num_pages)
-        .refresh_cache(list_args.refresh)
-        .no_headers(list_args.no_headers)
+        .refresh_cache(list_args.get_args.refresh)
+        .no_headers(list_args.get_args.no_headers)
         .created_after(list_args.created_after)
         .created_before(list_args.created_before)
         .sort(list_args.sort.into())
-        .format(list_args.format.into())
+        .format(list_args.get_args.format.into())
         .build()
         .unwrap();
     list_args
