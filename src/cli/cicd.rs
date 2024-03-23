@@ -5,7 +5,7 @@ use crate::{
     remote::ListRemoteCliArgs,
 };
 
-use super::common::{gen_list_args, GetArgs, ListArgs};
+use super::common::{GetArgs, ListArgs};
 
 #[derive(Parser)]
 pub struct PipelineCommand {
@@ -73,7 +73,7 @@ impl From<PipelineCommand> for PipelineOptions {
 
 impl From<ListArgs> for PipelineOptions {
     fn from(options: ListArgs) -> Self {
-        PipelineOptions::List(gen_list_args(options))
+        PipelineOptions::List(options.into())
     }
 }
 
@@ -105,7 +105,7 @@ impl From<ListRunner> for RunnerOptions {
                 .status(options.status.into())
                 .tags(options.tags.map(|tags| tags.join(",").to_string()))
                 .all(options.all)
-                .list_args(gen_list_args(options.list_args))
+                .list_args(options.list_args.into())
                 .build()
                 .unwrap(),
         )

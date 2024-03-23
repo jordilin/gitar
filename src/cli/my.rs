@@ -2,7 +2,6 @@ use clap::Parser;
 
 use crate::cmds::merge_request::MergeRequestListCliArgs;
 
-use super::common::gen_list_args;
 use super::merge_request::ListMergeRequest;
 
 #[derive(Parser)]
@@ -31,10 +30,9 @@ impl From<MyCommand> for MyOptions {
 
 impl From<ListMergeRequest> for MyOptions {
     fn from(options: ListMergeRequest) -> Self {
-        let list_args = gen_list_args(options.list_args);
         MyOptions::MergeRequest(MergeRequestListCliArgs::new(
             options.state.into(),
-            list_args,
+            options.list_args.into(),
         ))
     }
 }

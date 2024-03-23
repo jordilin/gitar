@@ -2,7 +2,7 @@ use clap::Parser;
 
 use crate::remote::ListRemoteCliArgs;
 
-use super::common::{gen_list_args, ListArgs};
+use super::common::ListArgs;
 
 #[derive(Parser)]
 pub struct ReleaseCommand {
@@ -25,8 +25,8 @@ impl From<ReleaseCommand> for ReleaseOptions {
 }
 
 impl From<ListArgs> for ReleaseOptions {
-    fn from(options: ListArgs) -> Self {
-        ReleaseOptions::List(gen_list_args(options))
+    fn from(args: ListArgs) -> Self {
+        ReleaseOptions::List(args.into())
     }
 }
 

@@ -2,7 +2,7 @@ use clap::Parser;
 
 use crate::cmds::docker::{DockerImageCliArgs, DockerListCliArgs};
 
-use super::common::{gen_list_args, GetArgs, ListArgs};
+use super::common::{GetArgs, ListArgs};
 
 #[derive(Parser)]
 pub struct DockerCommand {
@@ -69,13 +69,12 @@ impl From<DockerImageMetadata> for DockerOptions {
 
 impl From<ListDockerImages> for DockerOptions {
     fn from(options: ListDockerImages) -> Self {
-        let list_args = gen_list_args(options.list_args);
         DockerOptions::List(
             DockerListCliArgs::builder()
                 .repos(options.repos)
                 .tags(options.tags)
                 .repo_id(options.repo_id)
-                .list_args(list_args)
+                .list_args(options.list_args.into())
                 .build()
                 .unwrap(),
         )
