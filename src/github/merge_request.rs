@@ -225,8 +225,21 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         )
     }
 
-    fn close(&self, _id: i64) -> Result<MergeRequestResponse> {
-        todo!()
+    fn close(&self, id: i64) -> Result<MergeRequestResponse> {
+        let url = format!(
+            "{}/repos/{}/pulls/{}",
+            self.rest_api_basepath, self.path, id
+        );
+        let mut body = Body::new();
+        body.add("state".to_string(), "closed".to_string());
+        query::github_merge_request::<_, String>(
+            &self.runner,
+            &url,
+            Some(body),
+            self.request_headers(),
+            PATCH,
+            ApiOperation::MergeRequest,
+        )
     }
 
     fn num_pages(&self, args: MergeRequestListBodyArgs) -> Result<Option<u32>> {
@@ -631,5 +644,29 @@ mod test {
             .build()
             .unwrap();
         assert!(github.create(args).is_err());
+    }
+
+    #[test]
+    fn test_close_pull_request_ok() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Github, "merge_request.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn MergeRequest> =
+            Box::new(Github::new(config, &domain, &path, client.clone()));
+        github.close(23).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/pulls/23",
+            *client.url(),
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
     }
 }
