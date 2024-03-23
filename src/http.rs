@@ -251,7 +251,7 @@ pub struct Request<T> {
     body: Option<Body<T>>,
     #[builder(default)]
     headers: Headers,
-    method: Method,
+    pub method: Method,
     pub resource: Resource,
     #[builder(setter(into, strip_option), default)]
     pub max_pages: Option<i64>,
@@ -310,7 +310,7 @@ impl<T> Request<T> {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum Method {
     #[default]
     GET,

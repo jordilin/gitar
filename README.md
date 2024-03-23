@@ -199,7 +199,7 @@ In Gitlab they are known as merge requests and in Github as pull requests.
 | Open  | &#x2714; | &#x2714; |
 | Merge | &#x2714; | &#x2714; |
 | List merge requests by its state | &#x2714;| &#x2714; |
-| Close | &#x2714; | &#x2716; |
+| Close | &#x2714; | &#x2714; |
 | Create comments on timeline | &#x2714; | &#x2714; |
 
 ### Pipeline
