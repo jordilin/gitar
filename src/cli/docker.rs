@@ -60,9 +60,7 @@ impl From<DockerImageMetadata> for DockerOptions {
             DockerImageCliArgs::builder()
                 .repo_id(options.repo_id)
                 .tag(options.tag)
-                .refresh_cache(options.get_args.refresh)
-                .no_headers(options.get_args.no_headers)
-                .format(options.get_args.format.into())
+                .get_args(options.get_args.into())
                 .build()
                 .unwrap(),
         )

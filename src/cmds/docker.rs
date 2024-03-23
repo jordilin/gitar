@@ -4,8 +4,8 @@ use crate::{
     api_traits::{ContainerRegistry, Timestamp},
     cli::docker::DockerOptions,
     config::Config,
-    display::{self, Column, DisplayBody, Format},
-    remote::{self, get_registry, ListBodyArgs, ListRemoteCliArgs},
+    display::{self, Column, DisplayBody},
+    remote::{self, get_registry, GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs},
     Result,
 };
 
@@ -110,10 +110,7 @@ impl From<RepositoryTag> for DisplayBody {
 pub struct DockerImageCliArgs {
     pub tag: String,
     pub repo_id: i64,
-    pub refresh_cache: bool,
-    pub no_headers: bool,
-    #[builder(default)]
-    pub format: Format,
+    pub get_args: GetRemoteCliArgs,
 }
 
 impl DockerImageCliArgs {
@@ -161,7 +158,7 @@ pub fn execute(
             validate_and_list(remote, cli_args, std::io::stdout())
         }
         DockerOptions::Get(cli_args) => {
-            let remote = get_registry(domain, path, config, cli_args.refresh_cache)?;
+            let remote = get_registry(domain, path, config, cli_args.get_args.refresh_cache)?;
             get_image_metadata(remote, cli_args, std::io::stdout())
         }
     }
@@ -176,8 +173,8 @@ fn get_image_metadata<W: Write>(
     display::print(
         &mut writer,
         vec![metadata],
-        cli_args.no_headers,
-        &cli_args.format,
+        cli_args.get_args.no_headers,
+        &cli_args.get_args.format,
     )?;
     Ok(())
 }
@@ -502,8 +499,7 @@ mod tests {
         let args = DockerImageCliArgs::builder()
             .tag("v0.0.1".to_string())
             .repo_id(1)
-            .refresh_cache(false)
-            .no_headers(false)
+            .get_args(GetRemoteCliArgs::builder().build().unwrap())
             .build()
             .unwrap();
         let mut buf = Vec::new();
@@ -521,8 +517,13 @@ mod tests {
         let args = DockerImageCliArgs::builder()
             .tag("v0.0.1".to_string())
             .repo_id(1)
-            .refresh_cache(false)
-            .no_headers(true)
+            .get_args(
+                GetRemoteCliArgs::builder()
+                    .refresh_cache(false)
+                    .no_headers(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()
             .unwrap();
         let mut buf = Vec::new();
