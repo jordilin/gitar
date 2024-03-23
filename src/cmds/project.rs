@@ -5,10 +5,15 @@ use crate::display;
 use crate::display::Format;
 use crate::error;
 use crate::io::CmdInfo;
-use crate::remote;
+use crate::remote::{self, GetRemoteCliArgs};
 use crate::Result;
 use std::io::Write;
 use std::sync::Arc;
+
+pub struct ProjectMetadataGetCliArgs {
+    pub id: Option<i64>,
+    pub get_args: GetRemoteCliArgs,
+}
 
 pub fn execute(
     options: ProjectOptions,
@@ -17,9 +22,15 @@ pub fn execute(
     path: String,
 ) -> Result<()> {
     match options.operation {
-        ProjectOperation::Info { id } => {
-            let remote = remote::get_project(domain, path, config, options.refresh_cache)?;
-            project_info(remote, std::io::stdout(), id, &options.format)
+        ProjectOperation::Info(cli_args) => {
+            let remote =
+                remote::get_project(domain, path, config, cli_args.get_args.refresh_cache)?;
+            project_info(
+                remote,
+                std::io::stdout(),
+                cli_args.id,
+                &cli_args.get_args.format,
+            )
         }
     }
 }

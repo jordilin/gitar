@@ -239,6 +239,12 @@ impl ListRemoteCliArgs {
     }
 }
 
+pub struct GetRemoteCliArgs {
+    pub refresh_cache: bool,
+    pub no_headers: bool,
+    pub format: Format,
+}
+
 /// List body args is a common structure that can be used across multiple APIs
 /// that support pagination. `list` operations in traits that accept some sort
 /// of List related arguments can encapsulate this structure. Example of those

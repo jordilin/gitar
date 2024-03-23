@@ -1,16 +1,13 @@
 use clap::Parser;
 
-use crate::display::Format;
+use crate::{cmds::project::ProjectMetadataGetCliArgs, display::Format};
 
-use super::common::FormatCli;
+use super::common::GetArgs;
 
 #[derive(Parser)]
 pub struct ProjectCommand {
     #[clap(subcommand)]
     subcommand: ProjectSubcommand,
-    /// Refresh the cache
-    #[clap(long, short)]
-    pub refresh: bool,
 }
 
 #[derive(Parser)]
@@ -24,33 +21,33 @@ struct ProjectInfo {
     /// ID of the project
     #[clap(long)]
     pub id: Option<i64>,
-    /// Output format. pipe " | " or csv ","
-    #[clap(long, default_value_t=FormatCli::Pipe)]
-    format: FormatCli,
+    #[clap(flatten)]
+    pub get_args: GetArgs,
 }
 
 impl From<ProjectCommand> for ProjectOptions {
     fn from(options: ProjectCommand) -> Self {
         match options.subcommand {
-            ProjectSubcommand::Info(options_info) => ProjectOptions {
-                operation: ProjectOperation::Info {
-                    id: options_info.id,
-                },
-                refresh_cache: options.refresh,
-                format: options_info.format.into(),
+            ProjectSubcommand::Info(options) => ProjectOptions {
+                operation: options.into(),
             },
         }
     }
 }
 
-#[derive(Debug)]
-pub enum ProjectOperation {
-    Info { id: Option<i64> },
+impl From<ProjectInfo> for ProjectOperation {
+    fn from(options: ProjectInfo) -> Self {
+        ProjectOperation::Info(ProjectMetadataGetCliArgs {
+            id: options.id,
+            get_args: options.get_args.into(),
+        })
+    }
 }
 
-#[derive(Debug)]
+pub enum ProjectOperation {
+    Info(ProjectMetadataGetCliArgs),
+}
+
 pub struct ProjectOptions {
     pub operation: ProjectOperation,
-    pub refresh_cache: bool,
-    pub format: Format,
 }

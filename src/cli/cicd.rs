@@ -5,7 +5,7 @@ use crate::{
     remote::ListRemoteCliArgs,
 };
 
-use super::common::{gen_list_args, FormatCli, ListArgs};
+use super::common::{gen_list_args, GetArgs, ListArgs};
 
 #[derive(Parser)]
 pub struct PipelineCommand {
@@ -58,15 +58,8 @@ struct RunnerMetadata {
     /// Runner ID
     #[clap()]
     id: i64,
-    /// Refresh the cache
-    #[clap(long, short)]
-    pub refresh: bool,
-    /// Do not print headers
-    #[clap(long)]
-    pub no_headers: bool,
-    /// Output format
-    #[clap(long, default_value_t=FormatCli::Pipe)]
-    format: FormatCli,
+    #[clap(flatten)]
+    get_args: GetArgs,
 }
 
 impl From<PipelineCommand> for PipelineOptions {
@@ -124,9 +117,9 @@ impl From<RunnerMetadata> for RunnerOptions {
         RunnerOptions::Get(
             RunnerMetadataCliArgs::builder()
                 .id(options.id)
-                .refresh_cache(options.refresh)
-                .no_headers(options.no_headers)
-                .format(options.format.into())
+                .refresh_cache(options.get_args.refresh)
+                .no_headers(options.get_args.no_headers)
+                .format(options.get_args.format.into())
                 .build()
                 .unwrap(),
         )

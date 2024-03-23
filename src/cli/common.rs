@@ -4,7 +4,7 @@ use clap::{Parser, ValueEnum};
 
 use crate::{
     display::Format,
-    remote::{ListRemoteCliArgs, ListSortMode},
+    remote::{GetRemoteCliArgs, ListRemoteCliArgs, ListSortMode},
 };
 
 #[derive(Clone, Parser)]
@@ -93,6 +93,16 @@ pub fn gen_list_args(list_args: ListArgs) -> ListRemoteCliArgs {
         .build()
         .unwrap();
     list_args
+}
+
+impl From<GetArgs> for GetRemoteCliArgs {
+    fn from(args: GetArgs) -> Self {
+        GetRemoteCliArgs {
+            refresh_cache: args.refresh,
+            no_headers: args.no_headers,
+            format: args.format.into(),
+        }
+    }
 }
 
 impl From<FormatCli> for Format {
