@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use crate::{cmds::project::ProjectMetadataGetCliArgs, display::Format};
+use crate::cmds::project::ProjectMetadataGetCliArgs;
 
 use super::common::GetArgs;
 

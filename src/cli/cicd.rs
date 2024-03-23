@@ -1,7 +1,7 @@
 use clap::{Parser, ValueEnum};
 
 use crate::{
-    cmds::cicd::{RunnerListCliArgs, RunnerMetadataCliArgs, RunnerStatus},
+    cmds::cicd::{RunnerListCliArgs, RunnerMetadataGetCliArgs, RunnerStatus},
     remote::ListRemoteCliArgs,
 };
 
@@ -115,11 +115,9 @@ impl From<ListRunner> for RunnerOptions {
 impl From<RunnerMetadata> for RunnerOptions {
     fn from(options: RunnerMetadata) -> Self {
         RunnerOptions::Get(
-            RunnerMetadataCliArgs::builder()
+            RunnerMetadataGetCliArgs::builder()
                 .id(options.id)
-                .refresh_cache(options.get_args.refresh)
-                .no_headers(options.get_args.no_headers)
-                .format(options.get_args.format.into())
+                .get_args(options.get_args.into())
                 .build()
                 .unwrap(),
         )
@@ -133,5 +131,5 @@ pub enum PipelineOptions {
 
 pub enum RunnerOptions {
     List(RunnerListCliArgs),
-    Get(RunnerMetadataCliArgs),
+    Get(RunnerMetadataGetCliArgs),
 }

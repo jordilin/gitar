@@ -1,8 +1,8 @@
 use crate::api_traits::{Cicd, CicdRunner, Timestamp};
 use crate::cli::cicd::{PipelineOptions, RunnerOptions};
 use crate::config::Config;
-use crate::display::{Column, DisplayBody, Format};
-use crate::remote::{ListBodyArgs, ListRemoteCliArgs};
+use crate::display::{Column, DisplayBody};
+use crate::remote::{GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs};
 use crate::{display, remote, Result};
 use std::fmt::Display;
 use std::io::Write;
@@ -175,17 +175,14 @@ impl RunnerListBodyArgs {
 }
 
 #[derive(Builder, Clone)]
-pub struct RunnerMetadataCliArgs {
+pub struct RunnerMetadataGetCliArgs {
     pub id: i64,
-    pub refresh_cache: bool,
-    pub no_headers: bool,
-    #[builder(default)]
-    pub format: Format,
+    pub get_args: GetRemoteCliArgs,
 }
 
-impl RunnerMetadataCliArgs {
-    pub fn builder() -> RunnerMetadataCliArgsBuilder {
-        RunnerMetadataCliArgsBuilder::default()
+impl RunnerMetadataGetCliArgs {
+    pub fn builder() -> RunnerMetadataGetCliArgsBuilder {
+        RunnerMetadataGetCliArgsBuilder::default()
     }
 }
 
@@ -250,7 +247,8 @@ pub fn execute(
                 list_runners(remote, body_args, cli_args, std::io::stdout())
             }
             RunnerOptions::Get(cli_args) => {
-                let remote = remote::get_cicd_runner(domain, path, config, cli_args.refresh_cache)?;
+                let remote =
+                    remote::get_cicd_runner(domain, path, config, cli_args.get_args.refresh_cache)?;
                 get_runner_details(remote, cli_args, std::io::stdout())
             }
         },
@@ -259,15 +257,15 @@ pub fn execute(
 
 fn get_runner_details<W: Write>(
     remote: Arc<dyn CicdRunner>,
-    cli_args: RunnerMetadataCliArgs,
+    cli_args: RunnerMetadataGetCliArgs,
     mut writer: W,
 ) -> Result<()> {
     let runner = remote.get(cli_args.id)?;
     display::print(
         &mut writer,
         vec![runner],
-        cli_args.no_headers,
-        &cli_args.format,
+        cli_args.get_args.no_headers,
+        &cli_args.get_args.format,
     )?;
     Ok(())
 }
@@ -602,10 +600,9 @@ mod test {
             .build()
             .unwrap();
         let mut buf = Vec::new();
-        let cli_args = RunnerMetadataCliArgs::builder()
+        let cli_args = RunnerMetadataGetCliArgs::builder()
             .id(1)
-            .refresh_cache(false)
-            .no_headers(false)
+            .get_args(GetRemoteCliArgs::builder().build().unwrap())
             .build()
             .unwrap();
         get_runner_details(Arc::new(remote), cli_args, &mut buf).unwrap();
