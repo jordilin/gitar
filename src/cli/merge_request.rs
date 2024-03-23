@@ -8,9 +8,8 @@ use crate::{
     },
     remote::MergeRequestState,
 };
-use common::ListArgs;
 
-use super::common::{self, gen_list_args};
+use super::common::ListArgs;
 
 #[derive(Parser)]
 pub struct MergeRequestCommand {
@@ -133,10 +132,9 @@ struct CloseMergeRequest {
 
 impl From<ListMergeRequest> for MergeRequestOptions {
     fn from(options: ListMergeRequest) -> Self {
-        let list_args = gen_list_args(options.list_args);
         MergeRequestOptions::List(MergeRequestListCliArgs::new(
             options.state.into(),
-            list_args,
+            options.list_args.into(),
         ))
     }
 }

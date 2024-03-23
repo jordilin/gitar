@@ -78,21 +78,22 @@ impl Display for SortModeCli {
     }
 }
 
-pub fn gen_list_args(list_args: ListArgs) -> ListRemoteCliArgs {
-    let list_args = ListRemoteCliArgs::builder()
-        .from_page(list_args.from_page)
-        .to_page(list_args.to_page)
-        .page_number(list_args.page)
-        .num_pages(list_args.num_pages)
-        .refresh_cache(list_args.get_args.refresh)
-        .no_headers(list_args.get_args.no_headers)
-        .created_after(list_args.created_after)
-        .created_before(list_args.created_before)
-        .sort(list_args.sort.into())
-        .format(list_args.get_args.format.into())
-        .build()
-        .unwrap();
-    list_args
+impl From<ListArgs> for ListRemoteCliArgs {
+    fn from(args: ListArgs) -> Self {
+        ListRemoteCliArgs::builder()
+            .from_page(args.from_page)
+            .to_page(args.to_page)
+            .page_number(args.page)
+            .num_pages(args.num_pages)
+            .refresh_cache(args.get_args.refresh)
+            .no_headers(args.get_args.no_headers)
+            .created_after(args.created_after)
+            .created_before(args.created_before)
+            .sort(args.sort.into())
+            .format(args.get_args.format.into())
+            .build()
+            .unwrap()
+    }
 }
 
 impl From<GetArgs> for GetRemoteCliArgs {
