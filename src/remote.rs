@@ -239,6 +239,22 @@ impl ListRemoteCliArgs {
     }
 }
 
+#[derive(Builder, Clone)]
+pub struct GetRemoteCliArgs {
+    #[builder(default)]
+    pub refresh_cache: bool,
+    #[builder(default)]
+    pub no_headers: bool,
+    #[builder(default)]
+    pub format: Format,
+}
+
+impl GetRemoteCliArgs {
+    pub fn builder() -> GetRemoteCliArgsBuilder {
+        GetRemoteCliArgsBuilder::default()
+    }
+}
+
 /// List body args is a common structure that can be used across multiple APIs
 /// that support pagination. `list` operations in traits that accept some sort
 /// of List related arguments can encapsulate this structure. Example of those
