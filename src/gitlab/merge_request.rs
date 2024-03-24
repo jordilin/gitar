@@ -3,7 +3,7 @@ use crate::cmds::merge_request::CommentMergeRequestBodyArgs;
 use crate::error;
 use crate::http::Method::GET;
 use crate::http::{self, Body, Headers};
-use crate::remote::{query, MergeRequestListBodyArgs, MergeRequestMetadata};
+use crate::remote::{query, MergeRequestListBodyArgs};
 use crate::Result;
 use crate::{
     api_traits::MergeRequest,
@@ -97,10 +97,10 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         )
     }
 
-    fn get(&self, id: i64) -> Result<MergeRequestMetadata> {
+    fn get(&self, id: i64) -> Result<MergeRequestResponse> {
         // GET /projects/:id/merge_requests/:merge_request_iid
         let url = format!("{}/merge_requests/{}", self.rest_api_basepath(), id);
-        query::gitlab_get_merge_request::<_, ()>(
+        query::gitlab_merge_request::<_, ()>(
             &self.runner,
             &url,
             None,
@@ -188,14 +188,6 @@ pub struct GitlabMergeRequestFields {
     pipeline_url: Option<String>,
 }
 
-pub struct GitlabMergeRequestMetadataFields {
-    mr_fields: GitlabMergeRequestFields,
-    description: String,
-    merged_at: String,
-    pipeline_id: Option<i64>,
-    pipeline_url: Option<String>,
-}
-
 impl From<&serde_json::Value> for GitlabMergeRequestFields {
     fn from(data: &serde_json::Value) -> Self {
         GitlabMergeRequestFields {
@@ -229,36 +221,6 @@ impl From<GitlabMergeRequestFields> for MergeRequestResponse {
             .updated_at(fields.updated_at)
             .created_at(fields.created_at)
             .title(fields.title)
-            .description(fields.description)
-            .merged_at(fields.merged_at)
-            .pipeline_id(fields.pipeline_id)
-            .pipeline_url(fields.pipeline_url)
-            .build()
-            .unwrap()
-    }
-}
-
-impl From<&serde_json::Value> for GitlabMergeRequestMetadataFields {
-    fn from(data: &serde_json::Value) -> Self {
-        GitlabMergeRequestMetadataFields {
-            mr_fields: GitlabMergeRequestFields::from(data),
-            description: data["description"].as_str().unwrap_or_default().to_string(),
-            // If merge request is not merged, merged_at is an empty string.
-            merged_at: data["merged_at"].as_str().unwrap_or_default().to_string(),
-            // Documentation recommends gathering head_pipeline instead of
-            // pipeline key.
-            pipeline_id: data["head_pipeline"]["id"].as_i64(),
-            pipeline_url: data["head_pipeline"]["web_url"]
-                .as_str()
-                .map(|s| s.to_string()),
-        }
-    }
-}
-
-impl From<GitlabMergeRequestMetadataFields> for MergeRequestMetadata {
-    fn from(fields: GitlabMergeRequestMetadataFields) -> Self {
-        MergeRequestMetadata::builder()
-            .mr(fields.mr_fields.into())
             .description(fields.description)
             .merged_at(fields.merged_at)
             .pipeline_id(fields.pipeline_id)

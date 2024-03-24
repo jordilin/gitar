@@ -14,7 +14,7 @@ use crate::{
     error,
     github::{
         cicd::GithubPipelineFields,
-        merge_request::{GithubMergeRequestFields, GithubMergeRequestMetadataFields},
+        merge_request::GithubMergeRequestFields,
         project::{GithubMemberFields, GithubProjectFields},
         release::GithubReleaseFields,
         user::GithubUserFields,
@@ -24,7 +24,7 @@ use crate::{
         container_registry::{
             GitlabImageMetadataFields, GitlabRegistryRepositoryFields, GitlabRepositoryTagFields,
         },
-        merge_request::{GitlabMergeRequestFields, GitlabMergeRequestMetadataFields},
+        merge_request::GitlabMergeRequestFields,
         project::{GitlabMemberFields, GitlabProjectFields},
         release::GitlabReleaseFields,
         user::GitlabUserFields,
@@ -37,7 +37,7 @@ use crate::{
     Result,
 };
 
-use super::{Member, MergeRequestMetadata, MergeRequestResponse, Project};
+use super::{Member, MergeRequestResponse, Project};
 
 pub fn num_pages<R: HttpRunner<Response = Response>>(
     runner: &Arc<R>,
@@ -258,11 +258,6 @@ send!(
     GithubMergeRequestFields,
     MergeRequestResponse
 );
-send!(
-    github_get_merge_request,
-    GithubMergeRequestMetadataFields,
-    MergeRequestMetadata
-);
 
 send!(github_merge_request_json, serde_json::Value);
 send!(github_merge_request_response, Response);
@@ -270,12 +265,6 @@ send!(
     gitlab_merge_request,
     GitlabMergeRequestFields,
     MergeRequestResponse
-);
-
-send!(
-    gitlab_get_merge_request,
-    GitlabMergeRequestMetadataFields,
-    MergeRequestMetadata
 );
 
 send!(gitlab_merge_request_response, Response);

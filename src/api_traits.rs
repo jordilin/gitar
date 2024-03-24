@@ -10,9 +10,7 @@ use crate::{
         release::{Release, ReleaseBodyArgs},
     },
     io::CmdInfo,
-    remote::{
-        MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestMetadata, MergeRequestResponse,
-    },
+    remote::{MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse},
     Result,
 };
 
@@ -20,7 +18,7 @@ pub trait MergeRequest {
     fn open(&self, args: MergeRequestBodyArgs) -> Result<MergeRequestResponse>;
     fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>>;
     fn merge(&self, id: i64) -> Result<MergeRequestResponse>;
-    fn get(&self, id: i64) -> Result<MergeRequestMetadata>;
+    fn get(&self, id: i64) -> Result<MergeRequestResponse>;
     fn close(&self, id: i64) -> Result<MergeRequestResponse>;
     /// Queries the remote API to get the number of pages available for a given
     /// resource based on list arguments.
