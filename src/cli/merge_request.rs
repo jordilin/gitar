@@ -4,12 +4,13 @@ use clap::{Parser, ValueEnum};
 
 use crate::{
     cmds::merge_request::{
-        CommentMergeRequestCliArgs, MergeRequestCliArgs, MergeRequestListCliArgs,
+        CommentMergeRequestCliArgs, MergeRequestCliArgs, MergeRequestGetCliArgs,
+        MergeRequestListCliArgs,
     },
     remote::MergeRequestState,
 };
 
-use super::common::ListArgs;
+use super::common::{GetArgs, ListArgs};
 
 #[derive(Parser)]
 pub struct MergeRequestCommand {
@@ -21,6 +22,8 @@ pub struct MergeRequestCommand {
 enum MergeRequestSubcommand {
     #[clap(about = "Creates a merge request")]
     Create(CreateMergeRequest),
+    /// Get a merge request
+    Get(GetMergeRequest),
     #[clap(about = "List merge requests")]
     List(ListMergeRequest),
     #[clap(about = "Merge a merge request")]
@@ -31,6 +34,15 @@ enum MergeRequestSubcommand {
     Close(CloseMergeRequest),
     #[clap(about = "Comment on a merge request")]
     Comment(CommentMergeRequest),
+}
+
+#[derive(Parser)]
+struct GetMergeRequest {
+    /// Id of the merge request
+    #[clap()]
+    id: i64,
+    #[clap(flatten)]
+    get_args: GetArgs,
 }
 
 #[derive(Parser)]
@@ -166,6 +178,7 @@ impl From<MergeRequestCommand> for MergeRequestOptions {
             MergeRequestSubcommand::Checkout(options) => options.into(),
             MergeRequestSubcommand::Close(options) => options.into(),
             MergeRequestSubcommand::Comment(options) => options.into(),
+            MergeRequestSubcommand::Get(options) => options.into(),
         }
     }
 }
@@ -204,8 +217,21 @@ impl From<CommentMergeRequest> for MergeRequestOptions {
     }
 }
 
+impl From<GetMergeRequest> for MergeRequestOptions {
+    fn from(options: GetMergeRequest) -> Self {
+        MergeRequestOptions::Get(
+            MergeRequestGetCliArgs::builder()
+                .id(options.id)
+                .get_args(options.get_args.into())
+                .build()
+                .unwrap(),
+        )
+    }
+}
+
 pub enum MergeRequestOptions {
     Create(MergeRequestCliArgs),
+    Get(MergeRequestGetCliArgs),
     List(MergeRequestListCliArgs),
     Comment(CommentMergeRequestCliArgs),
     Merge { id: i64 },

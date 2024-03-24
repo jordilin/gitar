@@ -10,8 +10,8 @@ use crate::{
     io::{HttpRunner, Response},
     json_loads,
     remote::{
-        query, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse,
-        MergeRequestState,
+        query, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestMetadata,
+        MergeRequestResponse, MergeRequestState,
     },
 };
 
@@ -210,12 +210,12 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             .unwrap())
     }
 
-    fn get(&self, id: i64) -> Result<MergeRequestResponse> {
+    fn get(&self, id: i64) -> Result<MergeRequestMetadata> {
         let url = format!(
             "{}/repos/{}/pulls/{}",
             self.rest_api_basepath, self.path, id
         );
-        query::github_merge_request::<_, ()>(
+        query::github_get_merge_request::<_, ()>(
             &self.runner,
             &url,
             None,
@@ -280,6 +280,14 @@ pub struct GithubMergeRequestFields {
     pull_request: String,
 }
 
+pub struct GithubMergeRequestMetadataFields {
+    mr_fields: GithubMergeRequestFields,
+    description: String,
+    merged_at: String,
+    pipeline_id: Option<i64>,
+    pipeline_url: Option<String>,
+}
+
 impl From<&serde_json::Value> for GithubMergeRequestFields {
     fn from(merge_request_data: &serde_json::Value) -> Self {
         GithubMergeRequestFields {
@@ -324,6 +332,40 @@ impl From<GithubMergeRequestFields> for MergeRequestResponse {
             .created_at(fields.created_at)
             .title(fields.title)
             .pull_request(fields.pull_request)
+            .build()
+            .unwrap()
+    }
+}
+
+impl From<&serde_json::Value> for GithubMergeRequestMetadataFields {
+    fn from(merge_request_data: &serde_json::Value) -> Self {
+        GithubMergeRequestMetadataFields {
+            mr_fields: GithubMergeRequestFields::from(merge_request_data),
+            description: merge_request_data["body"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+            merged_at: merge_request_data["merged_at"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+            // Not available in the response. Set it to the same ID as the pull request
+            pipeline_id: Some(merge_request_data["number"].as_i64().unwrap()),
+            pipeline_url: merge_request_data["html_url"]
+                .as_str()
+                .map(|url| format!("{}/checks", url)),
+        }
+    }
+}
+
+impl From<GithubMergeRequestMetadataFields> for MergeRequestMetadata {
+    fn from(fields: GithubMergeRequestMetadataFields) -> Self {
+        MergeRequestMetadata::builder()
+            .mr(MergeRequestResponse::from(fields.mr_fields))
+            .description(fields.description)
+            .merged_at(fields.merged_at)
+            .pipeline_id(fields.pipeline_id)
+            .pipeline_url(fields.pipeline_url)
             .build()
             .unwrap()
     }
@@ -665,6 +707,30 @@ mod test {
             *client.url(),
         );
         assert_eq!(http::Method::PATCH, *client.http_method.borrow());
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_get_pull_request_details() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Github, "merge_request.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn MergeRequest> =
+            Box::new(Github::new(config, &domain, &path, client.clone()));
+        github.get(23).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/pulls/23",
+            *client.url(),
+        );
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()

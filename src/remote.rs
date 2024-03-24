@@ -92,24 +92,17 @@ impl Timestamp for Member {
     }
 }
 
-#[derive(Builder, Clone, Debug)]
+#[derive(Builder, Clone, Debug, Default)]
+#[builder(default)]
 pub struct MergeRequestResponse {
-    #[builder(default)]
     pub id: i64,
-    #[builder(default)]
     pub web_url: String,
-    #[builder(default)]
     pub author: String,
-    #[builder(default)]
     pub updated_at: String,
-    #[builder(default)]
     pub source_branch: String,
-    #[builder(default)]
     pub created_at: String,
-    #[builder(default)]
     pub title: String,
     // For Github to filter pull requests from issues.
-    #[builder(default)]
     pub pull_request: String,
 }
 
@@ -136,6 +129,48 @@ impl From<MergeRequestResponse> for DisplayBody {
 impl Timestamp for MergeRequestResponse {
     fn created_at(&self) -> String {
         self.created_at.clone()
+    }
+}
+
+/// Augments the MergeRequestResponse with additional metadata such as the
+/// description, and pipeline information.
+#[derive(Builder, Clone, Debug, Default)]
+#[builder(default)]
+pub struct MergeRequestMetadata {
+    pub mr: MergeRequestResponse,
+    pub description: String,
+    pub merged_at: String,
+    pub pipeline_id: Option<i64>,
+    pub pipeline_url: Option<String>,
+}
+
+impl MergeRequestMetadata {
+    pub fn builder() -> MergeRequestMetadataBuilder {
+        MergeRequestMetadataBuilder::default()
+    }
+}
+
+impl From<MergeRequestMetadata> for DisplayBody {
+    fn from(metadata: MergeRequestMetadata) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("ID", metadata.mr.id.to_string()),
+                Column::new("Title", metadata.mr.title),
+                Column::new("Description", metadata.description),
+                Column::new("URL", metadata.mr.web_url),
+                Column::new("Merged at", metadata.merged_at),
+                Column::new(
+                    "Pipeline ID",
+                    metadata
+                        .pipeline_id
+                        .map_or("".to_string(), |id| id.to_string()),
+                ),
+                Column::new(
+                    "Pipeline URL",
+                    metadata.pipeline_url.unwrap_or("".to_string()),
+                ),
+            ],
+        }
     }
 }
 
