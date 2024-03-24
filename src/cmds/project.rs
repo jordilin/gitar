@@ -2,7 +2,6 @@ use crate::api_traits::RemoteProject;
 use crate::cli::project::{ProjectOperation, ProjectOptions};
 use crate::config::Config;
 use crate::display;
-use crate::display::Format;
 use crate::error;
 use crate::io::CmdInfo;
 use crate::remote::{self, GetRemoteCliArgs};
@@ -25,12 +24,7 @@ pub fn execute(
         ProjectOperation::Info(cli_args) => {
             let remote =
                 remote::get_project(domain, path, config, cli_args.get_args.refresh_cache)?;
-            project_info(
-                remote,
-                std::io::stdout(),
-                cli_args.id,
-                &cli_args.get_args.format,
-            )
+            project_info(remote, std::io::stdout(), cli_args.id, &cli_args.get_args)
         }
     }
 }
@@ -39,7 +33,7 @@ fn project_info<W: Write>(
     remote: Arc<dyn RemoteProject>,
     mut writer: W,
     id: Option<i64>,
-    format: &Format,
+    get_args: &GetRemoteCliArgs,
 ) -> Result<()> {
     let CmdInfo::Project(project_data) = remote.get_project_data(id)? else {
         return Err(error::GRError::ApplicationError(
@@ -47,7 +41,7 @@ fn project_info<W: Write>(
         )
         .into());
     };
-    display::print(&mut writer, vec![project_data], false, format)?;
+    display::print(&mut writer, vec![project_data], get_args)?;
     Ok(())
 }
 
@@ -92,7 +86,8 @@ mod test {
             .unwrap();
         let remote = Arc::new(remote);
         let mut writer = Vec::new();
-        project_info(remote, &mut writer, Some(1), &Format::PIPE).unwrap();
+        let args = GetRemoteCliArgs::default();
+        project_info(remote, &mut writer, Some(1), &args).unwrap();
         assert!(writer.len() > 0);
     }
 
@@ -105,7 +100,8 @@ mod test {
             .unwrap();
         let remote = Arc::new(remote);
         let mut writer = Vec::new();
-        project_info(remote, &mut writer, None, &Format::PIPE).unwrap_err();
+        let args = GetRemoteCliArgs::default();
+        project_info(remote, &mut writer, None, &args).unwrap_err();
         assert!(writer.len() == 0);
     }
 
@@ -117,7 +113,8 @@ mod test {
             .unwrap();
         let remote = Arc::new(remote);
         let mut writer = Vec::new();
-        let result = project_info(remote, &mut writer, Some(1), &Format::PIPE);
+        let args = GetRemoteCliArgs::default();
+        let result = project_info(remote, &mut writer, Some(1), &args);
         match result {
             Ok(_) => panic!("Expected error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {

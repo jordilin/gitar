@@ -253,10 +253,6 @@ pub struct ListRemoteCliArgs {
     #[builder(default)]
     pub num_pages: bool,
     #[builder(default)]
-    pub refresh_cache: bool,
-    #[builder(default)]
-    pub no_headers: bool,
-    #[builder(default)]
     pub page_number: Option<i64>,
     #[builder(default)]
     pub created_after: Option<String>,
@@ -265,7 +261,7 @@ pub struct ListRemoteCliArgs {
     #[builder(default)]
     pub sort: ListSortMode,
     #[builder(default)]
-    pub format: Format,
+    pub get_args: GetRemoteCliArgs,
 }
 
 impl ListRemoteCliArgs {
@@ -274,14 +270,14 @@ impl ListRemoteCliArgs {
     }
 }
 
-#[derive(Builder, Clone)]
+#[derive(Builder, Clone, Default)]
 pub struct GetRemoteCliArgs {
-    #[builder(default)]
-    pub refresh_cache: bool,
     #[builder(default)]
     pub no_headers: bool,
     #[builder(default)]
     pub format: Format,
+    #[builder(default)]
+    pub refresh_cache: bool,
 }
 
 impl GetRemoteCliArgs {

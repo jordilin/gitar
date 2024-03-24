@@ -215,7 +215,7 @@ pub fn execute(
 ) -> Result<()> {
     match options {
         PipelineOptions::List(cli_args) => {
-            let remote = remote::get_cicd(domain, path, config, cli_args.refresh_cache)?;
+            let remote = remote::get_cicd(domain, path, config, cli_args.get_args.refresh_cache)?;
             if cli_args.num_pages {
                 return num_cicd_pages(remote, std::io::stdout());
             }
@@ -231,7 +231,7 @@ pub fn execute(
                     domain,
                     path,
                     config,
-                    cli_args.list_args.refresh_cache,
+                    cli_args.list_args.get_args.refresh_cache,
                 )?;
                 let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
                 let tags = cli_args.tags.clone();
@@ -261,12 +261,7 @@ fn get_runner_details<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     let runner = remote.get(cli_args.id)?;
-    display::print(
-        &mut writer,
-        vec![runner],
-        cli_args.get_args.no_headers,
-        &cli_args.get_args.format,
-    )?;
+    display::print(&mut writer, vec![runner], &cli_args.get_args)?;
     Ok(())
 }
 
@@ -281,12 +276,7 @@ fn list_runners<W: Write>(
         writer.write_all(b"No runners found.\n")?;
         return Ok(());
     }
-    display::print(
-        &mut writer,
-        runners,
-        cli_args.list_args.no_headers,
-        &cli_args.list_args.format,
-    )?;
+    display::print(&mut writer, runners, &cli_args.list_args.get_args)?;
     Ok(())
 }
 
@@ -301,12 +291,7 @@ fn list_pipelines<W: Write>(
         writer.write_all(b"No pipelines found.\n")?;
         return Ok(());
     }
-    display::print(
-        &mut writer,
-        pipelines,
-        cli_args.no_headers,
-        &cli_args.format,
-    )?;
+    display::print(&mut writer, pipelines, &cli_args.get_args)?;
     Ok(())
 }
 
@@ -482,7 +467,12 @@ mod test {
             .build()
             .unwrap();
         let cli_args = ListRemoteCliArgs::builder()
-            .no_headers(true)
+            .get_args(
+                GetRemoteCliArgs::builder()
+                    .no_headers(true)
+                    .build()
+                    .unwrap(),
+            )
             .build()
             .unwrap();
         list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();

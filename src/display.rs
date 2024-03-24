@@ -1,3 +1,4 @@
+use crate::remote::GetRemoteCliArgs;
 use crate::Result;
 use std::{collections::HashMap, io::Write};
 
@@ -9,8 +10,8 @@ pub enum Format {
     PIPE,
 }
 
-impl From<&Format> for u8 {
-    fn from(f: &Format) -> Self {
+impl From<Format> for u8 {
+    fn from(f: Format) -> Self {
         match f {
             Format::CSV => b',',
             Format::PIPE => b'|',
@@ -53,13 +54,12 @@ impl Column {
 pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
     w: &mut W,
     data: Vec<D>,
-    no_headers: bool,
-    format: &Format,
+    args: &GetRemoteCliArgs,
 ) -> Result<()> {
     if data.is_empty() {
         return Ok(());
     }
-    match format {
+    match args.format {
         Format::JSON => {
             for d in data {
                 let d = d.into();
@@ -72,10 +72,11 @@ pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
             }
         }
         _ => {
+            let format = args.format.clone();
             let mut wtr = csv::WriterBuilder::new()
                 .delimiter(format.into())
                 .from_writer(w);
-            if !no_headers {
+            if !args.no_headers {
                 // Get the headers from the first row of columns
                 let headers = data[0]
                     .clone()
@@ -132,7 +133,12 @@ mod test {
             Book::new("The Catcher in the Rye", "J.D. Salinger"),
             Book::new("The Adventures of Huckleberry Finn", "Mark Twain"),
         ];
-        print(&mut w, books, true, &Format::JSON).unwrap();
+        let args = GetRemoteCliArgs {
+            refresh_cache: true,
+            no_headers: true,
+            format: Format::JSON,
+        };
+        print(&mut w, books, &args).unwrap();
         let s = String::from_utf8(w).unwrap();
         assert_eq!(2, s.lines().count());
         for line in s.lines() {
@@ -152,7 +158,12 @@ mod test {
             Book::new("Faust, Part One", "Goethe"),
             Book::new("The Adventures of Huckleberry Finn", "Mark Twain"),
         ];
-        print(&mut w, books, true, &Format::CSV).unwrap();
+        let args = GetRemoteCliArgs {
+            refresh_cache: false,
+            no_headers: true,
+            format: Format::CSV,
+        };
+        print(&mut w, books, &args).unwrap();
         let mut reader = csv::ReaderBuilder::new()
             .has_headers(false)
             .from_reader(w.as_slice());
@@ -160,5 +171,60 @@ mod test {
             "Faust, Part One",
             &reader.records().next().unwrap().unwrap()[0]
         );
+    }
+
+    #[derive(Clone)]
+    struct BookOptionalColumns {
+        pub title: String,
+        pub author: String,
+        pub isbn: String,
+    }
+
+    impl BookOptionalColumns {
+        pub fn new(
+            title: impl Into<String>,
+            author: impl Into<String>,
+            isbn: impl Into<String>,
+        ) -> Self {
+            Self {
+                title: title.into(),
+                author: author.into(),
+                isbn: isbn.into(),
+            }
+        }
+    }
+
+    impl From<BookOptionalColumns> for DisplayBody {
+        fn from(b: BookOptionalColumns) -> Self {
+            DisplayBody::new(vec![
+                Column::new("title", b.title),
+                Column::new("author", b.author),
+                Column::builder()
+                    .name("isbn".to_string())
+                    .value(b.isbn)
+                    .optional(true)
+                    .build()
+                    .unwrap(),
+            ])
+        }
+    }
+
+    #[test]
+    fn test_csv_optional_columns() {
+        let mut w = Vec::new();
+        let books = vec![
+            BookOptionalColumns::new("The Catcher in the Rye", "J.D. Salinger", "0316769487"),
+            BookOptionalColumns::new(
+                "The Adventures of Huckleberry Finn",
+                "Mark Twain",
+                "9780199536559",
+            ),
+        ];
+        let args = GetRemoteCliArgs {
+            refresh_cache: false,
+            no_headers: true,
+            format: Format::CSV,
+        };
+        print(&mut w, books, &args).unwrap();
     }
 }

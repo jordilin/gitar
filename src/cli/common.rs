@@ -85,12 +85,10 @@ impl From<ListArgs> for ListRemoteCliArgs {
             .to_page(args.to_page)
             .page_number(args.page)
             .num_pages(args.num_pages)
-            .refresh_cache(args.get_args.refresh)
-            .no_headers(args.get_args.no_headers)
             .created_after(args.created_after)
             .created_before(args.created_before)
             .sort(args.sort.into())
-            .format(args.get_args.format.into())
+            .get_args(args.get_args.into())
             .build()
             .unwrap()
     }
