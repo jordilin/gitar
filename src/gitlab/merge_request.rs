@@ -228,8 +228,12 @@ impl From<&serde_json::Value> for GitlabMergeRequestMetadataFields {
             description: data["description"].as_str().unwrap_or_default().to_string(),
             // If merge request is not merged, merged_at is an empty string.
             merged_at: data["merged_at"].as_str().unwrap_or_default().to_string(),
-            pipeline_id: data["pipeline"]["id"].as_i64(),
-            pipeline_url: data["pipeline"]["web_url"].as_str().map(|s| s.to_string()),
+            // Documentation recommends gathering head_pipeline instead of
+            // pipeline key.
+            pipeline_id: data["head_pipeline"]["id"].as_i64(),
+            pipeline_url: data["head_pipeline"]["web_url"]
+                .as_str()
+                .map(|s| s.to_string()),
         }
     }
 }
@@ -534,5 +538,30 @@ mod test {
             .build()
             .unwrap();
         assert!(gitlab.create(comment_args).is_err());
+    }
+
+    #[test]
+    fn test_get_gitlab_merge_request_details() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "merge_request.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn MergeRequest> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let merge_request_id = 33;
+        let merge_request = gitlab.get(merge_request_id).unwrap();
+        assert_eq!(
+            "https://gitlab.com/jordilin/gitlapi/-/merge_requests/33",
+            merge_request.mr.web_url
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
     }
 }
