@@ -66,6 +66,7 @@ pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
                 let kvs: HashMap<String, String> = d
                     .columns
                     .into_iter()
+                    .filter(|c| !c.optional)
                     .map(|item| (item.name, item.value))
                     .collect();
                 writeln!(w, "{}", serde_json::to_string(&kvs)?)?;
@@ -83,13 +84,19 @@ pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
                     .into()
                     .columns
                     .iter()
+                    .filter(|c| !c.optional)
                     .map(|c| c.name.clone())
                     .collect::<Vec<_>>();
                 wtr.write_record(&headers)?;
             }
             for d in data {
                 let d = d.into();
-                let row = d.columns.into_iter().map(|c| c.value).collect::<Vec<_>>();
+                let row = d
+                    .columns
+                    .into_iter()
+                    .filter(|c| !c.optional)
+                    .map(|c| c.value)
+                    .collect::<Vec<_>>();
                 wtr.write_record(&row)?;
             }
             wtr.flush()?;
@@ -133,11 +140,11 @@ mod test {
             Book::new("The Catcher in the Rye", "J.D. Salinger"),
             Book::new("The Adventures of Huckleberry Finn", "Mark Twain"),
         ];
-        let args = GetRemoteCliArgs {
-            refresh_cache: true,
-            no_headers: true,
-            format: Format::JSON,
-        };
+        let args = GetRemoteCliArgs::builder()
+            .no_headers(true)
+            .format(Format::JSON)
+            .build()
+            .unwrap();
         print(&mut w, books, &args).unwrap();
         let s = String::from_utf8(w).unwrap();
         assert_eq!(2, s.lines().count());
@@ -158,11 +165,11 @@ mod test {
             Book::new("Faust, Part One", "Goethe"),
             Book::new("The Adventures of Huckleberry Finn", "Mark Twain"),
         ];
-        let args = GetRemoteCliArgs {
-            refresh_cache: false,
-            no_headers: true,
-            format: Format::CSV,
-        };
+        let args = GetRemoteCliArgs::builder()
+            .no_headers(true)
+            .format(Format::CSV)
+            .build()
+            .unwrap();
         print(&mut w, books, &args).unwrap();
         let mut reader = csv::ReaderBuilder::new()
             .has_headers(false)
@@ -220,11 +227,14 @@ mod test {
                 "9780199536559",
             ),
         ];
-        let args = GetRemoteCliArgs {
-            refresh_cache: false,
-            no_headers: true,
-            format: Format::CSV,
-        };
+        let args = GetRemoteCliArgs::builder()
+            .format(Format::CSV)
+            .build()
+            .unwrap();
         print(&mut w, books, &args).unwrap();
+        assert_eq!(
+            "title,author\nThe Catcher in the Rye,J.D. Salinger\nThe Adventures of Huckleberry Finn,Mark Twain\n",
+            String::from_utf8(w).unwrap()
+        );
     }
 }

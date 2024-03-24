@@ -278,6 +278,8 @@ pub struct GetRemoteCliArgs {
     pub format: Format,
     #[builder(default)]
     pub refresh_cache: bool,
+    #[builder(default)]
+    pub display_optional: bool,
 }
 
 impl GetRemoteCliArgs {

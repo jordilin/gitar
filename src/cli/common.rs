@@ -41,6 +41,9 @@ pub struct GetArgs {
     /// Output format
     #[clap(long, default_value_t=FormatCli::Pipe)]
     pub format: FormatCli,
+    /// Display additional fields
+    #[clap(visible_short_alias = 'o', long)]
+    pub more_output: bool,
     /// Refresh the cache
     #[clap(long, short)]
     pub refresh: bool,
@@ -100,6 +103,7 @@ impl From<GetArgs> for GetRemoteCliArgs {
             refresh_cache: args.refresh,
             no_headers: args.no_headers,
             format: args.format.into(),
+            display_optional: args.more_output,
         }
     }
 }
