@@ -261,7 +261,7 @@ fn get_runner_details<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     let runner = remote.get(cli_args.id)?;
-    display::print(&mut writer, vec![runner], &cli_args.get_args)?;
+    display::print(&mut writer, vec![runner], cli_args.get_args)?;
     Ok(())
 }
 
@@ -276,7 +276,7 @@ fn list_runners<W: Write>(
         writer.write_all(b"No runners found.\n")?;
         return Ok(());
     }
-    display::print(&mut writer, runners, &cli_args.list_args.get_args)?;
+    display::print(&mut writer, runners, cli_args.list_args.get_args)?;
     Ok(())
 }
 
@@ -291,7 +291,7 @@ fn list_pipelines<W: Write>(
         writer.write_all(b"No pipelines found.\n")?;
         return Ok(());
     }
-    display::print(&mut writer, pipelines, &cli_args.get_args)?;
+    display::print(&mut writer, pipelines, cli_args.get_args)?;
     Ok(())
 }
 

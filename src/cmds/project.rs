@@ -24,7 +24,7 @@ pub fn execute(
         ProjectOperation::Info(cli_args) => {
             let remote =
                 remote::get_project(domain, path, config, cli_args.get_args.refresh_cache)?;
-            project_info(remote, std::io::stdout(), cli_args.id, &cli_args.get_args)
+            project_info(remote, std::io::stdout(), cli_args.id, cli_args.get_args)
         }
     }
 }
@@ -33,7 +33,7 @@ fn project_info<W: Write>(
     remote: Arc<dyn RemoteProject>,
     mut writer: W,
     id: Option<i64>,
-    get_args: &GetRemoteCliArgs,
+    get_args: GetRemoteCliArgs,
 ) -> Result<()> {
     let CmdInfo::Project(project_data) = remote.get_project_data(id)? else {
         return Err(error::GRError::ApplicationError(
@@ -87,7 +87,7 @@ mod test {
         let remote = Arc::new(remote);
         let mut writer = Vec::new();
         let args = GetRemoteCliArgs::default();
-        project_info(remote, &mut writer, Some(1), &args).unwrap();
+        project_info(remote, &mut writer, Some(1), args).unwrap();
         assert!(writer.len() > 0);
     }
 
@@ -101,7 +101,7 @@ mod test {
         let remote = Arc::new(remote);
         let mut writer = Vec::new();
         let args = GetRemoteCliArgs::default();
-        project_info(remote, &mut writer, None, &args).unwrap_err();
+        project_info(remote, &mut writer, None, args).unwrap_err();
         assert!(writer.len() == 0);
     }
 
@@ -114,7 +114,7 @@ mod test {
         let remote = Arc::new(remote);
         let mut writer = Vec::new();
         let args = GetRemoteCliArgs::default();
-        let result = project_info(remote, &mut writer, Some(1), &args);
+        let result = project_info(remote, &mut writer, Some(1), args);
         match result {
             Ok(_) => panic!("Expected error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {

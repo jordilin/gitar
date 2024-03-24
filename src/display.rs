@@ -54,7 +54,7 @@ impl Column {
 pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
     w: &mut W,
     data: Vec<D>,
-    args: &GetRemoteCliArgs,
+    args: GetRemoteCliArgs,
 ) -> Result<()> {
     if data.is_empty() {
         return Ok(());
@@ -73,9 +73,8 @@ pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
             }
         }
         _ => {
-            let format = args.format.clone();
             let mut wtr = csv::WriterBuilder::new()
-                .delimiter(format.into())
+                .delimiter(args.format.into())
                 .from_writer(w);
             if !args.no_headers {
                 // Get the headers from the first row of columns
@@ -145,7 +144,7 @@ mod test {
             .format(Format::JSON)
             .build()
             .unwrap();
-        print(&mut w, books, &args).unwrap();
+        print(&mut w, books, args).unwrap();
         let s = String::from_utf8(w).unwrap();
         assert_eq!(2, s.lines().count());
         for line in s.lines() {
@@ -170,7 +169,7 @@ mod test {
             .format(Format::CSV)
             .build()
             .unwrap();
-        print(&mut w, books, &args).unwrap();
+        print(&mut w, books, args).unwrap();
         let mut reader = csv::ReaderBuilder::new()
             .has_headers(false)
             .from_reader(w.as_slice());
@@ -231,7 +230,7 @@ mod test {
             .format(Format::CSV)
             .build()
             .unwrap();
-        print(&mut w, books, &args).unwrap();
+        print(&mut w, books, args).unwrap();
         assert_eq!(
             "title,author\nThe Catcher in the Rye,J.D. Salinger\nThe Adventures of Huckleberry Finn,Mark Twain\n",
             String::from_utf8(w).unwrap()
@@ -254,7 +253,7 @@ mod test {
             .display_optional(true)
             .build()
             .unwrap();
-        print(&mut w, books, &args).unwrap();
+        print(&mut w, books, args).unwrap();
         assert_eq!(
             "title,author,isbn\nThe Catcher in the Rye,J.D. Salinger,0316769487\nThe Adventures of Huckleberry Finn,Mark Twain,9780199536559\n",
             String::from_utf8(w).unwrap()

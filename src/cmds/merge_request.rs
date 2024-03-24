@@ -435,7 +435,7 @@ fn list<W: Write>(
         writer.write_all(b"No merge requests found.\n")?;
         return Ok(());
     }
-    display::print(&mut writer, merge_requests, &cli_args.list_args.get_args)?;
+    display::print(&mut writer, merge_requests, cli_args.list_args.get_args)?;
     Ok(())
 }
 
@@ -486,7 +486,7 @@ pub fn get_merge_request_details<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     let response = remote.get(args.id)?;
-    display::print(&mut writer, vec![response], &args.get_args)?;
+    display::print(&mut writer, vec![response], args.get_args)?;
     Ok(())
 }
 

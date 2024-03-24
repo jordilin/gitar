@@ -90,7 +90,7 @@ fn list_releases<W: Write>(
         writer.write_all(b"No releases found.\n")?;
         return Ok(());
     }
-    display::print(&mut writer, releases, &cli_args.get_args)?;
+    display::print(&mut writer, releases, cli_args.get_args)?;
     Ok(())
 }
 

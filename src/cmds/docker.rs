@@ -175,7 +175,7 @@ fn get_image_metadata<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     let metadata = remote.get_image_metadata(cli_args.repo_id, &cli_args.tag)?;
-    display::print(&mut writer, vec![metadata], &cli_args.get_args)?;
+    display::print(&mut writer, vec![metadata], cli_args.get_args)?;
     Ok(())
 }
 
@@ -196,11 +196,11 @@ fn validate_and_list<W: Write>(
         .build()?;
     if body_args.tags {
         let tags = remote.list_repository_tags(body_args)?;
-        display::print(&mut writer, tags, &cli_args.list_args.get_args)?;
+        display::print(&mut writer, tags, cli_args.list_args.get_args)?;
         return Ok(());
     }
     let repos = remote.list_repositories(body_args)?;
-    display::print(&mut writer, repos, &cli_args.list_args.get_args)
+    display::print(&mut writer, repos, cli_args.list_args.get_args)
 }
 
 fn get_num_pages<W: Write>(
