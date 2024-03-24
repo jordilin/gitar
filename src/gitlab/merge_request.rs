@@ -182,6 +182,10 @@ pub struct GitlabMergeRequestFields {
     updated_at: String,
     created_at: String,
     title: String,
+    description: String,
+    merged_at: String,
+    pipeline_id: Option<i64>,
+    pipeline_url: Option<String>,
 }
 
 pub struct GitlabMergeRequestMetadataFields {
@@ -202,6 +206,15 @@ impl From<&serde_json::Value> for GitlabMergeRequestFields {
             updated_at: data["updated_at"].as_str().unwrap().to_string(),
             created_at: data["created_at"].as_str().unwrap().to_string(),
             title: data["title"].as_str().unwrap().to_string(),
+            description: data["description"].as_str().unwrap_or_default().to_string(),
+            // If merge request is not merged, merged_at is an empty string.
+            merged_at: data["merged_at"].as_str().unwrap_or_default().to_string(),
+            // Documentation recommends gathering head_pipeline instead of
+            // pipeline key.
+            pipeline_id: data["head_pipeline"]["id"].as_i64(),
+            pipeline_url: data["head_pipeline"]["web_url"]
+                .as_str()
+                .map(|s| s.to_string()),
         }
     }
 }
@@ -216,6 +229,10 @@ impl From<GitlabMergeRequestFields> for MergeRequestResponse {
             .updated_at(fields.updated_at)
             .created_at(fields.created_at)
             .title(fields.title)
+            .description(fields.description)
+            .merged_at(fields.merged_at)
+            .pipeline_id(fields.pipeline_id)
+            .pipeline_url(fields.pipeline_url)
             .build()
             .unwrap()
     }
