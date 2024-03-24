@@ -113,8 +113,8 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
     fn close(&self, id: i64) -> Result<MergeRequestResponse> {
         let url = format!("{}/merge_requests/{}", self.rest_api_basepath(), id);
         let mut body = Body::new();
-        body.add("state_event".to_string(), "close".to_string());
-        query::gitlab_merge_request::<_, String>(
+        body.add("state_event", "close");
+        query::gitlab_merge_request::<_, &str>(
             &self.runner,
             &url,
             Some(body),
