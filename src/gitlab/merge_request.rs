@@ -553,12 +553,63 @@ mod test {
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab: Box<dyn MergeRequest> =
             Box::new(Gitlab::new(config, &domain, &path, client.clone()));
-        let merge_request_id = 33;
-        let merge_request = gitlab.get(merge_request_id).unwrap();
+        let merge_request_id = 123456;
+        gitlab.get(merge_request_id).unwrap();
         assert_eq!(
-            "https://gitlab.com/jordilin/gitlapi/-/merge_requests/33",
-            merge_request.mr.web_url
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/123456",
+            *client.url()
         );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_merge_merge_request() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "merge_request.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn MergeRequest> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let merge_request_id = 33;
+        gitlab.merge(merge_request_id).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/33/merge",
+            *client.url()
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_close_merge_request() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "merge_request.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn MergeRequest> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let merge_request_id = 33;
+        gitlab.close(merge_request_id).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/33",
+            *client.url()
+        );
+        assert_eq!(http::Method::PUT, *client.http_method.borrow());
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
