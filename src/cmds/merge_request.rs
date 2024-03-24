@@ -5,8 +5,8 @@ use crate::error::{AddContext, GRError};
 use crate::git::Repo;
 use crate::io::{CmdInfo, Response, TaskRunner};
 use crate::remote::{
-    ListRemoteCliArgs, Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestState,
-    Project,
+    GetRemoteCliArgs, ListRemoteCliArgs, Member, MergeRequestBodyArgs, MergeRequestListBodyArgs,
+    MergeRequestState, Project,
 };
 use crate::shell::Shell;
 use crate::{dialog, display, exec, git, remote, Cmd, Result};
@@ -50,6 +50,18 @@ impl MergeRequestListCliArgs {
             state,
             list_args: args,
         }
+    }
+}
+
+#[derive(Builder)]
+pub struct MergeRequestGetCliArgs {
+    pub id: i64,
+    pub get_args: GetRemoteCliArgs,
+}
+
+impl MergeRequestGetCliArgs {
+    pub fn builder() -> MergeRequestGetCliArgsBuilder {
+        MergeRequestGetCliArgsBuilder::default()
     }
 }
 
@@ -135,6 +147,9 @@ pub fn execute(
             } else {
                 create_comment(remote, cli_args, None::<Cursor<&str>>)
             }
+        }
+        MergeRequestOptions::Get(cli_args) => {
+            todo!()
         }
     }
 }
