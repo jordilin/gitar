@@ -65,7 +65,8 @@ pub fn execute(
 ) -> Result<()> {
     match options {
         ReleaseOptions::List(cli_args) => {
-            let remote = crate::remote::get_deploy(domain, path, config, cli_args.refresh_cache)?;
+            let remote =
+                crate::remote::get_deploy(domain, path, config, cli_args.get_args.refresh_cache)?;
             if cli_args.num_pages {
                 return num_release_pages(remote, std::io::stdout());
             }
@@ -89,7 +90,7 @@ fn list_releases<W: Write>(
         writer.write_all(b"No releases found.\n")?;
         return Ok(());
     }
-    display::print(&mut writer, releases, cli_args.no_headers, &cli_args.format)?;
+    display::print(&mut writer, releases, cli_args.get_args)?;
     Ok(())
 }
 

@@ -278,6 +278,10 @@ pub struct GithubMergeRequestFields {
     created_at: String,
     title: String,
     pull_request: String,
+    description: String,
+    merged_at: String,
+    pipeline_id: Option<i64>,
+    pipeline_url: Option<String>,
 }
 
 pub struct GithubMergeRequestMetadataFields {
@@ -317,6 +321,19 @@ impl From<&serde_json::Value> for GithubMergeRequestFields {
                 .as_str()
                 .unwrap_or_default()
                 .to_string(),
+            description: merge_request_data["body"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+            merged_at: merge_request_data["merged_at"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+            // Not available in the response. Set it to the same ID as the pull request
+            pipeline_id: Some(merge_request_data["number"].as_i64().unwrap()),
+            pipeline_url: merge_request_data["html_url"]
+                .as_str()
+                .map(|url| format!("{}/checks", url)),
         }
     }
 }
@@ -332,6 +349,10 @@ impl From<GithubMergeRequestFields> for MergeRequestResponse {
             .created_at(fields.created_at)
             .title(fields.title)
             .pull_request(fields.pull_request)
+            .description(fields.description)
+            .merged_at(fields.merged_at)
+            .pipeline_id(fields.pipeline_id)
+            .pipeline_url(fields.pipeline_url)
             .build()
             .unwrap()
     }

@@ -174,7 +174,12 @@ pub fn list_merge_requests(
     cli_args: MergeRequestListCliArgs,
     assignee_id: Option<i64>,
 ) -> Result<()> {
-    let remote = remote::get_mr(domain, path, config, cli_args.list_args.refresh_cache)?;
+    let remote = remote::get_mr(
+        domain,
+        path,
+        config,
+        cli_args.list_args.get_args.refresh_cache,
+    )?;
     let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
     let body_args = MergeRequestListBodyArgs::builder()
         .list_args(from_to_args)
@@ -430,12 +435,7 @@ fn list<W: Write>(
         writer.write_all(b"No merge requests found.\n")?;
         return Ok(());
     }
-    display::print(
-        &mut writer,
-        merge_requests,
-        cli_args.list_args.no_headers,
-        &cli_args.list_args.format,
-    )?;
+    display::print(&mut writer, merge_requests, cli_args.list_args.get_args)?;
     Ok(())
 }
 
@@ -486,12 +486,7 @@ pub fn get_merge_request_details<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     let response = remote.get(args.id)?;
-    display::print(
-        &mut writer,
-        vec![response],
-        args.get_args.no_headers,
-        &args.get_args.format,
-    )?;
+    display::print(&mut writer, vec![response], args.get_args)?;
     Ok(())
 }
 
@@ -727,7 +722,12 @@ mod tests {
         let cli_args = MergeRequestListCliArgs::new(
             MergeRequestState::Opened,
             ListRemoteCliArgs::builder()
-                .no_headers(true)
+                .get_args(
+                    GetRemoteCliArgs::builder()
+                        .no_headers(true)
+                        .build()
+                        .unwrap(),
+                )
                 .build()
                 .unwrap(),
         );

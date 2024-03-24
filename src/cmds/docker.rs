@@ -154,7 +154,12 @@ pub fn execute(
 ) -> Result<()> {
     match options {
         DockerOptions::List(cli_args) => {
-            let remote = get_registry(domain, path, config, cli_args.list_args.refresh_cache)?;
+            let remote = get_registry(
+                domain,
+                path,
+                config,
+                cli_args.list_args.get_args.refresh_cache,
+            )?;
             validate_and_list(remote, cli_args, std::io::stdout())
         }
         DockerOptions::Get(cli_args) => {
@@ -170,12 +175,7 @@ fn get_image_metadata<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     let metadata = remote.get_image_metadata(cli_args.repo_id, &cli_args.tag)?;
-    display::print(
-        &mut writer,
-        vec![metadata],
-        cli_args.get_args.no_headers,
-        &cli_args.get_args.format,
-    )?;
+    display::print(&mut writer, vec![metadata], cli_args.get_args)?;
     Ok(())
 }
 
@@ -196,21 +196,11 @@ fn validate_and_list<W: Write>(
         .build()?;
     if body_args.tags {
         let tags = remote.list_repository_tags(body_args)?;
-        display::print(
-            &mut writer,
-            tags,
-            cli_args.list_args.no_headers,
-            &cli_args.list_args.format,
-        )?;
+        display::print(&mut writer, tags, cli_args.list_args.get_args)?;
         return Ok(());
     }
     let repos = remote.list_repositories(body_args)?;
-    display::print(
-        &mut writer,
-        repos,
-        cli_args.list_args.no_headers,
-        &cli_args.list_args.format,
-    )
+    display::print(&mut writer, repos, cli_args.list_args.get_args)
 }
 
 fn get_num_pages<W: Write>(
@@ -308,7 +298,12 @@ mod tests {
             .repo_id(None)
             .list_args(
                 ListRemoteCliArgs::builder()
-                    .refresh_cache(false)
+                    .get_args(
+                        GetRemoteCliArgs::builder()
+                            .refresh_cache(false)
+                            .build()
+                            .unwrap(),
+                    )
                     .build()
                     .unwrap(),
             )
@@ -332,7 +327,12 @@ mod tests {
             .repo_id(Some(1))
             .list_args(
                 ListRemoteCliArgs::builder()
-                    .refresh_cache(false)
+                    .get_args(
+                        GetRemoteCliArgs::builder()
+                            .refresh_cache(false)
+                            .build()
+                            .unwrap(),
+                    )
                     .build()
                     .unwrap(),
             )
@@ -356,7 +356,12 @@ mod tests {
             .repo_id(Some(1))
             .list_args(
                 ListRemoteCliArgs::builder()
-                    .refresh_cache(false)
+                    .get_args(
+                        GetRemoteCliArgs::builder()
+                            .refresh_cache(false)
+                            .build()
+                            .unwrap(),
+                    )
                     .num_pages(true)
                     .build()
                     .unwrap(),
@@ -377,7 +382,12 @@ mod tests {
             .repo_id(None)
             .list_args(
                 ListRemoteCliArgs::builder()
-                    .refresh_cache(false)
+                    .get_args(
+                        GetRemoteCliArgs::builder()
+                            .refresh_cache(false)
+                            .build()
+                            .unwrap(),
+                    )
                     .num_pages(true)
                     .build()
                     .unwrap(),
@@ -398,8 +408,13 @@ mod tests {
             .repo_id(Some(1))
             .list_args(
                 ListRemoteCliArgs::builder()
-                    .refresh_cache(false)
-                    .no_headers(true)
+                    .get_args(
+                        GetRemoteCliArgs::builder()
+                            .refresh_cache(false)
+                            .no_headers(true)
+                            .build()
+                            .unwrap(),
+                    )
                     .build()
                     .unwrap(),
             )
@@ -422,8 +437,13 @@ mod tests {
             .repo_id(None)
             .list_args(
                 ListRemoteCliArgs::builder()
-                    .refresh_cache(false)
-                    .no_headers(true)
+                    .get_args(
+                        GetRemoteCliArgs::builder()
+                            .refresh_cache(false)
+                            .no_headers(true)
+                            .build()
+                            .unwrap(),
+                    )
                     .build()
                     .unwrap(),
             )
@@ -451,9 +471,14 @@ mod tests {
             .repo_id(None)
             .list_args(
                 ListRemoteCliArgs::builder()
-                    .refresh_cache(false)
+                    .get_args(
+                        GetRemoteCliArgs::builder()
+                            .refresh_cache(false)
+                            .no_headers(true)
+                            .build()
+                            .unwrap(),
+                    )
                     .num_pages(true)
-                    .no_headers(true)
                     .build()
                     .unwrap(),
             )
@@ -481,9 +506,14 @@ mod tests {
             .repo_id(None)
             .list_args(
                 ListRemoteCliArgs::builder()
-                    .refresh_cache(false)
+                    .get_args(
+                        GetRemoteCliArgs::builder()
+                            .refresh_cache(false)
+                            .no_headers(true)
+                            .build()
+                            .unwrap(),
+                    )
                     .num_pages(true)
-                    .no_headers(true)
                     .build()
                     .unwrap(),
             )

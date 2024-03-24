@@ -104,6 +104,11 @@ pub struct MergeRequestResponse {
     pub title: String,
     // For Github to filter pull requests from issues.
     pub pull_request: String,
+    // Optional fields to display for get and list operations
+    pub description: String,
+    pub merged_at: String,
+    pub pipeline_id: Option<i64>,
+    pub pipeline_url: Option<String>,
 }
 
 impl MergeRequestResponse {
@@ -118,9 +123,33 @@ impl From<MergeRequestResponse> for DisplayBody {
             columns: vec![
                 Column::new("ID", mr.id.to_string()),
                 Column::new("Title", mr.title),
+                Column::builder()
+                    .name("Description".to_string())
+                    .value(mr.description)
+                    .optional(true)
+                    .build()
+                    .unwrap(),
                 Column::new("Author", mr.author),
                 Column::new("URL", mr.web_url),
                 Column::new("Updated at", mr.updated_at),
+                Column::builder()
+                    .name("Merged at".to_string())
+                    .value(mr.merged_at)
+                    .optional(true)
+                    .build()
+                    .unwrap(),
+                Column::builder()
+                    .name("Pipeline ID".to_string())
+                    .value(mr.pipeline_id.map_or("".to_string(), |id| id.to_string()))
+                    .optional(true)
+                    .build()
+                    .unwrap(),
+                Column::builder()
+                    .name("Pipeline URL".to_string())
+                    .value(mr.pipeline_url.unwrap_or("".to_string()))
+                    .optional(true)
+                    .build()
+                    .unwrap(),
             ],
         }
     }
@@ -253,10 +282,6 @@ pub struct ListRemoteCliArgs {
     #[builder(default)]
     pub num_pages: bool,
     #[builder(default)]
-    pub refresh_cache: bool,
-    #[builder(default)]
-    pub no_headers: bool,
-    #[builder(default)]
     pub page_number: Option<i64>,
     #[builder(default)]
     pub created_after: Option<String>,
@@ -265,7 +290,7 @@ pub struct ListRemoteCliArgs {
     #[builder(default)]
     pub sort: ListSortMode,
     #[builder(default)]
-    pub format: Format,
+    pub get_args: GetRemoteCliArgs,
 }
 
 impl ListRemoteCliArgs {
@@ -274,14 +299,16 @@ impl ListRemoteCliArgs {
     }
 }
 
-#[derive(Builder, Clone)]
+#[derive(Builder, Clone, Default)]
 pub struct GetRemoteCliArgs {
-    #[builder(default)]
-    pub refresh_cache: bool,
     #[builder(default)]
     pub no_headers: bool,
     #[builder(default)]
     pub format: Format,
+    #[builder(default)]
+    pub refresh_cache: bool,
+    #[builder(default)]
+    pub display_optional: bool,
 }
 
 impl GetRemoteCliArgs {
