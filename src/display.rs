@@ -29,16 +29,23 @@ impl DisplayBody {
     }
 }
 
+#[derive(Builder)]
 pub struct Column {
     pub name: String,
     pub value: String,
+    #[builder(default)]
+    pub optional: bool,
 }
 
 impl Column {
+    pub fn builder() -> ColumnBuilder {
+        ColumnBuilder::default()
+    }
     pub fn new(name: impl Into<String>, value: impl Into<String>) -> Self {
         Self {
             name: name.into(),
             value: value.into(),
+            optional: false,
         }
     }
 }
