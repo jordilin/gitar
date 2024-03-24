@@ -66,7 +66,7 @@ pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
                 let kvs: HashMap<String, String> = d
                     .columns
                     .into_iter()
-                    .filter(|c| !c.optional)
+                    .filter(|c| !c.optional || args.display_optional)
                     .map(|item| (item.name, item.value))
                     .collect();
                 writeln!(w, "{}", serde_json::to_string(&kvs)?)?;
@@ -84,7 +84,7 @@ pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
                     .into()
                     .columns
                     .iter()
-                    .filter(|c| !c.optional)
+                    .filter(|c| !c.optional || args.display_optional)
                     .map(|c| c.name.clone())
                     .collect::<Vec<_>>();
                 wtr.write_record(&headers)?;
@@ -94,7 +94,7 @@ pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
                 let row = d
                     .columns
                     .into_iter()
-                    .filter(|c| !c.optional)
+                    .filter(|c| !c.optional || args.display_optional)
                     .map(|c| c.value)
                     .collect::<Vec<_>>();
                 wtr.write_record(&row)?;
@@ -234,6 +234,29 @@ mod test {
         print(&mut w, books, &args).unwrap();
         assert_eq!(
             "title,author\nThe Catcher in the Rye,J.D. Salinger\nThe Adventures of Huckleberry Finn,Mark Twain\n",
+            String::from_utf8(w).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_csv_display_optional_columns_on_args() {
+        let mut w = Vec::new();
+        let books = vec![
+            BookOptionalColumns::new("The Catcher in the Rye", "J.D. Salinger", "0316769487"),
+            BookOptionalColumns::new(
+                "The Adventures of Huckleberry Finn",
+                "Mark Twain",
+                "9780199536559",
+            ),
+        ];
+        let args = GetRemoteCliArgs::builder()
+            .format(Format::CSV)
+            .display_optional(true)
+            .build()
+            .unwrap();
+        print(&mut w, books, &args).unwrap();
+        assert_eq!(
+            "title,author,isbn\nThe Catcher in the Rye,J.D. Salinger,0316769487\nThe Adventures of Huckleberry Finn,Mark Twain,9780199536559\n",
             String::from_utf8(w).unwrap()
         );
     }
