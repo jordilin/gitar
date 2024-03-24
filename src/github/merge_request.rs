@@ -712,4 +712,28 @@ mod test {
             *client.api_operation.borrow()
         );
     }
+
+    #[test]
+    fn test_get_pull_request_details() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Github, "merge_request.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn MergeRequest> =
+            Box::new(Github::new(config, &domain, &path, client.clone()));
+        github.get(23).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/pulls/23",
+            *client.url(),
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
 }
