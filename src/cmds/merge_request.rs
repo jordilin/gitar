@@ -149,7 +149,8 @@ pub fn execute(
             }
         }
         MergeRequestOptions::Get(cli_args) => {
-            todo!()
+            let remote = remote::get_mr(domain, path, config, cli_args.get_args.refresh_cache)?;
+            get_merge_request_details(remote, cli_args, std::io::stdout())
         }
     }
 }
@@ -447,7 +448,7 @@ fn merge(remote: Arc<dyn MergeRequest>, merge_request_id: i64) -> Result<()> {
 fn checkout(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
     let merge_request = remote.get(id)?;
     git::fetch(Arc::new(Shell))?;
-    git::checkout(&Shell, &merge_request.source_branch)
+    git::checkout(&Shell, &merge_request.mr.source_branch)
 }
 
 fn close(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
@@ -479,6 +480,21 @@ fn create_comment<R: BufRead>(
     )
 }
 
+pub fn get_merge_request_details<W: Write>(
+    remote: Arc<dyn MergeRequest>,
+    args: MergeRequestGetCliArgs,
+    mut writer: W,
+) -> Result<()> {
+    let response = remote.get(args.id)?;
+    display::print(
+        &mut writer,
+        vec![response],
+        args.get_args.no_headers,
+        &args.get_args.format,
+    )?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -490,6 +506,8 @@ mod tests {
         api_traits::CommentMergeRequest, cli::browse::BrowseOptions, error,
         remote::MergeRequestResponse,
     };
+
+    use self::remote::MergeRequestMetadata;
 
     use super::*;
 
@@ -632,7 +650,7 @@ mod tests {
     #[test]
     fn test_list_merge_requests() {
         let remote = Arc::new(
-            MergeRequestListMock::builder()
+            MergeRequestRemoteMock::builder()
                 .merge_requests(vec![MergeRequestResponse::builder()
                     .id(1)
                     .title("New feature".to_string())
@@ -665,7 +683,7 @@ mod tests {
 
     #[test]
     fn test_if_no_merge_requests_are_available_list_should_return_no_merge_requests_found() {
-        let remote = Arc::new(MergeRequestListMock::builder().build().unwrap());
+        let remote = Arc::new(MergeRequestRemoteMock::builder().build().unwrap());
         let mut buf = Vec::new();
         let body_args = MergeRequestListBodyArgs::builder()
             .list_args(None)
@@ -687,7 +705,7 @@ mod tests {
     #[test]
     fn test_list_merge_requests_no_headers() {
         let remote = Arc::new(
-            MergeRequestListMock::builder()
+            MergeRequestRemoteMock::builder()
                 .merge_requests(vec![MergeRequestResponse::builder()
                     .id(1)
                     .title("New feature".to_string())
@@ -721,18 +739,20 @@ mod tests {
     }
 
     #[derive(Clone, Builder)]
-    struct MergeRequestListMock {
+    struct MergeRequestRemoteMock {
         #[builder(default = "Vec::new()")]
         merge_requests: Vec<MergeRequestResponse>,
+        #[builder(default)]
+        merge_request_metatada: MergeRequestMetadata,
     }
 
-    impl MergeRequestListMock {
-        pub fn builder() -> MergeRequestListMockBuilder {
-            MergeRequestListMockBuilder::default()
+    impl MergeRequestRemoteMock {
+        pub fn builder() -> MergeRequestRemoteMockBuilder {
+            MergeRequestRemoteMockBuilder::default()
         }
     }
 
-    impl MergeRequest for MergeRequestListMock {
+    impl MergeRequest for MergeRequestRemoteMock {
         fn open(&self, _args: MergeRequestBodyArgs) -> Result<MergeRequestResponse> {
             Ok(MergeRequestResponse::builder().build().unwrap())
         }
@@ -742,8 +762,8 @@ mod tests {
         fn merge(&self, _id: i64) -> Result<MergeRequestResponse> {
             Ok(MergeRequestResponse::builder().build().unwrap())
         }
-        fn get(&self, _id: i64) -> Result<MergeRequestResponse> {
-            Ok(MergeRequestResponse::builder().build().unwrap())
+        fn get(&self, _id: i64) -> Result<MergeRequestMetadata> {
+            Ok(self.merge_request_metatada.clone())
         }
         fn close(&self, _id: i64) -> Result<MergeRequestResponse> {
             Ok(MergeRequestResponse::builder().build().unwrap())
@@ -1026,5 +1046,42 @@ mod tests {
             .unwrap();
         let reader = ErrorReader {};
         assert!(create_comment(remote.clone(), cli_args, Some(reader)).is_err());
+    }
+
+    #[test]
+    fn test_get_merge_request_details() {
+        let cli_args = MergeRequestGetCliArgs::builder()
+            .id(1)
+            .get_args(GetRemoteCliArgs::builder().build().unwrap())
+            .build()
+            .unwrap();
+        let response = MergeRequestMetadata::builder()
+            .mr(MergeRequestResponse::builder()
+                .id(1)
+                .title("New feature".to_string())
+                .web_url("https://gitlab.com/owner/repo/-/merge_requests/1".to_string())
+                .build()
+                .unwrap())
+            .description("Implement get merge request".to_string())
+            .merged_at("2024-03-03T00:00:00Z".to_string())
+            .pipeline_id(Some(1))
+            .pipeline_url(Some(
+                "https://gitlab.com/owner/repo/-/pipelines/1".to_string(),
+            ))
+            .build()
+            .unwrap();
+        let remote = Arc::new(
+            MergeRequestRemoteMock::builder()
+                .merge_request_metatada(response)
+                .build()
+                .unwrap(),
+        );
+        let mut writer = Vec::new();
+        get_merge_request_details(remote, cli_args, &mut writer).unwrap();
+        assert_eq!(
+            "ID|Title|Description|URL|Merged at|Pipeline ID|Pipeline URL\n\
+             1|New feature|Implement get merge request|https://gitlab.com/owner/repo/-/merge_requests/1|2024-03-03T00:00:00Z|1|https://gitlab.com/owner/repo/-/pipelines/1\n",
+            String::from_utf8(writer).unwrap(),
+        )
     }
 }
