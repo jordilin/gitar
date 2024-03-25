@@ -51,14 +51,22 @@ mod test {
             "--to-page",
             "2",
         ]);
-        match args.command {
+        let list_args = match args.command {
             Command::Release(ReleaseCommand {
                 subcommand: ReleaseSubcommand::List(options),
             }) => {
                 assert_eq!(options.from_page, Some(1));
                 assert_eq!(options.to_page, Some(2));
+                options
             }
             _ => panic!("Expected ReleaseCommand"),
+        };
+        let options: ReleaseOptions = list_args.into();
+        match options {
+            ReleaseOptions::List(args) => {
+                assert_eq!(args.from_page, Some(1));
+                assert_eq!(args.to_page, Some(2));
+            }
         }
     }
 }
