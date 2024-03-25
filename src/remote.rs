@@ -161,7 +161,7 @@ impl Timestamp for MergeRequestResponse {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum MergeRequestState {
     Opened,
     Closed,

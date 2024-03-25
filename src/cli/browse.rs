@@ -37,6 +37,7 @@ impl From<BrowseCommand> for BrowseOptions {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum BrowseOptions {
     // defaults to open repo in browser
     Repo,
@@ -50,4 +51,65 @@ struct MergeRequestBrowse {
     /// Open merge/pull request id in the browser
     #[clap()]
     pub id: Option<i64>,
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+    use crate::cli::{Args, Command};
+
+    #[test]
+    fn test_browse_command_repo() {
+        let args = Args::parse_from(vec!["gr", "br", "repo"]);
+        match args.command {
+            Command::Browse(BrowseCommand {
+                subcommand: Some(BrowseSubcommand::Repo),
+            }) => {}
+            _ => panic!("Expected Repo BrowseCommand"),
+        }
+    }
+
+    #[test]
+    fn test_browse_command_mr() {
+        let args = Args::parse_from(vec!["gr", "br", "mr"]);
+        let mr_browse = match args.command {
+            Command::Browse(BrowseCommand {
+                subcommand: Some(BrowseSubcommand::MergeRequest(options)),
+            }) => {
+                assert_eq!(options.id, None);
+                options
+            }
+            _ => panic!("Expected MergeRequest BrowseCommand"),
+        };
+        let options: BrowseOptions = mr_browse.into();
+        assert_eq!(options, BrowseOptions::MergeRequests);
+    }
+
+    #[test]
+    fn test_browse_command_mr_id() {
+        let args = Args::parse_from(vec!["gr", "br", "mr", "1"]);
+        let mr_browse = match args.command {
+            Command::Browse(BrowseCommand {
+                subcommand: Some(BrowseSubcommand::MergeRequest(options)),
+            }) => {
+                assert_eq!(options.id, Some(1));
+                options
+            }
+            _ => panic!("Expected MergeRequest BrowseCommand"),
+        };
+        let options: BrowseOptions = mr_browse.into();
+        assert_eq!(options, BrowseOptions::MergeRequestId(1));
+    }
+
+    #[test]
+    fn test_browse_command_pipelines() {
+        let args = Args::parse_from(vec!["gr", "br", "pp"]);
+        match args.command {
+            Command::Browse(BrowseCommand {
+                subcommand: Some(BrowseSubcommand::Pipelines),
+            }) => {}
+            _ => panic!("Expected Pipelines BrowseCommand"),
+        }
+    }
 }

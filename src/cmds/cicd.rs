@@ -186,7 +186,7 @@ impl RunnerMetadataGetCliArgs {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum RunnerStatus {
     Online,
     Offline,

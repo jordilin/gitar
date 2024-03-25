@@ -96,7 +96,7 @@ struct CreateMergeRequest {
     pub draft: bool,
 }
 
-#[derive(ValueEnum, Clone)]
+#[derive(ValueEnum, Clone, PartialEq, Debug)]
 pub enum MergeRequestStateStateCli {
     Opened,
     Closed,
@@ -237,4 +237,171 @@ pub enum MergeRequestOptions {
     Merge { id: i64 },
     Checkout { id: i64 },
     Close { id: i64 },
+}
+
+#[cfg(test)]
+mod test {
+    use crate::cli::{Args, Command};
+
+    use super::*;
+
+    #[test]
+    fn test_list_merge_requests_cli_args() {
+        let args = Args::parse_from(vec!["gr", "mr", "list", "opened"]);
+        let list_merge_request = match args.command {
+            Command::MergeRequest(MergeRequestCommand {
+                subcommand: MergeRequestSubcommand::List(options),
+            }) => {
+                assert_eq!(options.state, MergeRequestStateStateCli::Opened);
+                options
+            }
+            _ => panic!("Expected MergeRequestCommand::List"),
+        };
+
+        let options: MergeRequestOptions = list_merge_request.into();
+        match options {
+            MergeRequestOptions::List(args) => {
+                assert_eq!(args.state, MergeRequestState::Opened);
+            }
+            _ => panic!("Expected MergeRequestOptions::List"),
+        }
+    }
+
+    #[test]
+    fn test_merge_merge_request_cli_args() {
+        let args = Args::parse_from(vec!["gr", "mr", "merge", "123"]);
+        let merge_merge_request = match args.command {
+            Command::MergeRequest(MergeRequestCommand {
+                subcommand: MergeRequestSubcommand::Merge(options),
+            }) => {
+                assert_eq!(options.id, 123);
+                options
+            }
+            _ => panic!("Expected MergeRequestCommand::Merge"),
+        };
+
+        let options: MergeRequestOptions = merge_merge_request.into();
+        match options {
+            MergeRequestOptions::Merge { id } => {
+                assert_eq!(id, 123);
+            }
+            _ => panic!("Expected MergeRequestOptions::Merge"),
+        }
+    }
+
+    #[test]
+    fn test_checkout_merge_request_cli_args() {
+        let args = Args::parse_from(vec!["gr", "mr", "checkout", "123"]);
+        let checkout_merge_request = match args.command {
+            Command::MergeRequest(MergeRequestCommand {
+                subcommand: MergeRequestSubcommand::Checkout(options),
+            }) => {
+                assert_eq!(options.id, 123);
+                options
+            }
+            _ => panic!("Expected MergeRequestCommand::Checkout"),
+        };
+
+        let options: MergeRequestOptions = checkout_merge_request.into();
+        match options {
+            MergeRequestOptions::Checkout { id } => {
+                assert_eq!(id, 123);
+            }
+            _ => panic!("Expected MergeRequestOptions::Checkout"),
+        }
+    }
+
+    #[test]
+    fn test_close_merge_request_cli_args() {
+        let args = Args::parse_from(vec!["gr", "mr", "close", "123"]);
+        let close_merge_request = match args.command {
+            Command::MergeRequest(MergeRequestCommand {
+                subcommand: MergeRequestSubcommand::Close(options),
+            }) => {
+                assert_eq!(options.id, 123);
+                options
+            }
+            _ => panic!("Expected MergeRequestCommand::Close"),
+        };
+
+        let options: MergeRequestOptions = close_merge_request.into();
+        match options {
+            MergeRequestOptions::Close { id } => {
+                assert_eq!(id, 123);
+            }
+            _ => panic!("Expected MergeRequestOptions::Close"),
+        }
+    }
+
+    #[test]
+    fn test_comment_merge_request_cli_args() {
+        let args = Args::parse_from(vec!["gr", "mr", "comment", "--id", "123", "LGTM"]);
+        let comment_merge_request = match args.command {
+            Command::MergeRequest(MergeRequestCommand {
+                subcommand: MergeRequestSubcommand::Comment(options),
+            }) => {
+                assert_eq!(options.id, 123);
+                assert_eq!(options.comment, Some("LGTM".to_string()));
+                options
+            }
+            _ => panic!("Expected MergeRequestCommand::Comment"),
+        };
+
+        let options: MergeRequestOptions = comment_merge_request.into();
+        match options {
+            MergeRequestOptions::Comment(args) => {
+                assert_eq!(args.id, 123);
+                assert_eq!(args.comment, Some("LGTM".to_string()));
+            }
+            _ => panic!("Expected MergeRequestOptions::Comment"),
+        }
+    }
+
+    #[test]
+    fn test_create_merge_request_cli_args() {
+        let args = Args::parse_from(vec!["gr", "mr", "create", "--auto", "-y", "--browse"]);
+        let create_merge_request = match args.command {
+            Command::MergeRequest(MergeRequestCommand {
+                subcommand: MergeRequestSubcommand::Create(options),
+            }) => {
+                assert!(options.auto);
+                assert!(options.yes);
+                assert!(options.browse);
+                options
+            }
+            _ => panic!("Expected MergeRequestCommand::Create"),
+        };
+
+        let options: MergeRequestOptions = create_merge_request.into();
+        match options {
+            MergeRequestOptions::Create(args) => {
+                assert!(args.auto);
+                assert!(args.accept_summary);
+                assert!(args.open_browser);
+            }
+            _ => panic!("Expected MergeRequestOptions::Create"),
+        }
+    }
+
+    #[test]
+    fn test_get_merge_request_details_cli_args() {
+        let args = Args::parse_from(vec!["gr", "mr", "get", "123"]);
+        let get_merge_request = match args.command {
+            Command::MergeRequest(MergeRequestCommand {
+                subcommand: MergeRequestSubcommand::Get(options),
+            }) => {
+                assert_eq!(options.id, 123);
+                options
+            }
+            _ => panic!("Expected MergeRequestCommand::Get"),
+        };
+
+        let options: MergeRequestOptions = get_merge_request.into();
+        match options {
+            MergeRequestOptions::Get(args) => {
+                assert_eq!(args.id, 123);
+            }
+            _ => panic!("Expected MergeRequestOptions::Get"),
+        }
+    }
 }

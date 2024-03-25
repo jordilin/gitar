@@ -1,5 +1,5 @@
 use crate::api_traits::RemoteProject;
-use crate::cli::project::{ProjectOperation, ProjectOptions};
+use crate::cli::project::ProjectOptions;
 use crate::config::Config;
 use crate::display;
 use crate::error;
@@ -9,9 +9,16 @@ use crate::Result;
 use std::io::Write;
 use std::sync::Arc;
 
+#[derive(Builder)]
 pub struct ProjectMetadataGetCliArgs {
     pub id: Option<i64>,
     pub get_args: GetRemoteCliArgs,
+}
+
+impl ProjectMetadataGetCliArgs {
+    pub fn builder() -> ProjectMetadataGetCliArgsBuilder {
+        ProjectMetadataGetCliArgsBuilder::default()
+    }
 }
 
 pub fn execute(
@@ -20,8 +27,8 @@ pub fn execute(
     domain: String,
     path: String,
 ) -> Result<()> {
-    match options.operation {
-        ProjectOperation::Info(cli_args) => {
+    match options {
+        ProjectOptions::Info(cli_args) => {
             let remote =
                 remote::get_project(domain, path, config, cli_args.get_args.refresh_cache)?;
             project_info(remote, std::io::stdout(), cli_args.id, cli_args.get_args)
