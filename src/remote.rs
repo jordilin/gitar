@@ -161,48 +161,6 @@ impl Timestamp for MergeRequestResponse {
     }
 }
 
-/// Augments the MergeRequestResponse with additional metadata such as the
-/// description, and pipeline information.
-#[derive(Builder, Clone, Debug, Default)]
-#[builder(default)]
-pub struct MergeRequestMetadata {
-    pub mr: MergeRequestResponse,
-    pub description: String,
-    pub merged_at: String,
-    pub pipeline_id: Option<i64>,
-    pub pipeline_url: Option<String>,
-}
-
-impl MergeRequestMetadata {
-    pub fn builder() -> MergeRequestMetadataBuilder {
-        MergeRequestMetadataBuilder::default()
-    }
-}
-
-impl From<MergeRequestMetadata> for DisplayBody {
-    fn from(metadata: MergeRequestMetadata) -> DisplayBody {
-        DisplayBody {
-            columns: vec![
-                Column::new("ID", metadata.mr.id.to_string()),
-                Column::new("Title", metadata.mr.title),
-                Column::new("Description", metadata.description),
-                Column::new("URL", metadata.mr.web_url),
-                Column::new("Merged at", metadata.merged_at),
-                Column::new(
-                    "Pipeline ID",
-                    metadata
-                        .pipeline_id
-                        .map_or("".to_string(), |id| id.to_string()),
-                ),
-                Column::new(
-                    "Pipeline URL",
-                    metadata.pipeline_url.unwrap_or("".to_string()),
-                ),
-            ],
-        }
-    }
-}
-
 #[derive(Clone, Copy)]
 pub enum MergeRequestState {
     Opened,
