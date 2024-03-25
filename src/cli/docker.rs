@@ -95,14 +95,23 @@ mod test {
     #[test]
     fn test_docker_cli_repos() {
         let args = Args::parse_from(vec!["gr", "dk", "list", "--repos"]);
-        match args.command {
+        let list_images = match args.command {
             Command::Docker(DockerCommand {
                 subcommand: DockerSubCommand::List(options),
             }) => {
                 assert!(options.repos);
                 assert!(!options.tags);
+                options
             }
             _ => panic!("Expected DockerCommand"),
+        };
+        let options: DockerOptions = list_images.into();
+        match options {
+            DockerOptions::List(args) => {
+                assert!(args.repos);
+                assert!(!args.tags);
+            }
+            _ => panic!("Expected DockerOptions::List"),
         }
     }
 
@@ -133,7 +142,7 @@ mod test {
             "123",
             "v0.0.1",
         ]);
-        match args.command {
+        let image_metadata = match args.command {
             Command::Docker(DockerCommand {
                 subcommand: DockerSubCommand::Image(options),
             }) => {
@@ -141,8 +150,20 @@ mod test {
                 assert_eq!(options.tag, "v0.0.1");
                 assert!(options.get_args.refresh);
                 assert!(options.get_args.no_headers);
+                options
             }
             _ => panic!("Expected DockerCommand"),
+        };
+        // check all options are set
+        let options: DockerOptions = image_metadata.into();
+        match options {
+            DockerOptions::Get(args) => {
+                assert_eq!(args.repo_id, 123);
+                assert_eq!(args.tag, "v0.0.1");
+                assert!(args.get_args.refresh_cache);
+                assert!(args.get_args.no_headers);
+            }
+            _ => panic!("Expected DockerOptions::Get"),
         }
     }
 }
