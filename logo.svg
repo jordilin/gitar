@@ -56,11 +56,11 @@
        rx="57.470989"
        ry="35.032303" />
     <ellipse
-       style="fill:#782121;stroke-width:1.87221"
+       style="fill:#782121;stroke-width:1.81626"
        id="path1"
-       cx="53.214382"
-       cy="53.744408"
-       rx="19.517179"
+       cx="57.276756"
+       cy="53.512604"
+       rx="18.36812"
        ry="20.26082" />
     <text
        xml:space="preserve"
@@ -72,24 +72,6 @@
          id="tspan1"
          x="15.615974"
          y="45.325787" /></text>
-    <text
-       xml:space="preserve"
-       style="font-size:23.4938px;fill:#000000;stroke-width:1.25861"
-       x="16.834686"
-       y="50.793419"
-       id="text2"
-       transform="scale(0.81036955,1.2340049)"><tspan
-         sodipodi:role="line"
-         id="tspan2"
-         x="16.834686"
-         y="50.793419"
-         style="font-size:23.4938px;stroke-width:1.25861"><tspan
-   style="fill:#aa0000;stroke-width:1.25861"
-   id="tspan5"><tspan
-     style="fill:#c9ffa1;fill-opacity:1;stroke-width:1.25861"
-     id="tspan3"><tspan
-   style="fill:#d40000;stroke-width:1.25861"
-   id="tspan4">git</tspan> AR</tspan></tspan>-----------</tspan></text>
     <rect
        style="fill:#1a1a1a;stroke-width:1.64978"
        id="rect5-5"
@@ -102,8 +84,8 @@
        id="rect5-5-2"
        width="3.1148138"
        height="25.703222"
-       x="72.688774"
-       y="40.700531" />
+       x="73.30249"
+       y="40.828064" />
     <rect
        style="fill:#1a1a1a;stroke-width:1.64978"
        id="rect5-2"
@@ -227,5 +209,42 @@
        x="171.245"
        y="65.093376"
        transform="matrix(0.99999582,0.00289198,0.0326732,0.99946609,0,0)" />
+    <text
+       xml:space="preserve"
+       style="font-size:23.4938px;fill:#000000;stroke-width:1.25861"
+       x="16.834686"
+       y="50.793419"
+       id="text2"
+       transform="scale(0.81036955,1.2340049)"><tspan
+         sodipodi:role="line"
+         id="tspan2"
+         x="16.834686"
+         y="50.793419"
+         style="font-size:23.4938px;stroke-width:1.25861"><tspan
+   style="fill:#c9ffa1;fill-opacity:1;stroke-width:1.25861"
+   id="tspan5"><tspan
+   style="fill:#d40000;stroke-width:1.25861"
+   id="tspan4">git</tspan> AR</tspan>-----------------</tspan></text>
+    <rect
+       style="fill:#ff0000;stroke-width:1.72044"
+       id="rect5-2-2-7-5"
+       width="3.8349922"
+       height="22.702942"
+       x="138.7108"
+       y="42.481617" />
+    <rect
+       style="fill:#ff0000;stroke-width:1.71828"
+       id="rect5-2-2-7-5-2"
+       width="3.8349922"
+       height="22.645891"
+       x="159.51187"
+       y="42.491692" />
+    <rect
+       style="fill:#ff0000;stroke-width:1.74595"
+       id="rect5-2-2-7-5-2-7"
+       width="3.8349922"
+       height="23.381054"
+       x="178.49791"
+       y="42.000393" />
   </g>
 </svg>
