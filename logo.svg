@@ -26,9 +26,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="px"
-     inkscape:zoom="3.34"
-     inkscape:cx="140.56886"
-     inkscape:cy="48.203593"
+     inkscape:zoom="4.7234733"
+     inkscape:cx="75.262413"
+     inkscape:cy="82.142943"
      inkscape:window-width="1920"
      inkscape:window-height="1011"
      inkscape:window-x="0"
@@ -56,11 +56,11 @@
        rx="57.470989"
        ry="35.032303" />
     <ellipse
-       style="fill:#782121;stroke-width:1.81626"
+       style="fill:#782121;stroke-width:1.84799"
        id="path1"
-       cx="57.276756"
-       cy="53.512604"
-       rx="18.36812"
+       cx="59.145557"
+       cy="53.901329"
+       rx="19.01549"
        ry="20.26082" />
     <text
        xml:space="preserve"
@@ -81,25 +81,18 @@
        y="40.666412" />
     <rect
        style="fill:#1a1a1a;stroke-width:1.64978"
-       id="rect5-5-2"
-       width="3.1148138"
-       height="25.703222"
-       x="73.30249"
-       y="40.828064" />
-    <rect
-       style="fill:#1a1a1a;stroke-width:1.64978"
        id="rect5-2"
        width="3.1148138"
        height="25.703222"
-       x="85.67942"
+       x="86.489151"
        y="40.809742" />
     <rect
        style="fill:#1a1a1a;stroke-width:1.64978"
        id="rect5-2-2"
        width="3.1148138"
        height="25.703222"
-       x="92.879089"
-       y="40.946606" />
+       x="93.569389"
+       y="40.91024" />
     <rect
        style="fill:#1a1a1a;stroke-width:1.64978"
        id="rect5-2-2-7"
@@ -211,7 +204,7 @@
        transform="matrix(0.99999582,0.00289198,0.0326732,0.99946609,0,0)" />
     <text
        xml:space="preserve"
-       style="font-size:23.4938px;fill:#000000;stroke-width:1.25861"
+       style="font-size:23.4938px;fill:#1a1a1a;stroke-width:1.25861"
        x="16.834686"
        y="50.793419"
        id="text2"
@@ -220,11 +213,13 @@
          id="tspan2"
          x="16.834686"
          y="50.793419"
-         style="font-size:23.4938px;stroke-width:1.25861"><tspan
-   style="fill:#c9ffa1;fill-opacity:1;stroke-width:1.25861"
-   id="tspan5"><tspan
-   style="fill:#d40000;stroke-width:1.25861"
-   id="tspan4">git</tspan> AR</tspan>-----------------</tspan></text>
+         style="font-size:23.4938px;fill:#1a1a1a;stroke-width:1.25861"><tspan
+           style="fill:#1a1a1a;fill-opacity:1;stroke-width:1.25861"
+           id="tspan5"><tspan
+   style="fill:#ff0000"
+   id="tspan4">git</tspan> <tspan
+   style="fill:#c9ffa1;fill-opacity:1"
+   id="tspan3">AR</tspan> ---------------- </tspan></tspan></text>
     <rect
        style="fill:#ff0000;stroke-width:1.72044"
        id="rect5-2-2-7-5"
