@@ -58,8 +58,8 @@
     <ellipse
        style="fill:#782121;stroke-width:1.81626"
        id="path1"
-       cx="57.276756"
-       cy="53.512604"
+       cx="58.238945"
+       cy="53.901329"
        rx="18.36812"
        ry="20.26082" />
     <text
@@ -79,13 +79,6 @@
        height="25.703222"
        x="79.490105"
        y="40.666412" />
-    <rect
-       style="fill:#1a1a1a;stroke-width:1.64978"
-       id="rect5-5-2"
-       width="3.1148138"
-       height="25.703222"
-       x="73.30249"
-       y="40.828064" />
     <rect
        style="fill:#1a1a1a;stroke-width:1.64978"
        id="rect5-2"
@@ -211,7 +204,7 @@
        transform="matrix(0.99999582,0.00289198,0.0326732,0.99946609,0,0)" />
     <text
        xml:space="preserve"
-       style="font-size:23.4938px;fill:#000000;stroke-width:1.25861"
+       style="font-size:23.4938px;fill:#1a1a1a;stroke-width:1.25861"
        x="16.834686"
        y="50.793419"
        id="text2"
@@ -220,11 +213,11 @@
          id="tspan2"
          x="16.834686"
          y="50.793419"
-         style="font-size:23.4938px;stroke-width:1.25861"><tspan
-   style="fill:#c9ffa1;fill-opacity:1;stroke-width:1.25861"
-   id="tspan5"><tspan
-   style="fill:#d40000;stroke-width:1.25861"
-   id="tspan4">git</tspan> AR</tspan>-----------------</tspan></text>
+         style="font-size:23.4938px;fill:#1a1a1a;stroke-width:1.25861"><tspan
+           style="fill:#1a1a1a;fill-opacity:1;stroke-width:1.25861"
+           id="tspan5">git <tspan
+   style="fill:#c9ffa1;fill-opacity:1"
+   id="tspan3">AR</tspan> ---------------- </tspan></tspan></text>
     <rect
        style="fill:#ff0000;stroke-width:1.72044"
        id="rect5-2-2-7-5"
