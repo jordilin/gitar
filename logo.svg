@@ -26,9 +26,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="px"
-     inkscape:zoom="9.4469466"
-     inkscape:cx="127.0781"
-     inkscape:cy="68.170175"
+     inkscape:zoom="4.7234733"
+     inkscape:cx="75.262413"
+     inkscape:cy="82.142943"
      inkscape:window-width="1920"
      inkscape:window-height="1011"
      inkscape:window-x="0"
@@ -215,7 +215,9 @@
          y="50.793419"
          style="font-size:23.4938px;fill:#1a1a1a;stroke-width:1.25861"><tspan
            style="fill:#1a1a1a;fill-opacity:1;stroke-width:1.25861"
-           id="tspan5">git <tspan
+           id="tspan5"><tspan
+   style="fill:#ff0000"
+   id="tspan4">git</tspan> <tspan
    style="fill:#c9ffa1;fill-opacity:1"
    id="tspan3">AR</tspan> ---------------- </tspan></tspan></text>
     <rect
