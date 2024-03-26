@@ -3,6 +3,8 @@
 [![Build status](https://github.com/jordilin/gitar/actions/workflows/ci.yml/badge.svg)](https://github.com/jordilin/gitar/actions)
 [![codecov](https://codecov.io/gh/jordilin/gitar/graph/badge.svg)](https://codecov.io/gh/jordilin/gitar)
 
+![GitAR](./logo.svg)
+
 - [GitAR - Git All Remotes](#gitar---git-all-remotes)
   - [Installation](#installation)
   - [Usage](#usage)
@@ -281,5 +283,8 @@ cargo test
 
 This project is licensed under
 
-* MIT license ([LICENSE](LICENSE) or
+- Source code: MIT license ([LICENSE](LICENSE) or
   [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
+
+- GitAR logo: [Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
