@@ -20,11 +20,11 @@ pub struct MergeRequestCommand {
 
 #[derive(Parser)]
 enum MergeRequestSubcommand {
-    #[clap(about = "Creates a merge request")]
+    #[clap(about = "Creates a merge request", visible_alias = "cr")]
     Create(CreateMergeRequest),
     /// Get a merge request
     Get(GetMergeRequest),
-    #[clap(about = "List merge requests")]
+    #[clap(about = "List merge requests", visible_alias = "ls")]
     List(ListMergeRequest),
     #[clap(about = "Merge a merge request")]
     Merge(MergeMergeRequest),
@@ -74,7 +74,7 @@ struct CreateMergeRequest {
     #[clap(long, value_name = "FILE")]
     pub description_from_file: Option<String>,
     /// Accept the default title, description, and target branch
-    #[clap(long)]
+    #[clap(long, short)]
     pub auto: bool,
     /// Target branch of the merge request instead of default project's upstream branch
     #[clap(long)]
@@ -83,7 +83,7 @@ struct CreateMergeRequest {
     #[clap(long, short)]
     pub refresh: bool,
     /// Automatically open the browser after creating the merge request
-    #[clap(long)]
+    #[clap(long, short)]
     pub browse: bool,
     /// Open the merge request automatically without prompting for confirmation
     #[clap(long, short)]
