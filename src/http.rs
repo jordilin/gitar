@@ -346,6 +346,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                 }
                 // If status is 304, then we need to return the cached response.
                 let response = self.get(cmd)?;
+                self.handle_rate_limit(&response)?;
                 if response.status == 304 {
                     // Update cache with latest headers. This effectively
                     // refreshes the cache and we won't hit this until per api
@@ -354,7 +355,6 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                         .update(&cmd.resource, &response, &ResponseField::Headers)?;
                     return Ok(default_response);
                 }
-                self.handle_rate_limit(&response)?;
                 self.cache.set(&cmd.resource, &response).unwrap();
                 Ok(response)
             }
