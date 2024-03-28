@@ -21,6 +21,10 @@ pub type Error = anyhow::Error;
 pub type Cmd<T> = Box<dyn FnOnce() -> Result<T> + Send + Sync>;
 pub mod cmds;
 pub mod display;
+pub mod logging;
+
+#[macro_use]
+extern crate log;
 
 #[macro_use]
 extern crate lazy_static;
@@ -35,3 +39,7 @@ fn json_load_page(data: &str) -> Result<Vec<serde_json::Value>> {
 fn json_loads(data: &str) -> Result<serde_json::Value> {
     serde_json::from_str(data).map_err(|e| error::gen(e.to_string()))
 }
+
+use std::sync::OnceLock;
+
+pub static VERBOSE: OnceLock<bool> = OnceLock::new();

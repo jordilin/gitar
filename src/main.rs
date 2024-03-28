@@ -1,24 +1,32 @@
 use std::{fs::File, path::Path, sync::Arc};
 
+use env_logger::Env;
 use gr::{
     cli::{parse_cli, CliOptions},
-    cmds,
-    cmds::{browse, cicd, docker, merge_request, project},
+    cmds::{self, browse, cicd, docker, merge_request, project},
     error, git, init,
     io::CmdInfo,
     shell::Shell,
-    Result,
+    Result, VERBOSE,
 };
 
 const CONFIG_PATH: &str = ".config/gitar/api";
 
 fn main() -> Result<()> {
+    let env = Env::default().default_filter_or("info");
+    env_logger::init_from_env(env);
     let home_dir = std::env::var("HOME").unwrap();
     let config_file = Path::new(&home_dir).join(CONFIG_PATH);
-    let cli_options = parse_cli().unwrap_or_else(|| {
+    let option_args = parse_cli();
+    let cli_options = option_args.cli_options.unwrap_or_else(|| {
         eprintln!("Please specify a subcommand");
         std::process::exit(1);
     });
+    let cli_args = option_args.cli_args;
+    if cli_args.verbose {
+        VERBOSE.set(true).expect("Unable to set verbose mode")
+    }
+
     if let CliOptions::Init(options) = cli_options {
         init::execute(options, config_file)
     } else {

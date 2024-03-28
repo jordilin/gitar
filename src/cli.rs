@@ -28,6 +28,9 @@ use clap::Parser;
 struct Args {
     #[clap(subcommand)]
     pub command: Command,
+    /// Verbose mode. Enable gitar's logging
+    #[clap(long, short)]
+    verbose: bool,
 }
 
 #[derive(Parser)]
@@ -57,9 +60,9 @@ enum Command {
 }
 
 // Parse cli and return CliOptions
-pub fn parse_cli() -> Option<CliOptions> {
+pub fn parse_cli() -> OptionArgs {
     let args = Args::parse();
-    match args.command {
+    let options = match args.command {
         Command::MergeRequest(sub_matches) => Some(CliOptions::MergeRequest(sub_matches.into())),
         Command::Browse(sub_matches) => Some(CliOptions::Browse(sub_matches.into())),
         Command::Pipeline(sub_matches) => Some(CliOptions::Pipeline(sub_matches.into())),
@@ -68,7 +71,8 @@ pub fn parse_cli() -> Option<CliOptions> {
         Command::Docker(sub_matches) => Some(CliOptions::Docker(sub_matches.into())),
         Command::Release(sub_matches) => Some(CliOptions::Release(sub_matches.into())),
         Command::My(sub_matches) => Some(CliOptions::My(sub_matches.into())),
-    }
+    };
+    return OptionArgs::new(options, CliArgs::new(args.verbose));
 }
 
 pub enum CliOptions {
@@ -80,4 +84,29 @@ pub enum CliOptions {
     Docker(DockerOptions),
     Release(ReleaseOptions),
     My(MyOptions),
+}
+
+#[derive(Copy, Clone)]
+pub struct CliArgs {
+    pub verbose: bool,
+}
+
+impl CliArgs {
+    pub fn new(verbose: bool) -> Self {
+        CliArgs { verbose }
+    }
+}
+
+pub struct OptionArgs {
+    pub cli_options: Option<CliOptions>,
+    pub cli_args: CliArgs,
+}
+
+impl OptionArgs {
+    pub fn new(cli_options: Option<CliOptions>, cli_args: CliArgs) -> Self {
+        OptionArgs {
+            cli_options,
+            cli_args,
+        }
+    }
 }

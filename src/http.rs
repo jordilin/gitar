@@ -3,8 +3,8 @@ use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
 use crate::io::{HttpRunner, Response, ResponseField};
 use crate::time::{now_epoch_seconds, Seconds};
-use crate::Result;
 use crate::{api_defaults, error};
+use crate::{log_info, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map, HashMap};
 use std::iter::Iterator;
@@ -418,6 +418,8 @@ impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginato
             if self.iter >= 1 {
                 self.request.set_url(page_url);
             }
+            log_info!("Requesting page: {}", self.iter + 1);
+            log_info!("URL: {}", self.request.url());
             match self.runner.run(&mut self.request) {
                 Ok(response) => {
                     if let Some(page_headers) = response.get_page_headers() {
