@@ -3,7 +3,7 @@ use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
 use crate::io::{HttpRunner, Response, ResponseField};
 use crate::time::{now_epoch_seconds, Seconds};
-use crate::{api_defaults, error};
+use crate::{api_defaults, error, log_debug};
 use crate::{log_info, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map, HashMap};
@@ -328,12 +328,15 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                 let mut default_response = Response::builder().build()?;
                 match self.cache.get(&cmd.resource) {
                     Ok(CacheState::Fresh(response)) => {
+                        log_debug!("Cache fresh for {}", cmd.resource.url);
                         if !self.refresh_cache {
+                            log_debug!("Returning cached response");
                             return Ok(response);
                         }
                         default_response = response;
                     }
                     Ok(CacheState::Stale(response)) => {
+                        log_debug!("Cache stale for {}", cmd.resource.url);
                         default_response = response;
                     }
                     Ok(CacheState::None) => {}
