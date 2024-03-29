@@ -61,6 +61,12 @@ pub fn epoch_to_minutes_relative(epoch_seconds: Seconds) -> String {
     minutes.to_string()
 }
 
+pub fn epoch_to_seconds_relative(epoch_seconds: Seconds) -> String {
+    let now = now_epoch_seconds();
+    let diff = now - epoch_seconds;
+    diff.to_string()
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Seconds(u64);
 

@@ -2,7 +2,7 @@ use crate::api_traits::ApiOperation;
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
 use crate::io::{HttpRunner, Response, ResponseField};
-use crate::time::{now_epoch_seconds, Seconds};
+use crate::time::{self, now_epoch_seconds, Seconds};
 use crate::{api_defaults, error, log_debug};
 use crate::{log_info, Result};
 use serde::{Deserialize, Serialize};
@@ -127,6 +127,7 @@ impl<C, D: ConfigProperties> Client<C, D> {
             // defaults for safety. Official github.com and gitlab.com do, so
             // that could be an internal/dev, etc... instance setup without rate
             // limits.
+            info!("Rate limit headers not provided by remote, using defaults");
             default_rate_limit_handler(
                 &self.config,
                 &self.time_to_ratelimit_reset,
@@ -177,6 +178,12 @@ fn default_rate_limit_handler(
             *time_to_reset = current_time + Seconds::new(60);
         }
         *remaining_requests -= 1;
+        // Using time to seconds relative as counter gets reset every minute.
+        info!(
+            "Remaining requests: {}, reset in: {} seconds",
+            *remaining_requests,
+            time::epoch_to_seconds_relative(*time_to_reset)
+        );
     } else {
         return Err(error::GRError::ApplicationError(
             "http module rate limiting - Cannot decrease counter \
@@ -330,7 +337,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                     Ok(CacheState::Fresh(response)) => {
                         log_debug!("Cache fresh for {}", cmd.resource.url);
                         if !self.refresh_cache {
-                            log_debug!("Returning cached response");
+                            log_debug!("Returning local cached response");
                             return Ok(response);
                         }
                         default_response = response;
