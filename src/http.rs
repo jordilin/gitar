@@ -2,9 +2,9 @@ use crate::api_traits::ApiOperation;
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
 use crate::io::{HttpRunner, Response, ResponseField};
-use crate::time::{now_epoch_seconds, Seconds};
-use crate::Result;
-use crate::{api_defaults, error};
+use crate::time::{self, now_epoch_seconds, Seconds};
+use crate::{api_defaults, error, log_debug};
+use crate::{log_info, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map, HashMap};
 use std::iter::Iterator;
@@ -127,6 +127,7 @@ impl<C, D: ConfigProperties> Client<C, D> {
             // defaults for safety. Official github.com and gitlab.com do, so
             // that could be an internal/dev, etc... instance setup without rate
             // limits.
+            log_info!("Rate limit headers not provided by remote, using defaults");
             default_rate_limit_handler(
                 &self.config,
                 &self.time_to_ratelimit_reset,
@@ -177,6 +178,12 @@ fn default_rate_limit_handler(
             *time_to_reset = current_time + Seconds::new(60);
         }
         *remaining_requests -= 1;
+        // Using time to seconds relative as counter gets reset every minute.
+        log_info!(
+            "Remaining requests: {}, reset in: {} seconds",
+            *remaining_requests,
+            time::epoch_to_seconds_relative(*time_to_reset)
+        );
     } else {
         return Err(error::GRError::ApplicationError(
             "http module rate limiting - Cannot decrease counter \
@@ -328,12 +335,15 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                 let mut default_response = Response::builder().build()?;
                 match self.cache.get(&cmd.resource) {
                     Ok(CacheState::Fresh(response)) => {
+                        log_debug!("Cache fresh for {}", cmd.resource.url);
                         if !self.refresh_cache {
+                            log_debug!("Returning local cached response");
                             return Ok(response);
                         }
                         default_response = response;
                     }
                     Ok(CacheState::Stale(response)) => {
+                        log_debug!("Cache stale for {}", cmd.resource.url);
                         default_response = response;
                     }
                     Ok(CacheState::None) => {}
@@ -346,6 +356,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                 }
                 // If status is 304, then we need to return the cached response.
                 let response = self.get(cmd)?;
+                self.handle_rate_limit(&response)?;
                 if response.status == 304 {
                     // Update cache with latest headers. This effectively
                     // refreshes the cache and we won't hit this until per api
@@ -354,7 +365,6 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                         .update(&cmd.resource, &response, &ResponseField::Headers)?;
                     return Ok(default_response);
                 }
-                self.handle_rate_limit(&response)?;
                 self.cache.set(&cmd.resource, &response).unwrap();
                 Ok(response)
             }
@@ -418,6 +428,8 @@ impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginato
             if self.iter >= 1 {
                 self.request.set_url(page_url);
             }
+            log_info!("Requesting page: {}", self.iter + 1);
+            log_info!("URL: {}", self.request.url());
             match self.runner.run(&mut self.request) {
                 Ok(response) => {
                     if let Some(page_headers) = response.get_page_headers() {

@@ -9,7 +9,7 @@ use crate::Result;
 use chrono::{DateTime, Local};
 use std;
 use std::fmt::{Display, Formatter};
-use std::ops::{Add, Deref, Sub};
+use std::ops::{Add, Deref, Div, Sub};
 
 enum Time {
     Second,
@@ -54,6 +54,19 @@ pub fn now_epoch_seconds() -> Seconds {
     Seconds(now_epoch)
 }
 
+pub fn epoch_to_minutes_relative(epoch_seconds: Seconds) -> String {
+    let now = now_epoch_seconds();
+    let diff = now - epoch_seconds;
+    let minutes = diff / Seconds::new(60);
+    minutes.to_string()
+}
+
+pub fn epoch_to_seconds_relative(epoch_seconds: Seconds) -> String {
+    let now = now_epoch_seconds();
+    let diff = now - epoch_seconds;
+    diff.to_string()
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct Seconds(u64);
 
@@ -67,6 +80,9 @@ impl Sub<Seconds> for Seconds {
     type Output = Seconds;
 
     fn sub(self, rhs: Seconds) -> Self::Output {
+        if self.0 < rhs.0 {
+            return Seconds(rhs.0 - self.0);
+        }
         Seconds(self.0 - rhs.0)
     }
 }
@@ -76,6 +92,14 @@ impl Add<Seconds> for Seconds {
 
     fn add(self, rhs: Seconds) -> Self::Output {
         Seconds(self.0 + rhs.0)
+    }
+}
+
+impl Div<Seconds> for Seconds {
+    type Output = Seconds;
+
+    fn div(self, rhs: Seconds) -> Self::Output {
+        Seconds(self.0 / rhs.0)
     }
 }
 

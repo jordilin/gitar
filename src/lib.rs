@@ -21,6 +21,10 @@ pub type Error = anyhow::Error;
 pub type Cmd<T> = Box<dyn FnOnce() -> Result<T> + Send + Sync>;
 pub mod cmds;
 pub mod display;
+pub mod logging;
+
+#[macro_use]
+extern crate log;
 
 #[macro_use]
 extern crate lazy_static;

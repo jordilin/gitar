@@ -1,12 +1,16 @@
 use crate::{
     http::{self, Headers, Request},
+    log_info,
     remote::{Member, MergeRequestResponse, Project},
-    time::Seconds,
+    time::{self, Seconds},
     Result,
 };
 use regex::Regex;
 use serde::Serialize;
-use std::ffi::OsStr;
+use std::{
+    ffi::OsStr,
+    fmt::{self, Display, Formatter},
+};
 
 /// A trait that handles the execution of processes with a finite lifetime. For
 /// example, it can be an in-memory process for testing or a shell command doing
@@ -110,6 +114,7 @@ impl Response {
                 if let Some(github_reset) = headers.get(GITHUB_RATELIMIT_RESET) {
                     ratelimit_header.reset = Seconds::new(github_reset.parse::<u64>().unwrap_or(0));
                 }
+                log_info!("Header {}", ratelimit_header);
                 return Some(ratelimit_header);
             }
             if let Some(gitlab_remaining) = headers.get(GITLAB_RATELIMIT_REMAINING) {
@@ -117,6 +122,7 @@ impl Response {
                 if let Some(gitlab_reset) = headers.get(GITLAB_RATELIMIT_RESET) {
                     ratelimit_header.reset = Seconds::new(gitlab_reset.parse::<u64>().unwrap_or(0));
                 }
+                log_info!("Header {}", ratelimit_header);
                 return Some(ratelimit_header);
             }
         }
@@ -242,6 +248,17 @@ pub struct RateLimitHeader {
 impl RateLimitHeader {
     pub fn new(remaining: u32, reset: Seconds) -> Self {
         RateLimitHeader { remaining, reset }
+    }
+}
+
+impl Display for RateLimitHeader {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let reset = time::epoch_to_minutes_relative(self.reset);
+        write!(
+            f,
+            "RateLimitHeader: remaining: {}, reset in: {} minutes",
+            self.remaining, reset
+        )
     }
 }
 
