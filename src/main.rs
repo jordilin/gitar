@@ -7,14 +7,12 @@ use gr::{
     error, git, init,
     io::CmdInfo,
     shell::Shell,
-    Result, VERBOSE,
+    Result,
 };
 
 const CONFIG_PATH: &str = ".config/gitar/api";
 
 fn main() -> Result<()> {
-    let env = Env::default().default_filter_or("info");
-    env_logger::init_from_env(env);
     let home_dir = std::env::var("HOME").unwrap();
     let config_file = Path::new(&home_dir).join(CONFIG_PATH);
     let option_args = parse_cli();
@@ -24,9 +22,9 @@ fn main() -> Result<()> {
     });
     let cli_args = option_args.cli_args;
     if cli_args.verbose {
-        VERBOSE.set(true).expect("Unable to set verbose mode")
+        let env = Env::default().default_filter_or("info");
+        env_logger::init_from_env(env);
     }
-
     if let CliOptions::Init(options) = cli_options {
         init::execute(options, config_file)
     } else {
