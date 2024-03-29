@@ -127,7 +127,7 @@ impl<C, D: ConfigProperties> Client<C, D> {
             // defaults for safety. Official github.com and gitlab.com do, so
             // that could be an internal/dev, etc... instance setup without rate
             // limits.
-            info!("Rate limit headers not provided by remote, using defaults");
+            log_info!("Rate limit headers not provided by remote, using defaults");
             default_rate_limit_handler(
                 &self.config,
                 &self.time_to_ratelimit_reset,
@@ -179,7 +179,7 @@ fn default_rate_limit_handler(
         }
         *remaining_requests -= 1;
         // Using time to seconds relative as counter gets reset every minute.
-        info!(
+        log_info!(
             "Remaining requests: {}, reset in: {} seconds",
             *remaining_requests,
             time::epoch_to_seconds_relative(*time_to_reset)
