@@ -72,7 +72,7 @@ pub fn parse_cli() -> OptionArgs {
         Command::Release(sub_matches) => Some(CliOptions::Release(sub_matches.into())),
         Command::My(sub_matches) => Some(CliOptions::My(sub_matches.into())),
     };
-    return OptionArgs::new(options, CliArgs::new(args.verbose));
+    OptionArgs::new(options, CliArgs::new(args.verbose))
 }
 
 pub enum CliOptions {
