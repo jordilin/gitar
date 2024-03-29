@@ -20,6 +20,7 @@
     - [Browse remote using your browser](#browse-remote-using-your-browser)
     - [Releases](#releases)
     - [Auth User](#auth-user)
+  - [Logging](#logging)
   - [Not yet supported](#not-yet-supported)
   - [Unit tests](#unit-tests)
   - [License](#license)
@@ -265,6 +266,26 @@ All list operations support the following flags:
 - `--created-after` and `--created-before` to filter by date if response
   payloads support `created_at` field.
 - `--format` to specify the output format. Delimit fields by using a pipe, i.e. ` | ` is the default.
+
+## Logging
+
+Logging can be enabled by issuing the `--verbose` or `-v` global flag.
+
+By default, INFO logs are enabled and will output to STDERR without interfering
+with STDOUT in case you want to pipe the output to another command or file. INFO
+will give just enough information to understand what is happening.
+
+You can enable DEBUG logs by setting the `RUST_LOG` environment variable to
+`debug`. DEBUG is way more verbose.
+
+Ex: List all pipelines/actions with logging.
+
+```bash
+# INFO logs
+gr --verbose pp list
+# DEBUG logs
+RUST_LOG=debug gr --verbose pp list
+```
 
 ## Not yet supported
 
