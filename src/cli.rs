@@ -29,7 +29,7 @@ struct Args {
     #[clap(subcommand)]
     pub command: Command,
     /// Verbose mode. Enable gitar's logging
-    #[clap(long, short)]
+    #[clap(long, short, global = true)]
     verbose: bool,
 }
 
