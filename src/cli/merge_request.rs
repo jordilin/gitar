@@ -92,7 +92,7 @@ struct CreateMergeRequest {
     #[clap(long)]
     pub commit: Option<String>,
     /// Set up the merge request as draft
-    #[clap(long)]
+    #[clap(long, visible_alias = "wip")]
     pub draft: bool,
 }
 
@@ -402,6 +402,28 @@ mod test {
                 assert_eq!(args.id, 123);
             }
             _ => panic!("Expected MergeRequestOptions::Get"),
+        }
+    }
+
+    #[test]
+    fn test_wip_alias_as_draft() {
+        let args = Args::parse_from(vec!["gr", "mr", "create", "--auto", "--wip"]);
+        let create_merge_request = match args.command {
+            Command::MergeRequest(MergeRequestCommand {
+                subcommand: MergeRequestSubcommand::Create(options),
+            }) => {
+                assert!(options.draft);
+                options
+            }
+            _ => panic!("Expected MergeRequestCommand::Create"),
+        };
+
+        let options: MergeRequestOptions = create_merge_request.into();
+        match options {
+            MergeRequestOptions::Create(args) => {
+                assert!(args.draft);
+            }
+            _ => panic!("Expected MergeRequestOptions::Create"),
         }
     }
 }
