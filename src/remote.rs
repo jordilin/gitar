@@ -92,6 +92,18 @@ impl Timestamp for Member {
     }
 }
 
+impl From<Member> for DisplayBody {
+    fn from(m: Member) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("ID", m.id.to_string()),
+                Column::new("Name", m.name),
+                Column::new("Username", m.username),
+            ],
+        }
+    }
+}
+
 #[derive(Builder, Clone, Debug, Default)]
 #[builder(default)]
 pub struct MergeRequestResponse {
@@ -248,6 +260,8 @@ pub struct ListRemoteCliArgs {
     #[builder(default)]
     pub sort: ListSortMode,
     #[builder(default)]
+    pub flush: bool,
+    #[builder(default)]
     pub get_args: GetRemoteCliArgs,
 }
 
@@ -292,6 +306,11 @@ pub struct ListBodyArgs {
     pub created_before: Option<String>,
     #[builder(default)]
     pub sort_mode: ListSortMode,
+    #[builder(default)]
+    pub flush: bool,
+    // Carry display format for flush operations
+    #[builder(default)]
+    pub get_args: GetRemoteCliArgs,
 }
 
 impl ListBodyArgs {
@@ -313,6 +332,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                 .unwrap(),
         ));
     }
+    // TODO - this can probably be validated at the CLI level
     let body_args = match (remote_cli_args.from_page, remote_cli_args.to_page) {
         (Some(from_page), Some(to_page)) => {
             if from_page < 0 || to_page < 0 {
@@ -334,6 +354,8 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .page(from_page)
                     .max_pages(max_pages)
                     .sort_mode(remote_cli_args.sort.clone())
+                    .flush(remote_cli_args.flush)
+                    .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
             )
@@ -355,6 +377,8 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .page(1)
                     .max_pages(to_page)
                     .sort_mode(remote_cli_args.sort.clone())
+                    .flush(remote_cli_args.flush)
+                    .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
             )
@@ -374,6 +398,8 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                         .created_after(Some(created_after.to_string()))
                         .created_before(Some(created_before.to_string()))
                         .sort_mode(remote_cli_args.sort.clone())
+                        .flush(remote_cli_args.flush)
+                        .get_args(remote_cli_args.get_args.clone())
                         .build()
                         .unwrap(),
                 ));
@@ -383,6 +409,8 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .created_after(Some(created_after.to_string()))
                     .created_before(Some(created_before.to_string()))
                     .sort_mode(remote_cli_args.sort.clone())
+                    .flush(remote_cli_args.flush)
+                    .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
             ));
@@ -395,6 +423,8 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                         .max_pages(body_args.max_pages.unwrap())
                         .created_after(Some(created_after.to_string()))
                         .sort_mode(remote_cli_args.sort.clone())
+                        .flush(remote_cli_args.flush)
+                        .get_args(remote_cli_args.get_args.clone())
                         .build()
                         .unwrap(),
                 ));
@@ -403,6 +433,8 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                 ListBodyArgs::builder()
                     .created_after(Some(created_after.to_string()))
                     .sort_mode(remote_cli_args.sort.clone())
+                    .flush(remote_cli_args.flush)
+                    .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
             ));
@@ -415,6 +447,8 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                         .max_pages(body_args.max_pages.unwrap())
                         .created_before(Some(created_before.to_string()))
                         .sort_mode(remote_cli_args.sort.clone())
+                        .flush(remote_cli_args.flush)
+                        .get_args(remote_cli_args.get_args.clone())
                         .build()
                         .unwrap(),
                 ));
@@ -423,6 +457,8 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                 ListBodyArgs::builder()
                     .created_before(Some(created_before.to_string()))
                     .sort_mode(remote_cli_args.sort.clone())
+                    .flush(remote_cli_args.flush)
+                    .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
             ));
@@ -434,6 +470,8 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                         .page(body_args.page.unwrap())
                         .max_pages(body_args.max_pages.unwrap())
                         .sort_mode(remote_cli_args.sort.clone())
+                        .flush(remote_cli_args.flush)
+                        .get_args(remote_cli_args.get_args.clone())
                         .build()
                         .unwrap(),
                 ));
@@ -441,6 +479,8 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
             return Ok(Some(
                 ListBodyArgs::builder()
                     .sort_mode(remote_cli_args.sort.clone())
+                    .flush(remote_cli_args.flush)
+                    .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
             ));
@@ -883,6 +923,13 @@ mod test {
             .unwrap();
         let args = validate_from_to_page(&args).unwrap().unwrap();
         assert_eq!(args.sort_mode, ListSortMode::Desc);
+    }
+
+    #[test]
+    fn test_if_flush_option_provided_use_it() {
+        let args = ListRemoteCliArgs::builder().flush(true).build().unwrap();
+        let args = validate_from_to_page(&args).unwrap().unwrap();
+        assert!(args.flush);
     }
 
     #[test]

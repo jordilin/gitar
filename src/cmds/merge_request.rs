@@ -431,6 +431,9 @@ fn list<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     let merge_requests = remote.list(body_args)?;
+    if cli_args.list_args.flush {
+        return Ok(());
+    }
     if merge_requests.is_empty() {
         writer.write_all(b"No merge requests found.\n")?;
         return Ok(());
@@ -693,6 +696,24 @@ mod tests {
             "No merge requests found.\n",
             String::from_utf8(buf).unwrap(),
         )
+    }
+
+    #[test]
+    fn test_list_merge_requests_empty_with_flush_option_no_warn_message() {
+        let remote = Arc::new(MergeRequestRemoteMock::builder().build().unwrap());
+        let mut buf = Vec::new();
+        let body_args = MergeRequestListBodyArgs::builder()
+            .list_args(None)
+            .state(MergeRequestState::Opened)
+            .assignee_id(None)
+            .build()
+            .unwrap();
+        let cli_args = MergeRequestListCliArgs::new(
+            MergeRequestState::Opened,
+            ListRemoteCliArgs::builder().flush(true).build().unwrap(),
+        );
+        list(remote, body_args, cli_args, &mut buf).unwrap();
+        assert_eq!("", String::from_utf8(buf).unwrap());
     }
 
     #[test]

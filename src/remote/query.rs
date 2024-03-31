@@ -11,7 +11,7 @@ use crate::{
         my::User,
         release::Release,
     },
-    error,
+    display, error,
     github::{
         cicd::GithubPipelineFields,
         merge_request::GithubMergeRequestFields,
@@ -175,6 +175,17 @@ macro_rules! paged {
                                 paged_data.push(<$map_type>::from(data).into());
                                 paged_data
                             });
+                        if let Some(list_args) = &list_args {
+                            if list_args.flush {
+                                display::print(
+                                    &mut std::io::stdout(),
+                                    paged_data,
+                                    list_args.get_args.clone(),
+                                )
+                                .unwrap();
+                                return Ok(Vec::new());
+                            }
+                        }
                         return Ok(paged_data);
                     }
                     let paged_data = json_load_page(&response.body)?.iter().fold(
@@ -184,6 +195,17 @@ macro_rules! paged {
                             paged_data
                         },
                     );
+                    if let Some(list_args) = &list_args {
+                        if list_args.flush {
+                            display::print(
+                                &mut std::io::stdout(),
+                                paged_data,
+                                list_args.get_args.clone(),
+                            )
+                            .unwrap();
+                            return Ok(Vec::new());
+                        }
+                    }
                     Ok(paged_data)
                 })
                 .collect::<Result<Vec<Vec<$return_type>>>>()

@@ -27,6 +27,10 @@ pub struct ListArgs {
     /// Created before date (ISO 8601 YYYY-MM-DDTHH:MM:SSZ)
     #[clap(long)]
     created_before: Option<String>,
+    /// Flush results to STDOUT as they are received. No sorting and no date
+    /// filtering is applied
+    #[clap(long, visible_alias = "flush")]
+    pub stream: bool,
     #[clap(long, default_value_t=SortModeCli::Asc)]
     sort: SortModeCli,
     #[clap(flatten)]
@@ -92,6 +96,7 @@ impl From<ListArgs> for ListRemoteCliArgs {
             .created_before(args.created_before)
             .sort(args.sort.into())
             .get_args(args.get_args.into())
+            .flush(args.stream)
             .build()
             .unwrap()
     }

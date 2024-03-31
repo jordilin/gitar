@@ -272,6 +272,9 @@ fn list_runners<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     let runners = remote.list(body_args)?;
+    if cli_args.list_args.flush {
+        return Ok(());
+    }
     if runners.is_empty() {
         writer.write_all(b"No runners found.\n")?;
         return Ok(());
@@ -287,6 +290,9 @@ fn list_pipelines<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     let pipelines = remote.list(body_args)?;
+    if cli_args.flush {
+        return Ok(());
+    }
     if pipelines.is_empty() {
         writer.write_all(b"No pipelines found.\n")?;
         return Ok(());
@@ -380,7 +386,7 @@ mod test {
     }
 
     #[test]
-    fn test_list_pipelines_empty() {
+    fn test_list_pipelines_empty_warns_message() {
         let pp_remote = PipelineListMock::builder().build().unwrap();
         let mut buf = Vec::new();
 
@@ -391,6 +397,19 @@ mod test {
         let cli_args = ListRemoteCliArgs::builder().build().unwrap();
         list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();
         assert_eq!("No pipelines found.\n", String::from_utf8(buf).unwrap(),)
+    }
+
+    #[test]
+    fn test_pipelines_empty_with_flush_option_no_warn_message() {
+        let pp_remote = PipelineListMock::builder().build().unwrap();
+        let mut buf = Vec::new();
+        let body_args = PipelineBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        let cli_args = ListRemoteCliArgs::builder().flush(true).build().unwrap();
+        list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();
+        assert_eq!("", String::from_utf8(buf).unwrap(),)
     }
 
     #[test]
@@ -570,6 +589,42 @@ mod test {
              2|true|Runner 2|10.0.0.2|runner2|false|true|shared|true|online\n",
             String::from_utf8(buf).unwrap()
         )
+    }
+
+    #[test]
+    fn test_no_runners_warn_user_with_message() {
+        let remote = RunnerMock::builder().build().unwrap();
+        let mut buf = Vec::new();
+        let body_args = RunnerListBodyArgs::builder()
+            .list_args(None)
+            .status(RunnerStatus::Online)
+            .build()
+            .unwrap();
+        let cli_args = RunnerListCliArgs::builder()
+            .status(RunnerStatus::Online)
+            .list_args(ListRemoteCliArgs::builder().build().unwrap())
+            .build()
+            .unwrap();
+        list_runners(Arc::new(remote), body_args, cli_args, &mut buf).unwrap();
+        assert_eq!("No runners found.\n", String::from_utf8(buf).unwrap())
+    }
+
+    #[test]
+    fn test_no_runners_found_with_flush_option_no_warn_message() {
+        let remote = RunnerMock::builder().build().unwrap();
+        let mut buf = Vec::new();
+        let body_args = RunnerListBodyArgs::builder()
+            .list_args(None)
+            .status(RunnerStatus::Online)
+            .build()
+            .unwrap();
+        let cli_args = RunnerListCliArgs::builder()
+            .status(RunnerStatus::Online)
+            .list_args(ListRemoteCliArgs::builder().flush(true).build().unwrap())
+            .build()
+            .unwrap();
+        list_runners(Arc::new(remote), body_args, cli_args, &mut buf).unwrap();
+        assert_eq!("", String::from_utf8(buf).unwrap())
     }
 
     #[test]
