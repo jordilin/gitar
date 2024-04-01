@@ -267,6 +267,32 @@ mod test {
         assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
     }
 
+    #[test]
+    fn test_list_pipelines_with_stream_ok() {
+        let config = config();
+
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "list_pipelines.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let pipelines = gitlab
+            .list(
+                PipelineBodyArgs::builder()
+                    .from_to_page(Some(ListBodyArgs::builder().flush(true).build().unwrap()))
+                    .build()
+                    .unwrap(),
+            )
+            .unwrap();
+        // pipelines is empty because we are flushing the output to STDOUT on
+        // each request
+        assert_eq!(0, pipelines.len());
+    }
+
     fn default_pipeline_body_args() -> PipelineBodyArgs {
         let body_args = PipelineBodyArgs::builder()
             .from_to_page(None)
@@ -520,13 +546,50 @@ mod test {
             .all(true)
             .build()
             .unwrap();
-        gitlab.list(body_args).unwrap();
+        let runners = gitlab.list(body_args).unwrap();
         assert_eq!(
             "https://gitlab.com/api/v4/runners/all?status=online",
             *client.url(),
         );
         assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
         assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+        assert_eq!(2, runners.len());
+    }
+
+    #[test]
+    fn test_get_all_gitlab_runners_stream_ok() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            // using same contract as listing project's runners. The schema is
+            // the same
+            .body(get_contract(
+                ContractType::Gitlab,
+                "list_project_runners.json",
+            ))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn CicdRunner> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let body_args = RunnerListBodyArgs::builder()
+            .status(RunnerStatus::Online)
+            .list_args(Some(ListBodyArgs::builder().flush(true).build().unwrap()))
+            .all(true)
+            .build()
+            .unwrap();
+        let runners = gitlab.list(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/runners/all?status=online",
+            *client.url(),
+        );
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+        // We are streaming the output to STDOUT so we should not have any runners
+        // on response.
+        assert_eq!(0, runners.len());
     }
 
     #[test]

@@ -86,6 +86,9 @@ fn list_releases<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     let releases = remote.list(body_args)?;
+    if cli_args.flush {
+        return Ok(());
+    }
     if releases.is_empty() {
         writer.write_all(b"No releases found.\n")?;
         return Ok(());
@@ -155,6 +158,19 @@ mod test {
         let cli_args = ListRemoteCliArgs::builder().build().unwrap();
         let mut writer = Vec::new();
         list_releases(remote, body_args, cli_args, &mut writer).unwrap();
-        assert_eq!(String::from_utf8(writer).unwrap(), "No releases found.\n");
+        assert_eq!("No releases found.\n", String::from_utf8(writer).unwrap());
+    }
+
+    #[test]
+    fn test_list_releases_empty_with_flush_no_warn_message() {
+        let remote = Arc::new(MockDeploy::new(true));
+        let body_args = ReleaseBodyArgs::builder()
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        let cli_args = ListRemoteCliArgs::builder().flush(true).build().unwrap();
+        let mut writer = Vec::new();
+        list_releases(remote, body_args, cli_args, &mut writer).unwrap();
+        assert_eq!("", String::from_utf8(writer).unwrap());
     }
 }
