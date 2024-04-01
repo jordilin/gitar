@@ -262,6 +262,8 @@ pub struct ListRemoteCliArgs {
     #[builder(default)]
     pub flush: bool,
     #[builder(default)]
+    pub throttle_time: Option<u64>,
+    #[builder(default)]
     pub get_args: GetRemoteCliArgs,
 }
 

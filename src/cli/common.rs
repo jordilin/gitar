@@ -31,6 +31,10 @@ pub struct ListArgs {
     /// filtering is applied
     #[clap(long, visible_alias = "flush")]
     pub stream: bool,
+    /// Throttle the requests to the server. Time to wait in milliseconds
+    /// between each HTTP request.
+    #[clap(long, value_name = "MILLISECONDS")]
+    pub throttle: Option<u64>,
     #[clap(long, default_value_t=SortModeCli::Asc)]
     sort: SortModeCli,
     #[clap(flatten)]
@@ -97,6 +101,7 @@ impl From<ListArgs> for ListRemoteCliArgs {
             .sort(args.sort.into())
             .get_args(args.get_args.into())
             .flush(args.stream)
+            .throttle_time(args.throttle)
             .build()
             .unwrap()
     }
