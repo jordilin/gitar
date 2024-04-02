@@ -2,7 +2,7 @@ use crate::{
     http::{self, Headers, Request},
     log_info,
     remote::{Member, MergeRequestResponse, Project},
-    time::{self, Seconds},
+    time::{self, Milliseconds, Seconds},
     Result,
 };
 use regex::Regex;
@@ -10,6 +10,7 @@ use serde::Serialize;
 use std::{
     ffi::OsStr,
     fmt::{self, Display, Formatter},
+    thread,
 };
 
 /// A trait that handles the execution of processes with a finite lifetime. For
@@ -33,6 +34,10 @@ pub trait HttpRunner {
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response>;
     /// Return the number of API MAX PAGES allowed for the given Request.
     fn api_max_pages<T: Serialize>(&self, cmd: &Request<T>) -> u32;
+    /// Milliseconds to wait before executing the next request
+    fn throttle(&self, milliseconds: Milliseconds) {
+        thread::sleep(std::time::Duration::from_millis(*milliseconds));
+    }
 }
 
 #[derive(Clone, Debug)]

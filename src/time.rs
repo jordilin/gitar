@@ -10,6 +10,7 @@ use chrono::{DateTime, Local};
 use std;
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, Deref, Div, Sub};
+use std::time::Duration;
 
 enum Time {
     Second,
@@ -112,6 +113,41 @@ impl Deref for Seconds {
 }
 
 impl Display for Seconds {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Milliseconds(u64);
+
+impl Milliseconds {
+    pub fn new(milliseconds: u64) -> Self {
+        Milliseconds(milliseconds)
+    }
+}
+
+impl Deref for Milliseconds {
+    type Target = u64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<u64> for Milliseconds {
+    fn from(milliseconds: u64) -> Self {
+        Milliseconds(milliseconds)
+    }
+}
+
+impl From<Milliseconds> for Duration {
+    fn from(milliseconds: Milliseconds) -> Self {
+        Duration::from_millis(milliseconds.0)
+    }
+}
+
+impl Display for Milliseconds {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
