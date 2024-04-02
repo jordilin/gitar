@@ -152,7 +152,11 @@ macro_rules! paged {
             operation: ApiOperation,
         ) -> Result<Vec<$return_type>> {
             let request = build_list_request(url, &list_args, request_headers, operation);
-            let paginator = Paginator::new(&runner, request, url);
+            let mut throttle_time = None;
+            if let Some(list_args) = &list_args {
+                throttle_time = list_args.throttle_time;
+            }
+            let paginator = Paginator::new(&runner, request, url, throttle_time);
             let all_data = paginator
                 .map(|response| {
                     let response = response?;

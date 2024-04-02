@@ -1,21 +1,23 @@
 #[cfg(test)]
 pub mod utils {
-    use crate::http::{self, Headers};
-    use crate::{api_traits::ApiOperation, config::ConfigProperties, error};
-    use serde::Serialize;
-
-    use crate::api_defaults::REST_API_MAX_PAGES;
-
     use crate::{
-        http::Request,
+        api_defaults::REST_API_MAX_PAGES,
+        api_traits::ApiOperation,
+        config::ConfigProperties,
+        error,
+        http::{self, Headers, Request},
         io::{HttpRunner, Response, TaskRunner},
         Result,
     };
-    use std::sync::Arc;
+    use lazy_static::lazy_static;
+    use log::{Level, LevelFilter, Metadata, Record};
+    use serde::Serialize;
     use std::{
         cell::{Ref, RefCell},
+        fmt::Write,
         fs::File,
         io::Read,
+        sync::{Arc, Mutex},
     };
 
     pub enum ContractType {
@@ -178,5 +180,33 @@ pub mod utils {
         fn get_max_pages(&self, _api_operation: &ApiOperation) -> u32 {
             self.as_ref().max_pages
         }
+    }
+
+    struct TestLogger;
+
+    lazy_static! {
+        pub static ref LOG_BUFFER: Mutex<String> = Mutex::new(String::new());
+    }
+
+    impl log::Log for TestLogger {
+        fn enabled(&self, metadata: &Metadata) -> bool {
+            metadata.level() <= Level::Trace
+        }
+
+        fn log(&self, record: &Record) {
+            if self.enabled(record.metadata()) {
+                let mut buffer = LOG_BUFFER.lock().unwrap();
+                writeln!(buffer, "{} - {}", record.level(), record.args())
+                    .expect("Failed to write to log buffer");
+            }
+        }
+
+        fn flush(&self) {}
+    }
+
+    pub fn init_test_logger() {
+        let logger = TestLogger;
+        log::set_boxed_logger(Box::new(logger)).expect("Failed to set logger");
+        log::set_max_level(LevelFilter::Trace);
     }
 }
