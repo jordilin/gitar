@@ -47,6 +47,10 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
             BrowseOptions::Pipelines => format!("{}/pipelines", base_url),
         }
     }
+
+    fn list(&self, args: crate::cmds::project::ProjectListBodyArgs) -> Result<Vec<Project>> {
+        todo!()
+    }
 }
 
 pub struct GitlabProjectFields {

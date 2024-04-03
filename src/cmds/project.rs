@@ -108,6 +108,10 @@ mod test {
         fn get_url(&self, _option: BrowseOptions) -> String {
             todo!()
         }
+
+        fn list(&self, _args: ProjectListBodyArgs) -> Result<Vec<Project>> {
+            todo!()
+        }
     }
 
     #[test]

@@ -59,6 +59,10 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             BrowseOptions::Pipelines => format!("{}/actions", base_url),
         }
     }
+
+    fn list(&self, args: crate::cmds::project::ProjectListBodyArgs) -> Result<Vec<Project>> {
+        todo!()
+    }
 }
 
 pub struct GithubProjectFields {

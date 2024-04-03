@@ -501,8 +501,8 @@ mod tests {
     };
 
     use crate::{
-        api_traits::CommentMergeRequest, cli::browse::BrowseOptions, error,
-        remote::MergeRequestResponse,
+        api_traits::CommentMergeRequest, cli::browse::BrowseOptions,
+        cmds::project::ProjectListBodyArgs, error, remote::MergeRequestResponse,
     };
 
     use super::*;
@@ -820,6 +820,10 @@ mod tests {
         }
 
         fn get_url(&self, _option: BrowseOptions) -> String {
+            todo!()
+        }
+
+        fn list(&self, _args: ProjectListBodyArgs) -> Result<Vec<Project>> {
             todo!()
         }
     }
