@@ -16,7 +16,7 @@ use std::{
     sync::Arc,
 };
 
-use super::common::process_num_pages;
+use super::common::{self, process_num_pages};
 
 #[derive(Builder, Clone)]
 pub struct MergeRequestCliArgs {
@@ -430,16 +430,7 @@ fn list<W: Write>(
     cli_args: MergeRequestListCliArgs,
     mut writer: W,
 ) -> Result<()> {
-    let merge_requests = remote.list(body_args)?;
-    if cli_args.list_args.flush {
-        return Ok(());
-    }
-    if merge_requests.is_empty() {
-        writer.write_all(b"No merge requests found.\n")?;
-        return Ok(());
-    }
-    display::print(&mut writer, merge_requests, cli_args.list_args.get_args)?;
-    Ok(())
+    common::list_merge_requests(remote, body_args, cli_args, &mut writer)
 }
 
 fn merge(remote: Arc<dyn MergeRequest>, merge_request_id: i64) -> Result<()> {
@@ -692,10 +683,7 @@ mod tests {
             ListRemoteCliArgs::builder().build().unwrap(),
         );
         list(remote, body_args, cli_args, &mut buf).unwrap();
-        assert_eq!(
-            "No merge requests found.\n",
-            String::from_utf8(buf).unwrap(),
-        )
+        assert_eq!("No resources found.\n", String::from_utf8(buf).unwrap(),)
     }
 
     #[test]

@@ -8,7 +8,7 @@ use std::fmt::Display;
 use std::io::Write;
 use std::sync::Arc;
 
-use super::common::{num_cicd_pages, process_num_pages};
+use super::common::{self, num_cicd_pages, process_num_pages};
 
 #[derive(Builder, Clone, Debug)]
 pub struct Pipeline {
@@ -271,16 +271,7 @@ fn list_runners<W: Write>(
     cli_args: RunnerListCliArgs,
     mut writer: W,
 ) -> Result<()> {
-    let runners = remote.list(body_args)?;
-    if cli_args.list_args.flush {
-        return Ok(());
-    }
-    if runners.is_empty() {
-        writer.write_all(b"No runners found.\n")?;
-        return Ok(());
-    }
-    display::print(&mut writer, runners, cli_args.list_args.get_args)?;
-    Ok(())
+    common::list_runners(remote, body_args, cli_args, &mut writer)
 }
 
 fn list_pipelines<W: Write>(
@@ -289,16 +280,7 @@ fn list_pipelines<W: Write>(
     cli_args: ListRemoteCliArgs,
     mut writer: W,
 ) -> Result<()> {
-    let pipelines = remote.list(body_args)?;
-    if cli_args.flush {
-        return Ok(());
-    }
-    if pipelines.is_empty() {
-        writer.write_all(b"No pipelines found.\n")?;
-        return Ok(());
-    }
-    display::print(&mut writer, pipelines, cli_args.get_args)?;
-    Ok(())
+    common::list_pipelines(remote, body_args, cli_args, &mut writer)
 }
 
 #[cfg(test)]
@@ -396,7 +378,7 @@ mod test {
             .unwrap();
         let cli_args = ListRemoteCliArgs::builder().build().unwrap();
         list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();
-        assert_eq!("No pipelines found.\n", String::from_utf8(buf).unwrap(),)
+        assert_eq!("No resources found.\n", String::from_utf8(buf).unwrap(),)
     }
 
     #[test]
@@ -606,7 +588,7 @@ mod test {
             .build()
             .unwrap();
         list_runners(Arc::new(remote), body_args, cli_args, &mut buf).unwrap();
-        assert_eq!("No runners found.\n", String::from_utf8(buf).unwrap())
+        assert_eq!("No resources found.\n", String::from_utf8(buf).unwrap())
     }
 
     #[test]
