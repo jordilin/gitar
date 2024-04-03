@@ -21,10 +21,17 @@ use merge_request::{MergeRequestCommand, MergeRequestOptions};
 
 use std::option::Option;
 
+use clap::builder::{styling::AnsiColor, Styles};
 use clap::Parser;
 
+const CLI_STYLE: Styles = Styles::styled()
+    .header(AnsiColor::Red.on_default().bold())
+    .literal(AnsiColor::Blue.on_default().bold())
+    .placeholder(AnsiColor::Green.on_default())
+    .usage(AnsiColor::Red.on_default().bold());
+
 #[derive(Parser)]
-#[command(about = "A Github/Gitlab CLI tool")]
+#[command(about = "A Github/Gitlab CLI tool", styles = CLI_STYLE)]
 struct Args {
     #[clap(subcommand)]
     pub command: Command,
