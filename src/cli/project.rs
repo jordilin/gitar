@@ -2,7 +2,7 @@ use clap::Parser;
 
 use crate::cmds::project::ProjectMetadataGetCliArgs;
 
-use super::common::GetArgs;
+use super::common::{GetArgs, ListArgs};
 
 #[derive(Parser)]
 pub struct ProjectCommand {
@@ -23,6 +23,12 @@ struct ProjectInfo {
     pub id: Option<i64>,
     #[clap(flatten)]
     pub get_args: GetArgs,
+}
+
+#[derive(Parser)]
+pub struct ListProject {
+    #[clap(flatten)]
+    pub list_args: ListArgs,
 }
 
 impl From<ProjectCommand> for ProjectOptions {

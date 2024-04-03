@@ -21,6 +21,7 @@ pub fn execute(
             let user = remote.get()?;
             merge_request::list_merge_requests(domain, path, config, cli_args, Some(user.id))
         }
+        MyOptions::Project(_cli_args) => todo!(),
     }
 }
 

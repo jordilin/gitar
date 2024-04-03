@@ -4,10 +4,35 @@ use crate::config::Config;
 use crate::display;
 use crate::error;
 use crate::io::CmdInfo;
+use crate::remote::ListBodyArgs;
+use crate::remote::ListRemoteCliArgs;
 use crate::remote::{self, GetRemoteCliArgs};
 use crate::Result;
 use std::io::Write;
 use std::sync::Arc;
+
+#[derive(Builder)]
+pub struct ProjectListCliArgs {
+    pub list_args: ListRemoteCliArgs,
+}
+
+impl ProjectListCliArgs {
+    pub fn builder() -> ProjectListCliArgsBuilder {
+        ProjectListCliArgsBuilder::default()
+    }
+}
+
+#[derive(Builder)]
+pub struct ProjectListBodyArgs {
+    pub from_to_page: Option<ListBodyArgs>,
+    pub user_id: Option<i64>,
+}
+
+impl ProjectListBodyArgs {
+    pub fn builder() -> ProjectListBodyArgsBuilder {
+        ProjectListBodyArgsBuilder::default()
+    }
+}
 
 #[derive(Builder)]
 pub struct ProjectMetadataGetCliArgs {
