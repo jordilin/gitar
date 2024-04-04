@@ -6,9 +6,10 @@ use crate::{api_traits::MergeRequest, remote::ListRemoteCliArgs};
 use std::io::Write;
 use std::sync::Arc;
 
-use crate::api_traits::{Cicd, CicdRunner, Deploy};
+use crate::api_traits::{Cicd, CicdRunner, Deploy, RemoteProject};
 
 use super::cicd::{RunnerListBodyArgs, RunnerListCliArgs};
+use super::project::{ProjectListBodyArgs, ProjectListCliArgs};
 use super::release::ReleaseBodyArgs;
 use super::{cicd::PipelineBodyArgs, merge_request::MergeRequestListCliArgs};
 
@@ -95,3 +96,11 @@ list_resource!(
 );
 
 list_resource!(list_releases, Deploy, ReleaseBodyArgs, ListRemoteCliArgs);
+
+list_resource!(
+    list_user_projects,
+    RemoteProject,
+    ProjectListBodyArgs,
+    ProjectListCliArgs,
+    true
+);
