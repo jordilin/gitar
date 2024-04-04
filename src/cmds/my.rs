@@ -47,14 +47,14 @@ pub fn execute(
 }
 
 fn get_user(
-    domain: &String,
-    path: &String,
+    domain: &str,
+    path: &str,
     config: &Arc<Config>,
     cli_args: &ListRemoteCliArgs,
 ) -> Result<Member> {
     let remote = remote::get_auth_user(
-        domain.clone(),
-        path.clone(),
+        domain.to_string(),
+        path.to_string(),
         config.clone(),
         cli_args.get_args.refresh_cache,
     )?;
