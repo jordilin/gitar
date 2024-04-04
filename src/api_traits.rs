@@ -6,11 +6,13 @@ use crate::{
         cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata},
         docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
         merge_request::CommentMergeRequestBodyArgs,
-        my::User,
+        project::ProjectListBodyArgs,
         release::{Release, ReleaseBodyArgs},
     },
     io::CmdInfo,
-    remote::{MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse},
+    remote::{
+        Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Project,
+    },
     Result,
 };
 
@@ -31,6 +33,7 @@ pub trait RemoteProject {
     // User requests to open a browser using the remote url. It can open the
     // merge/pull requests, pipeline, issues, etc.
     fn get_url(&self, option: BrowseOptions) -> String;
+    fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Project>>;
 }
 
 pub trait Cicd {
@@ -52,7 +55,7 @@ pub trait Deploy {
 
 pub trait UserInfo {
     /// Get the user's information from the remote API.
-    fn get(&self) -> Result<User>;
+    fn get(&self) -> Result<Member>;
 }
 
 pub trait Timestamp {

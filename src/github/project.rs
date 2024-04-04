@@ -59,6 +59,20 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             BrowseOptions::Pipelines => format!("{}/actions", base_url),
         }
     }
+
+    fn list(&self, args: crate::cmds::project::ProjectListBodyArgs) -> Result<Vec<Project>> {
+        let username = args.user.unwrap().username;
+        let url = format!("{}/users/{}/repos", self.rest_api_basepath, username);
+        let projects = query::github_list_projects(
+            &self.runner,
+            &url,
+            args.from_to_page,
+            self.request_headers(),
+            None,
+            ApiOperation::Project,
+        )?;
+        Ok(projects)
+    }
 }
 
 pub struct GithubProjectFields {
@@ -132,7 +146,10 @@ impl From<GithubMemberFields> for Member {
 mod test {
     use std::sync::Arc;
 
-    use crate::test::utils::{config, get_contract, ContractType, MockRunner};
+    use crate::{
+        cmds::project::ProjectListBodyArgs,
+        test::utils::{config, get_contract, ContractType, MockRunner},
+    };
 
     use super::*;
 
@@ -164,5 +181,36 @@ mod test {
         let client = Arc::new(MockRunner::new(vec![]));
         let github = Github::new(config, &domain, &path, client.clone());
         assert!(github.get_project_data(Some(1)).is_err());
+    }
+
+    #[test]
+    fn test_list_current_user_projects() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let projects = format!("[{}]", get_contract(ContractType::Github, "project.json"));
+        let response = Response::builder()
+            .status(200)
+            .body(projects)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github = Github::new(config, &domain, &path, client.clone());
+        let body_args = ProjectListBodyArgs::builder()
+            .from_to_page(None)
+            .user(Some(
+                Member::builder()
+                    .id(1)
+                    .name("jdoe".to_string())
+                    .username("jdoe".to_string())
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
+        let projects = github.list(body_args).unwrap();
+        assert_eq!(1, projects.len());
+        assert_eq!("https://api.github.com/users/jdoe/repos", *client.url());
+        assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
     }
 }

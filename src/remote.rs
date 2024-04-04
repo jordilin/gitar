@@ -61,6 +61,7 @@ impl From<Project> for DisplayBody {
                 Column::new("ID", p.id.to_string()),
                 Column::new("Default Branch", p.default_branch),
                 Column::new("URL", p.html_url),
+                Column::new("Created at", p.created_at),
             ],
         }
     }

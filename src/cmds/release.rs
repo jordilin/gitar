@@ -7,7 +7,9 @@ use crate::cmds::common::num_release_pages;
 use crate::config::Config;
 use crate::display::{Column, DisplayBody};
 use crate::remote::{ListBodyArgs, ListRemoteCliArgs};
-use crate::{display, Result};
+use crate::Result;
+
+use super::common;
 
 #[derive(Builder, Clone)]
 pub struct ReleaseBodyArgs {
@@ -85,16 +87,7 @@ fn list_releases<W: Write>(
     cli_args: ListRemoteCliArgs,
     mut writer: W,
 ) -> Result<()> {
-    let releases = remote.list(body_args)?;
-    if cli_args.flush {
-        return Ok(());
-    }
-    if releases.is_empty() {
-        writer.write_all(b"No releases found.\n")?;
-        return Ok(());
-    }
-    display::print(&mut writer, releases, cli_args.get_args)?;
-    Ok(())
+    common::list_releases(remote, body_args, cli_args, &mut writer)
 }
 
 #[cfg(test)]
@@ -158,7 +151,7 @@ mod test {
         let cli_args = ListRemoteCliArgs::builder().build().unwrap();
         let mut writer = Vec::new();
         list_releases(remote, body_args, cli_args, &mut writer).unwrap();
-        assert_eq!("No releases found.\n", String::from_utf8(writer).unwrap());
+        assert_eq!("No resources found.\n", String::from_utf8(writer).unwrap());
     }
 
     #[test]

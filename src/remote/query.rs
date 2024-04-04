@@ -8,7 +8,6 @@ use crate::{
     cmds::{
         cicd::{Pipeline, Runner, RunnerMetadata},
         docker::{ImageMetadata, RegistryRepository, RepositoryTag},
-        my::User,
         release::Release,
     },
     display, error,
@@ -245,6 +244,8 @@ fn build_list_request(
     request
 }
 
+// Paged HTTP requests
+
 paged!(github_list_members, GithubMemberFields, Member);
 paged!(gitlab_list_members, GitlabMemberFields, Member);
 paged!(github_list_pipelines, GithubPipelineFields, Pipeline);
@@ -277,6 +278,11 @@ paged!(gitlab_releases, GitlabReleaseFields, Release);
 
 paged!(gitlab_list_project_runners, GitlabRunnerFields, Runner);
 
+paged!(gitlab_list_projects, GitlabProjectFields, Project);
+paged!(github_list_projects, GithubProjectFields, Project);
+
+// Single HTTP requests
+
 send!(gitlab_project_data, GitlabProjectFields, Project);
 send!(github_project_data, GithubProjectFields, Project);
 send!(
@@ -300,8 +306,8 @@ send!(
     ImageMetadata
 );
 
-send!(gitlab_auth_user, GitlabUserFields, User);
-send!(github_auth_user, GithubUserFields, User);
+send!(gitlab_auth_user, GitlabUserFields, Member);
+send!(github_auth_user, GithubUserFields, Member);
 
 send!(
     gitlab_get_runner_metadata,
