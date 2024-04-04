@@ -50,7 +50,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
     }
 
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Project>> {
-        let url = format!("{}/{}/projects", self.base_users_url, args.user_id.unwrap());
+        let url = format!("{}/{}/projects", self.base_users_url, args.user.unwrap().id);
         let projects = query::gitlab_list_projects(
             &self.runner,
             &url,
@@ -216,7 +216,14 @@ mod test {
 
         let body_args = ProjectListBodyArgs::builder()
             .from_to_page(None)
-            .user_id(Some(1))
+            .user(Some(
+                Member::builder()
+                    .id(1)
+                    .name("jordi".to_string())
+                    .username("jordilin".to_string())
+                    .build()
+                    .unwrap(),
+            ))
             .build()
             .unwrap();
         gitlab.list(body_args).unwrap();

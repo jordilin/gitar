@@ -4,7 +4,7 @@ use crate::{
     api_traits::RemoteProject,
     cli::my::MyOptions,
     config::Config,
-    remote::{self, ListRemoteCliArgs},
+    remote::{self, ListRemoteCliArgs, Member},
     Result,
 };
 
@@ -37,7 +37,7 @@ pub fn execute(
                 remote,
                 ProjectListBodyArgs::builder()
                     .from_to_page(from_to_args)
-                    .user_id(Some(user.id))
+                    .user(Some(user))
                     .build()?,
                 cli_args,
                 std::io::stdout(),
@@ -51,7 +51,7 @@ fn get_user(
     path: &String,
     config: &Arc<Config>,
     cli_args: &ListRemoteCliArgs,
-) -> Result<User> {
+) -> Result<Member> {
     let remote = remote::get_auth_user(
         domain.clone(),
         path.clone(),
@@ -60,16 +60,6 @@ fn get_user(
     )?;
     let user = remote.get()?;
     Ok(user)
-}
-
-pub struct User {
-    pub id: i64,
-}
-
-impl User {
-    pub fn new(id: i64) -> Self {
-        User { id }
-    }
 }
 
 fn list_user_projects<W: Write>(
@@ -127,7 +117,14 @@ mod tests {
             .unwrap();
         let body_args = ProjectListBodyArgs::builder()
             .from_to_page(None)
-            .user_id(Some(user_id))
+            .user(Some(
+                Member::builder()
+                    .id(user_id)
+                    .name("jordi".to_string())
+                    .username("jordilin".to_string())
+                    .build()
+                    .unwrap(),
+            ))
             .build()
             .unwrap();
         let mut buffer = Vec::new();

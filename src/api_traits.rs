@@ -6,12 +6,13 @@ use crate::{
         cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata},
         docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
         merge_request::CommentMergeRequestBodyArgs,
-        my::User,
         project::ProjectListBodyArgs,
         release::{Release, ReleaseBodyArgs},
     },
     io::CmdInfo,
-    remote::{MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Project},
+    remote::{
+        Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Project,
+    },
     Result,
 };
 
@@ -54,7 +55,7 @@ pub trait Deploy {
 
 pub trait UserInfo {
     /// Get the user's information from the remote API.
-    fn get(&self) -> Result<User>;
+    fn get(&self) -> Result<Member>;
 }
 
 pub trait Timestamp {

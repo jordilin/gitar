@@ -6,6 +6,7 @@ use crate::error;
 use crate::io::CmdInfo;
 use crate::remote::ListBodyArgs;
 use crate::remote::ListRemoteCliArgs;
+use crate::remote::Member;
 use crate::remote::{self, GetRemoteCliArgs};
 use crate::Result;
 use std::io::Write;
@@ -25,7 +26,7 @@ impl ProjectListCliArgs {
 #[derive(Builder)]
 pub struct ProjectListBodyArgs {
     pub from_to_page: Option<ListBodyArgs>,
-    pub user_id: Option<i64>,
+    pub user: Option<Member>,
 }
 
 impl ProjectListBodyArgs {

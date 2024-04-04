@@ -1,12 +1,11 @@
 use super::Github;
 use crate::api_traits::{ApiOperation, UserInfo};
-use crate::cmds::my::User;
 use crate::io::{HttpRunner, Response};
-use crate::remote::query;
+use crate::remote::{query, Member};
 use crate::{http, Result};
 
 impl<R: HttpRunner<Response = Response>> UserInfo for Github<R> {
-    fn get(&self) -> Result<User> {
+    fn get(&self) -> Result<Member> {
         let url = format!("{}/user", self.rest_api_basepath);
         let user = query::github_auth_user::<_, ()>(
             &self.runner,
@@ -22,19 +21,28 @@ impl<R: HttpRunner<Response = Response>> UserInfo for Github<R> {
 
 pub struct GithubUserFields {
     id: i64,
+    login: String,
+    name: String,
 }
 
 impl From<&serde_json::Value> for GithubUserFields {
     fn from(data: &serde_json::Value) -> Self {
         GithubUserFields {
             id: data["id"].as_i64().unwrap(),
+            login: data["login"].as_str().unwrap().to_string(),
+            name: data["name"].as_str().unwrap().to_string(),
         }
     }
 }
 
-impl From<GithubUserFields> for User {
+impl From<GithubUserFields> for Member {
     fn from(fields: GithubUserFields) -> Self {
-        User::new(fields.id)
+        Member::builder()
+            .id(fields.id)
+            .name(fields.name)
+            .username(fields.login)
+            .build()
+            .unwrap()
     }
 }
 
@@ -65,6 +73,7 @@ mod test {
         let user = github.get().unwrap();
 
         assert_eq!(123456, user.id);
+        assert_eq!("jdoe", user.username);
         assert_eq!("https://api.github.com/user", *client.url(),);
         assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
     }
