@@ -136,7 +136,7 @@ mod tests {
         )
         .is_ok());
         assert_eq!(
-            "ID|Default Branch|URL\n1|main|\n2|dev|\n",
+            "ID|Default Branch|URL|Created at\n1|main||\n2|dev||\n",
             String::from_utf8(buffer).unwrap()
         );
     }
