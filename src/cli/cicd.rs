@@ -44,10 +44,10 @@ struct ListRunner {
     #[clap()]
     status: RunnerStatusCli,
     /// Comma separated list of tags
-    #[clap(long, value_delimiter = ',')]
+    #[clap(long, value_delimiter = ',', help_heading = "Runner options")]
     tags: Option<Vec<String>>,
     /// List all runners available across all projects. Gitlab admins only.
-    #[clap(long)]
+    #[clap(long, help_heading = "Runner options")]
     all: bool,
     #[command(flatten)]
     list_args: ListArgs,

@@ -32,6 +32,7 @@ const CLI_STYLE: Styles = Styles::styled()
 
 #[derive(Parser)]
 #[command(about = "A Github/Gitlab CLI tool", styles = CLI_STYLE)]
+#[clap(next_help_heading = "Global options")]
 struct Args {
     #[clap(subcommand)]
     pub command: Command,
