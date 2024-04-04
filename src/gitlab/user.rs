@@ -13,7 +13,7 @@ impl<R: HttpRunner<Response = Response>> UserInfo for Gitlab<R> {
     fn get(&self) -> Result<User> {
         let user = query::gitlab_auth_user::<_, ()>(
             &self.runner,
-            &self.base_user_url,
+            &self.base_current_user_url,
             None,
             self.headers(),
             http::Method::GET,

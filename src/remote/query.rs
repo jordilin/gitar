@@ -245,6 +245,8 @@ fn build_list_request(
     request
 }
 
+// Paged HTTP requests
+
 paged!(github_list_members, GithubMemberFields, Member);
 paged!(gitlab_list_members, GitlabMemberFields, Member);
 paged!(github_list_pipelines, GithubPipelineFields, Pipeline);
@@ -276,6 +278,10 @@ paged!(github_releases, GithubReleaseFields, Release);
 paged!(gitlab_releases, GitlabReleaseFields, Release);
 
 paged!(gitlab_list_project_runners, GitlabRunnerFields, Runner);
+
+paged!(gitlab_list_projects, GitlabProjectFields, Project);
+
+// Single HTTP requests
 
 send!(gitlab_project_data, GitlabProjectFields, Project);
 send!(github_project_data, GithubProjectFields, Project);

@@ -1,5 +1,6 @@
 use crate::api_traits::{ApiOperation, RemoteProject};
 use crate::cli::browse::BrowseOptions;
+use crate::cmds::project::ProjectListBodyArgs;
 use crate::http::{self};
 use crate::io::{CmdInfo, HttpRunner, Response};
 use crate::remote::query::{self, gitlab_list_members};
@@ -48,8 +49,17 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
         }
     }
 
-    fn list(&self, args: crate::cmds::project::ProjectListBodyArgs) -> Result<Vec<Project>> {
-        todo!()
+    fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Project>> {
+        let url = format!("{}/{}/projects", self.base_users_url, args.user_id.unwrap());
+        let projects = query::gitlab_list_projects(
+            &self.runner,
+            &url,
+            args.from_to_page,
+            self.headers(),
+            None,
+            ApiOperation::Project,
+        )?;
+        Ok(projects)
     }
 }
 
@@ -114,6 +124,7 @@ mod test {
     use std::sync::Arc;
 
     use crate::api_traits::ApiOperation;
+    use crate::cmds::project::ProjectListBodyArgs;
     use crate::test::utils::{config, get_contract, ContractType, MockRunner};
 
     use crate::io::CmdInfo;
@@ -186,6 +197,34 @@ mod test {
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/members/all",
             *client.url(),
         );
+        assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_list_user_projects() {
+        let config = config();
+        let domain = "gitlab.com";
+        let path = "jordilin/gitlapi";
+        let projects = format!("[{}]", get_contract(ContractType::Gitlab, "project.json"));
+        let response = Response::builder()
+            .status(200)
+            .body(projects)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+
+        let body_args = ProjectListBodyArgs::builder()
+            .from_to_page(None)
+            .user_id(Some(1))
+            .build()
+            .unwrap();
+        gitlab.list(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/users/1/projects",
+            client.url().to_string(),
+        );
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
         assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
     }
 }
