@@ -9,6 +9,7 @@ use crate::{
 };
 
 #[derive(Clone, Parser)]
+#[clap(next_help_heading = "List options")]
 pub struct ListArgs {
     /// List the given page number
     #[clap(long)]
@@ -44,6 +45,16 @@ pub struct ListArgs {
 
 #[derive(Clone, Parser)]
 pub struct GetArgs {
+    #[clap(flatten)]
+    pub format_args: FormatArgs,
+    /// Refresh the cache
+    #[clap(long, short, help_heading = "Cache options")]
+    pub refresh: bool,
+}
+
+#[derive(Clone, Parser)]
+#[clap(next_help_heading = "Formatting options")]
+pub struct FormatArgs {
     /// Do not print headers
     #[clap(long)]
     pub no_headers: bool,
@@ -53,9 +64,6 @@ pub struct GetArgs {
     /// Display additional fields
     #[clap(visible_short_alias = 'o', long)]
     pub more_output: bool,
-    /// Refresh the cache
-    #[clap(long, short)]
-    pub refresh: bool,
 }
 
 #[derive(ValueEnum, Clone, Debug)]
@@ -110,12 +118,13 @@ impl From<ListArgs> for ListRemoteCliArgs {
 
 impl From<GetArgs> for GetRemoteCliArgs {
     fn from(args: GetArgs) -> Self {
-        GetRemoteCliArgs {
-            refresh_cache: args.refresh,
-            no_headers: args.no_headers,
-            format: args.format.into(),
-            display_optional: args.more_output,
-        }
+        GetRemoteCliArgs::builder()
+            .no_headers(args.format_args.no_headers)
+            .format(args.format_args.format.into())
+            .display_optional(args.format_args.more_output)
+            .refresh_cache(args.refresh)
+            .build()
+            .unwrap()
     }
 }
 
