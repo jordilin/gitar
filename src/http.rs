@@ -424,13 +424,12 @@ impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginato
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(page_url) = &self.page_url {
-            if self.iter == self.runner.api_max_pages(&self.request) {
-                return None;
-            }
             if let Some(max_pages) = self.request.max_pages {
                 if self.iter >= max_pages as u32 {
                     return None;
                 }
+            } else if self.iter == self.runner.api_max_pages(&self.request) {
+                return None;
             }
             if self.iter >= 1 {
                 self.request.set_url(page_url);
@@ -739,5 +738,29 @@ mod test {
         assert_eq!(3, responses.len());
         let buffer = LOG_BUFFER.lock().unwrap();
         assert!(buffer.contains("Throttling for: 1 ms"));
+    }
+
+    #[test]
+    fn test_user_request_from_up_to_pages_takes_over_max_api_pages() {
+        let mut responses = Vec::new();
+        for _ in 0..4 {
+            let response = response_with_next_page();
+            responses.push(response);
+        }
+        let last_response = response_with_last_page();
+        responses.push(last_response);
+        responses.reverse();
+        // config api max pages 2
+        let client = Arc::new(MockRunner::new(responses).with_config(ConfigMock::new(2)));
+        let request: Request<()> = Request::builder()
+            .method(Method::GET)
+            .resource(Resource::new("http://localhost", None))
+            // User requests 5 pages
+            .max_pages(5)
+            .build()
+            .unwrap();
+        let paginator = Paginator::new(&client, request, "http://localhost", None);
+        let responses = paginator.collect::<Vec<Result<Response>>>();
+        assert_eq!(5, responses.len());
     }
 }
