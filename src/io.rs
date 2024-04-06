@@ -114,6 +114,10 @@ impl Response {
 
         // process remote headers and patch the defaults accordingly
         if let Some(headers) = &self.headers {
+            if let Some(retry_after) = headers.get(RETRY_AFTER) {
+                ratelimit_header.retry_after =
+                    Seconds::new(retry_after.parse::<u64>().unwrap_or(0));
+            }
             if let Some(github_remaining) = headers.get(GITHUB_RATELIMIT_REMAINING) {
                 ratelimit_header.remaining = github_remaining.parse::<u32>().unwrap_or(0);
                 if let Some(github_reset) = headers.get(GITHUB_RATELIMIT_RESET) {
@@ -227,6 +231,10 @@ impl Page {
 pub const GITHUB_RATELIMIT_REMAINING: &str = "x-ratelimit-remaining";
 pub const GITHUB_RATELIMIT_RESET: &str = "x-ratelimit-reset";
 
+// Time to wait before retrying the next request - standard common header
+// Gitlab Docs: Retry-After
+pub const RETRY_AFTER: &str = "retry-after";
+
 // https://docs.gitlab.com/ee/administration/settings/user_and_ip_rate_limits.html
 
 // Internal processing is all in lowercase
@@ -248,11 +256,17 @@ pub struct RateLimitHeader {
     pub remaining: u32,
     // Unix time-formatted time when the request quota is reset.
     pub reset: Seconds,
+    // Time to wait before retrying the next request
+    pub retry_after: Seconds,
 }
 
 impl RateLimitHeader {
-    pub fn new(remaining: u32, reset: Seconds) -> Self {
-        RateLimitHeader { remaining, reset }
+    pub fn new(remaining: u32, reset: Seconds, retry_after: Seconds) -> Self {
+        RateLimitHeader {
+            remaining,
+            reset,
+            retry_after,
+        }
     }
 }
 
@@ -277,6 +291,7 @@ mod test {
         let mut headers = Headers::new();
         headers.set("x-ratelimit-remaining".to_string(), "30".to_string());
         headers.set("x-ratelimit-reset".to_string(), "1658602270".to_string());
+        headers.set("retry-after".to_string(), "60".to_string());
         let response = Response::builder()
             .body(body.to_string())
             .headers(headers)
@@ -285,6 +300,7 @@ mod test {
         let ratelimit_headers = response.get_ratelimit_headers().unwrap();
         assert_eq!(30, ratelimit_headers.remaining.clone());
         assert_eq!(Seconds::new(1658602270), ratelimit_headers.reset);
+        assert_eq!(Seconds::new(60), ratelimit_headers.retry_after);
     }
 
     #[test]
@@ -293,6 +309,7 @@ mod test {
         let mut headers = Headers::new();
         headers.set("ratelimit-remaining".to_string(), "30".to_string());
         headers.set("ratelimit-reset".to_string(), "1658602270".to_string());
+        headers.set("retry-after".to_string(), "60".to_string());
         let response = Response::builder()
             .body(body.to_string())
             .headers(headers)
@@ -301,6 +318,7 @@ mod test {
         let ratelimit_headers = response.get_ratelimit_headers().unwrap();
         assert_eq!(30, ratelimit_headers.remaining);
         assert_eq!(Seconds::new(1658602270), ratelimit_headers.reset);
+        assert_eq!(Seconds::new(60), ratelimit_headers.retry_after);
     }
 
     #[test]
@@ -309,6 +327,7 @@ mod test {
         let mut headers = Headers::new();
         headers.set("RateLimit-remaining".to_string(), "30".to_string());
         headers.set("rateLimit-reset".to_string(), "1658602270".to_string());
+        headers.set("Retry-After".to_string(), "60".to_string());
         let response = Response::builder()
             .body(body.to_string())
             .headers(headers)
