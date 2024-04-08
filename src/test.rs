@@ -7,6 +7,7 @@ pub mod utils {
         error,
         http::{self, Headers, Request},
         io::{HttpRunner, Response, TaskRunner},
+        time::Milliseconds,
         Result,
     };
     use lazy_static::lazy_static;
@@ -52,6 +53,7 @@ pub mod utils {
         pub api_operation: RefCell<Option<ApiOperation>>,
         pub config: ConfigMock,
         pub http_method: RefCell<http::Method>,
+        pub throttled: RefCell<u32>,
     }
 
     impl MockRunner {
@@ -64,6 +66,7 @@ pub mod utils {
                 api_operation: RefCell::new(None),
                 config: ConfigMock::default(),
                 http_method: RefCell::new(http::Method::GET),
+                throttled: RefCell::new(0),
             }
         }
 
@@ -81,6 +84,10 @@ pub mod utils {
 
         pub fn headers(&self) -> Ref<Headers> {
             self.headers.borrow()
+        }
+
+        pub fn throttled(&self) -> Ref<u32> {
+            self.throttled.borrow()
         }
     }
 
@@ -119,6 +126,12 @@ pub mod utils {
                 // 409 Conflict - Merge request already exists. - Gitlab
                 // 422 Conflict - Merge request already exists. - Github
                 200 | 201 | 302 | 409 | 422 => return Ok(response),
+                // RateLimit error code. 403 secondary rate limit, 429 primary
+                // rate limit.
+                403 | 429 => {
+                    let headers = response.get_ratelimit_headers().unwrap_or_default();
+                    return Err(error::GRError::RateLimitExceeded(headers).into());
+                }
                 _ => return Err(error::gen(&response.body)),
             }
         }
@@ -133,6 +146,11 @@ pub mod utils {
                     // not matter while testing.
                     .unwrap_or(&ApiOperation::Project),
             )
+        }
+
+        fn throttle(&self, _milliseconds: Milliseconds) {
+            let mut throttled = self.throttled.borrow_mut();
+            *throttled += 1;
         }
     }
 

@@ -112,6 +112,12 @@ impl Deref for Seconds {
     }
 }
 
+impl From<u64> for Seconds {
+    fn from(seconds: u64) -> Self {
+        Seconds(seconds)
+    }
+}
+
 impl Display for Seconds {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
@@ -144,6 +150,12 @@ impl From<u64> for Milliseconds {
 impl From<Milliseconds> for Duration {
     fn from(milliseconds: Milliseconds) -> Self {
         Duration::from_millis(milliseconds.0)
+    }
+}
+
+impl From<Seconds> for Milliseconds {
+    fn from(seconds: Seconds) -> Self {
+        Milliseconds(seconds.0 * 1000)
     }
 }
 

@@ -3,6 +3,8 @@ use std::fmt::Display;
 use anyhow::{anyhow, Context, Result};
 use thiserror::Error;
 
+use crate::io::RateLimitHeader;
+
 #[derive(Error, Debug)]
 pub enum GRError {
     #[error("Precondition not met error: {0}")]
@@ -13,8 +15,10 @@ pub enum GRError {
     ConfigurationError(String),
     #[error("Operation not supported for this resource: {0}")]
     OperationNotSupported(String),
-    #[error("RateLimit exceeded: {0}")]
-    RateLimitExceeded(String),
+    #[error("RateLimit exceeded")]
+    RateLimitExceeded(RateLimitHeader),
+    #[error("Exponential backoff max retries reached: {0}")]
+    ExponentialBackoffMaxRetriesReached(String),
     #[error("Application error: {0}")]
     ApplicationError(String),
     // The remote server returned a JSON response that was not expected. The
@@ -25,6 +29,8 @@ pub enum GRError {
     RemoteUnexpectedResponseContract(String),
     #[error("Remote server status error: {0}")]
     RemoteServerError(String),
+    #[error("HTTP Transport error/network outage: {0}")]
+    HttpTransportError(String),
 }
 
 pub trait AddContext<T, E>: Context<T, E> {

@@ -1,9 +1,9 @@
 use crate::api_traits::ApiOperation;
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
-use crate::io::{HttpRunner, Response, ResponseField};
+use crate::io::{HttpRunner, RateLimitHeader, Response, ResponseField};
 use crate::time::{self, now_epoch_seconds, Milliseconds, Seconds};
-use crate::{api_defaults, error, log_debug};
+use crate::{api_defaults, error, log_debug, log_error};
 use crate::{log_info, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map, HashMap};
@@ -93,6 +93,8 @@ impl<C, D> Client<C, D> {
                     .build()?;
                 Ok(response)
             }
+            // TODO map ureq errors to GRError
+            // RateLimit Error or network outage are candidates for backoff
             Err(err) => Err(err.into()),
         }
     }
@@ -146,10 +148,8 @@ impl<C, D: ConfigProperties> Client<C, D> {
     fn handle_rate_limit(&self, response: &Response) -> Result<()> {
         if let Some(headers) = response.get_ratelimit_headers() {
             if headers.remaining <= self.config.rate_limit_remaining_threshold() {
-                return Err(error::GRError::RateLimitExceeded(
-                    "Rate limit threshold reached".to_string(),
-                )
-                .into());
+                log_error!("Rate limit threshold reached");
+                return Err(error::GRError::RateLimitExceeded(headers).into());
             }
             Ok(())
         } else {
@@ -180,12 +180,17 @@ fn default_rate_limit_handler(
         if *remaining_requests <= config.rate_limit_remaining_threshold() {
             let time_to_ratelimit_reset =
                 *time_to_ratelimit_reset.lock().unwrap() - now_epoch_seconds();
-            return Err(error::GRError::RateLimitExceeded(format!(
+            log_error!(
                 "Remote does not provide rate limit headers, \
                             so the default rate limit of {} per minute has been \
                             exceeded. Try again in {} seconds",
                 api_defaults::DEFAULT_NUMBER_REQUESTS_MINUTE,
                 time_to_ratelimit_reset
+            );
+            return Err(error::GRError::RateLimitExceeded(RateLimitHeader::new(
+                *remaining_requests,
+                time_to_ratelimit_reset,
+                time_to_ratelimit_reset,
             ))
             .into());
         }
@@ -368,7 +373,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                 Ok(response)
             }
             Method::GET => {
-                let mut default_response = Response::builder().build()?;
+                let mut default_response = Response::builder().build().unwrap();
                 match self.cache.get(&cmd.resource) {
                     Ok(CacheState::Fresh(response)) => {
                         log_debug!("Cache fresh for {}", cmd.resource.url);
