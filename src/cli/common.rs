@@ -76,7 +76,7 @@ pub struct RetryArgs {
     pub backoff: bool,
     /// Number of retries
     #[clap(long, short, default_value = "1", requires = "backoff")]
-    pub max_retries: u8,
+    pub max_retries: u32,
 }
 
 #[derive(ValueEnum, Clone, Debug)]

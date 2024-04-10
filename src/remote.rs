@@ -286,7 +286,7 @@ pub struct GetRemoteCliArgs {
     #[builder(default)]
     pub display_optional: bool,
     #[builder(default)]
-    pub backoff_max_retries: u8,
+    pub backoff_max_retries: u32,
 }
 
 impl GetRemoteCliArgs {
