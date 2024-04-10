@@ -20,7 +20,7 @@ pub struct Client<C, D> {
 }
 
 // TODO: provide builder pattern for Client.
-impl<C, D> Client<C, D> {
+impl<C, D: ConfigProperties> Client<C, D> {
     pub fn new(cache: C, config: D, refresh_cache: bool) -> Self {
         let remaining_requests = Mutex::new(api_defaults::DEFAULT_NUMBER_REQUESTS_MINUTE);
         let time_to_ratelimit_reset = Mutex::new(now_epoch_seconds() + Seconds::new(60));
@@ -71,7 +71,7 @@ impl<C, D> Client<C, D> {
             .iter()
             .fold(ureq_req, |req, (key, value)| req.set(key, value));
         match ureq_req.call() {
-            Ok(response) => {
+            Ok(response) | Err(Error::Status(_, response)) => {
                 let status = response.status().into();
                 // Grab headers for pagination and cache.
                 let headers =
@@ -90,11 +90,11 @@ impl<C, D> Client<C, D> {
                     .status(status)
                     .body(body)
                     .headers(headers)
-                    .build()?;
+                    .build()
+                    .unwrap();
+                self.handle_rate_limit(&response)?;
                 Ok(response)
             }
-            // TODO map ureq errors to GRError
-            // RateLimit Error or network outage are candidates for backoff
             Err(err) => Err(err.into()),
         }
     }
@@ -122,6 +122,7 @@ impl<C, D> Client<C, D> {
                 let status = code.into();
                 let body = response.into_string().unwrap();
                 let response = Response::builder().status(status).body(body).build()?;
+                self.handle_rate_limit(&response)?;
                 Ok(response)
             }
             Err(err) => Err(err.into()),
@@ -397,7 +398,6 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                 }
                 // If status is 304, then we need to return the cached response.
                 let response = self.get(cmd)?;
-                self.handle_rate_limit(&response)?;
                 if response.status == 304 {
                     // Update cache with latest headers. This effectively
                     // refreshes the cache and we won't hit this until per api
@@ -411,17 +411,14 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
             }
             Method::POST => {
                 let response = self.post(cmd)?;
-                self.handle_rate_limit(&response)?;
                 Ok(response)
             }
             Method::PATCH => {
                 let response = self.patch(cmd)?;
-                self.handle_rate_limit(&response)?;
                 Ok(response)
             }
             Method::PUT => {
                 let response = self.put(cmd)?;
-                self.handle_rate_limit(&response)?;
                 Ok(response)
             }
         }
