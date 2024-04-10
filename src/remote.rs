@@ -285,6 +285,8 @@ pub struct GetRemoteCliArgs {
     pub refresh_cache: bool,
     #[builder(default)]
     pub display_optional: bool,
+    #[builder(default)]
+    pub backoff_max_retries: u8,
 }
 
 impl GetRemoteCliArgs {
