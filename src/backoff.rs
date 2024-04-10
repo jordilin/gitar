@@ -4,9 +4,9 @@ use serde::Serialize;
 
 use crate::error::{AddContext, GRError};
 use crate::io::{HttpRunner, RateLimitHeader};
-use crate::Error;
 use crate::{error, log_info, Result};
 use crate::{http::Request, io::Response, time::Seconds};
+use crate::{log_error, Error};
 
 /// ExponentialBackoff wraps an HttpRunner and retries requests with an
 /// exponential backoff retry mechanism.
@@ -63,6 +63,12 @@ impl<'a, R: HttpRunner<Response = Response>> ExponentialBackoff<'a, R> {
                     if self.max_retries == 0 {
                         return Err(err);
                     }
+                    log_error!("Error: {}", err);
+                    log_info!(
+                        "Backoff enabled re-trying {} out of {}",
+                        self.num_retries + 1,
+                        self.max_retries
+                    );
                     if let Some(headers) = self.should_retry_on_error(&err) {
                         self.rate_limit_header = headers;
                         self.num_retries += 1;
