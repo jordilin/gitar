@@ -1,6 +1,7 @@
 use crate::api_traits::ApiOperation;
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
+use crate::error::GRError;
 use crate::io::{HttpRunner, RateLimitHeader, Response, ResponseField};
 use crate::time::{self, now_epoch_seconds, Milliseconds, Seconds};
 use crate::{api_defaults, error, log_debug, log_error};
@@ -95,7 +96,7 @@ impl<C, D: ConfigProperties> Client<C, D> {
                 self.handle_rate_limit(&response)?;
                 Ok(response)
             }
-            Err(err) => Err(err.into()),
+            Err(err) => Err(GRError::HttpTransportError(err.to_string()).into()),
         }
     }
 
@@ -125,7 +126,7 @@ impl<C, D: ConfigProperties> Client<C, D> {
                 self.handle_rate_limit(&response)?;
                 Ok(response)
             }
-            Err(err) => Err(err.into()),
+            Err(err) => Err(GRError::HttpTransportError(err.to_string()).into()),
         }
     }
 
