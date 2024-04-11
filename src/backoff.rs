@@ -15,16 +15,23 @@ pub struct ExponentialBackoff<'a, R> {
     max_retries: u32,
     num_retries: u32,
     rate_limit_header: RateLimitHeader,
+    default_delay_wait: Seconds,
     now: fn() -> Seconds,
 }
 
 impl<'a, R> ExponentialBackoff<'a, R> {
-    pub fn new(runner: &'a Arc<R>, max_retries: u32, now: fn() -> Seconds) -> Self {
+    pub fn new(
+        runner: &'a Arc<R>,
+        max_retries: u32,
+        default_delay_wait: u64,
+        now: fn() -> Seconds,
+    ) -> Self {
         ExponentialBackoff {
             runner,
             max_retries,
             num_retries: 0,
             rate_limit_header: RateLimitHeader::default(),
+            default_delay_wait: Seconds::new(default_delay_wait),
             now,
         }
     }
@@ -36,7 +43,7 @@ impl<'a, R> ExponentialBackoff<'a, R> {
             self.rate_limit_header.reset - now
         } else {
             // default to 1 minute.
-            Seconds::new(60)
+            self.default_delay_wait
         };
         if self.rate_limit_header.retry_after > Seconds::new(0) {
             base_wait_time = self.rate_limit_header.retry_after;
@@ -142,7 +149,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 3, now_mock);
+        let mut backoff = ExponentialBackoff::new(&client, 3, 60, now_mock);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(2, *client.throttled());
     }
@@ -161,7 +168,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 1, now_mock);
+        let mut backoff = ExponentialBackoff::new(&client, 1, 60, now_mock);
         match backoff.retry_on_error(&mut request) {
             Ok(_) => panic!("Expected max retries reached error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
@@ -183,7 +190,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 0, now_mock);
+        let mut backoff = ExponentialBackoff::new(&client, 0, 60, now_mock);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(0, *client.throttled());
     }
@@ -197,7 +204,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 0, now_mock);
+        let mut backoff = ExponentialBackoff::new(&client, 0, 60, now_mock);
         match backoff.retry_on_error(&mut request) {
             Ok(_) => panic!("Expected rate limit exceeded error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
@@ -221,7 +228,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 3, now_mock);
+        let mut backoff = ExponentialBackoff::new(&client, 3, 60, now_mock);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(2, *client.throttled());
         // 60 secs base wait, 1st retry 2^1 = 2 => 62000 milliseconds
@@ -244,7 +251,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 3, now_mock);
+        let mut backoff = ExponentialBackoff::new(&client, 3, 60, now_mock);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(2, *client.throttled());
         // 61 secs base wait, 1st retry 2^1 = 2 => 63000 milliseconds
@@ -268,7 +275,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 3, now_mock);
+        let mut backoff = ExponentialBackoff::new(&client, 3, 60, now_mock);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(2, *client.throttled());
         // 120 secs base wait, 1st retry 2^1 = 2 => 122000 milliseconds
