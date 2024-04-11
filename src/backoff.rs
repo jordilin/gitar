@@ -42,7 +42,6 @@ impl<'a, R> ExponentialBackoff<'a, R> {
         let mut base_wait_time = if self.rate_limit_header.reset > now {
             self.rate_limit_header.reset - now
         } else {
-            // default to 1 minute.
             self.default_delay_wait
         };
         if self.rate_limit_header.retry_after > Seconds::new(0) {
