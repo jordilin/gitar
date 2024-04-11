@@ -32,6 +32,36 @@ impl<C, D> Client<C, D> {
             remaining_requests,
         }
     }
+    fn head<T>(&self, request: &Request<T>) -> Result<Response> {
+        let ureq_req = ureq::head(request.url());
+        let ureq_req = request
+            .headers()
+            .iter()
+            .fold(ureq_req, |req, (key, value)| req.set(key, value));
+        match ureq_req.call() {
+            Ok(response) => {
+                let status = response.status().into();
+                // Grab headers for pagination and cache.
+                let headers =
+                    response
+                        .headers_names()
+                        .iter()
+                        .fold(Headers::new(), |mut headers, name| {
+                            headers.set(
+                                name.to_lowercase(),
+                                response.header(name.as_str()).unwrap().to_string(),
+                            );
+                            headers
+                        });
+                let response = Response::builder()
+                    .status(status)
+                    .headers(headers)
+                    .build()?;
+                Ok(response)
+            }
+            Err(err) => Err(err.into()),
+        }
+    }
 
     fn get<T>(&self, request: &Request<T>) -> Result<Response> {
         // set incoming requests headers
@@ -320,6 +350,7 @@ impl<T> Request<T> {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum Method {
     #[default]
+    HEAD,
     GET,
     POST,
     PUT,
@@ -331,6 +362,11 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
 
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response> {
         match cmd.method {
+            Method::HEAD => {
+                let response = self.head(cmd)?;
+                self.handle_rate_limit(&response)?;
+                Ok(response)
+            }
             Method::GET => {
                 let mut default_response = Response::builder().build()?;
                 match self.cache.get(&cmd.resource) {

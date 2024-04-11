@@ -4,7 +4,7 @@ use gr::error::GRError;
 use gr::http::{Client, Headers, Method, Request};
 use gr::io::{HttpRunner, Response, ResponseField};
 use httpmock::prelude::*;
-use httpmock::Method::{GET, PATCH, POST};
+use httpmock::Method::{GET, HEAD, PATCH, POST};
 
 struct ConfigMock {}
 
@@ -43,6 +43,24 @@ fn test_http_runner() {
     let response = runner.run(&mut request).unwrap();
     assert_eq!(response.status, 200);
     assert!(response.body.contains("id"));
+    server_mock.assert();
+}
+
+#[test]
+fn test_http_runner_head_request() {
+    let server = MockServer::start();
+    let server_mock = server.mock(|when, then| {
+        when.method(HEAD).path("/repos/jordilin/mr");
+        then.status(200)
+            .header("content-type", "application/json")
+            .header("link", "<https://api.github.com/repositories/683565078/pulls?state=closed&page=2>; rel=\"next\", <https://api.github.com/repositories/683565078/pulls?state=closed&page=5>; rel=\"last\"");
+    });
+
+    let runner = Client::new(NoCache, ConfigMock::new(), false);
+    let mut request = Request::<()>::new(&server.url("/repos/jordilin/mr"), Method::HEAD);
+    let response = runner.run(&mut request).unwrap();
+    assert_eq!(response.status, 200);
+    assert_eq!(response.header("link"), Some("<https://api.github.com/repositories/683565078/pulls?state=closed&page=2>; rel=\"next\", <https://api.github.com/repositories/683565078/pulls?state=closed&page=5>; rel=\"last\""));
     server_mock.assert();
 }
 

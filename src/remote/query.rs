@@ -45,7 +45,7 @@ pub fn num_pages<R: HttpRunner<Response = Response>>(
     api_operation: ApiOperation,
 ) -> Result<Option<u32>> {
     let mut request: Request<()> = http::Request::builder()
-        .method(http::Method::GET)
+        .method(http::Method::HEAD)
         .resource(Resource::new(url, Some(api_operation)))
         .headers(request_headers)
         .build()
