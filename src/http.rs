@@ -457,7 +457,7 @@ impl<'a, R, T> Paginator<'a, R, T> {
             page_url: Some(page_url.to_string()),
             iter: 0,
             throttle_time,
-            backoff: ExponentialBackoff::new(runner, backoff_max_retries),
+            backoff: ExponentialBackoff::new(runner, backoff_max_retries, time::now_epoch_seconds),
         }
     }
 }

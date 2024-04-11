@@ -15,27 +15,31 @@ pub struct ExponentialBackoff<'a, R> {
     max_retries: u32,
     num_retries: u32,
     rate_limit_header: RateLimitHeader,
+    now: fn() -> Seconds,
 }
 
 impl<'a, R> ExponentialBackoff<'a, R> {
-    pub fn new(runner: &'a Arc<R>, max_retries: u32) -> Self {
+    pub fn new(runner: &'a Arc<R>, max_retries: u32, now: fn() -> Seconds) -> Self {
         ExponentialBackoff {
             runner,
             max_retries,
             num_retries: 0,
             rate_limit_header: RateLimitHeader::default(),
+            now,
         }
     }
 
     fn wait_time(&mut self) -> Seconds {
-        let mut base_wait_time = self.rate_limit_header.reset;
+        // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
+        let now = (self.now)();
+        let mut base_wait_time = if self.rate_limit_header.reset > now {
+            self.rate_limit_header.reset - now
+        } else {
+            // default to 1 minute.
+            Seconds::new(60)
+        };
         if self.rate_limit_header.retry_after > Seconds::new(0) {
             base_wait_time = self.rate_limit_header.retry_after;
-        }
-        if base_wait_time == Seconds::new(0) {
-            // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
-            // Wait for 60 seconds if no rate limit headers are present
-            base_wait_time = Seconds::new(60);
         }
         let wait_time = base_wait_time + 2u64.pow(self.num_retries).into();
         log_info!("Waiting for {} seconds", wait_time);
@@ -95,6 +99,7 @@ mod tests {
     use crate::{
         http::{self, Headers, Resource},
         test::utils::MockRunner,
+        time::Milliseconds,
     };
 
     use super::*;
@@ -119,12 +124,17 @@ mod tests {
         Response::builder().status(200).build().unwrap()
     }
 
+    fn now_mock() -> Seconds {
+        Seconds::new(1712814151)
+    }
+
     #[test]
     fn test_exponential_backoff_retries_and_succeeds() {
+        let reset = now_mock() + Seconds::new(60);
         let responses = vec![
             response_ok(),
             ratelimited_with_no_headers(),
-            ratelimited_with_headers(10, 1658602270, 60),
+            ratelimited_with_headers(10, *reset, 60),
         ];
         let client = Arc::new(MockRunner::new(responses));
         let mut request: Request<()> = Request::builder()
@@ -132,17 +142,18 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 3);
+        let mut backoff = ExponentialBackoff::new(&client, 3, now_mock);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(2, *client.throttled());
     }
 
     #[test]
     fn test_exponential_backoff_retries_and_fails_after_max_retries_reached() {
+        let reset = now_mock() + Seconds::new(60);
         let responses = vec![
             response_ok(),
             ratelimited_with_no_headers(),
-            ratelimited_with_headers(10, 1658602270, 60),
+            ratelimited_with_headers(10, *reset, 60),
         ];
         let client = Arc::new(MockRunner::new(responses));
         let mut request: Request<()> = Request::builder()
@@ -150,11 +161,14 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 1);
+        let mut backoff = ExponentialBackoff::new(&client, 1, now_mock);
         match backoff.retry_on_error(&mut request) {
             Ok(_) => panic!("Expected max retries reached error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
-                Some(error::GRError::ExponentialBackoffMaxRetriesReached(_)) => {}
+                Some(error::GRError::ExponentialBackoffMaxRetriesReached(_)) => {
+                    assert_eq!(1, *client.throttled());
+                    assert_eq!(Milliseconds::new(62000), *client.milliseconds_throttled());
+                }
                 _ => panic!("Expected max retries reached error"),
             },
         }
@@ -169,7 +183,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 0);
+        let mut backoff = ExponentialBackoff::new(&client, 0, now_mock);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(0, *client.throttled());
     }
@@ -183,7 +197,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 0);
+        let mut backoff = ExponentialBackoff::new(&client, 0, now_mock);
         match backoff.retry_on_error(&mut request) {
             Ok(_) => panic!("Expected rate limit exceeded error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
@@ -192,5 +206,74 @@ mod tests {
             },
         }
         assert_eq!(0, *client.throttled());
+    }
+
+    #[test]
+    fn test_time_to_reset_is_zero() {
+        let responses = vec![
+            response_ok(),
+            ratelimited_with_no_headers(),
+            ratelimited_with_headers(10, 0, 0),
+        ];
+        let client = Arc::new(MockRunner::new(responses));
+        let mut request: Request<()> = Request::builder()
+            .resource(Resource::new("http://localhost", None))
+            .method(http::Method::GET)
+            .build()
+            .unwrap();
+        let mut backoff = ExponentialBackoff::new(&client, 3, now_mock);
+        backoff.retry_on_error(&mut request).unwrap();
+        assert_eq!(2, *client.throttled());
+        // 60 secs base wait, 1st retry 2^1 = 2 => 62000 milliseconds
+        // 60 secs base wait, 2nd retry 2^2 = 4 => 64000 milliseconds
+        // Total wait 126000
+        assert_eq!(Milliseconds::new(126000), *client.milliseconds_throttled());
+    }
+
+    #[test]
+    fn test_retry_after_used_if_provided() {
+        let reset = now_mock() + Seconds::new(120);
+        let responses = vec![
+            response_ok(),
+            ratelimited_with_headers(10, 0, 65),
+            ratelimited_with_headers(10, *reset, 61),
+        ];
+        let client = Arc::new(MockRunner::new(responses));
+        let mut request: Request<()> = Request::builder()
+            .resource(Resource::new("http://localhost", None))
+            .method(http::Method::GET)
+            .build()
+            .unwrap();
+        let mut backoff = ExponentialBackoff::new(&client, 3, now_mock);
+        backoff.retry_on_error(&mut request).unwrap();
+        assert_eq!(2, *client.throttled());
+        // 61 secs base wait, 1st retry 2^1 = 2 => 63000 milliseconds
+        // 65 secs base wait, 2nd retry 2^2 = 4 => 69000 milliseconds
+        // Total wait 132000
+        assert_eq!(Milliseconds::new(132000), *client.milliseconds_throttled());
+    }
+
+    #[test]
+    fn test_reset_time_future_and_no_retry_after() {
+        let reset_first = now_mock() + Seconds::new(120);
+        let reset_second = now_mock() + Seconds::new(61);
+        let responses = vec![
+            response_ok(),
+            ratelimited_with_headers(10, *reset_second, 0),
+            ratelimited_with_headers(10, *reset_first, 0),
+        ];
+        let client = Arc::new(MockRunner::new(responses));
+        let mut request: Request<()> = Request::builder()
+            .resource(Resource::new("http://localhost", None))
+            .method(http::Method::GET)
+            .build()
+            .unwrap();
+        let mut backoff = ExponentialBackoff::new(&client, 3, now_mock);
+        backoff.retry_on_error(&mut request).unwrap();
+        assert_eq!(2, *client.throttled());
+        // 120 secs base wait, 1st retry 2^1 = 2 => 122000 milliseconds
+        // 61 secs base wait, 2nd retry 2^2 = 4 => 65000 milliseconds
+        // Total wait 187000
+        assert_eq!(Milliseconds::new(187000), *client.milliseconds_throttled());
     }
 }
