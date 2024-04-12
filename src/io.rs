@@ -144,6 +144,7 @@ impl Response {
 
     pub fn is_ok(&self, method: &http::Method) -> bool {
         match method {
+            http::Method::HEAD => self.status == 200,
             http::Method::GET => self.status == 200,
             http::Method::POST => {
                 self.status >= 200 && self.status < 300 || self.status == 409 || self.status == 422
