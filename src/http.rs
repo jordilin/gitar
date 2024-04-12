@@ -34,40 +34,13 @@ impl<C, D: ConfigProperties> Client<C, D> {
             remaining_requests,
         }
     }
-    fn head<T>(&self, request: &Request<T>) -> Result<Response> {
-        let ureq_req = ureq::head(request.url());
-        let ureq_req = request
-            .headers()
-            .iter()
-            .fold(ureq_req, |req, (key, value)| req.set(key, value));
-        match ureq_req.call() {
-            Ok(response) => {
-                let status = response.status().into();
-                // Grab headers for pagination and cache.
-                let headers =
-                    response
-                        .headers_names()
-                        .iter()
-                        .fold(Headers::new(), |mut headers, name| {
-                            headers.set(
-                                name.to_lowercase(),
-                                response.header(name.as_str()).unwrap().to_string(),
-                            );
-                            headers
-                        });
-                let response = Response::builder()
-                    .status(status)
-                    .headers(headers)
-                    .build()?;
-                Ok(response)
-            }
-            Err(err) => Err(err.into()),
-        }
-    }
 
-    fn get<T>(&self, request: &Request<T>) -> Result<Response> {
-        // set incoming requests headers
-        let ureq_req = ureq::get(request.url());
+    fn read<T>(&self, request: &Request<T>, method: Method) -> Result<Response> {
+        let ureq_req = match method {
+            Method::GET => ureq::get(request.url()),
+            Method::HEAD => ureq::head(request.url()),
+            _ => panic!("Method not supported"),
+        };
         let ureq_req = request
             .headers()
             .iter()
@@ -87,7 +60,7 @@ impl<C, D: ConfigProperties> Client<C, D> {
                             );
                             headers
                         });
-                let body = response.into_string().unwrap();
+                let body = response.into_string().unwrap_or_default();
                 let response = Response::builder()
                     .status(status)
                     .body(body)
@@ -129,6 +102,14 @@ impl<C, D: ConfigProperties> Client<C, D> {
             }
             Err(err) => Err(GRError::HttpTransportError(err.to_string()).into()),
         }
+    }
+
+    fn get<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
+        self.read(request, Method::GET)
+    }
+
+    fn head<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
+        self.read(request, Method::HEAD)
     }
 
     fn post<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
