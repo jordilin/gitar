@@ -35,17 +35,25 @@ impl<C, D: ConfigProperties> Client<C, D> {
         }
     }
 
-    fn read<T>(&self, request: &Request<T>, method: Method) -> Result<Response> {
-        let ureq_req = match method {
+    fn submit<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
+        let ureq_req = match request.method {
             Method::GET => ureq::get(request.url()),
             Method::HEAD => ureq::head(request.url()),
-            _ => panic!("Method not supported"),
+            Method::POST => ureq::post(request.url()),
+            Method::PATCH => ureq::patch(request.url()),
+            Method::PUT => ureq::put(request.url()),
         };
         let ureq_req = request
             .headers()
             .iter()
             .fold(ureq_req, |req, (key, value)| req.set(key, value));
-        match ureq_req.call() {
+        let call = || -> std::result::Result<ureq::Response, ureq::Error> {
+            match request.method {
+                Method::GET | Method::HEAD => ureq_req.call(),
+                _ => ureq_req.send_json(serde_json::to_value(&request.body).unwrap()),
+            }
+        };
+        match call() {
             Ok(response) | Err(Error::Status(_, response)) => {
                 let status = response.status().into();
                 // Grab headers for pagination and cache.
@@ -72,59 +80,6 @@ impl<C, D: ConfigProperties> Client<C, D> {
             }
             Err(err) => Err(GRError::HttpTransportError(err.to_string()).into()),
         }
-    }
-
-    fn update_create<T: Serialize>(
-        &self,
-        request: &Request<T>,
-        ureq_req: ureq::Request,
-    ) -> Result<Response> {
-        let ureq_req = request
-            .headers()
-            .iter()
-            .fold(ureq_req, |req, (key, value)| req.set(key, value));
-        match ureq_req.send_json(serde_json::to_value(&request.body).unwrap()) {
-            Ok(response) => {
-                let status = response.status().into();
-                let body = response.into_string().unwrap();
-                let response = Response::builder().status(status).body(body).build()?;
-                Ok(response)
-            }
-            Err(Error::Status(code, response)) => {
-                // ureq returns error on status codes >= 400
-                // so we need to handle this case separately
-                // https://docs.rs/ureq/latest/ureq/#error-handling
-                let status = code.into();
-                let body = response.into_string().unwrap();
-                let response = Response::builder().status(status).body(body).build()?;
-                self.handle_rate_limit(&response)?;
-                Ok(response)
-            }
-            Err(err) => Err(GRError::HttpTransportError(err.to_string()).into()),
-        }
-    }
-
-    fn get<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
-        self.read(request, Method::GET)
-    }
-
-    fn head<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
-        self.read(request, Method::HEAD)
-    }
-
-    fn post<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
-        let ureq_req = ureq::post(request.url());
-        self.update_create(request, ureq_req)
-    }
-
-    fn patch<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
-        let ureq_req = ureq::patch(request.url());
-        self.update_create(request, ureq_req)
-    }
-
-    fn put<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
-        let ureq_req = ureq::put(request.url());
-        self.update_create(request, ureq_req)
     }
 }
 
@@ -351,11 +306,6 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
 
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response> {
         match cmd.method {
-            Method::HEAD => {
-                let response = self.head(cmd)?;
-                self.handle_rate_limit(&response)?;
-                Ok(response)
-            }
             Method::GET => {
                 let mut default_response = Response::builder().build().unwrap();
                 match self.cache.get(&cmd.resource) {
@@ -380,7 +330,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                     cmd.set_header("If-None-Match", etag);
                 }
                 // If status is 304, then we need to return the cached response.
-                let response = self.get(cmd)?;
+                let response = self.submit(cmd)?;
                 if response.status == 304 {
                     // Update cache with latest headers. This effectively
                     // refreshes the cache and we won't hit this until per api
@@ -392,18 +342,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                 self.cache.set(&cmd.resource, &response).unwrap();
                 Ok(response)
             }
-            Method::POST => {
-                let response = self.post(cmd)?;
-                Ok(response)
-            }
-            Method::PATCH => {
-                let response = self.patch(cmd)?;
-                Ok(response)
-            }
-            Method::PUT => {
-                let response = self.put(cmd)?;
-                Ok(response)
-            }
+            _ => Ok(self.submit(cmd)?),
         }
     }
 
