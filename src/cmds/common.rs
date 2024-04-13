@@ -19,6 +19,15 @@ macro_rules! query_pages {
             process_num_pages(remote.num_pages(), &mut writer)
         }
     };
+    ($func_name:ident, $trait_name:ident, $body_args:ident) => {
+        pub fn $func_name<W: Write>(
+            remote: Arc<dyn $trait_name>,
+            body_args: $body_args,
+            mut writer: W,
+        ) -> Result<()> {
+            process_num_pages(remote.num_pages(body_args), &mut writer)
+        }
+    };
 }
 
 pub fn process_num_pages<W: Write>(num_pages: Result<Option<u32>>, mut writer: W) -> Result<()> {
@@ -36,6 +45,12 @@ pub fn process_num_pages<W: Write>(num_pages: Result<Option<u32>>, mut writer: W
 
 query_pages!(num_release_pages, Deploy);
 query_pages!(num_cicd_pages, Cicd);
+query_pages!(
+    num_merge_request_pages,
+    MergeRequest,
+    MergeRequestListBodyArgs
+);
+query_pages!(num_project_pages, RemoteProject, ProjectListBodyArgs);
 
 macro_rules! list_resource {
     ($func_name:ident, $trait_name:ident, $body_args:ident, $cli_args:ident, $embeds_list_args: literal) => {

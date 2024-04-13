@@ -117,6 +117,10 @@ mod test {
         fn list(&self, _args: ProjectListBodyArgs) -> Result<Vec<Project>> {
             todo!()
         }
+
+        fn num_pages(&self, _args: ProjectListBodyArgs) -> Result<Option<u32>> {
+            todo!()
+        }
     }
 
     #[test]

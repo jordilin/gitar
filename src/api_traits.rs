@@ -34,6 +34,7 @@ pub trait RemoteProject {
     // merge/pull requests, pipeline, issues, etc.
     fn get_url(&self, option: BrowseOptions) -> String;
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Project>>;
+    fn num_pages(&self, args: ProjectListBodyArgs) -> Result<Option<u32>>;
 }
 
 pub trait Cicd {
