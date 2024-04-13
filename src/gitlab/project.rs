@@ -50,7 +50,15 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
     }
 
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Project>> {
-        let url = format!("{}/{}/projects", self.base_users_url, args.user.unwrap().id);
+        let url = if args.stars {
+            format!(
+                "{}/{}/starred_projects",
+                self.base_users_url,
+                args.user.unwrap().id
+            )
+        } else {
+            format!("{}/{}/projects", self.base_users_url, args.user.unwrap().id)
+        };
         let projects = query::gitlab_list_projects(
             &self.runner,
             &url,
@@ -229,6 +237,42 @@ mod test {
         gitlab.list(body_args).unwrap();
         assert_eq!(
             "https://gitlab.com/api/v4/users/1/projects",
+            client.url().to_string(),
+        );
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_get_my_starred_projects() {
+        let config = config();
+        let domain = "gitlab.com";
+        let path = "jordilin/gitlapi";
+        let projects = format!("{}", get_contract(ContractType::Gitlab, "stars.json"));
+        let response = Response::builder()
+            .status(200)
+            .body(projects)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+
+        let body_args = ProjectListBodyArgs::builder()
+            .from_to_page(None)
+            .user(Some(
+                Member::builder()
+                    .id(1)
+                    .name("jordi".to_string())
+                    .username("jordilin".to_string())
+                    .build()
+                    .unwrap(),
+            ))
+            .stars(true)
+            .build()
+            .unwrap();
+        gitlab.list(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/users/1/starred_projects",
             client.url().to_string(),
         );
         assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
