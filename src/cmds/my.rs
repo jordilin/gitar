@@ -38,6 +38,7 @@ pub fn execute(
                 ProjectListBodyArgs::builder()
                     .from_to_page(from_to_args)
                     .user(Some(user))
+                    .stars(cli_args.stars)
                     .build()?,
                 cli_args,
                 std::io::stdout(),
