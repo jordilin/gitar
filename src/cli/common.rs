@@ -75,7 +75,7 @@ pub struct RetryArgs {
     #[clap(long)]
     pub backoff: bool,
     /// Number of retries
-    #[clap(long, default_value = "1", requires = "backoff")]
+    #[clap(long, default_value = "0", requires = "backoff")]
     pub max_retries: u32,
     /// Additional delay in seconds before retrying the request when backoff is
     /// enabled
@@ -135,23 +135,13 @@ impl From<ListArgs> for ListRemoteCliArgs {
 
 impl From<GetArgs> for GetRemoteCliArgs {
     fn from(args: GetArgs) -> Self {
-        let backoff_max_retries = if args.retry_args.backoff {
-            args.retry_args.max_retries
-        } else {
-            0
-        };
-        let backoff_retry_after = if args.retry_args.backoff {
-            args.retry_args.retry_after
-        } else {
-            60
-        };
         GetRemoteCliArgs::builder()
             .no_headers(args.format_args.no_headers)
             .format(args.format_args.format.into())
             .display_optional(args.format_args.more_output)
             .refresh_cache(args.refresh)
-            .backoff_max_retries(backoff_max_retries)
-            .backoff_retry_after(backoff_retry_after)
+            .backoff_max_retries(args.retry_args.max_retries)
+            .backoff_retry_after(args.retry_args.retry_after)
             .build()
             .unwrap()
     }
