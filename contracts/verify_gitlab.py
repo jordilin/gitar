@@ -170,6 +170,16 @@ def get_runner_details_api():
     return data
 
 
+def list_user_starred_projects():
+    url = "https://gitlab.com/api/v4/users/jordilin/starred_projects"
+    headers = {"PRIVATE-TOKEN": PRIVATE_TOKEN}
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    if args.persist:
+        persist_contract("stars.json", REMOTE, data)
+    return data[0]
+
+
 class TestAPI:
     def __init__(self, callback, msg, *expected):
         self.callback = callback
@@ -229,6 +239,11 @@ if __name__ == "__main__":
             get_runner_details_api,
             "get runner details API contract",
             get_contract_json("get_runner_details.json", REMOTE),
+        ),
+        TestAPI(
+            list_user_starred_projects,
+            "list user starred projects API contract",
+            get_contract_json("stars.json", REMOTE),
         ),
     ]
     if not validate_responses(testcases):
