@@ -50,6 +50,8 @@ pub struct GetArgs {
     /// Refresh the cache
     #[clap(long, short, help_heading = "Cache options")]
     pub refresh: bool,
+    #[clap(flatten)]
+    pub retry_args: RetryArgs,
 }
 
 #[derive(Clone, Parser)]
@@ -64,6 +66,21 @@ pub struct FormatArgs {
     /// Display additional fields
     #[clap(visible_short_alias = 'o', long)]
     pub more_output: bool,
+}
+
+#[derive(Clone, Parser)]
+#[clap(next_help_heading = "Retry options")]
+pub struct RetryArgs {
+    /// Retries request on error. Backs off exponentially if enabled
+    #[clap(long)]
+    pub backoff: bool,
+    /// Number of retries
+    #[clap(long, default_value = "0", requires = "backoff")]
+    pub max_retries: u32,
+    /// Additional delay in seconds before retrying the request when backoff is
+    /// enabled
+    #[clap(long, default_value = "60", requires = "backoff")]
+    pub retry_after: u64,
 }
 
 #[derive(ValueEnum, Clone, Debug)]
@@ -123,6 +140,8 @@ impl From<GetArgs> for GetRemoteCliArgs {
             .format(args.format_args.format.into())
             .display_optional(args.format_args.more_output)
             .refresh_cache(args.refresh)
+            .backoff_max_retries(args.retry_args.max_retries)
+            .backoff_retry_after(args.retry_args.retry_after)
             .build()
             .unwrap()
     }

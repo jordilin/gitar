@@ -9,7 +9,7 @@ use crate::Result;
 use chrono::{DateTime, Local};
 use std;
 use std::fmt::{Display, Formatter};
-use std::ops::{Add, Deref, Div, Sub};
+use std::ops::{Add, AddAssign, Deref, Div, Sub};
 use std::time::Duration;
 
 enum Time {
@@ -112,13 +112,19 @@ impl Deref for Seconds {
     }
 }
 
+impl From<u64> for Seconds {
+    fn from(seconds: u64) -> Self {
+        Seconds(seconds)
+    }
+}
+
 impl Display for Seconds {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Milliseconds(u64);
 
 impl Milliseconds {
@@ -144,6 +150,26 @@ impl From<u64> for Milliseconds {
 impl From<Milliseconds> for Duration {
     fn from(milliseconds: Milliseconds) -> Self {
         Duration::from_millis(milliseconds.0)
+    }
+}
+
+impl From<Seconds> for Milliseconds {
+    fn from(seconds: Seconds) -> Self {
+        Milliseconds(seconds.0 * 1000)
+    }
+}
+
+impl Add<Milliseconds> for Milliseconds {
+    type Output = Milliseconds;
+
+    fn add(self, rhs: Milliseconds) -> Self::Output {
+        Milliseconds(self.0 + rhs.0)
+    }
+}
+
+impl AddAssign<Milliseconds> for Milliseconds {
+    fn add_assign(&mut self, rhs: Milliseconds) {
+        self.0 += rhs.0;
     }
 }
 

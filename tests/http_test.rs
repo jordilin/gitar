@@ -65,11 +65,25 @@ fn test_http_runner_head_request() {
 }
 
 #[test]
-fn test_http_runner_server_down() {
+fn test_http_runner_server_down_get_request() {
     let runner = Client::new(NoCache, ConfigMock::new(), false);
     let mut request = Request::<()>::new("http://localhost:8091/repos/jordilin/mr", Method::GET);
     let err = runner.run(&mut request).unwrap_err();
-    assert!(err.to_string().contains("Connection refused"));
+    match err.downcast_ref::<GRError>() {
+        Some(GRError::HttpTransportError(_)) => (),
+        _ => panic!("Expected GRError::HttpTransportError, but got {:?}", err),
+    }
+}
+
+#[test]
+fn test_http_runner_server_down_post_request() {
+    let runner = Client::new(NoCache, ConfigMock::new(), false);
+    let mut request = Request::<()>::new("http://localhost:8091/repos/jordilin/mr", Method::POST);
+    let err = runner.run(&mut request).unwrap_err();
+    match err.downcast_ref::<GRError>() {
+        Some(GRError::HttpTransportError(_)) => (),
+        _ => panic!("Expected GRError::HttpTransportError, but got {:?}", err),
+    }
 }
 
 #[test]

@@ -1,9 +1,11 @@
 use crate::api_traits::ApiOperation;
+use crate::backoff::ExponentialBackoff;
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
-use crate::io::{HttpRunner, Response, ResponseField};
+use crate::error::GRError;
+use crate::io::{HttpRunner, RateLimitHeader, Response, ResponseField};
 use crate::time::{self, now_epoch_seconds, Milliseconds, Seconds};
-use crate::{api_defaults, error, log_debug};
+use crate::{api_defaults, error, log_debug, log_error};
 use crate::{log_info, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map, HashMap};
@@ -20,7 +22,7 @@ pub struct Client<C, D> {
 }
 
 // TODO: provide builder pattern for Client.
-impl<C, D> Client<C, D> {
+impl<C, D: ConfigProperties> Client<C, D> {
     pub fn new(cache: C, config: D, refresh_cache: bool) -> Self {
         let remaining_requests = Mutex::new(api_defaults::DEFAULT_NUMBER_REQUESTS_MINUTE);
         let time_to_ratelimit_reset = Mutex::new(now_epoch_seconds() + Seconds::new(60));
@@ -32,46 +34,27 @@ impl<C, D> Client<C, D> {
             remaining_requests,
         }
     }
-    fn head<T>(&self, request: &Request<T>) -> Result<Response> {
-        let ureq_req = ureq::head(request.url());
-        let ureq_req = request
-            .headers()
-            .iter()
-            .fold(ureq_req, |req, (key, value)| req.set(key, value));
-        match ureq_req.call() {
-            Ok(response) => {
-                let status = response.status().into();
-                // Grab headers for pagination and cache.
-                let headers =
-                    response
-                        .headers_names()
-                        .iter()
-                        .fold(Headers::new(), |mut headers, name| {
-                            headers.set(
-                                name.to_lowercase(),
-                                response.header(name.as_str()).unwrap().to_string(),
-                            );
-                            headers
-                        });
-                let response = Response::builder()
-                    .status(status)
-                    .headers(headers)
-                    .build()?;
-                Ok(response)
-            }
-            Err(err) => Err(err.into()),
-        }
-    }
 
-    fn get<T>(&self, request: &Request<T>) -> Result<Response> {
-        // set incoming requests headers
-        let ureq_req = ureq::get(request.url());
+    fn submit<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
+        let ureq_req = match request.method {
+            Method::GET => ureq::get(request.url()),
+            Method::HEAD => ureq::head(request.url()),
+            Method::POST => ureq::post(request.url()),
+            Method::PATCH => ureq::patch(request.url()),
+            Method::PUT => ureq::put(request.url()),
+        };
         let ureq_req = request
             .headers()
             .iter()
             .fold(ureq_req, |req, (key, value)| req.set(key, value));
-        match ureq_req.call() {
-            Ok(response) => {
+        let call = || -> std::result::Result<ureq::Response, ureq::Error> {
+            match request.method {
+                Method::GET | Method::HEAD => ureq_req.call(),
+                _ => ureq_req.send_json(serde_json::to_value(&request.body).unwrap()),
+            }
+        };
+        match call() {
+            Ok(response) | Err(Error::Status(_, response)) => {
                 let status = response.status().into();
                 // Grab headers for pagination and cache.
                 let headers =
@@ -85,60 +68,18 @@ impl<C, D> Client<C, D> {
                             );
                             headers
                         });
-                let body = response.into_string().unwrap();
+                let body = response.into_string().unwrap_or_default();
                 let response = Response::builder()
                     .status(status)
                     .body(body)
                     .headers(headers)
-                    .build()?;
+                    .build()
+                    .unwrap();
+                self.handle_rate_limit(&response)?;
                 Ok(response)
             }
-            Err(err) => Err(err.into()),
+            Err(err) => Err(GRError::HttpTransportError(err.to_string()).into()),
         }
-    }
-
-    fn update_create<T: Serialize>(
-        &self,
-        request: &Request<T>,
-        ureq_req: ureq::Request,
-    ) -> Result<Response> {
-        let ureq_req = request
-            .headers()
-            .iter()
-            .fold(ureq_req, |req, (key, value)| req.set(key, value));
-        match ureq_req.send_json(serde_json::to_value(&request.body).unwrap()) {
-            Ok(response) => {
-                let status = response.status().into();
-                let body = response.into_string().unwrap();
-                let response = Response::builder().status(status).body(body).build()?;
-                Ok(response)
-            }
-            Err(Error::Status(code, response)) => {
-                // ureq returns error on status codes >= 400
-                // so we need to handle this case separately
-                // https://docs.rs/ureq/latest/ureq/#error-handling
-                let status = code.into();
-                let body = response.into_string().unwrap();
-                let response = Response::builder().status(status).body(body).build()?;
-                Ok(response)
-            }
-            Err(err) => Err(err.into()),
-        }
-    }
-
-    fn post<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
-        let ureq_req = ureq::post(request.url());
-        self.update_create(request, ureq_req)
-    }
-
-    fn patch<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
-        let ureq_req = ureq::patch(request.url());
-        self.update_create(request, ureq_req)
-    }
-
-    fn put<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
-        let ureq_req = ureq::put(request.url());
-        self.update_create(request, ureq_req)
     }
 }
 
@@ -146,10 +87,8 @@ impl<C, D: ConfigProperties> Client<C, D> {
     fn handle_rate_limit(&self, response: &Response) -> Result<()> {
         if let Some(headers) = response.get_ratelimit_headers() {
             if headers.remaining <= self.config.rate_limit_remaining_threshold() {
-                return Err(error::GRError::RateLimitExceeded(
-                    "Rate limit threshold reached".to_string(),
-                )
-                .into());
+                log_error!("Rate limit threshold reached");
+                return Err(error::GRError::RateLimitExceeded(headers).into());
             }
             Ok(())
         } else {
@@ -180,12 +119,17 @@ fn default_rate_limit_handler(
         if *remaining_requests <= config.rate_limit_remaining_threshold() {
             let time_to_ratelimit_reset =
                 *time_to_ratelimit_reset.lock().unwrap() - now_epoch_seconds();
-            return Err(error::GRError::RateLimitExceeded(format!(
+            log_error!(
                 "Remote does not provide rate limit headers, \
                             so the default rate limit of {} per minute has been \
                             exceeded. Try again in {} seconds",
                 api_defaults::DEFAULT_NUMBER_REQUESTS_MINUTE,
                 time_to_ratelimit_reset
+            );
+            return Err(error::GRError::RateLimitExceeded(RateLimitHeader::new(
+                *remaining_requests,
+                time_to_ratelimit_reset,
+                time_to_ratelimit_reset,
             ))
             .into());
         }
@@ -362,13 +306,8 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
 
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response> {
         match cmd.method {
-            Method::HEAD => {
-                let response = self.head(cmd)?;
-                self.handle_rate_limit(&response)?;
-                Ok(response)
-            }
             Method::GET => {
-                let mut default_response = Response::builder().build()?;
+                let mut default_response = Response::builder().build().unwrap();
                 match self.cache.get(&cmd.resource) {
                     Ok(CacheState::Fresh(response)) => {
                         log_debug!("Cache fresh for {}", cmd.resource.url);
@@ -391,8 +330,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                     cmd.set_header("If-None-Match", etag);
                 }
                 // If status is 304, then we need to return the cached response.
-                let response = self.get(cmd)?;
-                self.handle_rate_limit(&response)?;
+                let response = self.submit(cmd)?;
                 if response.status == 304 {
                     // Update cache with latest headers. This effectively
                     // refreshes the cache and we won't hit this until per api
@@ -404,21 +342,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
                 self.cache.set(&cmd.resource, &response).unwrap();
                 Ok(response)
             }
-            Method::POST => {
-                let response = self.post(cmd)?;
-                self.handle_rate_limit(&response)?;
-                Ok(response)
-            }
-            Method::PATCH => {
-                let response = self.patch(cmd)?;
-                self.handle_rate_limit(&response)?;
-                Ok(response)
-            }
-            Method::PUT => {
-                let response = self.put(cmd)?;
-                self.handle_rate_limit(&response)?;
-                Ok(response)
-            }
+            _ => Ok(self.submit(cmd)?),
         }
     }
 
@@ -436,6 +360,7 @@ pub struct Paginator<'a, R, T> {
     page_url: Option<String>,
     iter: u32,
     throttle_time: Option<Milliseconds>,
+    backoff: ExponentialBackoff<'a, R>,
 }
 
 impl<'a, R, T> Paginator<'a, R, T> {
@@ -444,6 +369,8 @@ impl<'a, R, T> Paginator<'a, R, T> {
         request: Request<T>,
         page_url: &str,
         throttle_time: Option<Milliseconds>,
+        backoff_max_retries: u32,
+        backoff_default_wait_time: u64,
     ) -> Self {
         Paginator {
             runner,
@@ -451,6 +378,12 @@ impl<'a, R, T> Paginator<'a, R, T> {
             page_url: Some(page_url.to_string()),
             iter: 0,
             throttle_time,
+            backoff: ExponentialBackoff::new(
+                runner,
+                backoff_max_retries,
+                backoff_default_wait_time,
+                time::now_epoch_seconds,
+            ),
         }
     }
 }
@@ -476,7 +409,7 @@ impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginato
                 log_info!("Throttling for: {} ms", throttle_time);
                 self.runner.throttle(throttle_time);
             }
-            match self.runner.run(&mut self.request) {
+            match self.backoff.retry_on_error(&mut self.request) {
                 Ok(response) => {
                     if let Some(page_headers) = response.get_page_headers() {
                         let next_page = page_headers.next;
@@ -553,7 +486,7 @@ mod test {
         let response = Response::builder().status(200).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(1, responses.len());
         assert_eq!("http://localhost", *client.url());
@@ -572,7 +505,7 @@ mod test {
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(2, responses.len());
     }
@@ -583,7 +516,7 @@ mod test {
         let response2 = response_with_last_page();
         let client = Arc::new(MockRunner::new(vec![response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(2, responses.len());
     }
@@ -597,7 +530,7 @@ mod test {
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(1, responses.len());
         assert_eq!("http://localhost", *client.url());
@@ -622,7 +555,7 @@ mod test {
             MockRunner::new(vec![response3, response2, response1]).with_config(ConfigMock::new(1)),
         );
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(1, responses.len());
     }
@@ -640,7 +573,7 @@ mod test {
         responses.reverse();
         let request: Request<()> = Request::new("http://localhost", Method::GET);
         let client = Arc::new(MockRunner::new(responses));
-        let paginator = Paginator::new(&client, request, "http://localhost", None);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(REST_API_MAX_PAGES, responses.len() as u32);
     }
@@ -751,7 +684,7 @@ mod test {
             .max_pages(1)
             .build()
             .unwrap();
-        let paginator = Paginator::new(&client, request, "http://localhost", None);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(1, responses.len());
     }
@@ -769,6 +702,8 @@ mod test {
             request,
             "http://localhost",
             Some(Milliseconds::new(1)),
+            0,
+            60,
         );
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(3, responses.len());
@@ -795,7 +730,7 @@ mod test {
             .max_pages(5)
             .build()
             .unwrap();
-        let paginator = Paginator::new(&client, request, "http://localhost", None);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(5, responses.len());
     }

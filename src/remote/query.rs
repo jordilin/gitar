@@ -152,10 +152,21 @@ macro_rules! paged {
         ) -> Result<Vec<$return_type>> {
             let request = build_list_request(url, &list_args, request_headers, operation);
             let mut throttle_time = None;
+            let mut backoff_max_retries = 0;
+            let mut backoff_wait_time = 60;
             if let Some(list_args) = &list_args {
                 throttle_time = list_args.throttle_time;
+                backoff_max_retries = list_args.get_args.backoff_max_retries;
+                backoff_wait_time = list_args.get_args.backoff_retry_after;
             }
-            let paginator = Paginator::new(&runner, request, url, throttle_time);
+            let paginator = Paginator::new(
+                &runner,
+                request,
+                url,
+                throttle_time,
+                backoff_max_retries,
+                backoff_wait_time,
+            );
             let all_data = paginator
                 .map(|response| {
                     let response = response?;

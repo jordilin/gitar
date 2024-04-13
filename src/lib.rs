@@ -19,6 +19,7 @@ pub mod time;
 pub type Result<T> = anyhow::Result<T>;
 pub type Error = anyhow::Error;
 pub type Cmd<T> = Box<dyn FnOnce() -> Result<T> + Send + Sync>;
+pub mod backoff;
 pub mod cmds;
 pub mod display;
 pub mod logging;
