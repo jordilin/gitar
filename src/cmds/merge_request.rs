@@ -152,6 +152,10 @@ pub fn execute(
             let remote = remote::get_mr(domain, path, config, cli_args.get_args.refresh_cache)?;
             get_merge_request_details(remote, cli_args, std::io::stdout())
         }
+        MergeRequestOptions::Approve { id } => {
+            let remote = remote::get_mr(domain, path, config, false)?;
+            approve(remote, id, std::io::stdout())
+        }
     }
 }
 
@@ -448,6 +452,12 @@ fn checkout(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
 fn close(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
     let merge_request = remote.close(id)?;
     println!("Merge request closed: {}", merge_request.web_url);
+    Ok(())
+}
+
+fn approve<W: Write>(remote: Arc<dyn MergeRequest>, id: i64, mut writer: W) -> Result<()> {
+    let merge_request = remote.approve(id)?;
+    writer.write_all(format!("Merge request approved: {}\n", merge_request.web_url).as_bytes())?;
     Ok(())
 }
 
@@ -776,6 +786,9 @@ mod tests {
         fn num_pages(&self, _args: MergeRequestListBodyArgs) -> Result<Option<u32>> {
             Ok(None)
         }
+        fn approve(&self, _id: i64) -> Result<MergeRequestResponse> {
+            Ok(self.merge_requests[0].clone())
+        }
     }
 
     #[derive(Default)]
@@ -1098,5 +1111,26 @@ mod tests {
              1|New feature|Implement get merge request||https://gitlab.com/owner/repo/-/merge_requests/1||2024-03-03T00:00:00Z|1|https://gitlab.com/owner/repo/-/pipelines/1\n",
             String::from_utf8(writer).unwrap(),
         )
+    }
+
+    #[test]
+    fn test_approve_merge_request_ok() {
+        let approve_response = MergeRequestResponse::builder()
+            .id(1)
+            .web_url("https://gitlab.com/owner/repo/-/merge_requests/1".to_string())
+            .build()
+            .unwrap();
+        let remote = Arc::new(
+            MergeRequestRemoteMock::builder()
+                .merge_requests(vec![approve_response])
+                .build()
+                .unwrap(),
+        );
+        let mut writer = Vec::new();
+        approve(remote, 1, &mut writer).unwrap();
+        assert_eq!(
+            "Merge request approved: https://gitlab.com/owner/repo/-/merge_requests/1\n",
+            String::from_utf8(writer).unwrap(),
+        );
     }
 }
