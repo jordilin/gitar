@@ -24,18 +24,18 @@ enum MergeRequestSubcommand {
     Create(CreateMergeRequest),
     #[clap(about = "Approve a merge request", visible_alias = "ap")]
     Approve(ApproveMergeRequest),
-    /// Get a merge request
-    Get(GetMergeRequest),
-    #[clap(about = "List merge requests", visible_alias = "ls")]
-    List(ListMergeRequest),
     #[clap(about = "Merge a merge request")]
     Merge(MergeMergeRequest),
     #[clap(about = "Git checkout a merge request branch for review")]
     Checkout(CheckoutMergeRequest),
-    #[clap(about = "Close a merge request")]
-    Close(CloseMergeRequest),
     #[clap(about = "Comment on a merge request")]
     Comment(CommentMergeRequest),
+    #[clap(about = "Close a merge request")]
+    Close(CloseMergeRequest),
+    /// Get a merge request
+    Get(GetMergeRequest),
+    #[clap(about = "List merge requests", visible_alias = "ls")]
+    List(ListMergeRequest),
 }
 
 #[derive(Parser)]
