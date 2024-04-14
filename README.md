@@ -201,6 +201,7 @@ In Gitlab they are known as merge requests and in Github as pull requests.
 | Operation | GitLab | GitHub |
 | --------- | -------------- | -------------- |
 | Open  | &#x2714; | &#x2714; |
+| Approve | &#x2714; | &#x2716; |
 | Merge | &#x2714; | &#x2714; |
 | Get merge request details | &#x2714; | &#x2714; |
 | List merge requests by their state | &#x2714;| &#x2714; |
