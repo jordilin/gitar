@@ -20,9 +20,10 @@
         };
 
         inherit (pkgs) lib;
-        rust = pkgs.rust-bin.stable.latest;
-        craneLib = (crane.mkLib pkgs).overrideToolchain rust.default;
-
+        rust = (pkgs.rust-bin.stable.latest.default.override {
+              extensions = [ "rust-src" "llvm-tools-preview" ];
+        });
+        craneLib = (crane.mkLib pkgs).overrideToolchain rust;
         src = lib.cleanSourceWith {
           src = craneLib.path ./.;
         };
@@ -70,12 +71,10 @@
           inherit gr;
         };
 
-        devShell = mkShell {
+        devShells.default = craneLib.devShell {
           inputsFrom = [ gr ];
-          buildInputs = [
-            (rust-bin.stable.latest.default.override {
-              extensions = [ "rust-src" "llvm-tools-preview" ];
-            })
+          checks = self.checks.${system};
+          packages = [
             rust-analyzer
             cargo-tarpaulin
             cargo-audit
