@@ -1,12 +1,13 @@
 use crate::{
     api_traits::{ApiOperation, RemoteProject},
     cli::browse::BrowseOptions,
+    cmds::project::ProjectListBodyArgs,
     error::GRError,
     http::Method::GET,
     io::{CmdInfo, HttpRunner, Response},
     remote::{
         query::{self, github_list_members},
-        Member, Project,
+        Member, Project, URLQueryParamBuilder,
     },
 };
 
@@ -61,8 +62,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
     }
 
     fn list(&self, args: crate::cmds::project::ProjectListBodyArgs) -> Result<Vec<Project>> {
-        let username = args.user.unwrap().username;
-        let url = format!("{}/users/{}/repos", self.rest_api_basepath, username);
+        let url = self.list_project_url(&args, false);
         let projects = query::github_list_projects(
             &self.runner,
             &url,
@@ -72,6 +72,35 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             ApiOperation::Project,
         )?;
         Ok(projects)
+    }
+
+    fn num_pages(&self, args: ProjectListBodyArgs) -> Result<Option<u32>> {
+        let url = self.list_project_url(&args, true);
+        query::num_pages(
+            &self.runner,
+            &url,
+            self.request_headers(),
+            ApiOperation::Project,
+        )
+    }
+}
+
+impl<R> Github<R> {
+    fn list_project_url(&self, args: &ProjectListBodyArgs, num_pages: bool) -> String {
+        let url = if args.stars {
+            format!("{}/user/starred", self.rest_api_basepath)
+        } else {
+            let username = args.user.as_ref().unwrap().clone().username;
+            // TODO - not needed - just /user/repos would do
+            // See: https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-repositories-for-the-authenticated-user
+            format!("{}/users/{}/repos", self.rest_api_basepath, username)
+        };
+        if num_pages {
+            return URLQueryParamBuilder::new(&url)
+                .add_param("page", "1")
+                .build();
+        }
+        url
     }
 }
 
@@ -148,6 +177,7 @@ mod test {
 
     use crate::{
         cmds::project::ProjectListBodyArgs,
+        http::Headers,
         test::utils::{config, get_contract, ContractType, MockRunner},
     };
 
@@ -211,6 +241,106 @@ mod test {
         let projects = github.list(body_args).unwrap();
         assert_eq!(1, projects.len());
         assert_eq!("https://api.github.com/users/jdoe/repos", *client.url());
+        assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_get_my_starred_projects() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let projects = format!("{}", get_contract(ContractType::Github, "stars.json"));
+        let response = Response::builder()
+            .status(200)
+            .body(projects)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github = Github::new(config, &domain, &path, client.clone());
+        let body_args = ProjectListBodyArgs::builder()
+            .from_to_page(None)
+            .user(Some(
+                Member::builder()
+                    .id(1)
+                    .name("jdoe".to_string())
+                    .username("jdoe".to_string())
+                    .build()
+                    .unwrap(),
+            ))
+            .stars(true)
+            .build()
+            .unwrap();
+        let projects = github.list(body_args).unwrap();
+        assert_eq!(1, projects.len());
+        assert_eq!("https://api.github.com/user/starred", *client.url());
+        assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_get_project_num_pages_url_for_user() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let link_header = "<https://api.github.com/users/jdoe/repos?page=2>; rel=\"next\", <https://api.github.com/users/jdoe/repos?page=2>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github = Github::new(config, &domain, &path, client.clone());
+        let body_args = ProjectListBodyArgs::builder()
+            .from_to_page(None)
+            .user(Some(
+                Member::builder()
+                    .id(1)
+                    .name("jdoe".to_string())
+                    .username("jdoe".to_string())
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
+        github.num_pages(body_args).unwrap();
+        assert_eq!(
+            "https://api.github.com/users/jdoe/repos?page=1",
+            *client.url()
+        );
+        assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_get_project_num_pages_url_for_starred() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let link_header = "<https://api.github.com/user/starred?page=2>; rel=\"next\", <https://api.github.com/user/starred?page=2>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github = Github::new(config, &domain, &path, client.clone());
+        let body_args = ProjectListBodyArgs::builder()
+            .from_to_page(None)
+            .user(Some(
+                Member::builder()
+                    .id(1)
+                    .name("jdoe".to_string())
+                    .username("jdoe".to_string())
+                    .build()
+                    .unwrap(),
+            ))
+            .stars(true)
+            .build()
+            .unwrap();
+        github.num_pages(body_args).unwrap();
+        assert_eq!("https://api.github.com/user/starred?page=1", *client.url());
         assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
     }
 }

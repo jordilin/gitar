@@ -7,6 +7,7 @@ pub mod merge_request;
 pub mod my;
 pub mod project;
 pub mod release;
+pub mod star;
 
 use self::browse::BrowseCommand;
 use self::browse::BrowseOptions;

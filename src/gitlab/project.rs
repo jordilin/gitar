@@ -4,7 +4,7 @@ use crate::cmds::project::ProjectListBodyArgs;
 use crate::http::{self};
 use crate::io::{CmdInfo, HttpRunner, Response};
 use crate::remote::query::{self, gitlab_list_members};
-use crate::remote::{Member, Project};
+use crate::remote::{Member, Project, URLQueryParamBuilder};
 use crate::Result;
 
 use super::Gitlab;
@@ -50,7 +50,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
     }
 
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Project>> {
-        let url = format!("{}/{}/projects", self.base_users_url, args.user.unwrap().id);
+        let url = self.list_project_url(&args, false);
         let projects = query::gitlab_list_projects(
             &self.runner,
             &url,
@@ -60,6 +60,28 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
             ApiOperation::Project,
         )?;
         Ok(projects)
+    }
+
+    fn num_pages(&self, args: ProjectListBodyArgs) -> Result<Option<u32>> {
+        let url = self.list_project_url(&args, true);
+        query::num_pages(&self.runner, &url, self.headers(), ApiOperation::Project)
+    }
+}
+
+impl<R> Gitlab<R> {
+    fn list_project_url(&self, args: &ProjectListBodyArgs, num_pages: bool) -> String {
+        let user = args.user.as_ref().unwrap().clone();
+        let url = if args.stars {
+            format!("{}/{}/starred_projects", self.base_users_url, user.id)
+        } else {
+            format!("{}/{}/projects", self.base_users_url, user.id)
+        };
+        if num_pages {
+            return URLQueryParamBuilder::new(&url)
+                .add_param("page", "1")
+                .build();
+        }
+        url
     }
 }
 
@@ -125,6 +147,7 @@ mod test {
 
     use crate::api_traits::ApiOperation;
     use crate::cmds::project::ProjectListBodyArgs;
+    use crate::http::Headers;
     use crate::test::utils::{config, get_contract, ContractType, MockRunner};
 
     use crate::io::CmdInfo;
@@ -233,5 +256,120 @@ mod test {
         );
         assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
         assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_get_my_starred_projects() {
+        let config = config();
+        let domain = "gitlab.com";
+        let path = "jordilin/gitlapi";
+        let projects = format!("{}", get_contract(ContractType::Gitlab, "stars.json"));
+        let response = Response::builder()
+            .status(200)
+            .body(projects)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+
+        let body_args = ProjectListBodyArgs::builder()
+            .from_to_page(None)
+            .user(Some(
+                Member::builder()
+                    .id(1)
+                    .name("jordi".to_string())
+                    .username("jordilin".to_string())
+                    .build()
+                    .unwrap(),
+            ))
+            .stars(true)
+            .build()
+            .unwrap();
+        gitlab.list(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/users/1/starred_projects",
+            client.url().to_string(),
+        );
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_get_num_pages_url_for_user_projects() {
+        let config = config();
+        let domain = "gitlab.com";
+        let path = "jordilin/gitlapi";
+        let link_headers = "<https://gitlab.com/api/v4/users/1/projects?page=2&per_page=20>; rel=\"next\", <https://gitlab.com/api/v4/users/1/projects?page=2&per_page=20>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_headers);
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "project.json"))
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+        let body_args = ProjectListBodyArgs::builder()
+            .from_to_page(None)
+            .user(Some(
+                Member::builder()
+                    .id(1)
+                    .name("jordi".to_string())
+                    .username("jordilin".to_string())
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
+        gitlab.num_pages(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/users/1/projects?page=1",
+            client.url().to_string(),
+        );
+        assert_eq!(
+            ApiOperation::Project,
+            *client.api_operation.borrow().as_ref().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_get_project_num_pages_url_for_starred() {
+        let config = config();
+        let domain = "gitlab.com";
+        let path = "jordilin/gitlapi";
+        let link_headers = "<https://gitlab.com/api/v4/users/1/starred_projects?page=2&per_page=20>; rel=\"next\", <https://gitlab.com/api/v4/users/1/starred_projects?page=2&per_page=20>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_headers);
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "project.json"))
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+        let body_args = ProjectListBodyArgs::builder()
+            .from_to_page(None)
+            .user(Some(
+                Member::builder()
+                    .id(1)
+                    .name("jordi".to_string())
+                    .username("jordilin".to_string())
+                    .build()
+                    .unwrap(),
+            ))
+            .stars(true)
+            .build()
+            .unwrap();
+        gitlab.num_pages(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/users/1/starred_projects?page=1",
+            client.url().to_string(),
+        );
+        assert_eq!(
+            ApiOperation::Project,
+            *client.api_operation.borrow().as_ref().unwrap()
+        );
     }
 }

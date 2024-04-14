@@ -2,7 +2,7 @@ use clap::Parser;
 
 use crate::cmds::{merge_request::MergeRequestListCliArgs, project::ProjectListCliArgs};
 
-use super::{merge_request::ListMergeRequest, project::ListProject};
+use super::{common::ListArgs, merge_request::ListMergeRequest, project::ListProject};
 
 #[derive(Parser)]
 pub struct MyCommand {
@@ -16,6 +16,8 @@ enum MySubcommand {
     MergeRequest(ListMergeRequest),
     #[clap(about = "Lists your projects", name = "pj")]
     Project(ListProject),
+    #[clap(about = "Lists your starred projects", name = "st")]
+    Star(ListStar),
 }
 
 pub enum MyOptions {
@@ -28,6 +30,7 @@ impl From<MyCommand> for MyOptions {
         match options.subcommand {
             MySubcommand::MergeRequest(options) => options.into(),
             MySubcommand::Project(options) => options.into(),
+            MySubcommand::Star(options) => options.into(),
         }
     }
 }
@@ -46,6 +49,24 @@ impl From<ListProject> for MyOptions {
         MyOptions::Project(
             ProjectListCliArgs::builder()
                 .list_args(options.list_args.into())
+                .build()
+                .unwrap(),
+        )
+    }
+}
+
+#[derive(Parser)]
+pub struct ListStar {
+    #[clap(flatten)]
+    pub list_args: ListArgs,
+}
+
+impl From<ListStar> for MyOptions {
+    fn from(options: ListStar) -> Self {
+        MyOptions::Project(
+            ProjectListCliArgs::builder()
+                .list_args(options.list_args.into())
+                .stars(true)
                 .build()
                 .unwrap(),
         )
@@ -94,6 +115,22 @@ mod tests {
         match options {
             MyOptions::Project(_) => {}
             _ => panic!("Expected MyOptions::Project"),
+        }
+    }
+
+    #[test]
+    fn test_my_stars_cli_args() {
+        let args = Args::parse_from(vec!["gr", "my", "st"]);
+        let my_command = match args.command {
+            Command::My(MyCommand {
+                subcommand: MySubcommand::Star(options),
+            }) => options,
+            _ => panic!("Expected MyCommand"),
+        };
+        let options: MyOptions = my_command.into();
+        match options {
+            MyOptions::Project(_) => {}
+            _ => panic!("Expected MyOptions::Star"),
         }
     }
 }

@@ -16,6 +16,9 @@ def _verify_all_keys_exist(expected, actual):
 
 def _verify_types_of_values(expected, actual):
     for key in expected:
+        if expected[key] is None or actual[key] is None:
+            # Avoid flaky checks - mostly due to optional fields
+            continue
         if type(expected[key]) != type(actual[key]):
             print(
                 "Type mismatch for key [{}]: expected [{}] but got [{}]".format(

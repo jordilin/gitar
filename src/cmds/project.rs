@@ -15,6 +15,8 @@ use std::sync::Arc;
 #[derive(Builder)]
 pub struct ProjectListCliArgs {
     pub list_args: ListRemoteCliArgs,
+    #[builder(default)]
+    pub stars: bool,
 }
 
 impl ProjectListCliArgs {
@@ -27,6 +29,8 @@ impl ProjectListCliArgs {
 pub struct ProjectListBodyArgs {
     pub from_to_page: Option<ListBodyArgs>,
     pub user: Option<Member>,
+    #[builder(default)]
+    pub stars: bool,
 }
 
 impl ProjectListBodyArgs {
@@ -111,6 +115,10 @@ mod test {
         }
 
         fn list(&self, _args: ProjectListBodyArgs) -> Result<Vec<Project>> {
+            todo!()
+        }
+
+        fn num_pages(&self, _args: ProjectListBodyArgs) -> Result<Option<u32>> {
             todo!()
         }
     }

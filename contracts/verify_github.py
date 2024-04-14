@@ -147,6 +147,16 @@ def list_issues_user_api():
     return data[0]
 
 
+def list_user_stars_api():
+    url = "https://api.github.com/user/starred"
+    headers = get_headers()
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    if args.persist:
+        persist_contract("stars.json", REMOTE, data)
+    return data[0]
+
+
 class TestAPI:
     def __init__(self, callback, msg, *expected):
         self.callback = callback
@@ -186,6 +196,11 @@ if __name__ == "__main__":
             list_issues_user_api,
             "list issues user API contract",
             get_contract_json("list_issues_user.json", REMOTE),
+        ),
+        TestAPI(
+            list_user_stars_api,
+            "list user stars API contract",
+            get_contract_json("stars.json", REMOTE),
         ),
     ]
     if not validate_responses(testcases):

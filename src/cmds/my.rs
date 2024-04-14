@@ -33,15 +33,15 @@ pub fn execute(
                 cli_args.list_args.get_args.refresh_cache,
             )?;
             let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
-            list_user_projects(
-                remote,
-                ProjectListBodyArgs::builder()
-                    .from_to_page(from_to_args)
-                    .user(Some(user))
-                    .build()?,
-                cli_args,
-                std::io::stdout(),
-            )
+            let body_args = ProjectListBodyArgs::builder()
+                .from_to_page(from_to_args)
+                .user(Some(user))
+                .stars(cli_args.stars)
+                .build()?;
+            if cli_args.list_args.num_pages {
+                return common::num_project_pages(remote, body_args, std::io::stdout());
+            }
+            list_user_projects(remote, body_args, cli_args, std::io::stdout())
         }
     }
 }
@@ -103,6 +103,10 @@ mod tests {
         }
 
         fn get_url(&self, _option: crate::cli::browse::BrowseOptions) -> String {
+            todo!()
+        }
+
+        fn num_pages(&self, _args: ProjectListBodyArgs) -> Result<Option<u32>> {
             todo!()
         }
     }

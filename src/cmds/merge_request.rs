@@ -16,7 +16,7 @@ use std::{
     sync::Arc,
 };
 
-use super::common::{self, process_num_pages};
+use super::common;
 
 #[derive(Builder, Clone)]
 pub struct MergeRequestCliArgs {
@@ -187,7 +187,7 @@ pub fn list_merge_requests(
         .assignee_id(assignee_id)
         .build()?;
     if cli_args.list_args.num_pages {
-        return process_num_pages(remote.num_pages(body_args), std::io::stdout());
+        return common::num_merge_request_pages(remote, body_args, std::io::stdout());
     }
     list(remote, body_args, cli_args, std::io::stdout())
 }
@@ -812,6 +812,10 @@ mod tests {
         }
 
         fn list(&self, _args: ProjectListBodyArgs) -> Result<Vec<Project>> {
+            todo!()
+        }
+
+        fn num_pages(&self, _args: ProjectListBodyArgs) -> Result<Option<u32>> {
             todo!()
         }
     }
