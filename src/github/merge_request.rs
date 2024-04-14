@@ -247,6 +247,10 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         let headers = self.request_headers();
         query::num_pages(&self.runner, &url, headers, ApiOperation::MergeRequest)
     }
+
+    fn approve(&self, _id: i64) -> Result<MergeRequestResponse> {
+        todo!()
+    }
 }
 
 impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Github<R> {

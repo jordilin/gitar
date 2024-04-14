@@ -22,18 +22,20 @@ pub struct MergeRequestCommand {
 enum MergeRequestSubcommand {
     #[clap(about = "Creates a merge request", visible_alias = "cr")]
     Create(CreateMergeRequest),
-    /// Get a merge request
-    Get(GetMergeRequest),
-    #[clap(about = "List merge requests", visible_alias = "ls")]
-    List(ListMergeRequest),
+    #[clap(about = "Approve a merge request", visible_alias = "ap")]
+    Approve(ApproveMergeRequest),
     #[clap(about = "Merge a merge request")]
     Merge(MergeMergeRequest),
     #[clap(about = "Git checkout a merge request branch for review")]
     Checkout(CheckoutMergeRequest),
-    #[clap(about = "Close a merge request")]
-    Close(CloseMergeRequest),
     #[clap(about = "Comment on a merge request")]
     Comment(CommentMergeRequest),
+    #[clap(about = "Close a merge request")]
+    Close(CloseMergeRequest),
+    /// Get a merge request
+    Get(GetMergeRequest),
+    #[clap(about = "List merge requests", visible_alias = "ls")]
+    List(ListMergeRequest),
 }
 
 #[derive(Parser)]
@@ -142,6 +144,13 @@ struct CloseMergeRequest {
     pub id: i64,
 }
 
+#[derive(Parser)]
+struct ApproveMergeRequest {
+    /// Id of the merge request
+    #[clap()]
+    pub id: i64,
+}
+
 impl From<ListMergeRequest> for MergeRequestOptions {
     fn from(options: ListMergeRequest) -> Self {
         MergeRequestOptions::List(MergeRequestListCliArgs::new(
@@ -169,6 +178,12 @@ impl From<CloseMergeRequest> for MergeRequestOptions {
     }
 }
 
+impl From<ApproveMergeRequest> for MergeRequestOptions {
+    fn from(options: ApproveMergeRequest) -> Self {
+        MergeRequestOptions::Approve { id: options.id }
+    }
+}
+
 impl From<MergeRequestCommand> for MergeRequestOptions {
     fn from(options: MergeRequestCommand) -> Self {
         match options.subcommand {
@@ -179,6 +194,7 @@ impl From<MergeRequestCommand> for MergeRequestOptions {
             MergeRequestSubcommand::Close(options) => options.into(),
             MergeRequestSubcommand::Comment(options) => options.into(),
             MergeRequestSubcommand::Get(options) => options.into(),
+            MergeRequestSubcommand::Approve(options) => options.into(),
         }
     }
 }
@@ -234,6 +250,7 @@ pub enum MergeRequestOptions {
     Get(MergeRequestGetCliArgs),
     List(MergeRequestListCliArgs),
     Comment(CommentMergeRequestCliArgs),
+    Approve { id: i64 },
     Merge { id: i64 },
     Checkout { id: i64 },
     Close { id: i64 },

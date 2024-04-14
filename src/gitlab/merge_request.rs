@@ -1,4 +1,5 @@
-use crate::api_traits::{ApiOperation, CommentMergeRequest};
+use crate::api_traits::{ApiOperation, CommentMergeRequest, RemoteProject};
+use crate::cli::browse::BrowseOptions;
 use crate::cmds::merge_request::CommentMergeRequestBodyArgs;
 use crate::error;
 use crate::http::Method::GET;
@@ -130,6 +131,25 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         headers.set("PRIVATE-TOKEN", self.api_token());
         query::num_pages(&self.runner, &url, headers, ApiOperation::MergeRequest)
     }
+
+    fn approve(&self, id: i64) -> Result<MergeRequestResponse> {
+        let url = format!("{}/merge_requests/{}/approve", self.rest_api_basepath(), id);
+        let result = query::gitlab_merge_request::<_, ()>(
+            &self.runner,
+            &url,
+            None,
+            self.headers(),
+            http::Method::POST,
+            ApiOperation::MergeRequest,
+        );
+        // responses in approvals for Gitlab do not contain the merge request
+        // URL, patch it in the response.
+        if let Ok(mut response) = result {
+            response.web_url = self.get_url(BrowseOptions::MergeRequestId(id));
+            return Ok(response);
+        }
+        result
+    }
 }
 
 impl<R> Gitlab<R> {
@@ -191,13 +211,19 @@ pub struct GitlabMergeRequestFields {
 impl From<&serde_json::Value> for GitlabMergeRequestFields {
     fn from(data: &serde_json::Value) -> Self {
         GitlabMergeRequestFields {
-            id: data["iid"].as_i64().unwrap(),
-            web_url: data["web_url"].as_str().unwrap().to_string(),
-            source_branch: data["source_branch"].as_str().unwrap().to_string(),
-            author: data["author"]["username"].as_str().unwrap().to_string(),
-            updated_at: data["updated_at"].as_str().unwrap().to_string(),
-            created_at: data["created_at"].as_str().unwrap().to_string(),
-            title: data["title"].as_str().unwrap().to_string(),
+            id: data["iid"].as_i64().unwrap_or_default(),
+            web_url: data["web_url"].as_str().unwrap_or_default().to_string(),
+            source_branch: data["source_branch"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+            author: data["author"]["username"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+            updated_at: data["updated_at"].as_str().unwrap_or_default().to_string(),
+            created_at: data["created_at"].as_str().unwrap_or_default().to_string(),
+            title: data["title"].as_str().unwrap_or_default().to_string(),
             description: data["description"].as_str().unwrap_or_default().to_string(),
             // If merge request is not merged, merged_at is an empty string.
             merged_at: data["merged_at"].as_str().unwrap_or_default().to_string(),
@@ -589,6 +615,49 @@ mod test {
             *client.url()
         );
         assert_eq!(http::Method::PUT, *client.http_method.borrow());
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_approve_merge_request_ok() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(
+                ContractType::Gitlab,
+                "approve_merge_request.json",
+            ))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn MergeRequest> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let merge_request_id = 33;
+        let result = gitlab.approve(merge_request_id);
+        match result {
+            Ok(response) => {
+                assert_eq!(
+                    "https://gitlab.com/jordilin/gitlapi/-/merge_requests/33",
+                    response.web_url
+                );
+            }
+            Err(e) => {
+                panic!(
+                    "Expected Ok merge request approval but got: {:?} instead",
+                    e
+                );
+            }
+        }
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/33/approve",
+            *client.url()
+        );
+        assert_eq!(http::Method::POST, *client.http_method.borrow());
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()

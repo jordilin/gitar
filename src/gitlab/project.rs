@@ -44,7 +44,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
         match option {
             BrowseOptions::Repo => base_url,
             BrowseOptions::MergeRequests => format!("{}/merge_requests", base_url),
-            BrowseOptions::MergeRequestId(id) => format!("{}/merge_requests/{}", base_url, id),
+            BrowseOptions::MergeRequestId(id) => format!("{}/-/merge_requests/{}", base_url, id),
             BrowseOptions::Pipelines => format!("{}/pipelines", base_url),
         }
     }
