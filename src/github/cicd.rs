@@ -261,7 +261,7 @@ mod test {
         let response = Response::builder().status(200).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
-        assert!(github.num_pages().is_err());
+        assert_eq!(Some(1), github.num_pages().unwrap());
     }
 
     #[test]
