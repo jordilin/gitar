@@ -51,13 +51,18 @@ pub fn num_pages<R: HttpRunner<Response = Response>>(
         .build()
         .unwrap();
     let response = runner.run(&mut request)?;
-    let page_header = response
-        .get_page_headers()
-        .ok_or_else(|| error::gen(format!("Failed to get page headers for URL: {}", url)))?;
-    if let Some(last_page) = page_header.last {
-        return Ok(Some(last_page.number));
+    let page_header = response.get_page_headers();
+    match page_header {
+        Some(page_header) => {
+            if let Some(last_page) = page_header.last {
+                return Ok(Some(last_page.number));
+            }
+            Ok(None)
+        }
+        // Github does not return page headers when there is only one page, so
+        // we assume 1 page in this case.
+        None => Ok(Some(1)),
     }
-    Ok(None)
 }
 
 fn query_error(url: &str, response: &Response) -> error::GRError {
@@ -327,3 +332,21 @@ send!(
 );
 
 send!(create_merge_request_comment, Response);
+
+#[cfg(test)]
+mod test {
+    use crate::test::utils::MockRunner;
+
+    use super::*;
+
+    #[test]
+    fn test_numpages_assume_one_if_pages_not_available() {
+        let response = Response::builder().status(200).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let url = "https://github.com/api/v4/projects/1/pipelines";
+        let headers = Headers::new();
+        let operation = ApiOperation::Pipeline;
+        let num_pages = num_pages(&client, url, headers, operation).unwrap();
+        assert_eq!(Some(1), num_pages);
+    }
+}

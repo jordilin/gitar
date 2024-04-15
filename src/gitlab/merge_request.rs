@@ -457,7 +457,7 @@ mod test {
             .assignee_id(None)
             .build()
             .unwrap();
-        assert!(gitlab.num_pages(body_args).is_err());
+        assert_eq!(Some(1), gitlab.num_pages(body_args).unwrap());
     }
 
     #[test]
