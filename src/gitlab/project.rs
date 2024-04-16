@@ -10,7 +10,7 @@ use crate::Result;
 use super::Gitlab;
 
 impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
-    fn get_project_data(&self, id: Option<i64>) -> Result<CmdInfo> {
+    fn get_project_data(&self, id: Option<i64>, _path: Option<&str>) -> Result<CmdInfo> {
         let url = match id {
             Some(id) => format!("{}/{}", self.base_project_url, id),
             None => self.rest_api_basepath().to_string(),
@@ -166,7 +166,7 @@ mod test {
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab = Gitlab::new(config, &domain, &path, client.clone());
-        gitlab.get_project_data(None).unwrap();
+        gitlab.get_project_data(None, None).unwrap();
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi",
             client.url().to_string(),
@@ -187,7 +187,7 @@ mod test {
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let gitlab = Gitlab::new(config, &domain, &path, client.clone());
-        gitlab.get_project_data(Some(54345)).unwrap();
+        gitlab.get_project_data(Some(54345), None).unwrap();
         assert_eq!(
             "https://gitlab.com/api/v4/projects/54345",
             client.url().to_string(),

@@ -15,7 +15,7 @@ use super::Github;
 use crate::Result;
 
 impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
-    fn get_project_data(&self, id: Option<i64>) -> Result<CmdInfo> {
+    fn get_project_data(&self, id: Option<i64>, _path: Option<&str>) -> Result<CmdInfo> {
         if let Some(id) = id {
             return Err(GRError::OperationNotSupported(format!(
                 "Getting project data by id is not supported in Github: {}",
@@ -195,7 +195,7 @@ mod test {
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let github = Github::new(config, &domain, &path, client.clone());
-        github.get_project_data(None).unwrap();
+        github.get_project_data(None, None).unwrap();
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi",
             *client.url(),
@@ -210,7 +210,7 @@ mod test {
         let path = "jordilin/githapi";
         let client = Arc::new(MockRunner::new(vec![]));
         let github = Github::new(config, &domain, &path, client.clone());
-        assert!(github.get_project_data(Some(1)).is_err());
+        assert!(github.get_project_data(Some(1), None).is_err());
     }
 
     #[test]

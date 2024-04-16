@@ -72,7 +72,7 @@ fn project_info<W: Write>(
     id: Option<i64>,
     get_args: GetRemoteCliArgs,
 ) -> Result<()> {
-    let CmdInfo::Project(project_data) = remote.get_project_data(id)? else {
+    let CmdInfo::Project(project_data) = remote.get_project_data(id, None)? else {
         return Err(error::GRError::ApplicationError(
             "remote.get_project_data expects CmdInfo::Project invariant".to_string(),
         )
@@ -96,7 +96,11 @@ mod test {
     }
 
     impl RemoteProject for ProjectDataProvider {
-        fn get_project_data(&self, _id: Option<i64>) -> crate::Result<CmdInfo> {
+        fn get_project_data(
+            &self,
+            _id: Option<i64>,
+            _path: Option<&str>,
+        ) -> crate::Result<CmdInfo> {
             if self.error {
                 return Err(error::gen("Error"));
             }

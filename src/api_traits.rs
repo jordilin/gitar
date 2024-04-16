@@ -29,10 +29,13 @@ pub trait MergeRequest {
 }
 
 pub trait RemoteProject {
-    fn get_project_data(&self, id: Option<i64>) -> Result<CmdInfo>;
+    /// Get the project data from the remote API. Implementors will need to pass
+    /// either an `id` or a `path`. The `path` should be in the format
+    /// `OWNER/PROJECT_NAME`
+    fn get_project_data(&self, id: Option<i64>, path: Option<&str>) -> Result<CmdInfo>;
     fn get_project_members(&self) -> Result<CmdInfo>;
-    // User requests to open a browser using the remote url. It can open the
-    // merge/pull requests, pipeline, issues, etc.
+    /// User requests to open a browser using the remote url. It can open the
+    /// merge/pull requests, pipeline, issues, etc.
     fn get_url(&self, option: BrowseOptions) -> String;
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Project>>;
     fn num_pages(&self, args: ProjectListBodyArgs) -> Result<Option<u32>>;
