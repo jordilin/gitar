@@ -68,5 +68,5 @@ impl<R> Gitlab<R> {
 }
 
 fn encode_path(path: &str) -> String {
-    path.replace("/", "%2F")
+    path.replace('/', "%2F")
 }
