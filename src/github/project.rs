@@ -15,7 +15,11 @@ use super::Github;
 use crate::Result;
 
 impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
-    fn get_project_data(&self, id: Option<i64>, _path: Option<&str>) -> Result<CmdInfo> {
+    fn get_project_data(&self, id: Option<i64>, path: Option<&str>) -> Result<CmdInfo> {
+        // NOTE: What I call project in here is understood as repository in
+        // Github parlance. In Github there is also the concept of having
+        // projects in a given repository. Getting a repository by ID is not
+        // supported in their REST API.
         if let Some(id) = id {
             return Err(GRError::OperationNotSupported(format!(
                 "Getting project data by id is not supported in Github: {}",
@@ -23,7 +27,11 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             ))
             .into());
         };
-        let url = format!("{}/repos/{}", self.rest_api_basepath, self.path);
+        let url = if let Some(path) = path {
+            format!("{}/repos/{}", self.rest_api_basepath, path)
+        } else {
+            format!("{}/repos/{}", self.rest_api_basepath, self.path)
+        };
         let project = query::github_project_data::<_, ()>(
             &self.runner,
             &url,
@@ -201,6 +209,28 @@ mod test {
             *client.url(),
         );
         assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_get_project_data_given_owner_repo_path() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "rayon-rs/rayon";
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Github, "project.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github = Github::new(config, &domain, &path, client.clone());
+        let result = github.get_project_data(None, Some("jordilin/gitar"));
+        assert_eq!("https://api.github.com/repos/jordilin/gitar", *client.url(),);
+        match result {
+            Ok(CmdInfo::Project(project)) => {
+                assert_eq!(123456, project.id);
+            }
+            _ => panic!("Expected project data"),
+        }
     }
 
     #[test]

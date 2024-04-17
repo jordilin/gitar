@@ -1,6 +1,8 @@
 use crate::api_traits::{ApiOperation, RemoteProject};
 use crate::cli::browse::BrowseOptions;
 use crate::cmds::project::ProjectListBodyArgs;
+use crate::error::GRError;
+use crate::gitlab::encode_path;
 use crate::http::{self};
 use crate::io::{CmdInfo, HttpRunner, Response};
 use crate::remote::query::{self, gitlab_list_members};
@@ -10,10 +12,20 @@ use crate::Result;
 use super::Gitlab;
 
 impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
-    fn get_project_data(&self, id: Option<i64>, _path: Option<&str>) -> Result<CmdInfo> {
-        let url = match id {
-            Some(id) => format!("{}/{}", self.base_project_url, id),
-            None => self.rest_api_basepath().to_string(),
+    fn get_project_data(&self, id: Option<i64>, path: Option<&str>) -> Result<CmdInfo> {
+        let url = match (id, path) {
+            (Some(id), None) => format!("{}/{}", self.base_project_url, id),
+            (None, Some(path)) => {
+                format!("{}/{}", self.base_project_url, encode_path(path))
+            }
+            (None, None) => self.rest_api_basepath().to_string(),
+            (Some(_), Some(_)) => {
+                return Err(GRError::ApplicationError(
+                    "Invalid arguments, can only get project data by id or by owner/repo path"
+                        .to_string(),
+                )
+                .into());
+            }
         };
         let project = query::gitlab_project_data::<_, ()>(
             &self.runner,
@@ -194,6 +206,55 @@ mod test {
         );
         assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
         assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_get_project_data_given_owner_repo_path() {
+        let config = config();
+        let domain = "gitlab.com";
+        // current repository path where user is cd'd into.
+        let path = "gitlab-org/gitlab-foss";
+        let response = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "project.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+        // User requests information on a different repository.
+        let result = gitlab.get_project_data(None, Some("jordilin/gitlapi"));
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi",
+            client.url().to_string(),
+        );
+        match result {
+            Ok(CmdInfo::Project(project)) => {
+                assert_eq!(44438708, project.id);
+            }
+            _ => panic!("Expected project"),
+        }
+    }
+
+    #[test]
+    fn test_get_project_data_error_if_both_id_and_path_given() {
+        let config = config();
+        let domain = "gitlab.com";
+        let path = "jordilin/gitlapi";
+        let client = Arc::new(MockRunner::new(vec![]));
+        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+        let result = gitlab.get_project_data(Some(54345), Some("jordilin/gitlapi"));
+        match result {
+            Err(err) => match err.downcast_ref::<GRError>() {
+                Some(GRError::ApplicationError(msg)) => {
+                    assert_eq!(
+                        "Invalid arguments, can only get project data by id or by owner/repo path",
+                        msg
+                    );
+                }
+                _ => panic!("Expected ApplicationError"),
+            },
+            _ => panic!("Expected ApplicationError"),
+        }
     }
 
     #[test]
