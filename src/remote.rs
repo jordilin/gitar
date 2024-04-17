@@ -20,7 +20,7 @@ pub mod query;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Project {
-    id: i64,
+    pub id: i64,
     default_branch: String,
     members: Vec<Member>,
     html_url: String,

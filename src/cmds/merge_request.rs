@@ -298,7 +298,7 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
     reader: Option<R>,
 ) -> Vec<Cmd<CmdInfo>> {
     let remote_cl = remote.clone();
-    let remote_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data(None) };
+    let remote_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data(None, None) };
     let remote_members_cmd = move || -> Result<CmdInfo> { remote.get_project_members() };
     let status_runner = task_runner.clone();
     let git_status_cmd = || -> Result<CmdInfo> { git::status(status_runner) };
@@ -797,7 +797,7 @@ mod tests {
         comment_argument: Mutex<String>,
     }
     impl RemoteProject for MockRemoteProject {
-        fn get_project_data(&self, _id: Option<i64>) -> Result<CmdInfo> {
+        fn get_project_data(&self, _id: Option<i64>, _path: Option<&str>) -> Result<CmdInfo> {
             let project = Project::new(1, "main");
             Ok(CmdInfo::Project(project))
         }

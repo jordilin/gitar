@@ -28,7 +28,7 @@ impl<R> Gitlab<R> {
     pub fn new(config: impl ConfigProperties, domain: &str, path: &str, runner: Arc<R>) -> Self {
         let api_token = config.api_token().to_string();
         let domain = domain.to_string();
-        let encoded_path = path.replace('/', "%2F");
+        let encoded_path = encode_path(path);
         let api_path = "api/v4";
         let protocol = "https";
         let base_api_path = format!("{}://{}/{}", protocol, domain, api_path);
@@ -65,4 +65,8 @@ impl<R> Gitlab<R> {
         headers.set("PRIVATE-TOKEN", self.api_token());
         headers
     }
+}
+
+fn encode_path(path: &str) -> String {
+    path.replace('/', "%2F")
 }

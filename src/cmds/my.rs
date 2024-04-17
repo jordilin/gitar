@@ -94,7 +94,11 @@ mod tests {
             Ok(self.projects.clone())
         }
 
-        fn get_project_data(&self, _id: Option<i64>) -> Result<crate::io::CmdInfo> {
+        fn get_project_data(
+            &self,
+            _id: Option<i64>,
+            _path: Option<&str>,
+        ) -> Result<crate::io::CmdInfo> {
             todo!()
         }
 

@@ -19,10 +19,21 @@ enum ProjectSubcommand {
 #[derive(Parser)]
 struct ProjectInfo {
     /// ID of the project
-    #[clap(long)]
+    #[clap(long, group = "id_or_repo")]
     pub id: Option<i64>,
+    /// Path of the project in the format `OWNER/PROJECT_NAME`
+    #[clap(long, group = "id_or_repo", value_name = "OWNER/PROJECT_NAME", value_parser=validate_project_repo_path)]
+    pub repo: Option<String>,
     #[clap(flatten)]
     pub get_args: GetArgs,
+}
+
+fn validate_project_repo_path(path: &str) -> Result<String, String> {
+    if path.contains('/') && path.split('/').count() == 2 {
+        Ok(path.to_string())
+    } else {
+        Err("Path must be in the format `OWNER/PROJECT_NAME`".to_string())
+    }
 }
 
 #[derive(Parser)]
@@ -44,6 +55,7 @@ impl From<ProjectInfo> for ProjectOptions {
         ProjectOptions::Info(
             ProjectMetadataGetCliArgs::builder()
                 .id(options.id)
+                .path(options.repo)
                 .get_args(options.get_args.into())
                 .build()
                 .unwrap(),
@@ -79,5 +91,13 @@ mod test {
                 assert_eq!(options.id, Some(1));
             }
         }
+    }
+
+    #[test]
+    fn test_validate_project_repo_path() {
+        assert!(validate_project_repo_path("owner/project").is_ok());
+        assert!(validate_project_repo_path("owner/project/extra").is_err());
+        assert!(validate_project_repo_path("owner").is_err());
+        assert!(validate_project_repo_path("owner/project/extra/extra").is_err());
     }
 }
