@@ -1,9 +1,10 @@
 use crate::api_traits::{ApiOperation, CommentMergeRequest, RemoteProject};
 use crate::cli::browse::BrowseOptions;
 use crate::cmds::merge_request::CommentMergeRequestBodyArgs;
-use crate::error;
+use crate::error::{self, GRError};
 use crate::http::Method::GET;
 use crate::http::{self, Body, Headers};
+use crate::io::CmdInfo;
 use crate::remote::{query, MergeRequestListBodyArgs};
 use crate::Result;
 use crate::{
@@ -25,6 +26,27 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         body.add("assignee_id", args.assignee_id);
         body.add("description", args.description);
         body.add("remove_source_branch", args.remove_source_branch);
+        // if target repo provided, add target_project_id in the payload
+        if !args.target_repo.is_empty() {
+            match self.get_project_data(None, Some(&args.target_repo)) {
+                Ok(CmdInfo::Project(project)) => {
+                    body.add("target_project_id", project.id.to_string());
+                }
+                Ok(_) => {
+                    // Application error - any other CmdInfo variant is unexpected
+                    return Err(GRError::ApplicationError(
+                        "Failed to get target project data".to_string(),
+                    )
+                    .into());
+                }
+                Err(e) => {
+                    return Err(error::gen(format!(
+                        "Could not get target project data for {} with error {}",
+                        args.target_repo, e
+                    )))
+                }
+            }
+        }
         let url = format!("{}/merge_requests", self.rest_api_basepath());
         let response = query::gitlab_merge_request_response(
             &self.runner,
@@ -343,6 +365,38 @@ mod test {
         assert!(gitlab.open(mr_args).is_ok());
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests",
+            *client.url(),
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_open_merge_request_target_repo() {
+        let config = config();
+        let mr_args = MergeRequestBodyArgs::builder()
+            .target_repo("jordilin/gitar".to_string())
+            .build()
+            .unwrap();
+        let domain = "gitlab.com".to_string();
+        let path = "jdoe/gitar";
+        let response_project_target = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Gitlab, "project.json"))
+            .build()
+            .unwrap();
+        let response = Response::builder()
+            .status(201)
+            .body(get_contract(ContractType::Gitlab, "merge_request.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response, response_project_target]));
+        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+        assert!(gitlab.open(mr_args).is_ok());
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jdoe%2Fgitar/merge_requests",
             *client.url(),
         );
         assert_eq!(
