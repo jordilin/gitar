@@ -218,6 +218,7 @@ fn user_prompt_confirmation(
             .description(description)
             .source_branch(mr_body.repo.current_branch().to_string())
             .target_branch(target_branch.to_string())
+            .target_repo(cli_args.target_repo.as_ref().unwrap().clone())
             .assignee_id("".to_string())
             .username("".to_string())
             .remove_source_branch("true".to_string())
