@@ -2,7 +2,7 @@ use clap::Parser;
 
 use crate::cmds::project::ProjectMetadataGetCliArgs;
 
-use super::common::{GetArgs, ListArgs};
+use super::common::{validate_project_repo_path, GetArgs, ListArgs};
 
 #[derive(Parser)]
 pub struct ProjectCommand {
@@ -26,14 +26,6 @@ struct ProjectInfo {
     pub repo: Option<String>,
     #[clap(flatten)]
     pub get_args: GetArgs,
-}
-
-fn validate_project_repo_path(path: &str) -> Result<String, String> {
-    if path.contains('/') && path.split('/').count() == 2 {
-        Ok(path.to_string())
-    } else {
-        Err("Path must be in the format `OWNER/PROJECT_NAME`".to_string())
-    }
 }
 
 #[derive(Parser)]
@@ -91,13 +83,5 @@ mod test {
                 assert_eq!(options.id, Some(1));
             }
         }
-    }
-
-    #[test]
-    fn test_validate_project_repo_path() {
-        assert!(validate_project_repo_path("owner/project").is_ok());
-        assert!(validate_project_repo_path("owner/project/extra").is_err());
-        assert!(validate_project_repo_path("owner").is_err());
-        assert!(validate_project_repo_path("owner/project/extra/extra").is_err());
     }
 }

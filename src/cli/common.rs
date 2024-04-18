@@ -165,3 +165,24 @@ impl From<SortModeCli> for ListSortMode {
         }
     }
 }
+
+pub fn validate_project_repo_path(path: &str) -> Result<String, String> {
+    if path.contains('/') && path.split('/').count() == 2 {
+        Ok(path.to_string())
+    } else {
+        Err("Path must be in the format `OWNER/PROJECT_NAME`".to_string())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_validate_project_repo_path() {
+        assert!(validate_project_repo_path("owner/project").is_ok());
+        assert!(validate_project_repo_path("owner/project/extra").is_err());
+        assert!(validate_project_repo_path("owner").is_err());
+        assert!(validate_project_repo_path("owner/project/extra/extra").is_err());
+    }
+}
