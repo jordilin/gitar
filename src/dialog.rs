@@ -39,13 +39,7 @@ pub fn prompt_user_merge_request_info(
     members: &[Member],
     config: Arc<impl ConfigProperties>,
 ) -> Result<MergeRequestUserInput> {
-    let title: String = Input::with_theme(&ColorfulTheme::default())
-        .with_prompt("Title: ")
-        .default(default_title.to_string())
-        .interact_text()
-        .unwrap();
-
-    let description = get_description(default_description);
+    let (title, description) = prompt_user_title_description(default_title, default_description);
 
     let mut usernames = members
         .iter()
@@ -96,6 +90,20 @@ pub fn prompt_user_merge_request_info(
         members[assignee_members_index].id,
         &members[assignee_members_index].username,
     ))
+}
+
+pub fn prompt_user_title_description(
+    default_title: &str,
+    default_description: &str,
+) -> (String, String) {
+    let title: String = Input::with_theme(&ColorfulTheme::default())
+        .with_prompt("Title: ")
+        .default(default_title.to_string())
+        .interact_text()
+        .unwrap();
+
+    let description = get_description(default_description);
+    (title, description)
 }
 
 fn get_description(default_description: &str) -> String {

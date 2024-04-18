@@ -47,7 +47,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         if args.draft {
             body.add("draft", args.draft.to_string());
         }
-        let mr_url = format!("{}/repos/{}/pulls", self.rest_api_basepath, self.path);
+        let target_repo = args.target_repo.clone();
+        let path = if !target_repo.is_empty() {
+            args.target_repo
+        } else {
+            self.path.clone()
+        };
+        let mr_url = format!("{}/repos/{}/pulls", self.rest_api_basepath, path);
         match query::github_merge_request_response(
             &self.runner,
             &mr_url,
@@ -60,6 +66,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                 let body = response.body;
                 match response.status {
                     201 => {
+                        // If target repo is provided bypass user assignation
+                        if !target_repo.is_empty() {
+                            let json_value = json_loads(&body)?;
+                            return Ok(MergeRequestResponse::from(GithubMergeRequestFields::from(
+                                &json_value,
+                            )));
+                        }
                         // This is a new pull request
                         // Set the assignee to the pull request. Currently, the
                         // only way to set the assignee to a pull request is by
@@ -390,6 +403,40 @@ mod test {
         assert!(github.open(mr_args).is_ok());
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/issues/23",
+            *client.url(),
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_open_merge_request_on_target_repository() {
+        let config = config();
+        let mr_args = MergeRequestBodyArgs::builder()
+            .target_repo("jordilin/gitar".to_string())
+            .build()
+            .unwrap();
+        let domain = "github.com".to_string();
+        // current repo, targetting jordilin/gitar
+        let path = "jdoe/gitar";
+        let response1 = Response::builder()
+            .status(201)
+            .body(get_contract(ContractType::Github, "merge_request.json"))
+            .build()
+            .unwrap();
+        let response2 = Response::builder()
+            .status(200)
+            .body(get_contract(ContractType::Github, "merge_request.json"))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response2, response1]));
+        let github = Github::new(config, &domain, &path, client.clone());
+
+        assert!(github.open(mr_args).is_ok());
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/gitar/pulls",
             *client.url(),
         );
         assert_eq!(

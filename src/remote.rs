@@ -214,6 +214,8 @@ pub struct MergeRequestBodyArgs {
     #[builder(default)]
     pub source_branch: String,
     #[builder(default)]
+    pub target_repo: String,
+    #[builder(default)]
     pub target_branch: String,
     #[builder(default)]
     pub assignee_id: String,
