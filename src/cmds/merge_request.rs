@@ -212,7 +212,10 @@ fn user_prompt_confirmation(
     if cli_args.target_repo.is_some() {
         // Targetting another repo different than the origin. Bypass gathering
         // of assignee members and prompt user for title and description only.
-        let (title, description) = dialog::prompt_user_title_description(&title, &description);
+        let mut description = description;
+        if !cli_args.auto {
+            (title, description) = dialog::prompt_user_title_description(&title, &description);
+        }
         return Ok(MergeRequestBodyArgs::builder()
             .title(title)
             .description(description)
