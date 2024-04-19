@@ -30,7 +30,7 @@ impl From<&serde_json::Value> for GithubUserFields {
         GithubUserFields {
             id: data["id"].as_i64().unwrap(),
             login: data["login"].as_str().unwrap().to_string(),
-            name: data["name"].as_str().unwrap().to_string(),
+            name: data["name"].as_str().unwrap_or_default().to_string(),
         }
     }
 }

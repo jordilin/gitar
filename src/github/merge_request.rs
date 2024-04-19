@@ -38,7 +38,6 @@ impl<R> Github<R> {
 impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
     fn open(&self, args: MergeRequestBodyArgs) -> Result<MergeRequestResponse> {
         let mut body = Body::new();
-        body.add("head", args.source_branch.clone());
         body.add("base", args.target_branch);
         body.add("title", args.title);
         body.add("body", args.description);
@@ -48,12 +47,31 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             body.add("draft", args.draft.to_string());
         }
         let target_repo = args.target_repo.clone();
-        let path = if !target_repo.is_empty() {
-            args.target_repo
-        } else {
+        let mut mr_url = format!(
+            "{}/repos/{}/pulls",
+            self.rest_api_basepath,
             self.path.clone()
-        };
-        let mr_url = format!("{}/repos/{}/pulls", self.rest_api_basepath, path);
+        );
+        if !target_repo.is_empty() {
+            mr_url = format!(
+                "{}/repos/{}/pulls",
+                self.rest_api_basepath, args.target_repo
+            );
+            let owner_path = self.path.split('/').collect::<Vec<&str>>();
+            if owner_path.len() != 2 {
+                return Err(error::GRError::ApplicationError(format!(
+                    "Invalid path format in git config: [{}] while attempting \
+                    to retrieve existing pull request. Expected owner/repo",
+                    self.path
+                ))
+                .into());
+            }
+            let remote_pr_branch = format!("{}:{}", owner_path[0], args.source_branch.clone());
+            body.add("head", remote_pr_branch);
+        } else {
+            body.add("head", args.source_branch.clone());
+        }
+
         match query::github_merge_request_response(
             &self.runner,
             &mr_url,
