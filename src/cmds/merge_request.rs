@@ -25,6 +25,8 @@ pub struct MergeRequestCliArgs {
     pub description: Option<String>,
     pub description_from_file: Option<String>,
     pub target_branch: Option<String>,
+    #[builder(default)]
+    pub target_repo: Option<String>,
     pub auto: bool,
     pub refresh_cache: bool,
     pub open_browser: bool,
@@ -207,6 +209,25 @@ fn user_prompt_confirmation(
     if cli_args.draft {
         title = format!("DRAFT: {}", title);
     }
+    if cli_args.target_repo.is_some() {
+        // Targetting another repo different than the origin. Bypass gathering
+        // of assignee members and prompt user for title and description only.
+        let mut description = description;
+        if !cli_args.auto {
+            (title, description) = dialog::prompt_user_title_description(&title, &description);
+        }
+        return Ok(MergeRequestBodyArgs::builder()
+            .title(title)
+            .description(description)
+            .source_branch(mr_body.repo.current_branch().to_string())
+            .target_branch(target_branch.to_string())
+            .target_repo(cli_args.target_repo.as_ref().unwrap().clone())
+            .assignee_id("".to_string())
+            .username("".to_string())
+            .remove_source_branch("true".to_string())
+            .draft(cli_args.draft)
+            .build()?);
+    }
     let user_input = if cli_args.auto {
         let preferred_assignee_members = mr_body
             .members
@@ -341,15 +362,18 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
             Ok(CmdInfo::CommitMessage(description.clone()))
         }
     };
-    let cmds: Vec<Cmd<CmdInfo>> = vec![
+    let mut cmds: Vec<Cmd<CmdInfo>> = vec![
         Box::new(remote_project_cmd),
-        Box::new(remote_members_cmd),
         Box::new(git_status_cmd),
         Box::new(git_fetch_cmd),
         Box::new(git_title_cmd),
         Box::new(git_current_branch),
         Box::new(git_last_commit_message),
     ];
+    // Only gather project members if we are not targeting a different repo
+    if cli_args.target_repo.is_none() {
+        cmds.push(Box::new(remote_members_cmd));
+    }
     cmds
 }
 
@@ -922,7 +946,7 @@ mod tests {
             .map(|cmd| cmd())
             .collect::<Result<Vec<CmdInfo>>>()
             .unwrap();
-        let title_result = cmds[4].clone();
+        let title_result = cmds[3].clone();
         let title = match title_result {
             CmdInfo::CommitSummary(title) => title,
             _ => "".to_string(),
@@ -958,7 +982,7 @@ mod tests {
             .map(|cmd| cmd())
             .collect::<Result<Vec<CmdInfo>>>()
             .unwrap();
-        let title_result = results[4].clone();
+        let title_result = results[3].clone();
         let title = match title_result {
             CmdInfo::CommitSummary(title) => title,
             _ => "".to_string(),
@@ -996,7 +1020,7 @@ mod tests {
             .map(|cmd| cmd())
             .collect::<Result<Vec<CmdInfo>>>()
             .unwrap();
-        let description_result = results[6].clone();
+        let description_result = results[5].clone();
         let description = match description_result {
             CmdInfo::CommitMessage(description) => description,
             _ => "".to_string(),

@@ -10,7 +10,7 @@ use crate::{
     remote::MergeRequestState,
 };
 
-use super::common::{GetArgs, ListArgs};
+use super::common::{validate_project_repo_path, GetArgs, ListArgs};
 
 #[derive(Parser)]
 pub struct MergeRequestCommand {
@@ -78,7 +78,12 @@ struct CreateMergeRequest {
     /// Accept the default title, description, and target branch
     #[clap(long, short)]
     pub auto: bool,
-    /// Target branch of the merge request instead of default project's upstream branch
+    /// Open merge request in another `OWNER/PROJECT_NAME` instead of current
+    /// origin.
+    #[clap(long, value_name = "OWNER/PROJECT_NAME", value_parser=validate_project_repo_path, requires = "target_branch")]
+    pub target_repo: Option<String>,
+    /// Target branch of the merge request instead of default project's upstream
+    /// branch. If targetting another repository, target branch is required.
     #[clap(long)]
     pub target_branch: Option<String>,
     /// Refresh the cache
@@ -208,6 +213,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .description(options.description)
                 .description_from_file(options.description_from_file)
                 .target_branch(options.target_branch)
+                .target_repo(options.target_repo)
                 .auto(options.auto)
                 .refresh_cache(options.refresh)
                 .open_browser(options.browse)
