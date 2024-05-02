@@ -1167,4 +1167,40 @@ mod tests {
             String::from_utf8(writer).unwrap(),
         );
     }
+
+    #[test]
+    fn test_cmds_fetch_cli_arg() {
+        let remote = Arc::new(MockRemoteProject::default());
+        let cli_args = MergeRequestCliArgs::builder()
+            .title(Some("title cli".to_string()))
+            .title_from_commit(None)
+            .description(None)
+            .description_from_file(None)
+            .target_branch(Some("target-branch".to_string()))
+            .fetch(Some("origin".to_string()))
+            .auto(false)
+            .refresh_cache(false)
+            .open_browser(false)
+            .accept_summary(false)
+            .commit(Some("commit".to_string()))
+            .draft(false)
+            .build()
+            .unwrap();
+
+        let responses = gen_cmd_responses();
+
+        let task_runner = Arc::new(MockShellRunner::new(responses));
+        let cmds = cmds(remote, &cli_args, task_runner, None::<Cursor<&str>>);
+        assert_eq!(cmds.len(), 7);
+        let cmds = cmds
+            .into_iter()
+            .map(|cmd| cmd())
+            .collect::<Result<Vec<CmdInfo>>>()
+            .unwrap();
+        let fetch_result = cmds[6].clone();
+        match fetch_result {
+            CmdInfo::Ignore => {}
+            _ => panic!("Expected ignore cmdinfo variant on fetch"),
+        };
+    }
 }
