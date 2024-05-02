@@ -220,6 +220,8 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .description_from_file(options.description_from_file)
                 .target_branch(options.target_branch)
                 .target_repo(options.target_repo)
+                .fetch(options.fetch)
+                .rebase(options.rebase)
                 .auto(options.auto)
                 .refresh_cache(options.refresh)
                 .open_browser(options.browse)
