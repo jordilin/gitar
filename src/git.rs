@@ -65,8 +65,8 @@ pub fn current_branch(runner: Arc<impl TaskRunner<Response = Response>>) -> Resu
 /// The remote is considered to be the default remote, .i.e origin.
 /// Takes a [`Runner`] as a parameter and the encapsulated result is a
 /// [`CmdInfo::Ignore`].
-pub fn fetch(exec: Arc<impl TaskRunner>) -> Result<CmdInfo> {
-    let cmd_params = ["git", "fetch"];
+pub fn fetch(exec: Arc<impl TaskRunner>, remote_alias: String) -> Result<CmdInfo> {
+    let cmd_params = ["git", "fetch", &remote_alias];
     exec.run(cmd_params).err_context(format!(
         "Failed to git fetch. Command: {}",
         cmd_params.join(" ")
@@ -431,8 +431,8 @@ mod tests {
     fn test_git_fetch_cmd_is_correct() {
         let response = Response::builder().build().unwrap();
         let runner = Arc::new(MockRunner::new(vec![response]));
-        fetch(runner.clone()).unwrap();
-        assert_eq!("git fetch", *runner.cmd());
+        fetch(runner.clone(), "origin".to_string()).unwrap();
+        assert_eq!("git fetch origin", *runner.cmd());
     }
 
     #[test]

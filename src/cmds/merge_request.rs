@@ -27,6 +27,10 @@ pub struct MergeRequestCliArgs {
     pub target_branch: Option<String>,
     #[builder(default)]
     pub target_repo: Option<String>,
+    #[builder(default)]
+    pub fetch: Option<String>,
+    #[builder(default)]
+    pub rebase: Option<String>,
     pub auto: bool,
     pub refresh_cache: bool,
     pub open_browser: bool,
@@ -323,8 +327,6 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
     let remote_members_cmd = move || -> Result<CmdInfo> { remote.get_project_members() };
     let status_runner = task_runner.clone();
     let git_status_cmd = || -> Result<CmdInfo> { git::status(status_runner) };
-    let fetch_runner = task_runner.clone();
-    let git_fetch_cmd = || -> Result<CmdInfo> { git::fetch(fetch_runner) };
     let title = cli_args.title.clone();
     let title = title.unwrap_or("".to_string());
     let title_from_commit = cli_args.title_from_commit.clone();
@@ -365,7 +367,6 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
     let mut cmds: Vec<Cmd<CmdInfo>> = vec![
         Box::new(remote_project_cmd),
         Box::new(git_status_cmd),
-        Box::new(git_fetch_cmd),
         Box::new(git_title_cmd),
         Box::new(git_current_branch),
         Box::new(git_last_commit_message),
@@ -373,6 +374,12 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
     // Only gather project members if we are not targeting a different repo
     if cli_args.target_repo.is_none() {
         cmds.push(Box::new(remote_members_cmd));
+    }
+    if cli_args.fetch.is_some() {
+        let fetch_runner = task_runner.clone();
+        let remote_alias = cli_args.fetch.as_ref().unwrap().clone();
+        let git_fetch_cmd = || -> Result<CmdInfo> { git::fetch(fetch_runner, remote_alias) };
+        cmds.push(Box::new(git_fetch_cmd));
     }
     cmds
 }
@@ -469,7 +476,8 @@ fn merge(remote: Arc<dyn MergeRequest>, merge_request_id: i64) -> Result<()> {
 
 fn checkout(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
     let merge_request = remote.get(id)?;
-    git::fetch(Arc::new(Shell))?;
+    // assume origin for now
+    git::fetch(Arc::new(Shell), "origin".to_string())?;
     git::checkout(&Shell, &merge_request.source_branch)
 }
 
@@ -895,6 +903,10 @@ mod tests {
     fn gen_cmd_responses() -> Vec<Response> {
         let responses = vec![
             Response::builder()
+                .body("fetch cmd".to_string())
+                .build()
+                .unwrap(),
+            Response::builder()
                 .body("last commit message cmd".to_string())
                 .build()
                 .unwrap(),
@@ -904,10 +916,6 @@ mod tests {
                 .unwrap(),
             Response::builder()
                 .body("title git cmd".to_string())
-                .build()
-                .unwrap(),
-            Response::builder()
-                .body("fetch cmd".to_string())
                 .build()
                 .unwrap(),
             Response::builder()
@@ -940,13 +948,13 @@ mod tests {
 
         let task_runner = Arc::new(MockShellRunner::new(responses));
         let cmds = cmds(remote, &cli_args, task_runner, None::<Cursor<&str>>);
-        assert_eq!(cmds.len(), 7);
+        assert_eq!(cmds.len(), 6);
         let cmds = cmds
             .into_iter()
             .map(|cmd| cmd())
             .collect::<Result<Vec<CmdInfo>>>()
             .unwrap();
-        let title_result = cmds[3].clone();
+        let title_result = cmds[2].clone();
         let title = match title_result {
             CmdInfo::CommitSummary(title) => title,
             _ => "".to_string(),
@@ -982,7 +990,7 @@ mod tests {
             .map(|cmd| cmd())
             .collect::<Result<Vec<CmdInfo>>>()
             .unwrap();
-        let title_result = results[3].clone();
+        let title_result = results[2].clone();
         let title = match title_result {
             CmdInfo::CommitSummary(title) => title,
             _ => "".to_string(),
@@ -1020,7 +1028,7 @@ mod tests {
             .map(|cmd| cmd())
             .collect::<Result<Vec<CmdInfo>>>()
             .unwrap();
-        let description_result = results[5].clone();
+        let description_result = results[4].clone();
         let description = match description_result {
             CmdInfo::CommitMessage(description) => description,
             _ => "".to_string(),
