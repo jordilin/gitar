@@ -21,7 +21,6 @@
     - [Releases](#releases)
     - [Auth User](#auth-user)
   - [Logging](#logging)
-  - [Not yet supported](#not-yet-supported)
   - [Unit tests](#unit-tests)
   - [License](#license)
 
@@ -62,9 +61,7 @@ cargo build --release
 ## Usage
 
 **WARNING**: Before using, I'd recommend to familiarize yourself in a test git
-repository. Opening a merge request in particular, will fetch, rebase target
-remote branch to your feature local branch before pushing and opening a new
-merge request.
+repository.
 
 ### Configuration
 
@@ -177,8 +174,6 @@ gr mr create
 ```
 
 * You are in a feature branch
-* It will fetch latest upstream origin/default-target-branch
-* It will rebase to your feature branch
 * Prompt for assignee user
 * Confirmation
 * Open a merge request
@@ -289,10 +284,6 @@ gr --verbose pp list
 # DEBUG logs
 RUST_LOG=debug gr --verbose pp list
 ```
-
-## Not yet supported
-
-* Target a remote project different than your origin
 
 ## Unit tests
 
