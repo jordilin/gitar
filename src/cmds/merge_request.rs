@@ -289,7 +289,9 @@ fn open(
     // confirm title, description and assignee
     let args = user_prompt_confirmation(&mr_body, config, description, &target_branch, cli_args)?;
 
-    git::rebase(&Shell, "origin", &target_branch)?;
+    if cli_args.rebase.is_some() {
+        git::rebase(&Shell, cli_args.rebase.as_ref().unwrap())?;
+    }
 
     let outgoing_commits = git::outgoing_commits(&Shell, "origin", &target_branch)?;
 

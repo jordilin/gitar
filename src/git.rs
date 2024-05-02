@@ -183,8 +183,8 @@ pub fn push(runner: &impl TaskRunner, remote: &str, repo: &Repo) -> Result<CmdIn
     Ok(CmdInfo::Ignore)
 }
 
-pub fn rebase(runner: &impl TaskRunner, remote: &str, default_branch: &str) -> Result<CmdInfo> {
-    let cmd = format!("git rebase {}/{}", remote, default_branch);
+pub fn rebase(runner: &impl TaskRunner, remote_alias: &str) -> Result<CmdInfo> {
+    let cmd = format!("git rebase {}", remote_alias);
     let cmd_params = cmd.split(' ').collect::<Vec<&str>>();
     runner.run(cmd_params)?;
     Ok(CmdInfo::Ignore)
@@ -554,7 +554,7 @@ mod tests {
     fn test_git_rebase_cmd_is_correct() {
         let response = Response::builder().build().unwrap();
         let runner = MockRunner::new(vec![response]);
-        rebase(&runner, "origin", "main").unwrap();
+        rebase(&runner, "origin/main").unwrap();
         assert_eq!("git rebase origin/main", *runner.cmd());
     }
 
@@ -569,7 +569,7 @@ mod tests {
             .build()
             .unwrap();
         let runner = MockRunner::new(vec![response]);
-        assert!(rebase(&runner, "origin", "main").is_err())
+        assert!(rebase(&runner, "origin/main").is_err())
     }
 
     #[test]
