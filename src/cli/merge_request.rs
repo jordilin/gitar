@@ -78,6 +78,12 @@ struct CreateMergeRequest {
     /// Accept the default title, description, and target branch
     #[clap(long, short)]
     pub auto: bool,
+    /// Automatically fetch the latest changes from the remote repository
+    #[clap(long, value_name = "REMOTE_ALIAS")]
+    pub fetch: Option<String>,
+    /// Automatically rebase the current branch on top of the target branch
+    #[clap(long, value_name = "REMOTE_ALIAS/BRANCH")]
+    pub rebase: Option<String>,
     /// Open merge request in another `OWNER/PROJECT_NAME` instead of current
     /// origin.
     #[clap(long, value_name = "OWNER/PROJECT_NAME", value_parser=validate_project_repo_path, requires = "target_branch")]
@@ -214,6 +220,8 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .description_from_file(options.description_from_file)
                 .target_branch(options.target_branch)
                 .target_repo(options.target_repo)
+                .fetch(options.fetch)
+                .rebase(options.rebase)
                 .auto(options.auto)
                 .refresh_cache(options.refresh)
                 .open_browser(options.browse)
