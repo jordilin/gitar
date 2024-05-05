@@ -124,7 +124,7 @@ impl<C: ConfigProperties> Cache<Resource> for FileCache<C> {
             let mut f = BufReader::new(f);
             let mut response = self.get_cache_data(&mut f)?;
             match field {
-                io::ResponseField::Body => response.body = value.body.clone(),
+                io::ResponseField::Body => response.body.clone_from(&value.body),
                 io::ResponseField::Headers => {
                     // update existing headers with new ones. Not guaranteed
                     // that a 304 will actually contain *all* the headers that
