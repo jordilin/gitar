@@ -28,8 +28,12 @@ enum MergeRequestSubcommand {
     Merge(MergeMergeRequest),
     #[clap(about = "Git checkout a merge request branch for review")]
     Checkout(CheckoutMergeRequest),
-    #[clap(about = "Comment on a merge request")]
-    Comment(CommentMergeRequest),
+    #[clap(
+        subcommand,
+        about = "Merge request comment operations",
+        visible_alias = "cm"
+    )]
+    Comment(CommentSubCommand),
     #[clap(about = "Close a merge request")]
     Close(CloseMergeRequest),
     /// Get a merge request
@@ -48,7 +52,13 @@ struct GetMergeRequest {
 }
 
 #[derive(Parser)]
-struct CommentMergeRequest {
+enum CommentSubCommand {
+    /// Create a comment to a given merge request
+    Create(CreateCommentMergeRequest),
+}
+
+#[derive(Parser)]
+struct CreateCommentMergeRequest {
     /// Id of the merge request
     #[clap(long)]
     pub id: i64,
@@ -210,6 +220,14 @@ impl From<MergeRequestCommand> for MergeRequestOptions {
     }
 }
 
+impl From<CommentSubCommand> for MergeRequestOptions {
+    fn from(options: CommentSubCommand) -> Self {
+        match options {
+            CommentSubCommand::Create(options) => options.into(),
+        }
+    }
+}
+
 impl From<CreateMergeRequest> for MergeRequestOptions {
     fn from(options: CreateMergeRequest) -> Self {
         MergeRequestOptions::Create(
@@ -234,8 +252,8 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
     }
 }
 
-impl From<CommentMergeRequest> for MergeRequestOptions {
-    fn from(options: CommentMergeRequest) -> Self {
+impl From<CreateCommentMergeRequest> for MergeRequestOptions {
+    fn from(options: CreateCommentMergeRequest) -> Self {
         MergeRequestOptions::Comment(
             CommentMergeRequestCliArgs::builder()
                 .id(options.id)
@@ -366,15 +384,17 @@ mod test {
 
     #[test]
     fn test_comment_merge_request_cli_args() {
-        let args = Args::parse_from(vec!["gr", "mr", "comment", "--id", "123", "LGTM"]);
+        let args = Args::parse_from(vec!["gr", "mr", "comment", "create", "--id", "123", "LGTM"]);
         let comment_merge_request = match args.command {
             Command::MergeRequest(MergeRequestCommand {
                 subcommand: MergeRequestSubcommand::Comment(options),
-            }) => {
-                assert_eq!(options.id, 123);
-                assert_eq!(options.comment, Some("LGTM".to_string()));
-                options
-            }
+            }) => match options {
+                CommentSubCommand::Create(args) => {
+                    assert_eq!(args.id, 123);
+                    assert_eq!(args.comment, Some("LGTM".to_string()));
+                    args
+                }
+            },
             _ => panic!("Expected MergeRequestCommand::Comment"),
         };
 
