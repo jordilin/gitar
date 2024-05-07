@@ -22,6 +22,7 @@
     - [Auth User](#auth-user)
   - [Logging](#logging)
   - [Unit tests](#unit-tests)
+  - [Gitar-Amps additional scripts and workflows](#gitar-amps-additional-scripts-and-workflows)
   - [License](#license)
 
 Git multi-remote command line tool. Brings common development operations such as
@@ -182,7 +183,6 @@ gr mr create
 
 [demo.webm](https://github.com/jordilin/gitar/assets/1031376/83a37d6e-e2eb-4b68-978e-816439b2c122)
 
-
 ## Remotes supported
 
 Gitlab and Github.
@@ -293,6 +293,13 @@ Those are used to generate mock responses for unit tests.
 ```bash
 cargo test
 ```
+
+## Gitar-Amps additional scripts and workflows
+
+Gitar-Amps are wrapper scripts that make use of gitar in order to provide
+additional workflows and use cases.
+It is a companion project that can be found at
+<https://github.com/jordilin/gitar-amps>
 
 ## License
 
