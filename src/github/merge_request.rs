@@ -2,7 +2,7 @@ use super::Github;
 use crate::{
     api_traits::{ApiOperation, CommentMergeRequest, MergeRequest, RemoteProject},
     cli::browse::BrowseOptions,
-    cmds::merge_request::CommentMergeRequestBodyArgs,
+    cmds::merge_request::{Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs},
     http::{
         Body,
         Method::{GET, PATCH, POST, PUT},
@@ -301,6 +301,10 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Github<R> {
             ApiOperation::MergeRequest,
         )?;
         Ok(())
+    }
+
+    fn list(&self, args: CommentMergeRequestListBodyArgs) -> Result<Vec<Comment>> {
+        todo!()
     }
 }
 

@@ -1,6 +1,8 @@
 use crate::api_traits::{ApiOperation, CommentMergeRequest, RemoteProject};
 use crate::cli::browse::BrowseOptions;
-use crate::cmds::merge_request::CommentMergeRequestBodyArgs;
+use crate::cmds::merge_request::{
+    Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs,
+};
 use crate::error::{self, GRError};
 use crate::http::Method::GET;
 use crate::http::{self, Body, Headers};
@@ -213,6 +215,10 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Gitlab<R> {
             ApiOperation::MergeRequest,
         )?;
         Ok(())
+    }
+
+    fn list(&self, args: CommentMergeRequestListBodyArgs) -> Result<Vec<Comment>> {
+        todo!()
     }
 }
 

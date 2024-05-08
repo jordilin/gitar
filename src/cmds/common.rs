@@ -6,9 +6,10 @@ use crate::{api_traits::MergeRequest, remote::ListRemoteCliArgs};
 use std::io::Write;
 use std::sync::Arc;
 
-use crate::api_traits::{Cicd, CicdRunner, Deploy, RemoteProject};
+use crate::api_traits::{Cicd, CicdRunner, CommentMergeRequest, Deploy, RemoteProject};
 
 use super::cicd::{RunnerListBodyArgs, RunnerListCliArgs};
+use super::merge_request::{CommentMergeRequestListBodyArgs, CommentMergeRequestListCliArgs};
 use super::project::{ProjectListBodyArgs, ProjectListCliArgs};
 use super::release::ReleaseBodyArgs;
 use super::{cicd::PipelineBodyArgs, merge_request::MergeRequestListCliArgs};
@@ -117,5 +118,13 @@ list_resource!(
     RemoteProject,
     ProjectListBodyArgs,
     ProjectListCliArgs,
+    true
+);
+
+list_resource!(
+    list_merge_request_comments,
+    CommentMergeRequest,
+    CommentMergeRequestListBodyArgs,
+    CommentMergeRequestListCliArgs,
     true
 );
