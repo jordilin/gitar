@@ -1,4 +1,4 @@
-use crate::api_traits::{CommentMergeRequest, MergeRequest, RemoteProject};
+use crate::api_traits::{CommentMergeRequest, MergeRequest, RemoteProject, Timestamp};
 use crate::cli::merge_request::MergeRequestOptions;
 use crate::config::{Config, ConfigProperties};
 use crate::display::{Column, DisplayBody};
@@ -132,6 +132,12 @@ pub struct Comment {
 impl Comment {
     pub fn builder() -> CommentBuilder {
         CommentBuilder::default()
+    }
+}
+
+impl Timestamp for Comment {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
     }
 }
 

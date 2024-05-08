@@ -8,6 +8,7 @@ use crate::{
     cmds::{
         cicd::{Pipeline, Runner, RunnerMetadata},
         docker::{ImageMetadata, RegistryRepository, RepositoryTag},
+        merge_request::Comment,
         release::Release,
     },
     display, error,
@@ -23,7 +24,7 @@ use crate::{
         container_registry::{
             GitlabImageMetadataFields, GitlabRegistryRepositoryFields, GitlabRepositoryTagFields,
         },
-        merge_request::GitlabMergeRequestFields,
+        merge_request::{GitlabMergeRequestCommentFields, GitlabMergeRequestFields},
         project::{GitlabMemberFields, GitlabProjectFields},
         release::GitlabReleaseFields,
         user::GitlabUserFields,
@@ -296,6 +297,12 @@ paged!(gitlab_list_project_runners, GitlabRunnerFields, Runner);
 
 paged!(gitlab_list_projects, GitlabProjectFields, Project);
 paged!(github_list_projects, GithubProjectFields, Project);
+
+paged!(
+    gitlab_list_merge_request_comments,
+    GitlabMergeRequestCommentFields,
+    Comment
+);
 
 // Single HTTP requests
 
