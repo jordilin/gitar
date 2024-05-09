@@ -14,7 +14,7 @@ use crate::{
     display, error,
     github::{
         cicd::GithubPipelineFields,
-        merge_request::GithubMergeRequestFields,
+        merge_request::{GithubMergeRequestCommentFields, GithubMergeRequestFields},
         project::{GithubMemberFields, GithubProjectFields},
         release::GithubReleaseFields,
         user::GithubUserFields,
@@ -301,6 +301,12 @@ paged!(github_list_projects, GithubProjectFields, Project);
 paged!(
     gitlab_list_merge_request_comments,
     GitlabMergeRequestCommentFields,
+    Comment
+);
+
+paged!(
+    github_list_merge_request_comments,
+    GithubMergeRequestCommentFields,
     Comment
 );
 
