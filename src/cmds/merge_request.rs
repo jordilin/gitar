@@ -222,6 +222,13 @@ pub fn execute(
                 .id(cli_args.id)
                 .list_args(from_to_args)
                 .build()?;
+            if cli_args.list_args.num_pages {
+                return common::num_comment_merge_request_pages(
+                    remote,
+                    body_args,
+                    std::io::stdout(),
+                );
+            }
             list_comments(remote, body_args, cli_args, std::io::stdout())
         }
         MergeRequestOptions::Get(cli_args) => {
