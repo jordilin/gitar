@@ -978,7 +978,7 @@ mod tests {
             Ok(self.list_comments.clone())
         }
 
-        fn num_pages(&self, args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>> {
+        fn num_pages(&self, _args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>> {
             todo!()
         }
     }
