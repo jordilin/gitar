@@ -235,7 +235,18 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Gitlab<R> {
     }
 
     fn num_pages(&self, args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>> {
-        todo!()
+        let url = format!(
+            "{}/merge_requests/{}/notes?page=1",
+            self.rest_api_basepath(),
+            args.id
+        );
+
+        query::num_pages(
+            &self.runner,
+            &url,
+            self.headers(),
+            ApiOperation::MergeRequest,
+        )
     }
 }
 
@@ -796,6 +807,38 @@ mod test {
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/123/notes",
             *client.url()
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_merge_request_comments_num_pages() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/123/notes?page=1>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/123/notes?page=2>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn CommentMergeRequest> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let args = CommentMergeRequestListBodyArgs::builder()
+            .id(123)
+            .list_args(None)
+            .build()
+            .unwrap();
+        assert_eq!(Some(2), gitlab.num_pages(args).unwrap());
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/123/notes?page=1",
+            *client.url(),
         );
         assert_eq!(
             Some(ApiOperation::MergeRequest),
