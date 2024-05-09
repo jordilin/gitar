@@ -967,7 +967,7 @@ mod tests {
             Ok(())
         }
 
-        fn list(&self, args: CommentMergeRequestListBodyArgs) -> Result<Vec<Comment>> {
+        fn list(&self, _args: CommentMergeRequestListBodyArgs) -> Result<Vec<Comment>> {
             Ok(self.list_comments.clone())
         }
     }
