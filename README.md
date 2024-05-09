@@ -202,6 +202,7 @@ In Gitlab they are known as merge requests and in Github as pull requests.
 | List merge requests by their state | &#x2714;| &#x2714; |
 | Close | &#x2714; | &#x2714; |
 | Create comments on timeline | &#x2714; | &#x2714; |
+| List comments on timeline | &#x2714; | &#x2714; |
 
 ### Pipeline
 
