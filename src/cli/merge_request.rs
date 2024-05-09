@@ -4,8 +4,8 @@ use clap::{Parser, ValueEnum};
 
 use crate::{
     cmds::merge_request::{
-        CommentMergeRequestCliArgs, MergeRequestCliArgs, MergeRequestGetCliArgs,
-        MergeRequestListCliArgs,
+        CommentMergeRequestCliArgs, CommentMergeRequestListCliArgs, MergeRequestCliArgs,
+        MergeRequestGetCliArgs, MergeRequestListCliArgs,
     },
     remote::MergeRequestState,
 };
@@ -55,6 +55,8 @@ struct GetMergeRequest {
 enum CommentSubCommand {
     /// Create a comment to a given merge request
     Create(CreateCommentMergeRequest),
+    /// List comments of a given merge request
+    List(ListCommentMergeRequest),
 }
 
 #[derive(Parser)]
@@ -68,6 +70,15 @@ struct CreateCommentMergeRequest {
     /// Gather comment from the specified file. If "-" is provided, read from STDIN
     #[clap(long, value_name = "FILE", group = "comment_msg")]
     pub comment_from_file: Option<String>,
+}
+
+#[derive(Parser)]
+struct ListCommentMergeRequest {
+    /// Id of the merge request
+    #[clap()]
+    pub id: i64,
+    #[command(flatten)]
+    pub list_args: ListArgs,
 }
 
 #[derive(Parser)]
@@ -224,6 +235,7 @@ impl From<CommentSubCommand> for MergeRequestOptions {
     fn from(options: CommentSubCommand) -> Self {
         match options {
             CommentSubCommand::Create(options) => options.into(),
+            CommentSubCommand::List(options) => options.into(),
         }
     }
 }
@@ -252,9 +264,21 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
     }
 }
 
+impl From<ListCommentMergeRequest> for MergeRequestOptions {
+    fn from(options: ListCommentMergeRequest) -> Self {
+        MergeRequestOptions::ListComment(
+            CommentMergeRequestListCliArgs::builder()
+                .id(options.id)
+                .list_args(options.list_args.into())
+                .build()
+                .unwrap(),
+        )
+    }
+}
+
 impl From<CreateCommentMergeRequest> for MergeRequestOptions {
     fn from(options: CreateCommentMergeRequest) -> Self {
-        MergeRequestOptions::Comment(
+        MergeRequestOptions::CreateComment(
             CommentMergeRequestCliArgs::builder()
                 .id(options.id)
                 .comment(options.comment)
@@ -281,7 +305,8 @@ pub enum MergeRequestOptions {
     Create(MergeRequestCliArgs),
     Get(MergeRequestGetCliArgs),
     List(MergeRequestListCliArgs),
-    Comment(CommentMergeRequestCliArgs),
+    CreateComment(CommentMergeRequestCliArgs),
+    ListComment(CommentMergeRequestListCliArgs),
     Approve { id: i64 },
     Merge { id: i64 },
     Checkout { id: i64 },
@@ -394,17 +419,43 @@ mod test {
                     assert_eq!(args.comment, Some("LGTM".to_string()));
                     args
                 }
+                _ => panic!("Expected CommentSubCommand::Create"),
             },
             _ => panic!("Expected MergeRequestCommand::Comment"),
         };
 
         let options: MergeRequestOptions = comment_merge_request.into();
         match options {
-            MergeRequestOptions::Comment(args) => {
+            MergeRequestOptions::CreateComment(args) => {
                 assert_eq!(args.id, 123);
                 assert_eq!(args.comment, Some("LGTM".to_string()));
             }
             _ => panic!("Expected MergeRequestOptions::Comment"),
+        }
+    }
+
+    #[test]
+    fn test_list_all_comments_in_merge_request_cli_args() {
+        let args = Args::parse_from(vec!["gr", "mr", "comment", "list", "123"]);
+        let list_comment_merge_request = match args.command {
+            Command::MergeRequest(MergeRequestCommand {
+                subcommand: MergeRequestSubcommand::Comment(options),
+            }) => match options {
+                CommentSubCommand::List(args) => {
+                    assert_eq!(args.id, 123);
+                    args
+                }
+                _ => panic!("Expected CommentSubCommand::List"),
+            },
+            _ => panic!("Expected MergeRequestCommand::Comment"),
+        };
+
+        let options: MergeRequestOptions = list_comment_merge_request.into();
+        match options {
+            MergeRequestOptions::ListComment(args) => {
+                assert_eq!(args.id, 123);
+            }
+            _ => panic!("Expected MergeRequestOptions::ListComment"),
         }
     }
 

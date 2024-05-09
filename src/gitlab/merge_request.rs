@@ -1,6 +1,8 @@
 use crate::api_traits::{ApiOperation, CommentMergeRequest, RemoteProject};
 use crate::cli::browse::BrowseOptions;
-use crate::cmds::merge_request::CommentMergeRequestBodyArgs;
+use crate::cmds::merge_request::{
+    Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs,
+};
 use crate::error::{self, GRError};
 use crate::http::Method::GET;
 use crate::http::{self, Body, Headers};
@@ -214,6 +216,38 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Gitlab<R> {
         )?;
         Ok(())
     }
+
+    fn list(&self, args: CommentMergeRequestListBodyArgs) -> Result<Vec<Comment>> {
+        let url = format!(
+            "{}/merge_requests/{}/notes",
+            self.rest_api_basepath(),
+            args.id
+        );
+
+        query::gitlab_list_merge_request_comments(
+            &self.runner,
+            &url,
+            args.list_args,
+            self.headers(),
+            None,
+            ApiOperation::MergeRequest,
+        )
+    }
+
+    fn num_pages(&self, args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>> {
+        let url = format!(
+            "{}/merge_requests/{}/notes?page=1",
+            self.rest_api_basepath(),
+            args.id
+        );
+
+        query::num_pages(
+            &self.runner,
+            &url,
+            self.headers(),
+            ApiOperation::MergeRequest,
+        )
+    }
 }
 
 pub struct GitlabMergeRequestFields {
@@ -275,6 +309,35 @@ impl From<GitlabMergeRequestFields> for MergeRequestResponse {
             .pipeline_url(fields.pipeline_url)
             .build()
             .unwrap()
+    }
+}
+
+pub struct GitlabMergeRequestCommentFields {
+    comment: Comment,
+}
+
+impl From<&serde_json::Value> for GitlabMergeRequestCommentFields {
+    fn from(data: &serde_json::Value) -> Self {
+        GitlabMergeRequestCommentFields {
+            comment: Comment::builder()
+                .id(data["id"].as_i64().unwrap_or_default())
+                .body(data["body"].as_str().unwrap_or_default().to_string())
+                .author(
+                    data["author"]["username"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .created_at(data["created_at"].as_str().unwrap_or_default().to_string())
+                .build()
+                .unwrap(),
+        }
+    }
+}
+
+impl From<GitlabMergeRequestCommentFields> for Comment {
+    fn from(fields: GitlabMergeRequestCommentFields) -> Self {
+        fields.comment
     }
 }
 
@@ -712,6 +775,71 @@ mod test {
             *client.url()
         );
         assert_eq!(http::Method::POST, *client.http_method.borrow());
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_list_merge_request_comments() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let response = Response::builder()
+            .status(200)
+            .body(format!(
+                "[{}]",
+                get_contract(ContractType::Gitlab, "comment.json")
+            ))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn CommentMergeRequest> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let args = CommentMergeRequestListBodyArgs::builder()
+            .id(123)
+            .list_args(None)
+            .build()
+            .unwrap();
+        let comments = gitlab.list(args).unwrap();
+        assert_eq!(1, comments.len());
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/123/notes",
+            *client.url()
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_merge_request_comments_num_pages() {
+        let config = config();
+        let domain = "gitlab.com".to_string();
+        let path = "jordilin/gitlapi".to_string();
+        let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/123/notes?page=1>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/123/notes?page=2>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let gitlab: Box<dyn CommentMergeRequest> =
+            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let args = CommentMergeRequestListBodyArgs::builder()
+            .id(123)
+            .list_args(None)
+            .build()
+            .unwrap();
+        assert_eq!(Some(2), gitlab.num_pages(args).unwrap());
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/123/notes?page=1",
+            *client.url(),
+        );
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()

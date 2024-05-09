@@ -6,9 +6,10 @@ use crate::{api_traits::MergeRequest, remote::ListRemoteCliArgs};
 use std::io::Write;
 use std::sync::Arc;
 
-use crate::api_traits::{Cicd, CicdRunner, Deploy, RemoteProject};
+use crate::api_traits::{Cicd, CicdRunner, CommentMergeRequest, Deploy, RemoteProject};
 
 use super::cicd::{RunnerListBodyArgs, RunnerListCliArgs};
+use super::merge_request::{CommentMergeRequestListBodyArgs, CommentMergeRequestListCliArgs};
 use super::project::{ProjectListBodyArgs, ProjectListCliArgs};
 use super::release::ReleaseBodyArgs;
 use super::{cicd::PipelineBodyArgs, merge_request::MergeRequestListCliArgs};
@@ -51,6 +52,11 @@ query_pages!(
     MergeRequestListBodyArgs
 );
 query_pages!(num_project_pages, RemoteProject, ProjectListBodyArgs);
+query_pages!(
+    num_comment_merge_request_pages,
+    CommentMergeRequest,
+    CommentMergeRequestListBodyArgs
+);
 
 macro_rules! list_resource {
     ($func_name:ident, $trait_name:ident, $body_args:ident, $cli_args:ident, $embeds_list_args: literal) => {
@@ -117,5 +123,13 @@ list_resource!(
     RemoteProject,
     ProjectListBodyArgs,
     ProjectListCliArgs,
+    true
+);
+
+list_resource!(
+    list_merge_request_comments,
+    CommentMergeRequest,
+    CommentMergeRequestListBodyArgs,
+    CommentMergeRequestListCliArgs,
     true
 );

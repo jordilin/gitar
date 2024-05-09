@@ -1,12 +1,13 @@
-use crate::api_traits::{CommentMergeRequest, MergeRequest, RemoteProject};
+use crate::api_traits::{CommentMergeRequest, MergeRequest, RemoteProject, Timestamp};
 use crate::cli::merge_request::MergeRequestOptions;
 use crate::config::{Config, ConfigProperties};
+use crate::display::{Column, DisplayBody};
 use crate::error::{AddContext, GRError};
 use crate::git::Repo;
 use crate::io::{CmdInfo, Response, TaskRunner};
 use crate::remote::{
-    GetRemoteCliArgs, ListRemoteCliArgs, Member, MergeRequestBodyArgs, MergeRequestListBodyArgs,
-    MergeRequestState, Project,
+    GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs, Member, MergeRequestBodyArgs,
+    MergeRequestListBodyArgs, MergeRequestState, Project,
 };
 use crate::shell::Shell;
 use crate::{dialog, display, exec, git, remote, Cmd, Result};
@@ -85,6 +86,30 @@ impl CommentMergeRequestCliArgs {
 }
 
 #[derive(Builder)]
+pub struct CommentMergeRequestListCliArgs {
+    pub id: i64,
+    pub list_args: ListRemoteCliArgs,
+}
+
+impl CommentMergeRequestListCliArgs {
+    pub fn builder() -> CommentMergeRequestListCliArgsBuilder {
+        CommentMergeRequestListCliArgsBuilder::default()
+    }
+}
+
+#[derive(Builder)]
+pub struct CommentMergeRequestListBodyArgs {
+    pub id: i64,
+    pub list_args: Option<ListBodyArgs>,
+}
+
+impl CommentMergeRequestListBodyArgs {
+    pub fn builder() -> CommentMergeRequestListBodyArgsBuilder {
+        CommentMergeRequestListBodyArgsBuilder::default()
+    }
+}
+
+#[derive(Builder)]
 pub struct CommentMergeRequestBodyArgs {
     pub id: i64,
     pub comment: String,
@@ -93,6 +118,37 @@ pub struct CommentMergeRequestBodyArgs {
 impl CommentMergeRequestBodyArgs {
     pub fn builder() -> CommentMergeRequestBodyArgsBuilder {
         CommentMergeRequestBodyArgsBuilder::default()
+    }
+}
+
+#[derive(Builder, Clone)]
+pub struct Comment {
+    pub id: i64,
+    pub body: String,
+    pub author: String,
+    pub created_at: String,
+}
+
+impl Comment {
+    pub fn builder() -> CommentBuilder {
+        CommentBuilder::default()
+    }
+}
+
+impl Timestamp for Comment {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
+    }
+}
+
+impl From<Comment> for DisplayBody {
+    fn from(comment: Comment) -> Self {
+        DisplayBody::new(vec![
+            Column::new("ID", comment.id.to_string()),
+            Column::new("Body", comment.body),
+            Column::new("Author", comment.author),
+            Column::new("Created at", comment.created_at),
+        ])
     }
 }
 
@@ -145,7 +201,7 @@ pub fn execute(
             let remote = remote::get_mr(domain, path, config, false)?;
             close(remote, id)
         }
-        MergeRequestOptions::Comment(cli_args) => {
+        MergeRequestOptions::CreateComment(cli_args) => {
             let remote = remote::get_comment_mr(domain, path, config, false)?;
             if let Some(comment_file) = &cli_args.comment_from_file {
                 let reader = get_reader_file_cli(comment_file)?;
@@ -153,6 +209,27 @@ pub fn execute(
             } else {
                 create_comment(remote, cli_args, None::<Cursor<&str>>)
             }
+        }
+        MergeRequestOptions::ListComment(cli_args) => {
+            let remote = remote::get_comment_mr(
+                domain,
+                path,
+                config,
+                cli_args.list_args.get_args.refresh_cache,
+            )?;
+            let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
+            let body_args = CommentMergeRequestListBodyArgs::builder()
+                .id(cli_args.id)
+                .list_args(from_to_args)
+                .build()?;
+            if cli_args.list_args.num_pages {
+                return common::num_comment_merge_request_pages(
+                    remote,
+                    body_args,
+                    std::io::stdout(),
+                );
+            }
+            list_comments(remote, body_args, cli_args, std::io::stdout())
         }
         MergeRequestOptions::Get(cli_args) => {
             let remote = remote::get_mr(domain, path, config, cli_args.get_args.refresh_cache)?;
@@ -528,6 +605,15 @@ pub fn get_merge_request_details<W: Write>(
     Ok(())
 }
 
+fn list_comments<W: Write>(
+    remote: Arc<dyn CommentMergeRequest>,
+    body_args: CommentMergeRequestListBodyArgs,
+    cli_args: CommentMergeRequestListCliArgs,
+    writer: W,
+) -> Result<()> {
+    common::list_merge_request_comments(remote, body_args, cli_args, writer)
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -829,7 +915,19 @@ mod tests {
     struct MockRemoteProject {
         comment_called: Mutex<bool>,
         comment_argument: Mutex<String>,
+        list_comments: Vec<Comment>,
     }
+
+    impl MockRemoteProject {
+        fn new(comments: Vec<Comment>) -> MockRemoteProject {
+            MockRemoteProject {
+                comment_called: Mutex::new(false),
+                comment_argument: Mutex::new("".to_string()),
+                list_comments: comments,
+            }
+        }
+    }
+
     impl RemoteProject for MockRemoteProject {
         fn get_project_data(&self, _id: Option<i64>, _path: Option<&str>) -> Result<CmdInfo> {
             let project = Project::new(1, "main");
@@ -874,6 +972,14 @@ mod tests {
             let mut argument = self.comment_argument.lock().unwrap();
             *argument = args.comment;
             Ok(())
+        }
+
+        fn list(&self, _args: CommentMergeRequestListBodyArgs) -> Result<Vec<Comment>> {
+            Ok(self.list_comments.clone())
+        }
+
+        fn num_pages(&self, _args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>> {
+            todo!()
         }
     }
 
@@ -1202,5 +1308,44 @@ mod tests {
             CmdInfo::Ignore => {}
             _ => panic!("Expected ignore cmdinfo variant on fetch"),
         };
+    }
+
+    #[test]
+    fn test_list_merge_request_comments() {
+        let comments = vec![
+            Comment::builder()
+                .id(1)
+                .body("Great work!".to_string())
+                .author("user1".to_string())
+                .created_at("2021-01-01".to_string())
+                .build()
+                .unwrap(),
+            Comment::builder()
+                .id(2)
+                .body("Keep it up!".to_string())
+                .author("user2".to_string())
+                .created_at("2021-01-02".to_string())
+                .build()
+                .unwrap(),
+        ];
+        let remote = Arc::new(MockRemoteProject::new(comments));
+        let body_args = CommentMergeRequestListBodyArgs::builder()
+            .id(1)
+            .list_args(None)
+            .build()
+            .unwrap();
+        let cli_args = CommentMergeRequestListCliArgs::builder()
+            .id(1)
+            .list_args(ListRemoteCliArgs::builder().build().unwrap())
+            .build()
+            .unwrap();
+        let mut buf = Vec::new();
+        list_comments(remote, body_args, cli_args, &mut buf).unwrap();
+        assert_eq!(
+            "ID|Body|Author|Created at\n\
+             1|Great work!|user1|2021-01-01\n\
+             2|Keep it up!|user2|2021-01-02\n",
+            String::from_utf8(buf).unwrap(),
+        );
     }
 }

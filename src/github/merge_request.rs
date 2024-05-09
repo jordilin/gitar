@@ -2,7 +2,7 @@ use super::Github;
 use crate::{
     api_traits::{ApiOperation, CommentMergeRequest, MergeRequest, RemoteProject},
     cli::browse::BrowseOptions,
-    cmds::merge_request::CommentMergeRequestBodyArgs,
+    cmds::merge_request::{Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs},
     http::{
         Body,
         Method::{GET, PATCH, POST, PUT},
@@ -302,6 +302,35 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Github<R> {
         )?;
         Ok(())
     }
+
+    fn list(&self, args: CommentMergeRequestListBodyArgs) -> Result<Vec<Comment>> {
+        let url = format!(
+            "{}/repos/{}/issues/{}/comments",
+            self.rest_api_basepath, self.path, args.id
+        );
+        query::github_list_merge_request_comments(
+            &self.runner,
+            &url,
+            args.list_args,
+            self.request_headers(),
+            None,
+            ApiOperation::MergeRequest,
+        )
+    }
+
+    fn num_pages(&self, args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>> {
+        let url = format!(
+            "{}/repos/{}/issues/{}/comments?page=1",
+            self.rest_api_basepath, self.path, args.id
+        );
+
+        query::num_pages(
+            &self.runner,
+            &url,
+            self.request_headers(),
+            ApiOperation::MergeRequest,
+        )
+    }
 }
 
 pub struct GithubMergeRequestFields {
@@ -382,6 +411,30 @@ impl From<GithubMergeRequestFields> for MergeRequestResponse {
             .pipeline_url(fields.pipeline_url)
             .build()
             .unwrap()
+    }
+}
+
+pub struct GithubMergeRequestCommentFields {
+    comment: Comment,
+}
+
+impl From<&serde_json::Value> for GithubMergeRequestCommentFields {
+    fn from(comment_data: &serde_json::Value) -> Self {
+        GithubMergeRequestCommentFields {
+            comment: Comment::builder()
+                .id(comment_data["id"].as_i64().unwrap())
+                .author(comment_data["user"]["login"].as_str().unwrap().to_string())
+                .created_at(comment_data["created_at"].as_str().unwrap().to_string())
+                .body(comment_data["body"].as_str().unwrap().to_string())
+                .build()
+                .unwrap(),
+        }
+    }
+}
+
+impl From<GithubMergeRequestCommentFields> for Comment {
+    fn from(fields: GithubMergeRequestCommentFields) -> Self {
+        fields.comment
     }
 }
 
@@ -804,6 +857,70 @@ mod test {
             *client.url(),
         );
         assert_eq!(http::Method::PUT, *client.http_method.borrow());
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_list_pull_request_comments() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let response = Response::builder()
+            .status(200)
+            .body(format!(
+                "[{}]",
+                get_contract(ContractType::Github, "comment.json")
+            ))
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn CommentMergeRequest> =
+            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = CommentMergeRequestListBodyArgs::builder()
+            .id(23)
+            .list_args(None)
+            .build()
+            .unwrap();
+        github.list(args).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/issues/23/comments",
+            *client.url(),
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_pull_request_comment_num_pages() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let link_header = r#"<https://api.github.com/repos/jordilin/githapi/issues/23/comments?page=2>; rel="next", <https://api.github.com/repos/jordilin/githapi/issues/23/comments?page=2>; rel="last""#;
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), link_header.to_string());
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn CommentMergeRequest> =
+            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = CommentMergeRequestListBodyArgs::builder()
+            .id(23)
+            .list_args(None)
+            .build()
+            .unwrap();
+        assert_eq!(Some(2), github.num_pages(args).unwrap());
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/issues/23/comments?page=1",
+            *client.url(),
+        );
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
