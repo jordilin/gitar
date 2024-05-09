@@ -319,7 +319,17 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Github<R> {
     }
 
     fn num_pages(&self, args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>> {
-        todo!()
+        let url = format!(
+            "{}/repos/{}/issues/{}/comments?page=1",
+            self.rest_api_basepath, self.path, args.id
+        );
+
+        query::num_pages(
+            &self.runner,
+            &url,
+            self.request_headers(),
+            ApiOperation::MergeRequest,
+        )
     }
 }
 
@@ -877,6 +887,38 @@ mod test {
         github.list(args).unwrap();
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/issues/23/comments",
+            *client.url(),
+        );
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_pull_request_comment_num_pages() {
+        let config = config();
+        let domain = "github.com".to_string();
+        let path = "jordilin/githapi";
+        let link_header = r#"<https://api.github.com/repos/jordilin/githapi/issues/23/comments?page=2>; rel="next", <https://api.github.com/repos/jordilin/githapi/issues/23/comments?page=2>; rel="last""#;
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), link_header.to_string());
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let github: Box<dyn CommentMergeRequest> =
+            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let args = CommentMergeRequestListBodyArgs::builder()
+            .id(23)
+            .list_args(None)
+            .build()
+            .unwrap();
+        assert_eq!(Some(2), github.num_pages(args).unwrap());
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/issues/23/comments?page=1",
             *client.url(),
         );
         assert_eq!(
