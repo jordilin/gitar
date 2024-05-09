@@ -970,6 +970,10 @@ mod tests {
         fn list(&self, _args: CommentMergeRequestListBodyArgs) -> Result<Vec<Comment>> {
             Ok(self.list_comments.clone())
         }
+
+        fn num_pages(&self, args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>> {
+            todo!()
+        }
     }
 
     struct MockShellRunner {

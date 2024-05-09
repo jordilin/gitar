@@ -78,6 +78,7 @@ pub trait ContainerRegistry {
 pub trait CommentMergeRequest {
     fn create(&self, args: CommentMergeRequestBodyArgs) -> Result<()>;
     fn list(&self, args: CommentMergeRequestListBodyArgs) -> Result<Vec<Comment>>;
+    fn num_pages(&self, args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>>;
 }
 
 /// Types of API resources attached to a request. The request will carry this

@@ -317,6 +317,10 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Github<R> {
             ApiOperation::MergeRequest,
         )
     }
+
+    fn num_pages(&self, args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>> {
+        todo!()
+    }
 }
 
 pub struct GithubMergeRequestFields {
