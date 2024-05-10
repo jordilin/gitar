@@ -124,32 +124,26 @@ impl From<GitlabProjectFields> for Project {
 }
 
 pub struct GitlabMemberFields {
-    id: i64,
-    name: String,
-    username: String,
-    created_at: String,
+    member: Member,
 }
 
 impl From<&serde_json::Value> for GitlabMemberFields {
     fn from(data: &serde_json::Value) -> Self {
         GitlabMemberFields {
-            id: data["id"].as_i64().unwrap(),
-            name: data["name"].as_str().unwrap().to_string(),
-            username: data["username"].as_str().unwrap().to_string(),
-            created_at: data["created_at"].as_str().unwrap().to_string(),
+            member: Member::builder()
+                .id(data["id"].as_i64().unwrap())
+                .name(data["name"].as_str().unwrap().to_string())
+                .username(data["username"].as_str().unwrap().to_string())
+                .created_at(data["created_at"].as_str().unwrap().to_string())
+                .build()
+                .unwrap(),
         }
     }
 }
 
 impl From<GitlabMemberFields> for Member {
     fn from(fields: GitlabMemberFields) -> Self {
-        Member::builder()
-            .id(fields.id)
-            .name(fields.name.to_string())
-            .username(fields.username.to_string())
-            .created_at(fields.created_at.to_string())
-            .build()
-            .unwrap()
+        fields.member
     }
 }
 
