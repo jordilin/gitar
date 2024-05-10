@@ -193,42 +193,32 @@ impl From<GitlabRunnerMetadataFields> for RunnerMetadata {
 }
 
 pub struct GitlabPipelineFields {
-    status: String,
-    web_url: String,
-    ref_: String,
-    sha: String,
-    created_at: String,
-    updated_at: String,
+    pipeline: Pipeline,
 }
 
 impl From<&serde_json::Value> for GitlabPipelineFields {
     fn from(data: &serde_json::Value) -> Self {
         GitlabPipelineFields {
-            status: data["status"].as_str().unwrap().to_string(),
-            web_url: data["web_url"].as_str().unwrap().to_string(),
-            ref_: data["ref"].as_str().unwrap().to_string(),
-            sha: data["sha"].as_str().unwrap().to_string(),
-            created_at: data["created_at"].as_str().unwrap().to_string(),
-            updated_at: data["updated_at"].as_str().unwrap().to_string(),
+            pipeline: Pipeline::builder()
+                .status(data["status"].as_str().unwrap().to_string())
+                .web_url(data["web_url"].as_str().unwrap().to_string())
+                .branch(data["ref"].as_str().unwrap().to_string())
+                .sha(data["sha"].as_str().unwrap().to_string())
+                .created_at(data["created_at"].as_str().unwrap().to_string())
+                .updated_at(data["updated_at"].as_str().unwrap().to_string())
+                .duration(time::compute_duration(
+                    &data["created_at"].as_str().unwrap(),
+                    &data["updated_at"].as_str().unwrap(),
+                ))
+                .build()
+                .unwrap(),
         }
     }
 }
 
 impl From<GitlabPipelineFields> for Pipeline {
     fn from(fields: GitlabPipelineFields) -> Self {
-        Pipeline::builder()
-            .status(fields.status.to_string())
-            .web_url(fields.web_url.to_string())
-            .branch(fields.ref_.to_string())
-            .sha(fields.sha.to_string())
-            .created_at(fields.created_at.to_string())
-            .updated_at(fields.updated_at.to_string())
-            .duration(time::compute_duration(
-                &fields.created_at,
-                &fields.updated_at,
-            ))
-            .build()
-            .unwrap()
+        fields.pipeline
     }
 }
 
