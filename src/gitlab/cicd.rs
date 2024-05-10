@@ -207,8 +207,8 @@ impl From<&serde_json::Value> for GitlabPipelineFields {
                 .created_at(data["created_at"].as_str().unwrap().to_string())
                 .updated_at(data["updated_at"].as_str().unwrap().to_string())
                 .duration(time::compute_duration(
-                    &data["created_at"].as_str().unwrap(),
-                    &data["updated_at"].as_str().unwrap(),
+                    data["created_at"].as_str().unwrap(),
+                    data["updated_at"].as_str().unwrap(),
                 ))
                 .build()
                 .unwrap(),

@@ -85,8 +85,8 @@ impl From<&serde_json::Value> for GithubPipelineFields {
                 .created_at(pipeline_data["created_at"].as_str().unwrap().to_string())
                 .updated_at(pipeline_data["updated_at"].as_str().unwrap().to_string())
                 .duration(time::compute_duration(
-                    &pipeline_data["created_at"].as_str().unwrap(),
-                    &pipeline_data["updated_at"].as_str().unwrap(),
+                    pipeline_data["created_at"].as_str().unwrap(),
+                    pipeline_data["updated_at"].as_str().unwrap(),
                 ))
                 .build()
                 .unwrap(),
