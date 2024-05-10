@@ -55,60 +55,48 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Github<R> {
 }
 
 pub struct GithubPipelineFields {
-    status: String,
-    web_url: String,
-    branch: String,
-    sha: String,
-    created_at: String,
-    updated_at: String,
+    pipeline: Pipeline,
 }
 
 impl From<&serde_json::Value> for GithubPipelineFields {
     fn from(pipeline_data: &serde_json::Value) -> Self {
         GithubPipelineFields {
-            // Github has `conclusion` as the final
-            // state of the pipeline. It also has a
-            // `status` field to represent the current
-            // state of the pipeline. Our domain
-            // `Pipeline` struct `status` refers to the
-            // final state, i.e conclusion.
-            status: pipeline_data["conclusion"]
-                .as_str()
-                // conclusion is not present when a
-                // pipeline is running, gather its status.
-                .unwrap_or_else(|| {
-                    pipeline_data["status"]
+            pipeline: Pipeline::builder()
+                // Github has `conclusion` as the final
+                // state of the pipeline. It also has a
+                // `status` field to represent the current
+                // state of the pipeline. Our domain
+                // `Pipeline` struct `status` refers to the
+                // final state, i.e conclusion.
+                .status(
+                    pipeline_data["conclusion"]
                         .as_str()
-                        // set is as unknown if
-                        // neither conclusion nor
-                        // status are present.
-                        .unwrap_or("unknown")
-                })
-                .to_string(),
-            web_url: pipeline_data["html_url"].as_str().unwrap().to_string(),
-            branch: pipeline_data["head_branch"].as_str().unwrap().to_string(),
-            sha: pipeline_data["head_sha"].as_str().unwrap().to_string(),
-            created_at: pipeline_data["created_at"].as_str().unwrap().to_string(),
-            updated_at: pipeline_data["updated_at"].as_str().unwrap().to_string(),
+                        // conclusion is not present when a
+                        // pipeline is running, gather its status.
+                        .unwrap_or_else(||
+                            // set is as unknown if
+// neither conclusion nor status are present.
+                            pipeline_data["status"].as_str().unwrap_or("unknown"))
+                        .to_string(),
+                )
+                .web_url(pipeline_data["html_url"].as_str().unwrap().to_string())
+                .branch(pipeline_data["head_branch"].as_str().unwrap().to_string())
+                .sha(pipeline_data["head_sha"].as_str().unwrap().to_string())
+                .created_at(pipeline_data["created_at"].as_str().unwrap().to_string())
+                .updated_at(pipeline_data["updated_at"].as_str().unwrap().to_string())
+                .duration(time::compute_duration(
+                    pipeline_data["created_at"].as_str().unwrap(),
+                    pipeline_data["updated_at"].as_str().unwrap(),
+                ))
+                .build()
+                .unwrap(),
         }
     }
 }
 
 impl From<GithubPipelineFields> for Pipeline {
     fn from(fields: GithubPipelineFields) -> Self {
-        Pipeline::builder()
-            .status(fields.status)
-            .web_url(fields.web_url)
-            .branch(fields.branch)
-            .sha(fields.sha)
-            .created_at(fields.created_at.to_string())
-            .updated_at(fields.updated_at.to_string())
-            .duration(time::compute_duration(
-                &fields.created_at,
-                &fields.updated_at,
-            ))
-            .build()
-            .unwrap()
+        fields.pipeline
     }
 }
 

@@ -148,34 +148,28 @@ impl From<GithubProjectFields> for Project {
 }
 
 pub struct GithubMemberFields {
-    id: i64,
-    login: String,
-    name: String,
-    created_at: String,
+    member: Member,
 }
 
 impl From<&serde_json::Value> for GithubMemberFields {
     fn from(member_data: &serde_json::Value) -> Self {
         GithubMemberFields {
-            id: member_data["id"].as_i64().unwrap(),
-            login: member_data["login"].as_str().unwrap().to_string(),
-            name: "".to_string(),
-            // Github does not provide created_at field in the response for
-            // Members (aka contributors). Set it to UNIX epoch.
-            created_at: "1970-01-01T00:00:00Z".to_string(),
+            member: Member::builder()
+                .id(member_data["id"].as_i64().unwrap())
+                .username(member_data["login"].as_str().unwrap().to_string())
+                .name("".to_string())
+                // Github does not provide created_at field in the response for
+                // Members (aka contributors). Set it to UNIX epoch.
+                .created_at("1970-01-01T00:00:00Z".to_string())
+                .build()
+                .unwrap(),
         }
     }
 }
 
 impl From<GithubMemberFields> for Member {
     fn from(fields: GithubMemberFields) -> Self {
-        Member::builder()
-            .id(fields.id)
-            .username(fields.login)
-            .name(fields.name)
-            .created_at(fields.created_at)
-            .build()
-            .unwrap()
+        fields.member
     }
 }
 
