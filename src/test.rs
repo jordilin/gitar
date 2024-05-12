@@ -18,6 +18,7 @@ pub mod utils {
         fmt::Write,
         fs::File,
         io::Read,
+        ops::Deref,
         sync::{Arc, Mutex},
     };
 
@@ -237,12 +238,52 @@ pub mod utils {
         log::set_max_level(LevelFilter::Trace);
     }
 
+    pub struct Domain(pub String);
+    pub struct BasePath(pub String);
+
+    impl Deref for Domain {
+        type Target = String;
+
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    impl Deref for BasePath {
+        type Target = String;
+
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    pub enum ClientType {
+        Gitlab(Domain, BasePath),
+        Github(Domain, BasePath),
+    }
+
+    pub fn default_gitlab() -> ClientType {
+        ClientType::Gitlab(
+            Domain("gitlab.com".to_string()),
+            BasePath("jordilin/gitlapi".to_string()),
+        )
+    }
+
+    pub fn default_github() -> ClientType {
+        ClientType::Github(
+            Domain("github.com".to_string()),
+            BasePath("jordilin/githapi".to_string()),
+        )
+    }
+
     #[macro_export]
     macro_rules! setup_client {
-        ($responses:expr, $path:expr, $trait_type:ty) => {{
+        ($responses:expr, $client_type:expr, $trait_type:ty) => {{
             let config = crate::test::utils::config();
-            let domain = "github.com".to_string();
-            let path = $path.unwrap_or("jordilin/githapi".to_string());
+            let (domain, path) = match $client_type {
+                crate::test::utils::ClientType::Gitlab(domain, path) => (domain, path),
+                crate::test::utils::ClientType::Github(domain, path) => (domain, path),
+            };
             let responses: Vec<_> = $responses
                 .iter()
                 .map(|(status_code, get_contract_fn, headers)| {
