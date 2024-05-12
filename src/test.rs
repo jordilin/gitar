@@ -21,6 +21,7 @@ pub mod utils {
         sync::{Arc, Mutex},
     };
 
+    #[derive(Debug, Clone, Copy, PartialEq)]
     pub enum ContractType {
         Gitlab,
         Github,
@@ -235,4 +236,35 @@ pub mod utils {
         log::set_boxed_logger(Box::new(logger)).expect("Failed to set logger");
         log::set_max_level(LevelFilter::Trace);
     }
+
+    #[macro_export]
+    macro_rules! setup_client {
+        ($responses:expr, $path:expr, $trait_type:ty) => {{
+            let config = crate::test::utils::config();
+            let domain = "github.com".to_string();
+            let path = $path.unwrap_or("jordilin/githapi".to_string());
+            let responses: Vec<_> = $responses
+                .iter()
+                .map(|(status_code, get_contract_fn, headers)| {
+                    let body = get_contract_fn();
+                    let mut response = Response::builder();
+                    response.status(*status_code);
+                    if headers.is_some() {
+                        response.headers(headers.clone().unwrap());
+                    }
+                    if body.is_some() {
+                        response.body(body.unwrap());
+                    }
+                    response.build().unwrap()
+                })
+                .collect();
+            let client = std::sync::Arc::new(crate::test::utils::MockRunner::new(responses));
+            let github: Box<$trait_type> =
+                Box::new(Github::new(config, &domain, &path, client.clone()));
+
+            (client, github)
+        }};
+    }
+
+    pub type ResponseContracts = Vec<(i32, Box<dyn Fn() -> Option<String>>, Option<Headers>)>;
 }

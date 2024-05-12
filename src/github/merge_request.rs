@@ -441,36 +441,22 @@ impl From<GithubMergeRequestCommentFields> for Comment {
 #[cfg(test)]
 mod test {
 
-    use std::sync::Arc;
-
     use crate::{
         http::{self, Headers},
         remote::{ListBodyArgs, MergeRequestState},
-        test::utils::{config, get_contract, ContractType, MockRunner},
+        setup_client,
+        test::utils::{get_contract, ContractType, ResponseContracts},
     };
 
     use super::*;
 
     #[test]
     fn test_open_merge_request() {
-        let config = config();
+        let contract = Box::new(|| Some(get_contract(ContractType::Github, "merge_request.json")));
+        let contract2 = contract.clone();
+        let responses: ResponseContracts = vec![(200, contract, None), (201, contract2, None)];
+        let (client, github) = setup_client!(responses, None, dyn MergeRequest);
         let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
-
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response1 = Response::builder()
-            .status(201)
-            .body(get_contract(ContractType::Github, "merge_request.json"))
-            .build()
-            .unwrap();
-        let response2 = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Github, "merge_request.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response2, response1]));
-        let github = Github::new(config, &domain, &path, client.clone());
-
         assert!(github.open(mr_args).is_ok());
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/issues/23",
@@ -484,26 +470,16 @@ mod test {
 
     #[test]
     fn test_open_merge_request_on_target_repository() {
-        let config = config();
         let mr_args = MergeRequestBodyArgs::builder()
             .target_repo("jordilin/gitar".to_string())
             .build()
             .unwrap();
-        let domain = "github.com".to_string();
+        let contract = Box::new(|| Some(get_contract(ContractType::Github, "merge_request.json")));
+        let contract2 = contract.clone();
+        let responses: ResponseContracts = vec![(200, contract, None), (201, contract2, None)];
         // current repo, targetting jordilin/gitar
-        let path = "jdoe/gitar";
-        let response1 = Response::builder()
-            .status(201)
-            .body(get_contract(ContractType::Github, "merge_request.json"))
-            .build()
-            .unwrap();
-        let response2 = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Github, "merge_request.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response2, response1]));
-        let github = Github::new(config, &domain, &path, client.clone());
+        let (client, github) =
+            setup_client!(responses, Some("jdoe/gitar".to_string()), dyn MergeRequest);
 
         assert!(github.open(mr_args).is_ok());
         assert_eq!(
@@ -518,53 +494,50 @@ mod test {
 
     #[test]
     fn test_open_merge_request_error_status_code() {
-        let config = config();
         let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
-
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response1 = Response::builder().status(401).body(
-            r#"{"message":"Bad credentials","documentation_url":"https://docs.github.com/rest"}"#
-                .to_string(),
+        let contract = Box::new(|| {
+            Some(
+                r#"{"message":"Bad credentials","documentation_url":"https://docs.github.com/rest"}"#
+                .to_string()
             )
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response1]));
-        let github = Github::new(config, &domain, &path, client.clone());
+        });
+        let responses: ResponseContracts = vec![(401, contract, None)];
+        let (_, github) = setup_client!(responses, None, dyn MergeRequest);
         assert!(github.open(mr_args).is_err());
     }
 
     #[test]
     fn test_open_merge_request_existing_one() {
-        let config = config();
         let mr_args = MergeRequestBodyArgs::builder()
             .source_branch("feature".to_string())
             .build()
             .unwrap();
-
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response1 = Response::builder()
-            .status(422)
-            .body(get_contract(
-                ContractType::Github,
-                "merge_request_conflict.json",
-            ))
-            .build()
-            .unwrap();
-        // Github returns a 422 (already exists), so the code grabs existing URL
-        // filtering by namespace and branch. The response is a list of merge
-        // requests.
-        let response2 = Response::builder()
-            .status(200)
-            .body(format!(
-                "[{}]",
-                get_contract(ContractType::Github, "merge_request.json")
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response2, response1]));
-        let github = Github::new(config, &domain, &path, client.clone());
+        let contracts: ResponseContracts = vec![
+            (
+                200,
+                Box::new(|| {
+                    Some(format!(
+                        "[{}]",
+                        get_contract(ContractType::Github, "merge_request.json")
+                    ))
+                }),
+                None,
+            ),
+            // Github returns a 422 (already exists), so the code grabs existing URL
+            // filtering by namespace and branch. The response is a list of merge
+            // requests.
+            (
+                422,
+                Box::new(|| {
+                    Some(get_contract(
+                        ContractType::Github,
+                        "merge_request_conflict.json",
+                    ))
+                }),
+                None,
+            ),
+        ];
+        let (client, github) = setup_client!(contracts, None, dyn MergeRequest);
 
         github.open(mr_args).unwrap();
         assert_eq!(
@@ -579,30 +552,24 @@ mod test {
 
     #[test]
     fn test_open_merge_request_cannot_retrieve_url_existing_one_is_error() {
-        let config = config();
         let mr_args = MergeRequestBodyArgs::builder()
             .source_branch("feature".to_string())
             .build()
             .unwrap();
-
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response1 = Response::builder()
-            .status(422)
-            .body(get_contract(
-                ContractType::Github,
-                "merge_request_conflict.json",
-            ))
-            .build()
-            .unwrap();
-        let response2 = Response::builder()
-            .status(200)
-            .body("[]".to_string())
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response2, response1]));
-        let github = Github::new(config, &domain, &path, client.clone());
-
+        let contracts: ResponseContracts = vec![
+            (200, Box::new(|| Some("[]".to_string())), None),
+            (
+                422,
+                Box::new(|| {
+                    Some(get_contract(
+                        ContractType::Github,
+                        "merge_request_conflict.json",
+                    ))
+                }),
+                None,
+            ),
+        ];
+        let (_, github) = setup_client!(contracts, None, dyn MergeRequest);
         let result = github.open(mr_args);
         match result {
             Ok(_) => panic!("Expected error"),
@@ -615,30 +582,25 @@ mod test {
 
     #[test]
     fn test_open_merge_request_cannot_get_owner_org_namespace_in_existing_pull_request() {
-        let config = config();
         let mr_args = MergeRequestBodyArgs::builder()
             .source_branch("feature".to_string())
             .build()
             .unwrap();
-
-        let domain = "github.com".to_string();
-        // missing the repo name
-        let path = "jordilin";
-        let response1 = Response::builder()
-            .status(422)
-            .body(get_contract(
-                ContractType::Github,
-                "merge_request_conflict.json",
-            ))
-            .build()
-            .unwrap();
-        let response2 = Response::builder()
-            .status(200)
-            .body("[]".to_string())
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response2, response1]));
-        let github = Github::new(config, &domain, &path, client.clone());
+        let contracts: ResponseContracts = vec![
+            (200, Box::new(|| Some("[]".to_string())), None),
+            (
+                422,
+                Box::new(|| {
+                    Some(get_contract(
+                        ContractType::Github,
+                        "merge_request_conflict.json",
+                    ))
+                }),
+                None,
+            ),
+        ];
+        // missing the repo name on path
+        let (_, github) = setup_client!(contracts, Some("jordilin".to_string()), dyn MergeRequest);
 
         let result = github.open(mr_args);
         match result {
@@ -652,20 +614,11 @@ mod test {
 
     #[test]
     fn test_merge_request_num_pages() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
         let link_header = r#"<https://api.github.com/repos/jordilin/githapi/pulls?state=open&page=2>; rel="next", <https://api.github.com/repos/jordilin/githapi/pulls?state=open&page=2>; rel="last""#;
         let mut headers = Headers::new();
         headers.set("link".to_string(), link_header.to_string());
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn MergeRequest> =
-            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts = vec![(200, Box::new(|| None), Some(headers))];
+        let (client, github) = setup_client!(contracts, None, dyn MergeRequest);
         let args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
@@ -685,17 +638,8 @@ mod test {
 
     #[test]
     fn test_list_merge_requests_from_to_page_set_in_url() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder()
-            .status(200)
-            .body("[]".to_string())
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn MergeRequest> =
-            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts: ResponseContracts = vec![(200, Box::new(|| Some("[]".to_string())), None)];
+        let (client, github) = setup_client!(contracts, None, dyn MergeRequest);
         let args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(Some(
@@ -721,17 +665,12 @@ mod test {
 
     #[test]
     fn test_get_pull_requests_for_auth_user() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Github, "list_issues_user.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn MergeRequest> =
-            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts: ResponseContracts = vec![(
+            200,
+            Box::new(|| Some(get_contract(ContractType::Github, "list_issues_user.json"))),
+            None,
+        )];
+        let (client, github) = setup_client!(contracts, None, dyn MergeRequest);
         let args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
@@ -749,13 +688,8 @@ mod test {
 
     #[test]
     fn test_create_merge_request_comment() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder().status(201).build().unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn CommentMergeRequest> =
-            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts: ResponseContracts = vec![(201, Box::new(|| None), None)];
+        let (client, github) = setup_client!(contracts, None, dyn CommentMergeRequest);
         let args = CommentMergeRequestBodyArgs::builder()
             .id(23)
             .comment("Looks good to me".to_string())
@@ -774,13 +708,8 @@ mod test {
 
     #[test]
     fn test_create_merge_request_comment_error_status_code() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder().status(500).build().unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn CommentMergeRequest> =
-            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts: ResponseContracts = vec![(500, Box::new(|| None), None)];
+        let (_, github) = setup_client!(contracts, None, dyn CommentMergeRequest);
         let args = CommentMergeRequestBodyArgs::builder()
             .id(23)
             .comment("Looks good to me".to_string())
@@ -791,17 +720,12 @@ mod test {
 
     #[test]
     fn test_close_pull_request_ok() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Github, "merge_request.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn MergeRequest> =
-            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts: ResponseContracts = vec![(
+            200,
+            Box::new(|| Some(get_contract(ContractType::Github, "merge_request.json"))),
+            None,
+        )];
+        let (client, github) = setup_client!(contracts, None, dyn MergeRequest);
         github.close(23).unwrap();
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/pulls/23",
@@ -816,17 +740,12 @@ mod test {
 
     #[test]
     fn test_get_pull_request_details() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Github, "merge_request.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn MergeRequest> =
-            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts: ResponseContracts = vec![(
+            200,
+            Box::new(|| Some(get_contract(ContractType::Github, "merge_request.json"))),
+            None,
+        )];
+        let (client, github) = setup_client!(contracts, None, dyn MergeRequest);
         github.get(23).unwrap();
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/pulls/23",
@@ -840,17 +759,12 @@ mod test {
 
     #[test]
     fn test_github_merge_pull_request() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Github, "merge_request.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn MergeRequest> =
-            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts: ResponseContracts = vec![(
+            200,
+            Box::new(|| Some(get_contract(ContractType::Github, "merge_request.json"))),
+            None,
+        )];
+        let (client, github) = setup_client!(contracts, None, dyn MergeRequest);
         github.merge(23).unwrap();
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/pulls/23/merge",
@@ -865,20 +779,17 @@ mod test {
 
     #[test]
     fn test_list_pull_request_comments() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder()
-            .status(200)
-            .body(format!(
-                "[{}]",
-                get_contract(ContractType::Github, "comment.json")
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn CommentMergeRequest> =
-            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts: ResponseContracts = vec![(
+            200,
+            Box::new(|| {
+                Some(format!(
+                    "[{}]",
+                    get_contract(ContractType::Github, "comment.json")
+                ))
+            }),
+            None,
+        )];
+        let (client, github) = setup_client!(contracts, None, dyn CommentMergeRequest);
         let args = CommentMergeRequestListBodyArgs::builder()
             .id(23)
             .list_args(None)
@@ -897,20 +808,11 @@ mod test {
 
     #[test]
     fn test_pull_request_comment_num_pages() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
         let link_header = r#"<https://api.github.com/repos/jordilin/githapi/issues/23/comments?page=2>; rel="next", <https://api.github.com/repos/jordilin/githapi/issues/23/comments?page=2>; rel="last""#;
         let mut headers = Headers::new();
         headers.set("link".to_string(), link_header.to_string());
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn CommentMergeRequest> =
-            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts: ResponseContracts = vec![(200, Box::new(|| None), Some(headers))];
+        let (client, github) = setup_client!(contracts, None, dyn CommentMergeRequest);
         let args = CommentMergeRequestListBodyArgs::builder()
             .id(23)
             .list_args(None)
