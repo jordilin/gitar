@@ -51,30 +51,23 @@ impl From<GitlabUserFields> for Member {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
-
     use crate::{
         api_traits::ApiOperation,
-        test::utils::{config, get_contract, ContractType, MockRunner},
+        setup_client,
+        test::utils::{default_gitlab, ContractType, ResponseContracts},
     };
 
     use super::*;
 
     #[test]
     fn test_get_user_id() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "get_user_info.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn UserInfo> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "get_user_info.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn UserInfo);
         let user = gitlab.get().unwrap();
-
         assert_eq!(123456, user.id);
         assert_eq!("jordilin", user.username);
         assert_eq!("https://gitlab.com/api/v4/user", *client.url(),);
