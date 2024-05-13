@@ -455,9 +455,9 @@ mod test {
 
     #[test]
     fn test_open_merge_request() {
-        let contract = Box::new(|| Some(get_contract(ContractType::Github, "merge_request.json")));
-        let contract2 = contract.clone();
-        let responses: ResponseContracts = vec![(200, contract, None), (201, contract2, None)];
+        let responses = ResponseContracts::new(ContractType::Github)
+            .add_contract(200, "merge_request.json", None)
+            .add_contract(201, "merge_request.json", None);
         let (client, github) = setup_client!(responses, default_github(), dyn MergeRequest);
         let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
         assert!(github.open(mr_args).is_ok());
@@ -477,9 +477,9 @@ mod test {
             .target_repo("jordilin/gitar".to_string())
             .build()
             .unwrap();
-        let contract = Box::new(|| Some(get_contract(ContractType::Github, "merge_request.json")));
-        let contract2 = contract.clone();
-        let responses: ResponseContracts = vec![(200, contract, None), (201, contract2, None)];
+        let responses = ResponseContracts::new(ContractType::Github)
+            .add_contract(200, "merge_request.json", None)
+            .add_contract(201, "merge_request.json", None);
         // current repo, targetting jordilin/gitar
         let client_type = ClientType::Github(
             Domain("github.com".to_string()),
@@ -501,13 +501,11 @@ mod test {
     #[test]
     fn test_open_merge_request_error_status_code() {
         let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
-        let contract = Box::new(|| {
-            Some(
-                r#"{"message":"Bad credentials","documentation_url":"https://docs.github.com/rest"}"#
-                .to_string()
-            )
-        });
-        let responses: ResponseContracts = vec![(401, contract, None)];
+        let responses = ResponseContracts::new(ContractType::Github).add_body(
+            401,
+            Some(r#"{"message":"Bad credentials","documentation_url":"https://docs.github.com/rest"}"#),
+            None,
+        );
         let (_, github) = setup_client!(responses, default_github(), dyn MergeRequest);
         assert!(github.open(mr_args).is_err());
     }
@@ -518,31 +516,19 @@ mod test {
             .source_branch("feature".to_string())
             .build()
             .unwrap();
-        let contracts: ResponseContracts = vec![
-            (
+        let contracts = ResponseContracts::new(ContractType::Github)
+            .add_body(
                 200,
-                Box::new(|| {
-                    Some(format!(
-                        "[{}]",
-                        get_contract(ContractType::Github, "merge_request.json")
-                    ))
-                }),
+                Some(format!(
+                    "[{}]",
+                    get_contract(ContractType::Github, "merge_request.json")
+                )),
                 None,
-            ),
+            )
             // Github returns a 422 (already exists), so the code grabs existing URL
             // filtering by namespace and branch. The response is a list of merge
             // requests.
-            (
-                422,
-                Box::new(|| {
-                    Some(get_contract(
-                        ContractType::Github,
-                        "merge_request_conflict.json",
-                    ))
-                }),
-                None,
-            ),
-        ];
+            .add_contract(422, "merge_request_conflict.json", None);
         let (client, github) = setup_client!(contracts, default_github(), dyn MergeRequest);
 
         github.open(mr_args).unwrap();
@@ -562,19 +548,9 @@ mod test {
             .source_branch("feature".to_string())
             .build()
             .unwrap();
-        let contracts: ResponseContracts = vec![
-            (200, Box::new(|| Some("[]".to_string())), None),
-            (
-                422,
-                Box::new(|| {
-                    Some(get_contract(
-                        ContractType::Github,
-                        "merge_request_conflict.json",
-                    ))
-                }),
-                None,
-            ),
-        ];
+        let contracts = ResponseContracts::new(ContractType::Github)
+            .add_body(200, Some("[]"), None)
+            .add_contract(422, "merge_request_conflict.json", None);
         let (_, github) = setup_client!(contracts, default_github(), dyn MergeRequest);
         let result = github.open(mr_args);
         match result {
@@ -592,19 +568,9 @@ mod test {
             .source_branch("feature".to_string())
             .build()
             .unwrap();
-        let contracts: ResponseContracts = vec![
-            (200, Box::new(|| Some("[]".to_string())), None),
-            (
-                422,
-                Box::new(|| {
-                    Some(get_contract(
-                        ContractType::Github,
-                        "merge_request_conflict.json",
-                    ))
-                }),
-                None,
-            ),
-        ];
+        let contracts = ResponseContracts::new(ContractType::Github)
+            .add_body(200, Some("[]"), None)
+            .add_contract(422, "merge_request_conflict.json", None);
         // missing the repo name on path
         let client_type = ClientType::Github(
             Domain("github.com".to_string()),
@@ -627,7 +593,11 @@ mod test {
         let link_header = r#"<https://api.github.com/repos/jordilin/githapi/pulls?state=open&page=2>; rel="next", <https://api.github.com/repos/jordilin/githapi/pulls?state=open&page=2>; rel="last""#;
         let mut headers = Headers::new();
         headers.set("link".to_string(), link_header.to_string());
-        let contracts = vec![(200, Box::new(|| None), Some(headers))];
+        let contracts = ResponseContracts::new(ContractType::Github).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
         let (client, github) = setup_client!(contracts, default_github(), dyn MergeRequest);
         let args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
@@ -648,7 +618,9 @@ mod test {
 
     #[test]
     fn test_list_merge_requests_from_to_page_set_in_url() {
-        let contracts: ResponseContracts = vec![(200, Box::new(|| Some("[]".to_string())), None)];
+        let contracts =
+            ResponseContracts::new(ContractType::Github).add_body(200, Some("[]"), None);
+
         let (client, github) = setup_client!(contracts, default_github(), dyn MergeRequest);
         let args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
@@ -675,11 +647,11 @@ mod test {
 
     #[test]
     fn test_get_pull_requests_for_auth_user() {
-        let contracts: ResponseContracts = vec![(
+        let contracts = ResponseContracts::new(ContractType::Github).add_contract(
             200,
-            Box::new(|| Some(get_contract(ContractType::Github, "list_issues_user.json"))),
+            "list_issues_user.json",
             None,
-        )];
+        );
         let (client, github) = setup_client!(contracts, default_github(), dyn MergeRequest);
         let args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
@@ -698,7 +670,8 @@ mod test {
 
     #[test]
     fn test_create_merge_request_comment() {
-        let contracts: ResponseContracts = vec![(201, Box::new(|| None), None)];
+        let contracts =
+            ResponseContracts::new(ContractType::Github).add_body::<String>(201, None, None);
         let (client, github) = setup_client!(contracts, default_github(), dyn CommentMergeRequest);
         let args = CommentMergeRequestBodyArgs::builder()
             .id(23)
@@ -718,7 +691,8 @@ mod test {
 
     #[test]
     fn test_create_merge_request_comment_error_status_code() {
-        let contracts: ResponseContracts = vec![(500, Box::new(|| None), None)];
+        let contracts =
+            ResponseContracts::new(ContractType::Github).add_body::<String>(500, None, None);
         let (_, github) = setup_client!(contracts, default_github(), dyn CommentMergeRequest);
         let args = CommentMergeRequestBodyArgs::builder()
             .id(23)
@@ -730,11 +704,11 @@ mod test {
 
     #[test]
     fn test_close_pull_request_ok() {
-        let contracts: ResponseContracts = vec![(
+        let contracts = ResponseContracts::new(ContractType::Github).add_contract(
             200,
-            Box::new(|| Some(get_contract(ContractType::Github, "merge_request.json"))),
+            "merge_request.json",
             None,
-        )];
+        );
         let (client, github) = setup_client!(contracts, default_github(), dyn MergeRequest);
         github.close(23).unwrap();
         assert_eq!(
@@ -750,11 +724,11 @@ mod test {
 
     #[test]
     fn test_get_pull_request_details() {
-        let contracts: ResponseContracts = vec![(
+        let contracts = ResponseContracts::new(ContractType::Github).add_contract(
             200,
-            Box::new(|| Some(get_contract(ContractType::Github, "merge_request.json"))),
+            "merge_request.json",
             None,
-        )];
+        );
         let (client, github) = setup_client!(contracts, default_github(), dyn MergeRequest);
         github.get(23).unwrap();
         assert_eq!(
@@ -769,11 +743,11 @@ mod test {
 
     #[test]
     fn test_github_merge_pull_request() {
-        let contracts: ResponseContracts = vec![(
+        let contracts = ResponseContracts::new(ContractType::Github).add_contract(
             200,
-            Box::new(|| Some(get_contract(ContractType::Github, "merge_request.json"))),
+            "merge_request.json",
             None,
-        )];
+        );
         let (client, github) = setup_client!(contracts, default_github(), dyn MergeRequest);
         github.merge(23).unwrap();
         assert_eq!(
@@ -789,16 +763,14 @@ mod test {
 
     #[test]
     fn test_list_pull_request_comments() {
-        let contracts: ResponseContracts = vec![(
+        let contracts = ResponseContracts::new(ContractType::Github).add_body(
             200,
-            Box::new(|| {
-                Some(format!(
-                    "[{}]",
-                    get_contract(ContractType::Github, "comment.json")
-                ))
-            }),
+            Some(format!(
+                "[{}]",
+                get_contract(ContractType::Github, "comment.json")
+            )),
             None,
-        )];
+        );
         let (client, github) = setup_client!(contracts, default_github(), dyn CommentMergeRequest);
         let args = CommentMergeRequestListBodyArgs::builder()
             .id(23)
@@ -821,7 +793,11 @@ mod test {
         let link_header = r#"<https://api.github.com/repos/jordilin/githapi/issues/23/comments?page=2>; rel="next", <https://api.github.com/repos/jordilin/githapi/issues/23/comments?page=2>; rel="last""#;
         let mut headers = Headers::new();
         headers.set("link".to_string(), link_header.to_string());
-        let contracts: ResponseContracts = vec![(200, Box::new(|| None), Some(headers))];
+        let contracts = ResponseContracts::new(ContractType::Github).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
         let (client, github) = setup_client!(contracts, default_github(), dyn CommentMergeRequest);
         let args = CommentMergeRequestListBodyArgs::builder()
             .id(23)

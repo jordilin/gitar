@@ -278,18 +278,18 @@ pub mod utils {
 
     #[macro_export]
     macro_rules! setup_client {
-        ($responses:expr, $client_type:expr, $trait_type:ty) => {{
+        ($response_contracts:expr, $client_type:expr, $trait_type:ty) => {{
             let config = crate::test::utils::config();
             let (domain, path) = match $client_type {
                 crate::test::utils::ClientType::Gitlab(domain, path) => (domain, path),
                 crate::test::utils::ClientType::Github(domain, path) => (domain, path),
             };
-            let responses: Vec<_> = $responses
-                .iter()
+            let responses: Vec<_> = $response_contracts
+                .into_iter()
                 .map(|(status_code, get_contract_fn, headers)| {
                     let body = get_contract_fn();
                     let mut response = Response::builder();
-                    response.status(*status_code);
+                    response.status(status_code);
                     if headers.is_some() {
                         response.headers(headers.clone().unwrap());
                     }
@@ -307,5 +307,61 @@ pub mod utils {
         }};
     }
 
-    pub type ResponseContracts = Vec<(i32, Box<dyn Fn() -> Option<String>>, Option<Headers>)>;
+    // pub type ResponseContracts = Vec<(i32, Box<dyn Fn() -> Option<String>>, Option<Headers>)>;
+
+    pub struct ResponseContracts {
+        contract_type: ContractType,
+        contracts: Vec<(i32, Box<dyn Fn() -> Option<String>>, Option<Headers>)>,
+    }
+
+    impl ResponseContracts {
+        pub fn new(contract_type: ContractType) -> Self {
+            Self {
+                contract_type,
+                contracts: Vec::new(),
+            }
+        }
+
+        pub fn add_body<B: Into<String> + Clone + 'static>(
+            mut self,
+            status_code: i32,
+            body: Option<B>,
+            headers: Option<Headers>,
+        ) -> Self {
+            self.contracts.push((
+                status_code,
+                Box::new(move || body.clone().map(|b| b.into())),
+                headers,
+            ));
+            self
+        }
+
+        pub fn add_contract<F: Into<String> + Clone + 'static>(
+            mut self,
+            status_code: i32,
+            contract_file: F,
+            headers: Option<Headers>,
+        ) -> Self {
+            self.contracts.push((
+                status_code,
+                Box::new(move || {
+                    Some(get_contract(
+                        self.contract_type.clone(),
+                        &contract_file.clone().into(),
+                    ))
+                }),
+                headers,
+            ));
+            self
+        }
+    }
+
+    impl IntoIterator for ResponseContracts {
+        type Item = (i32, Box<dyn Fn() -> Option<String>>, Option<Headers>);
+        type IntoIter = std::vec::IntoIter<Self::Item>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            self.contracts.into_iter()
+        }
+    }
 }
