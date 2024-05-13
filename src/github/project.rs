@@ -175,28 +175,21 @@ impl From<GithubMemberFields> for Member {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
 
     use crate::{
         cmds::project::ProjectListBodyArgs,
         http::Headers,
-        test::utils::{config, get_contract, ContractType, MockRunner},
+        setup_client,
+        test::utils::{default_github, get_contract, ContractType, ResponseContracts},
     };
 
     use super::*;
 
     #[test]
     fn test_get_project_data_no_id() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Github, "project.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github = Github::new(config, &domain, &path, client.clone());
+        let contracts =
+            ResponseContracts::new(ContractType::Github).add_contract(200, "project.json", None);
+        let (client, github) = setup_client!(contracts, default_github(), dyn RemoteProject);
         github.get_project_data(None, None).unwrap();
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi",
@@ -207,16 +200,9 @@ mod test {
 
     #[test]
     fn test_get_project_data_given_owner_repo_path() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "rayon-rs/rayon";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Github, "project.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github = Github::new(config, &domain, &path, client.clone());
+        let contracts =
+            ResponseContracts::new(ContractType::Github).add_contract(200, "project.json", None);
+        let (client, github) = setup_client!(contracts, default_github(), dyn RemoteProject);
         let result = github.get_project_data(None, Some("jordilin/gitar"));
         assert_eq!("https://api.github.com/repos/jordilin/gitar", *client.url(),);
         match result {
@@ -229,27 +215,22 @@ mod test {
 
     #[test]
     fn test_get_project_data_with_id_not_supported() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let client = Arc::new(MockRunner::new(vec![]));
-        let github = Github::new(config, &domain, &path, client.clone());
+        let contracts = ResponseContracts::new(ContractType::Github);
+        let (_, github) = setup_client!(contracts, default_github(), dyn RemoteProject);
         assert!(github.get_project_data(Some(1), None).is_err());
     }
 
     #[test]
     fn test_list_current_user_projects() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let projects = format!("[{}]", get_contract(ContractType::Github, "project.json"));
-        let response = Response::builder()
-            .status(200)
-            .body(projects)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github = Github::new(config, &domain, &path, client.clone());
+        let contracts = ResponseContracts::new(ContractType::Github).add_body(
+            200,
+            Some(format!(
+                "[{}]",
+                get_contract(ContractType::Github, "project.json")
+            )),
+            None,
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn RemoteProject);
         let body_args = ProjectListBodyArgs::builder()
             .from_to_page(None)
             .user(Some(
@@ -270,17 +251,9 @@ mod test {
 
     #[test]
     fn test_get_my_starred_projects() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let projects = format!("{}", get_contract(ContractType::Github, "stars.json"));
-        let response = Response::builder()
-            .status(200)
-            .body(projects)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github = Github::new(config, &domain, &path, client.clone());
+        let contracts =
+            ResponseContracts::new(ContractType::Github).add_contract(200, "stars.json", None);
+        let (client, github) = setup_client!(contracts, default_github(), dyn RemoteProject);
         let body_args = ProjectListBodyArgs::builder()
             .from_to_page(None)
             .user(Some(
@@ -302,19 +275,15 @@ mod test {
 
     #[test]
     fn test_get_project_num_pages_url_for_user() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
         let link_header = "<https://api.github.com/users/jdoe/repos?page=2>; rel=\"next\", <https://api.github.com/users/jdoe/repos?page=2>; rel=\"last\"";
         let mut headers = Headers::new();
         headers.set("link", link_header);
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github = Github::new(config, &domain, &path, client.clone());
+        let contracts = ResponseContracts::new(ContractType::Github).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn RemoteProject);
         let body_args = ProjectListBodyArgs::builder()
             .from_to_page(None)
             .user(Some(
@@ -337,19 +306,15 @@ mod test {
 
     #[test]
     fn test_get_project_num_pages_url_for_starred() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
         let link_header = "<https://api.github.com/user/starred?page=2>; rel=\"next\", <https://api.github.com/user/starred?page=2>; rel=\"last\"";
         let mut headers = Headers::new();
         headers.set("link", link_header);
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github = Github::new(config, &domain, &path, client.clone());
+        let contracts = ResponseContracts::new(ContractType::Github).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn RemoteProject);
         let body_args = ProjectListBodyArgs::builder()
             .from_to_page(None)
             .user(Some(
