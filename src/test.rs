@@ -280,10 +280,6 @@ pub mod utils {
     macro_rules! setup_client {
         ($response_contracts:expr, $client_type:expr, $trait_type:ty) => {{
             let config = crate::test::utils::config();
-            let (domain, path) = match $client_type {
-                crate::test::utils::ClientType::Gitlab(domain, path) => (domain, path),
-                crate::test::utils::ClientType::Github(domain, path) => (domain, path),
-            };
             let responses: Vec<_> = $response_contracts
                 .into_iter()
                 .map(|(status_code, get_contract_fn, headers)| {
@@ -300,14 +296,18 @@ pub mod utils {
                 })
                 .collect();
             let client = std::sync::Arc::new(crate::test::utils::MockRunner::new(responses));
-            let github: Box<$trait_type> =
-                Box::new(Github::new(config, &domain, &path, client.clone()));
+            let remote: Box<$trait_type> = match $client_type {
+                crate::test::utils::ClientType::Gitlab(domain, path) => Box::new(
+                    crate::gitlab::Gitlab::new(config, &domain, &path, client.clone()),
+                ),
+                crate::test::utils::ClientType::Github(domain, path) => Box::new(
+                    crate::github::Github::new(config, &domain, &path, client.clone()),
+                ),
+            };
 
-            (client, github)
+            (client, remote)
         }};
     }
-
-    // pub type ResponseContracts = Vec<(i32, Box<dyn Fn() -> Option<String>>, Option<Headers>)>;
 
     pub struct ResponseContracts {
         contract_type: ContractType,
