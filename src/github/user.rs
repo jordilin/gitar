@@ -48,28 +48,23 @@ impl From<GithubUserFields> for Member {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
 
     use crate::{
         api_traits::ApiOperation,
-        test::utils::{config, get_contract, ContractType, MockRunner},
+        setup_client,
+        test::utils::{default_github, ContractType, ResponseContracts},
     };
 
     use super::*;
 
     #[test]
     fn test_get_user_id() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Github, "get_user_info.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn UserInfo> =
-            Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Github).add_contract(
+            200,
+            "get_user_info.json",
+            None,
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn UserInfo);
         let user = github.get().unwrap();
 
         assert_eq!(123456, user.id);
