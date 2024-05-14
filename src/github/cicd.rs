@@ -102,29 +102,25 @@ impl From<GithubPipelineFields> for Pipeline {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
 
     use crate::{
         error,
         http::Headers,
         remote::ListBodyArgs,
-        test::utils::{config, get_contract, ContractType, MockRunner},
+        setup_client,
+        test::utils::{default_github, get_contract, ContractType, ResponseContracts},
     };
 
     use super::*;
 
     #[test]
     fn test_list_actions() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Github, "list_pipelines.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Github).add_contract(
+            200,
+            "list_pipelines.json",
+            None,
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn Cicd);
         let args = PipelineBodyArgs::builder()
             .from_to_page(None)
             .build()
@@ -140,12 +136,9 @@ mod test {
 
     #[test]
     fn test_list_actions_error_status_code() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder().status(401).build().unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts =
+            ResponseContracts::new(ContractType::Github).add_body::<String>(401, None, None);
+        let (_, github) = setup_client!(contracts, default_github(), dyn Cicd);
         let args = PipelineBodyArgs::builder()
             .from_to_page(None)
             .build()
@@ -155,12 +148,9 @@ mod test {
 
     #[test]
     fn test_list_actions_unexpected_ok_status_code() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder().status(302).build().unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts =
+            ResponseContracts::new(ContractType::Github).add_body::<String>(302, None, None);
+        let (_, github) = setup_client!(contracts, default_github(), dyn Cicd);
         let args = PipelineBodyArgs::builder()
             .from_to_page(None)
             .build()
@@ -176,16 +166,12 @@ mod test {
 
     #[test]
     fn test_list_actions_empty_workflow_runs() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder()
-            .status(200)
-            .body(r#"{"workflow_runs":[]}"#.to_string())
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Github).add_body::<String>(
+            200,
+            Some(r#"{"workflow_runs":[]}"#.to_string()),
+            None,
+        );
+        let (_, github) = setup_client!(contracts, default_github(), dyn Cicd);
         let args = PipelineBodyArgs::builder()
             .from_to_page(None)
             .build()
@@ -195,16 +181,12 @@ mod test {
 
     #[test]
     fn test_workflow_runs_not_an_array_is_error() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder()
-            .status(200)
-            .body(r#"{"workflow_runs":{}}"#.to_string())
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Github).add_body::<String>(
+            200,
+            Some(r#"{"workflow_runs":{}}"#.to_string()),
+            None,
+        );
+        let (_, github) = setup_client!(contracts, default_github(), dyn Cicd);
         let args = PipelineBodyArgs::builder()
             .from_to_page(None)
             .build()
@@ -220,19 +202,15 @@ mod test {
 
     #[test]
     fn test_num_pages_for_list_actions() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
         let link_header = r#"<https://api.github.com/repos/jordilin/githapi/actions/runs?page=1>; rel="next", <https://api.github.com/repos/jordilin/githapi/actions/runs?page=1>; rel="last""#;
         let mut headers = Headers::new();
         headers.set("link".to_string(), link_header.to_string());
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Github).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn Cicd);
         assert_eq!(Some(1), github.num_pages().unwrap());
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/actions/runs?page=1",
@@ -243,27 +221,20 @@ mod test {
 
     #[test]
     fn test_num_pages_error_retrieving_last_page() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder().status(200).build().unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts =
+            ResponseContracts::new(ContractType::Github).add_body::<String>(200, None, None);
+        let (_, github) = setup_client!(contracts, default_github(), dyn Cicd);
         assert_eq!(Some(1), github.num_pages().unwrap());
     }
 
     #[test]
     fn test_list_actions_from_page_set_in_url() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Github, "list_pipelines.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Github).add_contract(
+            200,
+            "list_pipelines.json",
+            None,
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn Cicd);
         let args = PipelineBodyArgs::builder()
             .from_to_page(Some(
                 ListBodyArgs::builder()
@@ -284,22 +255,18 @@ mod test {
 
     #[test]
     fn test_list_actions_conclusion_field_not_available_use_status() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
         let contract_json = get_contract(ContractType::Github, "list_pipelines.json");
         let contract_json = contract_json
             .lines()
             .filter(|line| !line.contains("conclusion"))
             .collect::<Vec<&str>>()
             .join("\n");
-        let response = Response::builder()
-            .status(200)
-            .body(contract_json)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Github).add_body::<String>(
+            200,
+            Some(contract_json),
+            None,
+        );
+        let (_, github) = setup_client!(contracts, default_github(), dyn Cicd);
         let args = PipelineBodyArgs::builder()
             .from_to_page(None)
             .build()
@@ -310,22 +277,18 @@ mod test {
 
     #[test]
     fn test_list_actions_neither_conclusion_nor_status_use_unknown() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
         let contract_json = get_contract(ContractType::Github, "list_pipelines.json");
         let contract_json = contract_json
             .lines()
             .filter(|line| !line.contains("conclusion") && !line.contains("status"))
             .collect::<Vec<&str>>()
             .join("\n");
-        let response = Response::builder()
-            .status(200)
-            .body(contract_json)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn Cicd> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Github).add_body::<String>(
+            200,
+            Some(contract_json),
+            None,
+        );
+        let (_, github) = setup_client!(contracts, default_github(), dyn Cicd);
         let args = PipelineBodyArgs::builder()
             .from_to_page(None)
             .build()
