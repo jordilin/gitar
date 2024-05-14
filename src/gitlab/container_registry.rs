@@ -186,25 +186,18 @@ mod test {
     use super::*;
     use crate::{
         http::Headers,
-        test::utils::{config, get_contract, ContractType, MockRunner},
+        setup_client,
+        test::utils::{default_gitlab, ContractType, ResponseContracts},
     };
-    use std::sync::Arc;
 
     #[test]
     fn test_list_repositories_url() {
-        let config = config();
-        let domain = "gitlab.com";
-        let path = "jordilin/gitlapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(
-                ContractType::Gitlab,
-                "list_registry_repositories.json",
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "list_registry_repositories.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn ContainerRegistry);
         let args = DockerListBodyArgs::builder().repos(true).build().unwrap();
         gitlab.list_repositories(args).unwrap();
         assert_eq!(
@@ -220,19 +213,12 @@ mod test {
 
     #[test]
     fn test_list_repository_tags_url() {
-        let config = config();
-        let domain = "gitlab.com";
-        let path = "jordilin/gitlapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(
-                ContractType::Gitlab,
-                "list_registry_repository_tags.json",
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "list_registry_repository_tags.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn ContainerRegistry);
         let args = DockerListBodyArgs::builder()
             .repos(false)
             .tags(true)
@@ -253,20 +239,15 @@ mod test {
 
     #[test]
     fn test_query_num_pages_for_tags() {
-        let config = config();
-        let domain = "gitlab.com";
-        let path = "jordilin/gitlapi";
         let link_headers = r#"<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories/1/tags?page=1>; rel="next", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories/1/tags?page=1>; rel="last""#;
         let mut headers = Headers::new();
         headers.set("link".to_string(), link_headers.to_string());
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn ContainerRegistry> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn ContainerRegistry);
         assert_eq!(Some(1), gitlab.num_pages_repository_tags(1).unwrap());
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories/1/tags?page=1",
@@ -280,20 +261,15 @@ mod test {
 
     #[test]
     fn test_query_num_pages_for_registry_repositories() {
-        let config = config();
-        let domain = "gitlab.com";
-        let path = "jordilin/gitlapi";
         let link_headers = r#"<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories?page=1>; rel="next", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories?page=1>; rel="last""#;
         let mut headers = Headers::new();
         headers.set("link".to_string(), link_headers.to_string());
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn ContainerRegistry> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn ContainerRegistry);
         assert_eq!(Some(1), gitlab.num_pages_repositories().unwrap());
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories?page=1",
@@ -307,20 +283,12 @@ mod test {
 
     #[test]
     fn test_get_gitlab_registry_image_metadata() {
-        let config = config();
-        let domain = "gitlab.com";
-        let path = "jordilin/gitlapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(
-                ContractType::Gitlab,
-                "get_registry_repository_tag.json",
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn ContainerRegistry> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "get_registry_repository_tag.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn ContainerRegistry);
         let _metadata = gitlab.get_image_metadata(1, "v0.0.1").unwrap();
         assert_eq!("https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/registry/repositories/1/tags/v0.0.1",
             client.url().to_string(),
