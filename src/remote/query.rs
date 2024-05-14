@@ -45,13 +45,14 @@ pub fn num_pages<R: HttpRunner<Response = Response>>(
     request_headers: Headers,
     api_operation: ApiOperation,
 ) -> Result<Option<u32>> {
-    let mut request: Request<()> = http::Request::builder()
-        .method(http::Method::HEAD)
-        .resource(Resource::new(url, Some(api_operation)))
-        .headers(request_headers)
-        .build()
-        .unwrap();
-    let response = runner.run(&mut request)?;
+    let response = send_request::<_, String>(
+        runner,
+        url,
+        None,
+        request_headers,
+        http::Method::HEAD,
+        api_operation,
+    )?;
     let page_header = response.get_page_headers();
     match page_header {
         Some(page_header) => {
@@ -361,5 +362,15 @@ mod test {
         let operation = ApiOperation::Pipeline;
         let num_pages = num_pages(&client, url, headers, operation).unwrap();
         assert_eq!(Some(1), num_pages);
+    }
+
+    #[test]
+    fn test_numpages_error_on_404() {
+        let response = Response::builder().status(404).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let url = "https://github.com/api/v4/projects/1/pipelines";
+        let headers = Headers::new();
+        let operation = ApiOperation::Pipeline;
+        assert!(num_pages(&client, url, headers, operation).is_err());
     }
 }
