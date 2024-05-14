@@ -6,6 +6,7 @@ use gr::{
     cmds::{self, browse, cicd, docker, merge_request, project},
     error, git, init,
     io::CmdInfo,
+    remote::get_domain_path,
     shell::Shell,
     Result,
 };
@@ -29,8 +30,14 @@ fn main() -> Result<()> {
         init::execute(options, config_file)
     } else {
         let f = File::open(config_file).expect("Unable to open file");
-        let CmdInfo::RemoteUrl { domain, path } = git::remote_url(&Shell)? else {
-            return Err(error::gen("No remote url found. Please set a remote url."));
+
+        let (domain, path) = if cli_args.repo.is_some() {
+            get_domain_path(&cli_args.repo.unwrap())
+        } else {
+            let CmdInfo::RemoteUrl { domain, path } = git::remote_url(&Shell)? else {
+                return Err(error::gen("No remote url found. Please set a remote url."));
+            };
+            (domain, path)
         };
         let config = Arc::new(gr::config::Config::new(f, &domain).expect("Unable to read config"));
         match cli_options {
