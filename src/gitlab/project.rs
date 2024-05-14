@@ -149,12 +149,14 @@ impl From<GitlabMemberFields> for Member {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
 
     use crate::api_traits::ApiOperation;
     use crate::cmds::project::ProjectListBodyArgs;
     use crate::http::Headers;
-    use crate::test::utils::{config, get_contract, ContractType, MockRunner};
+    use crate::setup_client;
+    use crate::test::utils::{
+        default_gitlab, get_contract, BasePath, ClientType, ContractType, Domain, ResponseContracts,
+    };
 
     use crate::io::CmdInfo;
 
@@ -162,16 +164,9 @@ mod test {
 
     #[test]
     fn test_get_project_data_no_id() {
-        let config = config();
-        let domain = "gitlab.com";
-        let path = "jordilin/gitlapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "project.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_contract(200, "project.json", None);
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn RemoteProject);
         gitlab.get_project_data(None, None).unwrap();
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi",
@@ -183,16 +178,9 @@ mod test {
 
     #[test]
     fn test_get_project_data_with_given_id() {
-        let config = config();
-        let domain = "gitlab.com";
-        let path = "jordilin/gitlapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "project.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_contract(200, "project.json", None);
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn RemoteProject);
         gitlab.get_project_data(Some(54345), None).unwrap();
         assert_eq!(
             "https://gitlab.com/api/v4/projects/54345",
@@ -204,17 +192,13 @@ mod test {
 
     #[test]
     fn test_get_project_data_given_owner_repo_path() {
-        let config = config();
-        let domain = "gitlab.com";
         // current repository path where user is cd'd into.
         let path = "gitlab-org/gitlab-foss";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "project.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+        let client_type =
+            ClientType::Gitlab(Domain("gitlab.com".to_string()), BasePath(path.to_string()));
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_contract(200, "project.json", None);
+        let (client, gitlab) = setup_client!(contracts, client_type, dyn RemoteProject);
         // User requests information on a different repository.
         let result = gitlab.get_project_data(None, Some("jordilin/gitlapi"));
         assert_eq!(
@@ -231,11 +215,8 @@ mod test {
 
     #[test]
     fn test_get_project_data_error_if_both_id_and_path_given() {
-        let config = config();
-        let domain = "gitlab.com";
-        let path = "jordilin/gitlapi";
-        let client = Arc::new(MockRunner::new(vec![]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+        let contracts = ResponseContracts::new(ContractType::Gitlab);
+        let (_, gitlab) = setup_client!(contracts, default_gitlab(), dyn RemoteProject);
         let result = gitlab.get_project_data(Some(54345), Some("jordilin/gitlapi"));
         match result {
             Err(err) => match err.downcast_ref::<GRError>() {
@@ -253,17 +234,12 @@ mod test {
 
     #[test]
     fn test_get_project_members() {
-        let config = config();
-        let domain = "gitlab.com";
-        let path = "jordilin/gitlapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "project_members.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
-
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "project_members.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn RemoteProject);
         let CmdInfo::Members(members) = gitlab.get_project_members().unwrap() else {
             panic!("Expected members");
         };
@@ -280,18 +256,15 @@ mod test {
 
     #[test]
     fn test_list_user_projects() {
-        let config = config();
-        let domain = "gitlab.com";
-        let path = "jordilin/gitlapi";
-        let projects = format!("[{}]", get_contract(ContractType::Gitlab, "project.json"));
-        let response = Response::builder()
-            .status(200)
-            .body(projects)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
-
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body(
+            200,
+            Some(format!(
+                "[{}]",
+                get_contract(ContractType::Gitlab, "project.json")
+            )),
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn RemoteProject);
         let body_args = ProjectListBodyArgs::builder()
             .from_to_page(None)
             .user(Some(
@@ -315,18 +288,9 @@ mod test {
 
     #[test]
     fn test_get_my_starred_projects() {
-        let config = config();
-        let domain = "gitlab.com";
-        let path = "jordilin/gitlapi";
-        let projects = format!("{}", get_contract(ContractType::Gitlab, "stars.json"));
-        let response = Response::builder()
-            .status(200)
-            .body(projects)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
-
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_contract(200, "stars.json", None);
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn RemoteProject);
         let body_args = ProjectListBodyArgs::builder()
             .from_to_page(None)
             .user(Some(
@@ -351,20 +315,15 @@ mod test {
 
     #[test]
     fn test_get_num_pages_url_for_user_projects() {
-        let config = config();
-        let domain = "gitlab.com";
-        let path = "jordilin/gitlapi";
         let link_headers = "<https://gitlab.com/api/v4/users/1/projects?page=2&per_page=20>; rel=\"next\", <https://gitlab.com/api/v4/users/1/projects?page=2&per_page=20>; rel=\"last\"";
         let mut headers = Headers::new();
         headers.set("link", link_headers);
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "project.json"))
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "project.json",
+            Some(headers),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn RemoteProject);
         let body_args = ProjectListBodyArgs::builder()
             .from_to_page(None)
             .user(Some(
@@ -390,20 +349,15 @@ mod test {
 
     #[test]
     fn test_get_project_num_pages_url_for_starred() {
-        let config = config();
-        let domain = "gitlab.com";
-        let path = "jordilin/gitlapi";
         let link_headers = "<https://gitlab.com/api/v4/users/1/starred_projects?page=2&per_page=20>; rel=\"next\", <https://gitlab.com/api/v4/users/1/starred_projects?page=2&per_page=20>; rel=\"last\"";
         let mut headers = Headers::new();
         headers.set("link", link_headers);
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "project.json"))
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "project.json",
+            Some(headers),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn RemoteProject);
         let body_args = ProjectListBodyArgs::builder()
             .from_to_page(None)
             .user(Some(
