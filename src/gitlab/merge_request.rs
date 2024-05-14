@@ -344,26 +344,19 @@ impl From<GitlabMergeRequestCommentFields> for Comment {
 #[cfg(test)]
 mod test {
 
-    use std::sync::Arc;
-
     use crate::remote::{ListBodyArgs, MergeRequestState};
-    use crate::test::utils::{config, get_contract, ContractType, MockRunner};
+    use crate::setup_client;
+    use crate::test::utils::{
+        default_gitlab, get_contract, BasePath, ClientType, ContractType, Domain, ResponseContracts,
+    };
 
     use super::*;
 
     #[test]
     fn test_list_merge_request_with_from_page() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body("[]".to_string())
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn MergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_body(200, Some("[]"), None);
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
         let args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(Some(
@@ -385,17 +378,8 @@ mod test {
 
     #[test]
     fn test_list_all_merge_requests_assigned_for_current_user() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body("[]".to_string())
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn MergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contract = ResponseContracts::new(ContractType::Gitlab).add_body(200, Some("[]"), None);
+        let (client, gitlab) = setup_client!(contract, default_gitlab(), dyn MergeRequest);
         let args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
@@ -411,20 +395,13 @@ mod test {
 
     #[test]
     fn test_open_merge_request() {
-        let config = config();
-
         let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
-
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi";
-        let response = Response::builder()
-            .status(201)
-            .body(get_contract(ContractType::Gitlab, "merge_request.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
-
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            201,
+            "merge_request.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
         assert!(gitlab.open(mr_args).is_ok());
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests",
@@ -438,25 +415,19 @@ mod test {
 
     #[test]
     fn test_open_merge_request_target_repo() {
-        let config = config();
+        // current repo, targetting jordilin/gitar
+        let client_type = ClientType::Gitlab(
+            Domain("gitlab.com".to_string()),
+            BasePath("jdoe/gitar".to_string()),
+        );
+        let responses = ResponseContracts::new(ContractType::Gitlab)
+            .add_contract(201, "merge_request.json", None)
+            .add_contract(200, "project.json", None);
+        let (client, gitlab) = setup_client!(responses, client_type, dyn MergeRequest);
         let mr_args = MergeRequestBodyArgs::builder()
             .target_repo("jordilin/gitar".to_string())
             .build()
             .unwrap();
-        let domain = "gitlab.com".to_string();
-        let path = "jdoe/gitar";
-        let response_project_target = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "project.json"))
-            .build()
-            .unwrap();
-        let response = Response::builder()
-            .status(201)
-            .body(get_contract(ContractType::Gitlab, "merge_request.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response, response_project_target]));
-        let gitlab = Gitlab::new(config, &domain, &path, client.clone());
         assert!(gitlab.open(mr_args).is_ok());
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jdoe%2Fgitar/merge_requests",
@@ -470,53 +441,34 @@ mod test {
 
     #[test]
     fn test_open_merge_request_error() {
-        let config = config();
-
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_body::<String>(400, None, None);
+        let (_, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
         let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder().status(400).build().unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client);
         assert!(gitlab.open(mr_args).is_err());
     }
     #[test]
     fn test_merge_request_already_exists_status_code_409_conflict() {
-        let config = config();
-
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            409,
+            "merge_request_conflict.json",
+            None,
+        );
+        let (_, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
         let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
-
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(409)
-            .body(get_contract(
-                ContractType::Gitlab,
-                "merge_request_conflict.json",
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab = Gitlab::new(config, &domain, &path, client);
-
         assert!(gitlab.open(mr_args).is_ok());
     }
     #[test]
     fn test_gitlab_merge_request_num_pages() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=1>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=2>; rel=\"last\"";
         let mut headers = Headers::new();
         headers.set("link", link_header);
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn MergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
@@ -532,20 +484,15 @@ mod test {
 
     #[test]
     fn test_gitlab_merge_request_num_pages_current_auth_user() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
         let link_header = "<https://gitlab.com/api/v4/merge_requests?state=opened&assignee_id=1234&page=1>; rel=\"next\", <https://gitlab.com/api/v4/merge_requests?state=opened&assignee_id=1234&page=2>; rel=\"last\"";
         let mut headers = Headers::new();
         headers.set("link", link_header);
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn MergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
@@ -561,13 +508,9 @@ mod test {
 
     #[test]
     fn test_gitlab_merge_request_num_pages_no_link_header_error() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder().status(200).build().unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn MergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_body::<String>(200, None, None);
+        let (_, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
@@ -579,13 +522,9 @@ mod test {
 
     #[test]
     fn test_gitlab_merge_request_num_pages_response_error_is_error() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder().status(400).build().unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn MergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_body::<String>(400, None, None);
+        let (_, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
@@ -597,20 +536,15 @@ mod test {
 
     #[test]
     fn test_gitlab_merge_request_num_pages_no_last_header_in_link() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=1>; rel=\"next\"";
         let mut headers = Headers::new();
         headers.set("link", link_header);
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn MergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (_, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
@@ -622,13 +556,9 @@ mod test {
 
     #[test]
     fn test_gitlab_create_merge_request_comment_ok() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder().status(201).build().unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn CommentMergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_body::<String>(201, None, None);
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CommentMergeRequest);
         let comment_args = CommentMergeRequestBodyArgs::builder()
             .id(1456)
             .comment("LGTM, ship it".to_string())
@@ -647,13 +577,9 @@ mod test {
 
     #[test]
     fn test_gitlab_create_merge_request_comment_error() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder().status(400).build().unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn CommentMergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_body::<String>(400, None, None);
+        let (_, gitlab) = setup_client!(contracts, default_gitlab(), dyn CommentMergeRequest);
         let comment_args = CommentMergeRequestBodyArgs::builder()
             .id(1456)
             .comment("LGTM, ship it".to_string())
@@ -664,17 +590,12 @@ mod test {
 
     #[test]
     fn test_get_gitlab_merge_request_details() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "merge_request.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn MergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "merge_request.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
         let merge_request_id = 123456;
         gitlab.get(merge_request_id).unwrap();
         assert_eq!(
@@ -689,17 +610,12 @@ mod test {
 
     #[test]
     fn test_merge_merge_request() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "merge_request.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn MergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "merge_request.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
         let merge_request_id = 33;
         gitlab.merge(merge_request_id).unwrap();
         assert_eq!(
@@ -714,17 +630,12 @@ mod test {
 
     #[test]
     fn test_close_merge_request() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "merge_request.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn MergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "merge_request.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
         let merge_request_id = 33;
         gitlab.close(merge_request_id).unwrap();
         assert_eq!(
@@ -740,20 +651,12 @@ mod test {
 
     #[test]
     fn test_approve_merge_request_ok() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(
-                ContractType::Gitlab,
-                "approve_merge_request.json",
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn MergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "approve_merge_request.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
         let merge_request_id = 33;
         let result = gitlab.approve(merge_request_id);
         match result {
@@ -783,20 +686,15 @@ mod test {
 
     #[test]
     fn test_list_merge_request_comments() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(format!(
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body(
+            200,
+            Some(format!(
                 "[{}]",
                 get_contract(ContractType::Gitlab, "comment.json")
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn CommentMergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+            )),
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CommentMergeRequest);
         let args = CommentMergeRequestListBodyArgs::builder()
             .id(123)
             .list_args(None)
@@ -816,20 +714,15 @@ mod test {
 
     #[test]
     fn test_merge_request_comments_num_pages() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/123/notes?page=1>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/123/notes?page=2>; rel=\"last\"";
         let mut headers = Headers::new();
         headers.set("link", link_header);
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn CommentMergeRequest> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CommentMergeRequest);
         let args = CommentMergeRequestListBodyArgs::builder()
             .id(123)
             .list_args(None)
