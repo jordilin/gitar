@@ -72,28 +72,24 @@ impl From<GithubReleaseFields> for Release {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
 
     use crate::{
         api_traits::ApiOperation,
         http::Headers,
-        test::utils::{config, get_contract, ContractType, MockRunner},
+        setup_client,
+        test::utils::{default_github, ContractType, ResponseContracts},
     };
 
     use super::*;
 
     #[test]
     fn test_list_releases() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Github, "list_releases.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn Deploy> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Github).add_contract(
+            200,
+            "list_releases.json",
+            None,
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn Deploy);
         let args = ReleaseBodyArgs::builder()
             .from_to_page(None)
             .build()
@@ -109,19 +105,15 @@ mod test {
 
     #[test]
     fn test_release_num_pages() {
-        let config = config();
-        let domain = "github.com".to_string();
-        let path = "jordilin/githapi";
         let link_header = "<https://api.github.com/repos/jordilin/githapi/releases?page=2>; rel=\"next\", <https://api.github.com/repos/jordilin/githapi/releases?page=2>; rel=\"last\"";
         let mut headers = Headers::new();
         headers.set("link".to_string(), link_header.to_string());
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let github: Box<dyn Deploy> = Box::new(Github::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Github).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn Deploy);
         let runs = github.num_pages().unwrap();
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/releases?page=1",

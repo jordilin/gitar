@@ -71,27 +71,23 @@ impl From<GitlabReleaseFields> for Release {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
 
     use crate::{
         http::Headers,
-        test::utils::{config, get_contract, ContractType, MockRunner},
+        setup_client,
+        test::utils::{default_gitlab, ContractType, ResponseContracts},
     };
 
     use super::*;
 
     #[test]
     fn test_list_release() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi";
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "list_releases.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn Deploy> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "list_releases.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn Deploy);
         let args = ReleaseBodyArgs::builder()
             .from_to_page(None)
             .build()
@@ -107,19 +103,15 @@ mod test {
 
     #[test]
     fn test_release_num_pages() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi";
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/releases?page=1>; rel=\"first\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/releases?page=1>; rel=\"last\"";
         let mut headers = Headers::new();
         headers.set("link", link_header);
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn Deploy> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn Deploy);
         let num_pages = gitlab.num_pages().unwrap();
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/releases?page=1",

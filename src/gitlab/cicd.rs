@@ -225,27 +225,21 @@ impl From<GitlabPipelineFields> for Pipeline {
 #[cfg(test)]
 mod test {
 
-    use std::sync::Arc;
-
     use crate::cmds::cicd::RunnerStatus;
     use crate::remote::ListBodyArgs;
-    use crate::test::utils::{config, get_contract, ContractType, MockRunner};
+    use crate::setup_client;
+    use crate::test::utils::{default_gitlab, ContractType, ResponseContracts};
 
     use super::*;
 
     #[test]
     fn test_list_pipelines_ok() {
-        let config = config();
-
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "list_pipelines.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "list_pipelines.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn Cicd);
         let pipelines = gitlab.list(default_pipeline_body_args()).unwrap();
 
         assert_eq!(3, pipelines.len());
@@ -259,17 +253,12 @@ mod test {
 
     #[test]
     fn test_list_pipelines_with_stream_ok() {
-        let config = config();
-
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "list_pipelines.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "list_pipelines.json",
+            None,
+        );
+        let (_, gitlab) = setup_client!(contracts, default_gitlab(), dyn Cicd);
         let pipelines = gitlab
             .list(
                 PipelineBodyArgs::builder()
@@ -293,46 +282,32 @@ mod test {
 
     #[test]
     fn test_list_pipelines_error() {
-        let config = config();
-
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder().status(400).build().unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client));
-
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_body::<String>(400, None, None);
+        let (_, gitlab) = setup_client!(contracts, default_gitlab(), dyn Cicd);
         assert!(gitlab.list(default_pipeline_body_args()).is_err());
     }
 
     #[test]
     fn test_no_pipelines() {
-        let config = config();
-
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "no_pipelines.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "no_pipelines.json",
+            None,
+        );
+        let (_, gitlab) = setup_client!(contracts, default_gitlab(), dyn Cicd);
         let pipelines = gitlab.list(default_pipeline_body_args()).unwrap();
         assert_eq!(0, pipelines.len());
     }
 
     #[test]
     fn test_pipeline_page_from_set_in_url() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(ContractType::Gitlab, "list_pipelines.json"))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "list_pipelines.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn Cicd);
         let fromtopage_args = ListBodyArgs::builder()
             .page(2)
             .max_pages(2)
@@ -351,19 +326,15 @@ mod test {
 
     #[test]
     fn test_gitlab_implements_num_pages_pipeline_operation() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"last\"";
         let mut headers = Headers::new();
         headers.set("link", link_header);
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn Cicd);
         assert_eq!(Some(2), gitlab.num_pages().unwrap());
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=1",
@@ -373,49 +344,34 @@ mod test {
 
     #[test]
     fn test_gitlab_num_pages_pipeline_no_last_header_in_link() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/pipelines?page=2>; rel=\"next\"";
         let mut headers = Headers::new();
         headers.set("link", link_header);
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (_, gitlab) = setup_client!(contracts, default_gitlab(), dyn Cicd);
         assert_eq!(None, gitlab.num_pages().unwrap());
     }
 
     #[test]
     fn test_gitlab_num_pages_pipeline_operation_response_error_is_error() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder().status(400).build().unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn Cicd> = Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_body::<String>(400, None, None);
+        let (_, gitlab) = setup_client!(contracts, default_gitlab(), dyn Cicd);
         assert!(gitlab.num_pages().is_err());
     }
 
     #[test]
     fn test_list_project_runners() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(
-                ContractType::Gitlab,
-                "list_project_runners.json",
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn CicdRunner> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "list_project_runners.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
         let body_args = RunnerListBodyArgs::builder()
             .status(RunnerStatus::Online)
             .list_args(None)
@@ -432,20 +388,15 @@ mod test {
 
     #[test]
     fn test_project_runner_num_pages() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/runners?status=online&page=1>; rel=\"first\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/runners?status=online&page=1>; rel=\"last\"";
         let mut headers = Headers::new();
         headers.set("link", link_header);
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn CicdRunner> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
         let body_args = RunnerListBodyArgs::builder()
             .status(RunnerStatus::Online)
             .list_args(None)
@@ -461,20 +412,12 @@ mod test {
 
     #[test]
     fn test_get_gitlab_runner_metadata() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(
-                ContractType::Gitlab,
-                "get_runner_details.json",
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn CicdRunner> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "get_runner_details.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
         gitlab.get(11573930).unwrap();
         assert_eq!("https://gitlab.com/api/v4/runners/11573930", *client.url(),);
         assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
@@ -483,20 +426,12 @@ mod test {
 
     #[test]
     fn test_list_gitlab_runners_with_a_tag_list() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(
-                ContractType::Gitlab,
-                "list_project_runners.json",
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn CicdRunner> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "list_project_runners.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
         let body_args = RunnerListBodyArgs::builder()
             .status(RunnerStatus::Online)
             .list_args(None)
@@ -514,22 +449,14 @@ mod test {
 
     #[test]
     fn test_get_all_gitlab_runners() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
             // using same contract as listing project's runners. The schema is
             // the same
-            .body(get_contract(
-                ContractType::Gitlab,
-                "list_project_runners.json",
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn CicdRunner> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+            "list_project_runners.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
         let body_args = RunnerListBodyArgs::builder()
             .status(RunnerStatus::Online)
             .list_args(None)
@@ -548,22 +475,14 @@ mod test {
 
     #[test]
     fn test_get_all_gitlab_runners_stream_ok() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
             // using same contract as listing project's runners. The schema is
             // the same
-            .body(get_contract(
-                ContractType::Gitlab,
-                "list_project_runners.json",
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn CicdRunner> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+            "list_project_runners.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
         let body_args = RunnerListBodyArgs::builder()
             .status(RunnerStatus::Online)
             .list_args(Some(ListBodyArgs::builder().flush(true).build().unwrap()))
@@ -584,20 +503,12 @@ mod test {
 
     #[test]
     fn test_get_project_runners_in_any_status() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(
-                ContractType::Gitlab,
-                "list_project_runners.json",
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn CicdRunner> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "list_project_runners.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
         let body_args = RunnerListBodyArgs::builder()
             .status(RunnerStatus::All)
             .list_args(None)
@@ -614,20 +525,12 @@ mod test {
 
     #[test]
     fn test_all_runners_at_any_status_with_tags() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
-        let response = Response::builder()
-            .status(200)
-            .body(get_contract(
-                ContractType::Gitlab,
-                "list_project_runners.json",
-            ))
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn CicdRunner> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "list_project_runners.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
         let body_args = RunnerListBodyArgs::builder()
             .status(RunnerStatus::All)
             .list_args(None)
@@ -646,20 +549,15 @@ mod test {
 
     #[test]
     fn test_all_runners_at_any_status_with_tags_num_pages() {
-        let config = config();
-        let domain = "gitlab.com".to_string();
-        let path = "jordilin/gitlapi".to_string();
         let link_header = "<https://gitlab.com/api/v4/runners/all?tag_list=tag1,tag2&page=1>; rel=\"first\", <https://gitlab.com/api/v4/runners/all?tag_list=tag1,tag2&page=1>; rel=\"last\"";
         let mut headers = Headers::new();
         headers.set("link", link_header);
-        let response = Response::builder()
-            .status(200)
-            .headers(headers)
-            .build()
-            .unwrap();
-        let client = Arc::new(MockRunner::new(vec![response]));
-        let gitlab: Box<dyn CicdRunner> =
-            Box::new(Gitlab::new(config, &domain, &path, client.clone()));
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
         let body_args = RunnerListBodyArgs::builder()
             .status(RunnerStatus::All)
             .list_args(None)

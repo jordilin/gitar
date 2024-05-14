@@ -18,9 +18,11 @@ pub mod utils {
         fmt::Write,
         fs::File,
         io::Read,
+        ops::Deref,
         sync::{Arc, Mutex},
     };
 
+    #[derive(Debug, Clone, Copy, PartialEq)]
     pub enum ContractType {
         Gitlab,
         Github,
@@ -234,5 +236,132 @@ pub mod utils {
         let logger = TestLogger;
         log::set_boxed_logger(Box::new(logger)).expect("Failed to set logger");
         log::set_max_level(LevelFilter::Trace);
+    }
+
+    pub struct Domain(pub String);
+    pub struct BasePath(pub String);
+
+    impl Deref for Domain {
+        type Target = String;
+
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    impl Deref for BasePath {
+        type Target = String;
+
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    pub enum ClientType {
+        Gitlab(Domain, BasePath),
+        Github(Domain, BasePath),
+    }
+
+    pub fn default_gitlab() -> ClientType {
+        ClientType::Gitlab(
+            Domain("gitlab.com".to_string()),
+            BasePath("jordilin/gitlapi".to_string()),
+        )
+    }
+
+    pub fn default_github() -> ClientType {
+        ClientType::Github(
+            Domain("github.com".to_string()),
+            BasePath("jordilin/githapi".to_string()),
+        )
+    }
+
+    #[macro_export]
+    macro_rules! setup_client {
+        ($response_contracts:expr, $client_type:expr, $trait_type:ty) => {{
+            let config = crate::test::utils::config();
+            let responses: Vec<_> = $response_contracts
+                .into_iter()
+                .map(|(status_code, get_contract_fn, headers)| {
+                    let body = get_contract_fn();
+                    let mut response = Response::builder();
+                    response.status(status_code);
+                    if headers.is_some() {
+                        response.headers(headers.clone().unwrap());
+                    }
+                    if body.is_some() {
+                        response.body(body.unwrap());
+                    }
+                    response.build().unwrap()
+                })
+                .collect();
+            let client = std::sync::Arc::new(crate::test::utils::MockRunner::new(responses));
+            let remote: Box<$trait_type> = match $client_type {
+                crate::test::utils::ClientType::Gitlab(domain, path) => Box::new(
+                    crate::gitlab::Gitlab::new(config, &domain, &path, client.clone()),
+                ),
+                crate::test::utils::ClientType::Github(domain, path) => Box::new(
+                    crate::github::Github::new(config, &domain, &path, client.clone()),
+                ),
+            };
+
+            (client, remote)
+        }};
+    }
+
+    pub struct ResponseContracts {
+        contract_type: ContractType,
+        contracts: Vec<(i32, Box<dyn Fn() -> Option<String>>, Option<Headers>)>,
+    }
+
+    impl ResponseContracts {
+        pub fn new(contract_type: ContractType) -> Self {
+            Self {
+                contract_type,
+                contracts: Vec::new(),
+            }
+        }
+
+        pub fn add_body<B: Into<String> + Clone + 'static>(
+            mut self,
+            status_code: i32,
+            body: Option<B>,
+            headers: Option<Headers>,
+        ) -> Self {
+            self.contracts.push((
+                status_code,
+                Box::new(move || body.clone().map(|b| b.into())),
+                headers,
+            ));
+            self
+        }
+
+        pub fn add_contract<F: Into<String> + Clone + 'static>(
+            mut self,
+            status_code: i32,
+            contract_file: F,
+            headers: Option<Headers>,
+        ) -> Self {
+            self.contracts.push((
+                status_code,
+                Box::new(move || {
+                    Some(get_contract(
+                        self.contract_type.clone(),
+                        &contract_file.clone().into(),
+                    ))
+                }),
+                headers,
+            ));
+            self
+        }
+    }
+
+    impl IntoIterator for ResponseContracts {
+        type Item = (i32, Box<dyn Fn() -> Option<String>>, Option<Headers>);
+        type IntoIter = std::vec::IntoIter<Self::Item>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            self.contracts.into_iter()
+        }
     }
 }
