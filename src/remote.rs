@@ -580,6 +580,13 @@ get!(get_auth_user, UserInfo);
 get!(get_cicd_runner, CicdRunner);
 get!(get_comment_mr, CommentMergeRequest);
 
+pub fn get_domain_path(repo_cli: &str) -> (String, String) {
+    let parts: Vec<&str> = repo_cli.split('/').collect();
+    let domain = parts[0].to_string();
+    let path = parts[1..].join("/");
+    (domain, path)
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -969,5 +976,13 @@ mod test {
             .add_param("key2", "value2")
             .build();
         assert_eq!(url, "https://example.com?key=value&key2=value2");
+    }
+
+    #[test]
+    fn test_retrieve_domain_path_from_repo_cli_flag() {
+        let repo_cli = "github.com/jordilin/gitar";
+        let (domain, path) = get_domain_path(repo_cli);
+        assert_eq!("github.com", domain);
+        assert_eq!("jordilin/gitar", path);
     }
 }

@@ -1,5 +1,6 @@
 use crate::api_traits::{CommentMergeRequest, MergeRequest, RemoteProject, Timestamp};
 use crate::cli::merge_request::MergeRequestOptions;
+use crate::cli::CliArgs;
 use crate::config::{Config, ConfigProperties};
 use crate::display::{Column, DisplayBody};
 use crate::error::{AddContext, GRError};
@@ -154,12 +155,19 @@ impl From<Comment> for DisplayBody {
 
 pub fn execute(
     options: MergeRequestOptions,
+    global_args: CliArgs,
     config: Arc<Config>,
     domain: String,
     path: String,
 ) -> Result<()> {
     match options {
         MergeRequestOptions::Create(cli_args) => {
+            if global_args.repo.is_some() {
+                return Err(GRError::PreconditionNotMet(
+                    "--repo not allowed when creating a merge request".to_string(),
+                )
+                .into());
+            }
             let mr_remote = remote::get_mr(
                 domain.clone(),
                 path.clone(),

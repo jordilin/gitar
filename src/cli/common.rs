@@ -167,11 +167,27 @@ impl From<SortModeCli> for ListSortMode {
 }
 
 pub fn validate_project_repo_path(path: &str) -> Result<String, String> {
-    if path.contains('/') && path.split('/').count() == 2 {
+    let (fields, empty_fields) = fields(path);
+    if fields.count() == 2 && empty_fields == 0 {
         Ok(path.to_string())
     } else {
         Err("Path must be in the format `OWNER/PROJECT_NAME`".to_string())
     }
+}
+
+pub fn validate_domain_project_repo_path(path: &str) -> Result<String, String> {
+    let (fields, empty_fields) = fields(path);
+    if fields.count() == 3 && empty_fields == 0 {
+        Ok(path.to_string())
+    } else {
+        Err("Path must be in the format `DOMAIN/OWNER/PROJECT_NAME`".to_string())
+    }
+}
+
+fn fields(path: &str) -> (std::str::Split<char>, usize) {
+    let fields = path.split('/');
+    let empty_fields = fields.clone().filter(|f| f.is_empty()).count();
+    (fields, empty_fields)
 }
 
 #[cfg(test)]
@@ -184,5 +200,18 @@ mod test {
         assert!(validate_project_repo_path("owner/project/extra").is_err());
         assert!(validate_project_repo_path("owner").is_err());
         assert!(validate_project_repo_path("owner/project/extra/extra").is_err());
+        assert!(validate_project_repo_path("owner/").is_err());
+    }
+
+    #[test]
+    fn test_validate_domain_project_repo_path() {
+        assert!(validate_domain_project_repo_path("github.com/jordilin/gitar").is_ok());
+        assert!(validate_domain_project_repo_path("github.com/jordilin/").is_err());
+        assert!(validate_domain_project_repo_path("github.com///").is_err());
+        assert!(validate_domain_project_repo_path("github.com/jordilin/project/extra").is_err());
+        assert!(validate_domain_project_repo_path("github.com/jordilin").is_err());
+        assert!(
+            validate_domain_project_repo_path("github.com/jordilin/project/extra/extra").is_err()
+        );
     }
 }

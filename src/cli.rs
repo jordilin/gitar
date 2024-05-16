@@ -12,6 +12,7 @@ pub mod star;
 use self::browse::BrowseCommand;
 use self::browse::BrowseOptions;
 use self::cicd::{PipelineCommand, PipelineOptions};
+use self::common::validate_domain_project_repo_path;
 use self::docker::{DockerCommand, DockerOptions};
 use self::init::{InitCommand, InitCommandOptions};
 use self::my::MyCommand;
@@ -40,6 +41,14 @@ struct Args {
     /// Verbose mode. Enable gitar's logging
     #[clap(long, short, global = true)]
     verbose: bool,
+    /// Bypass local .git/config. Use repo instead. Ex: github.com/jordilin/gitar
+    #[clap(
+        long,
+        global = true,
+        value_name = "DOMAIN/OWNER/PROJECT_NAME",
+        value_parser = validate_domain_project_repo_path
+    )]
+    pub repo: Option<String>,
 }
 
 #[derive(Parser)]
@@ -81,7 +90,7 @@ pub fn parse_cli() -> OptionArgs {
         Command::Release(sub_matches) => Some(CliOptions::Release(sub_matches.into())),
         Command::My(sub_matches) => Some(CliOptions::My(sub_matches.into())),
     };
-    OptionArgs::new(options, CliArgs::new(args.verbose))
+    OptionArgs::new(options, CliArgs::new(args.verbose, args.repo))
 }
 
 pub enum CliOptions {
@@ -95,14 +104,15 @@ pub enum CliOptions {
     My(MyOptions),
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct CliArgs {
     pub verbose: bool,
+    pub repo: Option<String>,
 }
 
 impl CliArgs {
-    pub fn new(verbose: bool) -> Self {
-        CliArgs { verbose }
+    pub fn new(verbose: bool, repo: Option<String>) -> Self {
+        CliArgs { verbose, repo }
     }
 }
 
