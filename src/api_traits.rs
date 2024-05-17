@@ -8,6 +8,7 @@ use crate::{
         merge_request::{Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs},
         project::ProjectListBodyArgs,
         release::{Release, ReleaseBodyArgs},
+        trending::TrendingProject,
     },
     io::CmdInfo,
     remote::{
@@ -79,6 +80,10 @@ pub trait CommentMergeRequest {
     fn create(&self, args: CommentMergeRequestBodyArgs) -> Result<()>;
     fn list(&self, args: CommentMergeRequestListBodyArgs) -> Result<Vec<Comment>>;
     fn num_pages(&self, args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>>;
+}
+
+pub trait TrendingProjectURL {
+    fn list(&self, language: String) -> Result<Vec<TrendingProject>>;
 }
 
 /// Types of API resources attached to a request. The request will carry this

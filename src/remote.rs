@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::api_traits::{
     Cicd, CicdRunner, CommentMergeRequest, ContainerRegistry, Deploy, MergeRequest, RemoteProject,
-    Timestamp, UserInfo,
+    Timestamp, TrendingProjectURL, UserInfo,
 };
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
@@ -579,6 +579,7 @@ get!(get_deploy, Deploy);
 get!(get_auth_user, UserInfo);
 get!(get_cicd_runner, CicdRunner);
 get!(get_comment_mr, CommentMergeRequest);
+get!(get_trending, TrendingProjectURL);
 
 pub fn get_domain_path(repo_cli: &str) -> (String, String) {
     let parts: Vec<&str> = repo_cli.split('/').collect();
