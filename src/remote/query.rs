@@ -347,6 +347,8 @@ send!(
 
 send!(create_merge_request_comment, Response);
 
+send!(github_trending_language_projects, Response);
+
 #[cfg(test)]
 mod test {
     use crate::test::utils::MockRunner;
