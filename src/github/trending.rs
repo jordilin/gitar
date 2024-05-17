@@ -47,12 +47,13 @@ fn parse_response(response: Response) -> Result<Vec<TrendingProject>> {
 
 #[cfg(test)]
 mod test {
+
+    use super::*;
+
     use crate::{
         setup_client,
         test::utils::{default_github, ContractType, ResponseContracts},
     };
-
-    use super::*;
 
     #[test]
     fn test_list_trending_projects() {
