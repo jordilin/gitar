@@ -105,7 +105,7 @@ mod tests {
         let mut buf = Vec::new();
         get_urls(remote, cli_args, &mut buf).unwrap();
         assert_eq!(
-            "url\nhttps://github.com/kubernetes/kubernetes\nhttps://github.com/jordilin/gitar\n",
+            "URL\nhttps://github.com/kubernetes/kubernetes\nhttps://github.com/jordilin/gitar\n",
             String::from_utf8(buf).unwrap(),
         )
     }
