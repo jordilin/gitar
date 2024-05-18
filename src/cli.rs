@@ -76,10 +76,10 @@ enum Command {
         about = "Your user information, such as assigned merge requests, etc..."
     )]
     My(MyCommand),
+    #[clap(name = "tr", about = "Trending repositories. Github.com only.")]
+    Trending(TrendingCommand),
     #[clap(name = "init", about = "Initialize the config file")]
     Init(InitCommand),
-    #[clap(name = "trending", about = "Trending repositories")]
-    Trending(TrendingCommand),
 }
 
 // Parse cli and return CliOptions

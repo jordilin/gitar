@@ -6,7 +6,11 @@ use super::common::GetArgs;
 
 #[derive(Parser)]
 pub struct TrendingCommand {
-    #[clap(long, value_parser(validate_trends_domain))]
+    #[clap(
+        long,
+        value_parser(validate_trends_domain),
+        default_value = "github.com"
+    )]
     pub domain: String,
     #[clap()]
     pub language: String,
