@@ -2,7 +2,6 @@ use std::io::Write;
 use std::sync::Arc;
 
 use crate::api_traits::TrendingProjectURL;
-use crate::cli::trending::TrendingOptions;
 use crate::config::Config;
 use crate::display::{Column, DisplayBody};
 use crate::remote::{self, GetRemoteCliArgs};
@@ -35,19 +34,16 @@ impl From<TrendingProject> for DisplayBody {
     }
 }
 
-pub fn execute(
-    options: TrendingOptions,
-    config: Arc<Config>,
-    domain: String,
-    path: String,
-) -> Result<()> {
-    match options {
-        TrendingOptions::Get(cli_args) => {
-            let remote =
-                remote::get_trending(domain, path, config, cli_args.get_args.refresh_cache)?;
-            get_urls(remote, cli_args, &mut std::io::stdout())
-        }
-    }
+pub fn execute(cli_args: TrendingCliArgs, config: Arc<Config>) -> Result<()> {
+    let remote = remote::get_trending(
+        cli_args.domain.clone(),
+        // does not matter in this command. Implementing it for
+        // Github.com which is just a query against HTML page.
+        "".to_string(),
+        config,
+        cli_args.get_args.refresh_cache,
+    )?;
+    get_urls(remote, cli_args, &mut std::io::stdout())
 }
 
 fn get_urls<W: Write>(
