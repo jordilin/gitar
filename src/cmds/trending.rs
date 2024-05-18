@@ -30,7 +30,7 @@ impl TrendingProject {
 
 impl From<TrendingProject> for DisplayBody {
     fn from(url: TrendingProject) -> Self {
-        DisplayBody::new(vec![Column::new("url", url.url)])
+        DisplayBody::new(vec![Column::new("URL", url.url)])
     }
 }
 
