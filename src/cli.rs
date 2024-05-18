@@ -8,6 +8,7 @@ pub mod my;
 pub mod project;
 pub mod release;
 pub mod star;
+pub mod trending;
 
 use self::browse::BrowseCommand;
 use self::browse::BrowseOptions;
@@ -19,6 +20,8 @@ use self::my::MyCommand;
 use self::my::MyOptions;
 use self::project::{ProjectCommand, ProjectOptions};
 use self::release::{ReleaseCommand, ReleaseOptions};
+use self::trending::TrendingCommand;
+use self::trending::TrendingOptions;
 use merge_request::{MergeRequestCommand, MergeRequestOptions};
 
 use std::option::Option;
@@ -73,6 +76,8 @@ enum Command {
         about = "Your user information, such as assigned merge requests, etc..."
     )]
     My(MyCommand),
+    #[clap(name = "tr", about = "Trending repositories. Github.com only.")]
+    Trending(TrendingCommand),
     #[clap(name = "init", about = "Initialize the config file")]
     Init(InitCommand),
 }
@@ -89,6 +94,7 @@ pub fn parse_cli() -> OptionArgs {
         Command::Docker(sub_matches) => Some(CliOptions::Docker(sub_matches.into())),
         Command::Release(sub_matches) => Some(CliOptions::Release(sub_matches.into())),
         Command::My(sub_matches) => Some(CliOptions::My(sub_matches.into())),
+        Command::Trending(sub_matches) => Some(CliOptions::Trending(sub_matches.into())),
     };
     OptionArgs::new(options, CliArgs::new(args.verbose, args.repo))
 }
@@ -102,6 +108,7 @@ pub enum CliOptions {
     Docker(DockerOptions),
     Release(ReleaseOptions),
     My(MyOptions),
+    Trending(TrendingOptions),
 }
 
 #[derive(Clone)]

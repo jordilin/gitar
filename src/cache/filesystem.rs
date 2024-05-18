@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 
 use flate2::bufread::GzDecoder;
 use sha2::{Digest, Sha256};
@@ -58,13 +58,13 @@ impl<C: ConfigProperties> FileCache<C> {
                 return Err(error::gen(trace));
             }
         };
-        let mut body = String::new();
-        reader.read_line(&mut body)?;
-        let body = body.trim();
+        let mut body = Vec::new();
+        reader.read_to_end(&mut body)?;
+        let body = String::from_utf8(body)?.trim().to_string();
         let headers_map = serde_json::from_str::<Headers>(&headers)?;
         let response = Response::builder()
             .status(status_code)
-            .body(body.to_string())
+            .body(body)
             .headers(headers_map)
             .build()?;
         Ok(response)

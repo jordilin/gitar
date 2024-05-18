@@ -6,12 +6,15 @@ use crate::{api_traits::MergeRequest, remote::ListRemoteCliArgs};
 use std::io::Write;
 use std::sync::Arc;
 
-use crate::api_traits::{Cicd, CicdRunner, CommentMergeRequest, Deploy, RemoteProject};
+use crate::api_traits::{
+    Cicd, CicdRunner, CommentMergeRequest, Deploy, RemoteProject, TrendingProjectURL,
+};
 
 use super::cicd::{RunnerListBodyArgs, RunnerListCliArgs};
 use super::merge_request::{CommentMergeRequestListBodyArgs, CommentMergeRequestListCliArgs};
 use super::project::{ProjectListBodyArgs, ProjectListCliArgs};
 use super::release::ReleaseBodyArgs;
+use super::trending::TrendingCliArgs;
 use super::{cicd::PipelineBodyArgs, merge_request::MergeRequestListCliArgs};
 
 macro_rules! query_pages {
@@ -66,14 +69,7 @@ macro_rules! list_resource {
             cli_args: $cli_args,
             mut writer: W,
         ) -> Result<()> {
-            let objs = remote.list(body_args)?;
-            if cli_args.list_args.flush {
-                return Ok(());
-            }
-            if objs.is_empty() {
-                writer.write_all(b"No resources found.\n")?;
-                return Ok(());
-            }
+            let objs = list_remote_objs!(remote, body_args, cli_args.list_args, writer);
             display::print(&mut writer, objs, cli_args.list_args.get_args)?;
             Ok(())
         }
@@ -85,18 +81,26 @@ macro_rules! list_resource {
             cli_args: $cli_args,
             mut writer: W,
         ) -> Result<()> {
-            let objs = remote.list(body_args)?;
-            if cli_args.flush {
-                return Ok(());
-            }
-            if objs.is_empty() {
-                writer.write_all(b"No resources found.\n")?;
-                return Ok(());
-            }
+            let objs = list_remote_objs!(remote, body_args, cli_args, writer);
             display::print(&mut writer, objs, cli_args.get_args)?;
             Ok(())
         }
     };
+}
+
+#[macro_export]
+macro_rules! list_remote_objs {
+    ($remote:expr, $body_args:expr, $cli_args:expr, $writer:expr) => {{
+        let objs = $remote.list($body_args)?;
+        if $cli_args.flush {
+            return Ok(());
+        }
+        if objs.is_empty() {
+            $writer.write_all(b"No resources found.\n")?;
+            return Ok(());
+        }
+        objs
+    }};
 }
 
 list_resource!(
@@ -133,3 +137,5 @@ list_resource!(
     CommentMergeRequestListCliArgs,
     true
 );
+
+list_resource!(list_trending, TrendingProjectURL, String, TrendingCliArgs);

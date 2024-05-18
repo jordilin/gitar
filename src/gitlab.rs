@@ -6,6 +6,7 @@ pub mod container_registry;
 pub mod merge_request;
 pub mod project;
 pub mod release;
+pub mod trending;
 pub mod user;
 
 // https://docs.gitlab.com/ee/api/rest/

@@ -8,6 +8,7 @@ use crate::{
         merge_request::{Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs},
         project::ProjectListBodyArgs,
         release::{Release, ReleaseBodyArgs},
+        trending::TrendingProject,
     },
     io::CmdInfo,
     remote::{
@@ -81,6 +82,10 @@ pub trait CommentMergeRequest {
     fn num_pages(&self, args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>>;
 }
 
+pub trait TrendingProjectURL {
+    fn list(&self, language: String) -> Result<Vec<TrendingProject>>;
+}
+
 /// Types of API resources attached to a request. The request will carry this
 /// information so we can decide if we need to use the cache or not based on
 /// global configuration.
@@ -95,6 +100,8 @@ pub enum ApiOperation {
     Project,
     ContainerRegistry,
     Release,
+    // Get request to a single URL page. Ex. The trending repositories in github.com
+    SinglePage,
 }
 
 impl Display for ApiOperation {
@@ -105,6 +112,7 @@ impl Display for ApiOperation {
             ApiOperation::Project => write!(f, "project"),
             ApiOperation::ContainerRegistry => write!(f, "container_registry"),
             ApiOperation::Release => write!(f, "release"),
+            ApiOperation::SinglePage => write!(f, "single_page"),
         }
     }
 }
@@ -122,5 +130,7 @@ mod tests {
             format!("{}", ApiOperation::ContainerRegistry),
             "container_registry"
         );
+        assert_eq!(format!("{}", ApiOperation::Release), "release");
+        assert_eq!(format!("{}", ApiOperation::SinglePage), "single_page");
     }
 }

@@ -161,6 +161,13 @@ impl Config {
                 .unwrap_or(&"".to_string())
                 .to_string(),
         );
+        cache_expirations.insert(
+            ApiOperation::SinglePage,
+            domain_config_data
+                .get("cache_api_single_page_expiration")
+                .unwrap_or(&"".to_string())
+                .to_string(),
+        );
         cache_expirations
     }
 
@@ -370,6 +377,7 @@ mod test {
         github.com.cache_api_pipeline_expiration=1h
         github.com.cache_api_project_expiration=3h
         github.com.cache_api_container_registry_expiration=4h
+        github.com.cache_api_single_page_expiration=1d
         github.com.cache_api_release_expiration=5h"#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
@@ -385,6 +393,7 @@ mod test {
             config.get_cache_expiration(&ApiOperation::ContainerRegistry)
         );
         assert_eq!("5h", config.get_cache_expiration(&ApiOperation::Release));
+        assert_eq!("1d", config.get_cache_expiration(&ApiOperation::SinglePage));
     }
 
     #[test]

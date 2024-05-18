@@ -27,6 +27,8 @@ const CONFIG_TEMPLATE: &str = r#"
 <DOMAIN>.cache_api_container_registry_expiration=1h
 # Expire read releases in 1 day
 <DOMAIN>.cache_api_release_expiration=1d
+# Expire single page calls in 1 day. Ex. Trending repositories in github.com
+<DOMAIN>.cache_api_single_page_expiration=1d
 
 ## Max pages configuration
 

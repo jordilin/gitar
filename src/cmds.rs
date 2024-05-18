@@ -6,3 +6,4 @@ pub mod merge_request;
 pub mod my;
 pub mod project;
 pub mod release;
+pub mod trending;

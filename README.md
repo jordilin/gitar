@@ -20,6 +20,7 @@
     - [Browse remote using your browser](#browse-remote-using-your-browser)
     - [Releases](#releases)
     - [Auth User](#auth-user)
+    - [Trending Repositories](#trending-repositories)
   - [Logging](#logging)
   - [Unit tests](#unit-tests)
   - [Gitar-Amps additional scripts and workflows](#gitar-amps-additional-scripts-and-workflows)
@@ -254,6 +255,12 @@ the auth token.
 | List your projects | &#x2714; | &#x2714; |
 | List your starred projects | &#x2714; | &#x2714; |
 
+
+### Trending Repositories
+
+| Operation | GitLab | GitHub |
+| --------- | -------------- | -------------- |
+| List by programming language | &#x2716; | &#x2714; |
 
 All list operations support the following flags:
 
