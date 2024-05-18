@@ -100,6 +100,8 @@ pub enum ApiOperation {
     Project,
     ContainerRegistry,
     Release,
+    // Get request to a single URL page. Ex. The trending repositories in github.com
+    SinglePage,
 }
 
 impl Display for ApiOperation {
@@ -110,6 +112,7 @@ impl Display for ApiOperation {
             ApiOperation::Project => write!(f, "project"),
             ApiOperation::ContainerRegistry => write!(f, "container_registry"),
             ApiOperation::Release => write!(f, "release"),
+            ApiOperation::SinglePage => write!(f, "single_page"),
         }
     }
 }
@@ -127,5 +130,7 @@ mod tests {
             format!("{}", ApiOperation::ContainerRegistry),
             "container_registry"
         );
+        assert_eq!(format!("{}", ApiOperation::Release), "release");
+        assert_eq!(format!("{}", ApiOperation::SinglePage), "single_page");
     }
 }
