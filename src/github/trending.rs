@@ -22,7 +22,7 @@ impl<R: HttpRunner<Response = Response>> TrendingProjectURL for Github<R> {
             None,
             headers,
             Method::GET,
-            ApiOperation::Project,
+            ApiOperation::SinglePage,
         )?;
         parse_response(response)
     }
@@ -64,5 +64,9 @@ mod test {
         let trending = github.list("rust".to_string()).unwrap();
         assert_eq!(2, trending.len());
         assert_eq!("https://github.com/trending/rust", *client.url(),);
+        assert_eq!(
+            Some(ApiOperation::SinglePage),
+            *client.api_operation.borrow()
+        );
     }
 }
