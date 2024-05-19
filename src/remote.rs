@@ -256,6 +256,8 @@ pub struct ListRemoteCliArgs {
     #[builder(default)]
     pub num_pages: bool,
     #[builder(default)]
+    pub num_resources: bool,
+    #[builder(default)]
     pub page_number: Option<i64>,
     #[builder(default)]
     pub created_after: Option<String>,
