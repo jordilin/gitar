@@ -31,16 +31,29 @@ impl<R: HttpRunner<Response = Response>> TrendingProjectURL for Github<R> {
 fn parse_response(response: Response) -> Result<Vec<TrendingProject>> {
     let body = response.body;
     let proj_re = Regex::new(r#"href="/[a-zA-Z0-9_-]*/[a-zA-Z0-9_-]*/stargazers""#).unwrap();
-    let sm = proj_re.find_iter(&body);
+    let description_re = Regex::new(r#"<p class="col-9 color-fg-muted my-1 pr-4">"#).unwrap();
+    let mut descr_header_matched = false;
     let mut trending = Vec::new();
-    for m in sm {
-        let proj = m.as_str().split('"').collect::<Vec<&str>>();
-        let proj_paths = proj[1].split('/').collect::<Vec<&str>>();
-        if proj_paths[1] == "features" || proj_paths[1] == "about" || proj_paths[1] == "site" {
+    let mut description = String::new();
+    for line in body.lines() {
+        if descr_header_matched {
+            description = line.trim().to_string();
+            descr_header_matched = false;
             continue;
         }
-        let url = format!("https://github.com/{}/{}", proj_paths[1], proj_paths[2]);
-        trending.push(TrendingProject::new(url));
+        if let Some(_) = description_re.find(line) {
+            descr_header_matched = true;
+            continue;
+        }
+        if let Some(proj) = proj_re.find(line) {
+            let proj = proj.as_str().split('"').collect::<Vec<&str>>();
+            let proj_paths = proj[1].split('/').collect::<Vec<&str>>();
+            if proj_paths[1] == "features" || proj_paths[1] == "about" || proj_paths[1] == "site" {
+                continue;
+            }
+            let url = format!("https://github.com/{}/{}", proj_paths[1], proj_paths[2]);
+            trending.push(TrendingProject::new(url, description.to_string()));
+        }
     }
     Ok(trending)
 }
@@ -67,6 +80,18 @@ mod test {
         assert_eq!(
             Some(ApiOperation::SinglePage),
             *client.api_operation.borrow()
+        );
+        let proj = &trending[0];
+        assert_eq!("https://github.com/lencx/ChatGPT", proj.url);
+        assert_eq!(
+            "🔮 ChatGPT Desktop Application (Mac, Windows and Linux)",
+            proj.description
+        );
+        let proj = &trending[1];
+        assert_eq!("https://github.com/sxyazi/yazi", proj.url);
+        assert_eq!(
+            "💥 Blazing fast terminal file manager written in Rust, based on async I/O.",
+            proj.description
         );
     }
 }

@@ -20,17 +20,26 @@ pub struct TrendingCliArgs {
 #[derive(Clone)]
 pub struct TrendingProject {
     pub url: String,
+    pub description: String,
 }
 
 impl TrendingProject {
-    pub fn new(url: String) -> Self {
-        Self { url }
+    pub fn new(url: String, description: String) -> Self {
+        Self { url, description }
     }
 }
 
 impl From<TrendingProject> for DisplayBody {
-    fn from(url: TrendingProject) -> Self {
-        DisplayBody::new(vec![Column::new("URL", url.url)])
+    fn from(trpr: TrendingProject) -> Self {
+        DisplayBody::new(vec![
+            Column::new("URL", trpr.url),
+            Column::builder()
+                .name("Description".to_string())
+                .value(trpr.description)
+                .optional(true)
+                .build()
+                .unwrap(),
+        ])
     }
 }
 
@@ -92,8 +101,14 @@ mod tests {
     #[test]
     fn test_trending_projects() {
         let projects = vec![
-            TrendingProject::new("https://github.com/kubernetes/kubernetes".to_string()),
-            TrendingProject::new("https://github.com/jordilin/gitar".to_string()),
+            TrendingProject::new(
+                "https://github.com/kubernetes/kubernetes".to_string(),
+                "".to_string(),
+            ),
+            TrendingProject::new(
+                "https://github.com/jordilin/gitar".to_string(),
+                "".to_string(),
+            ),
         ];
         let remote = Arc::new(MockTrendingProjectURL::new(projects));
         let cli_args = TrendingCliArgs {
