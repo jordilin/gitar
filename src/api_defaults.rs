@@ -12,3 +12,7 @@ pub const RATE_LIMIT_REMAINING_THRESHOLD: u32 = 10;
 // most limiting Github 5000/60 = 83.33 requests per minute. Round
 // up to 80.
 pub const DEFAULT_NUMBER_REQUESTS_MINUTE: u32 = 80;
+
+// Default number of results per page for --num-resources. Gitlab 20, Github 30
+// As this is an approximation, we will use 30 if per_page is not provided.
+pub const DEFAULT_PER_PAGE: u32 = 30;
