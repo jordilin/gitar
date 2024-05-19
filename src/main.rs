@@ -27,9 +27,9 @@ fn get_config_domain_path(
             return Err(error::gen("No remote url found. Please set a remote url."));
         };
         (domain, path)
-    } else if cli_domain.is_some() {
+    } else if let Some(cli_domain) = cli_domain {
         // Case for trending repositories.
-        (cli_domain.unwrap(), String::new())
+        (cli_domain, String::new())
     } else {
         return Err(error::gen("No domain found. Please set a domain."));
     };

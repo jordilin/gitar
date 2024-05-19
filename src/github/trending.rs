@@ -41,7 +41,7 @@ fn parse_response(response: Response) -> Result<Vec<TrendingProject>> {
             descr_header_matched = false;
             continue;
         }
-        if let Some(_) = description_re.find(line) {
+        if description_re.find(line).is_some() {
             descr_header_matched = true;
             continue;
         }
