@@ -237,6 +237,13 @@ pub fn execute(
                     std::io::stdout(),
                 );
             }
+            if cli_args.list_args.num_resources {
+                return common::num_comment_merge_request_resources(
+                    remote,
+                    body_args,
+                    std::io::stdout(),
+                );
+            }
             list_comments(remote, body_args, cli_args, std::io::stdout())
         }
         MergeRequestOptions::Get(cli_args) => {
@@ -997,6 +1004,13 @@ mod tests {
         }
 
         fn num_pages(&self, _args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>> {
+            todo!()
+        }
+
+        fn num_resources(
+            &self,
+            _args: CommentMergeRequestListBodyArgs,
+        ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
             todo!()
         }
     }

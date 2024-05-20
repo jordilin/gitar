@@ -202,6 +202,15 @@ impl<R> Gitlab<R> {
         }
         url
     }
+
+    fn resource_comments_metadata_url(&self, args: CommentMergeRequestListBodyArgs) -> String {
+        let url = format!(
+            "{}/merge_requests/{}/notes?page=1",
+            self.rest_api_basepath(),
+            args.id
+        );
+        url
+    }
 }
 
 impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Gitlab<R> {
@@ -242,13 +251,21 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Gitlab<R> {
     }
 
     fn num_pages(&self, args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>> {
-        let url = format!(
-            "{}/merge_requests/{}/notes?page=1",
-            self.rest_api_basepath(),
-            args.id
-        );
-
+        let url = self.resource_comments_metadata_url(args);
         query::num_pages(
+            &self.runner,
+            &url,
+            self.headers(),
+            ApiOperation::MergeRequest,
+        )
+    }
+
+    fn num_resources(
+        &self,
+        args: CommentMergeRequestListBodyArgs,
+    ) -> Result<Option<NumberDeltaErr>> {
+        let url = self.resource_comments_metadata_url(args);
+        query::num_resources(
             &self.runner,
             &url,
             self.headers(),

@@ -33,6 +33,14 @@ impl<R> Github<R> {
             self.rest_api_basepath, self.path, state
         )
     }
+
+    fn resource_comments_metadata_url(&self, args: CommentMergeRequestListBodyArgs) -> String {
+        let url = format!(
+            "{}/repos/{}/issues/{}/comments?page=1",
+            self.rest_api_basepath, self.path, args.id
+        );
+        url
+    }
 }
 
 impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
@@ -325,12 +333,21 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Github<R> {
     }
 
     fn num_pages(&self, args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>> {
-        let url = format!(
-            "{}/repos/{}/issues/{}/comments?page=1",
-            self.rest_api_basepath, self.path, args.id
-        );
-
+        let url = self.resource_comments_metadata_url(args);
         query::num_pages(
+            &self.runner,
+            &url,
+            self.request_headers(),
+            ApiOperation::MergeRequest,
+        )
+    }
+
+    fn num_resources(
+        &self,
+        args: CommentMergeRequestListBodyArgs,
+    ) -> Result<Option<NumberDeltaErr>> {
+        let url = self.resource_comments_metadata_url(args);
+        query::num_resources(
             &self.runner,
             &url,
             self.request_headers(),

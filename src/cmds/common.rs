@@ -120,6 +120,11 @@ query_num_resources!(
     MergeRequest,
     MergeRequestListBodyArgs
 );
+query_pages!(
+    num_comment_merge_request_resources,
+    CommentMergeRequest,
+    CommentMergeRequestListBodyArgs
+);
 
 macro_rules! list_resource {
     ($func_name:ident, $trait_name:ident, $body_args:ident, $cli_args:ident, $embeds_list_args: literal) => {

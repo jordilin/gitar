@@ -84,6 +84,10 @@ pub trait CommentMergeRequest {
     fn create(&self, args: CommentMergeRequestBodyArgs) -> Result<()>;
     fn list(&self, args: CommentMergeRequestListBodyArgs) -> Result<Vec<Comment>>;
     fn num_pages(&self, args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>>;
+    fn num_resources(
+        &self,
+        args: CommentMergeRequestListBodyArgs,
+    ) -> Result<Option<NumberDeltaErr>>;
 }
 
 pub trait TrendingProjectURL {
