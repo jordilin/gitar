@@ -96,9 +96,9 @@ pub trait TrendingProjectURL {
 /// number of pages available (last page in link header) and the number of
 /// resources per page.
 pub struct NumberDeltaErr {
-    /// Aproximate result obtained by querying the remote API.
+    /// Possible number of resources = num_pages * resources_per_page
     pub num: u32,
-    /// Delta error
+    /// Resources per_page
     pub delta: u32,
 }
 
@@ -106,11 +106,16 @@ impl NumberDeltaErr {
     pub fn new(num: u32, delta: u32) -> Self {
         Self { num, delta }
     }
+
+    fn compute_interval(&self) -> (u32, u32) {
+        (self.num - self.delta + 1, self.num)
+    }
 }
 
 impl Display for NumberDeltaErr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} ± {}", self.num, self.delta)
+        let (start, end) = self.compute_interval();
+        write!(f, "({}, {})", start, end)
     }
 }
 
@@ -164,7 +169,7 @@ mod tests {
 
     #[test]
     fn test_delta_err_display() {
-        let delta_err = NumberDeltaErr::new(10, 2);
-        assert_eq!("10 ± 2", format!("{}", delta_err));
+        let delta_err = NumberDeltaErr::new(40, 20);
+        assert_eq!("(21, 40)", delta_err.to_string());
     }
 }
