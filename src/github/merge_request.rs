@@ -1,6 +1,6 @@
 use super::Github;
 use crate::{
-    api_traits::{ApiOperation, CommentMergeRequest, MergeRequest, RemoteProject},
+    api_traits::{ApiOperation, CommentMergeRequest, MergeRequest, NumberDeltaErr, RemoteProject},
     cli::browse::BrowseOptions,
     cmds::merge_request::{Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs},
     http::{
@@ -277,6 +277,12 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         let url = self.url_list_merge_requests(&args) + "&page=1";
         let headers = self.request_headers();
         query::num_pages(&self.runner, &url, headers, ApiOperation::MergeRequest)
+    }
+
+    fn num_resources(&self, args: MergeRequestListBodyArgs) -> Result<Option<NumberDeltaErr>> {
+        let url = self.url_list_merge_requests(&args) + "&page=1";
+        let headers = self.request_headers();
+        query::num_resources(&self.runner, &url, headers, ApiOperation::MergeRequest)
     }
 
     fn approve(&self, _id: i64) -> Result<MergeRequestResponse> {

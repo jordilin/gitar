@@ -27,6 +27,7 @@ pub trait MergeRequest {
     /// Queries the remote API to get the number of pages available for a given
     /// resource based on list arguments.
     fn num_pages(&self, args: MergeRequestListBodyArgs) -> Result<Option<u32>>;
+    fn num_resources(&self, args: MergeRequestListBodyArgs) -> Result<Option<NumberDeltaErr>>;
 }
 
 pub trait RemoteProject {

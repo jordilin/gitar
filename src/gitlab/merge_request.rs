@@ -1,4 +1,4 @@
-use crate::api_traits::{ApiOperation, CommentMergeRequest, RemoteProject};
+use crate::api_traits::{ApiOperation, CommentMergeRequest, NumberDeltaErr, RemoteProject};
 use crate::cli::browse::BrowseOptions;
 use crate::cmds::merge_request::{
     Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs,
@@ -154,6 +154,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         let mut headers = Headers::new();
         headers.set("PRIVATE-TOKEN", self.api_token());
         query::num_pages(&self.runner, &url, headers, ApiOperation::MergeRequest)
+    }
+
+    fn num_resources(&self, args: MergeRequestListBodyArgs) -> Result<Option<NumberDeltaErr>> {
+        let url = self.list_merge_request_url(&args, true);
+        let mut headers = Headers::new();
+        headers.set("PRIVATE-TOKEN", self.api_token());
+        query::num_resources(&self.runner, &url, headers, ApiOperation::MergeRequest)
     }
 
     fn approve(&self, id: i64) -> Result<MergeRequestResponse> {

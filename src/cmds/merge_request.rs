@@ -284,6 +284,9 @@ pub fn list_merge_requests(
     if cli_args.list_args.num_pages {
         return common::num_merge_request_pages(remote, body_args, std::io::stdout());
     }
+    if cli_args.list_args.num_resources {
+        return common::num_merge_request_resources(remote, body_args, std::io::stdout());
+    }
     list(remote, body_args, cli_args, std::io::stdout())
 }
 
@@ -916,6 +919,13 @@ mod tests {
         }
         fn approve(&self, _id: i64) -> Result<MergeRequestResponse> {
             Ok(self.merge_requests[0].clone())
+        }
+
+        fn num_resources(
+            &self,
+            _args: MergeRequestListBodyArgs,
+        ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+            todo!()
         }
     }
 

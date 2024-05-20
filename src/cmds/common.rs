@@ -115,6 +115,11 @@ query_pages!(
 query_num_resources!(num_release_resources, Deploy);
 query_num_resources!(num_cicd_resources, Cicd);
 query_num_resources!(num_runner_resources, CicdRunner, RunnerListBodyArgs);
+query_num_resources!(
+    num_merge_request_resources,
+    MergeRequest,
+    MergeRequestListBodyArgs
+);
 
 macro_rules! list_resource {
     ($func_name:ident, $trait_name:ident, $body_args:ident, $cli_args:ident, $embeds_list_args: literal) => {
