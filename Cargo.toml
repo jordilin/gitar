@@ -1,7 +1,22 @@
 [package]
-name = "gr"
-version = "0.1.0"
+name = "git-ar"
+version = "0.1.55"
 edition = "2021"
+
+license = "MIT"
+description = """
+Git all remotes. Git cli tool that targets both Github and Gitlab. Brings common
+development operations such as opening a pull request down to the shell.
+
+This is an alternative to both Github https://github.com/cli/cli and Gitlab
+https://gitlab.com/gitlab-org/cli cli tools.
+"""
+
+categories = ["command-line-utilities", "development-tools"]
+keywords = ["git", "github", "gitlab", "cli", "vcs"]
+repository = "https://github.com/jordilin/gitar"
+readme = "README.md"
+authors = ["Jordi Carrillo <jordilin@gmail.com>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -30,3 +45,10 @@ env_logger = "0.11.3"
 # disable basic-cookies from httpmock - not needed
 httpmock = { version = "0.7.0", default-features = false }
 tempfile = "3.10.1"
+
+[[bin]]
+name = "gr"
+path = "src/main.rs"
+
+[lib]
+name = "gr"
