@@ -53,6 +53,7 @@ pub trait CicdRunner {
     fn list(&self, args: RunnerListBodyArgs) -> Result<Vec<Runner>>;
     fn get(&self, id: i64) -> Result<RunnerMetadata>;
     fn num_pages(&self, args: RunnerListBodyArgs) -> Result<Option<u32>>;
+    fn num_resources(&self, args: RunnerListBodyArgs) -> Result<Option<NumberDeltaErr>>;
 }
 
 pub trait Deploy {

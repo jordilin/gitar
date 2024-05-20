@@ -64,6 +64,10 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Github<R> {
     fn num_pages(&self, _args: RunnerListBodyArgs) -> Result<Option<u32>> {
         todo!();
     }
+
+    fn num_resources(&self, _args: RunnerListBodyArgs) -> Result<Option<NumberDeltaErr>> {
+        todo!()
+    }
 }
 
 pub struct GithubPipelineFields {

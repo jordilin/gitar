@@ -68,6 +68,14 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
         let url = self.list_runners_url(&args, true);
         query::num_pages(&self.runner, &url, self.headers(), ApiOperation::Pipeline)
     }
+
+    fn num_resources(
+        &self,
+        args: RunnerListBodyArgs,
+    ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+        let url = self.list_runners_url(&args, true);
+        query::num_resources(&self.runner, &url, self.headers(), ApiOperation::Pipeline)
+    }
 }
 
 impl<R> Gitlab<R> {
