@@ -29,10 +29,13 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
     }
 
     fn num_pages(&self) -> Result<Option<u32>> {
-        let url = format!("{}/pipelines?page=1", self.rest_api_basepath());
-        let mut headers = Headers::new();
-        headers.set("PRIVATE-TOKEN", self.api_token());
+        let (url, headers) = self.resource_cicd_metadata_url();
         query::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
+    }
+
+    fn num_resources(&self) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+        let (url, headers) = self.resource_cicd_metadata_url();
+        query::num_resources(&self.runner, &url, headers, ApiOperation::Pipeline)
     }
 }
 
@@ -88,6 +91,13 @@ impl<R> Gitlab<R> {
             url.add_param("tag_list", tags);
         }
         url.build()
+    }
+
+    fn resource_cicd_metadata_url(&self) -> (String, Headers) {
+        let url = format!("{}/pipelines?page=1", self.rest_api_basepath());
+        let mut headers = Headers::new();
+        headers.set("PRIVATE-TOKEN", self.api_token());
+        (url, headers)
     }
 }
 

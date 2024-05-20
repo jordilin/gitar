@@ -46,6 +46,7 @@ pub trait Cicd {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>>;
     fn get_pipeline(&self, id: i64) -> Result<Pipeline>;
     fn num_pages(&self) -> Result<Option<u32>>;
+    fn num_resources(&self) -> Result<Option<NumberDeltaErr>>;
 }
 
 pub trait CicdRunner {
