@@ -23,7 +23,9 @@ pub struct ListArgs {
     /// How many pages are available
     #[clap(long)]
     num_pages: bool,
-    /// How many resources are available. Result is an approximation +/- per_page
+    /// How many resources are available. Computed from HTTP page headers.
+    /// Result is an approximation depending on default per_page query param.
+    /// Typically Gitlab: 20 and Github: 30. Total - (0, per_page)
     #[clap(long)]
     pub num_resources: bool,
     /// Created after date (ISO 8601 YYYY-MM-DDTHH:MM:SSZ)

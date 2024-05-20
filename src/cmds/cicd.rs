@@ -8,7 +8,7 @@ use std::fmt::Display;
 use std::io::Write;
 use std::sync::Arc;
 
-use super::common::{self, num_cicd_pages, process_num_pages};
+use super::common::{self, num_cicd_pages, process_num_metadata, MetadataName};
 
 #[derive(Builder, Clone, Debug)]
 pub struct Pipeline {
@@ -242,7 +242,11 @@ pub fn execute(
                     .all(cli_args.all)
                     .build()?;
                 if cli_args.list_args.num_pages {
-                    return process_num_pages(remote.num_pages(body_args), std::io::stdout());
+                    return process_num_metadata(
+                        remote.num_pages(body_args),
+                        MetadataName::Pages,
+                        std::io::stdout(),
+                    );
                 }
                 list_runners(remote, body_args, cli_args, std::io::stdout())
             }

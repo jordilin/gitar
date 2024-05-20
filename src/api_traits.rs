@@ -57,6 +57,7 @@ pub trait CicdRunner {
 pub trait Deploy {
     fn list(&self, args: ReleaseBodyArgs) -> Result<Vec<Release>>;
     fn num_pages(&self) -> Result<Option<u32>>;
+    fn num_resources(&self) -> Result<Option<NumberDeltaErr>>;
 }
 
 pub trait UserInfo {
@@ -84,6 +85,30 @@ pub trait CommentMergeRequest {
 
 pub trait TrendingProjectURL {
     fn list(&self, language: String) -> Result<Vec<TrendingProject>>;
+}
+
+/// Represents a type carrying a result and a delta error. This is the case when
+/// querying the number of resources such as releases, pipelines, etc...
+/// available. REST APIs don't carry a count, so that is computed by the total
+/// number of pages available (last page in link header) and the number of
+/// resources per page.
+pub struct NumberDeltaErr {
+    /// Aproximate result obtained by querying the remote API.
+    pub num: u32,
+    /// Delta error
+    pub delta: u32,
+}
+
+impl NumberDeltaErr {
+    pub fn new(num: u32, delta: u32) -> Self {
+        Self { num, delta }
+    }
+}
+
+impl Display for NumberDeltaErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} ± {}", self.num, self.delta)
+    }
 }
 
 /// Types of API resources attached to a request. The request will carry this
@@ -132,5 +157,11 @@ mod tests {
         );
         assert_eq!(format!("{}", ApiOperation::Release), "release");
         assert_eq!(format!("{}", ApiOperation::SinglePage), "single_page");
+    }
+
+    #[test]
+    fn test_delta_err_display() {
+        let delta_err = NumberDeltaErr::new(10, 2);
+        assert_eq!("10 ± 2", format!("{}", delta_err));
     }
 }

@@ -4,7 +4,8 @@ use std::sync::Arc;
 use serde::Serialize;
 
 use crate::{
-    api_traits::ApiOperation,
+    api_defaults,
+    api_traits::{ApiOperation, NumberDeltaErr},
     cmds::{
         cicd::{Pipeline, Runner, RunnerMetadata},
         docker::{ImageMetadata, RegistryRepository, RepositoryTag},
@@ -30,7 +31,7 @@ use crate::{
         user::GitlabUserFields,
     },
     http::{self, Body, Headers, Paginator, Request, Resource},
-    io::{HttpRunner, Response},
+    io::{HttpRunner, PageHeader, Response},
     json_load_page, json_loads,
     remote::ListBodyArgs,
     time::sort_filter_by_date,
@@ -39,12 +40,12 @@ use crate::{
 
 use super::{Member, MergeRequestResponse, Project};
 
-pub fn num_pages<R: HttpRunner<Response = Response>>(
+fn get_page_header<R: HttpRunner<Response = Response>>(
     runner: &Arc<R>,
     url: &str,
     request_headers: Headers,
     api_operation: ApiOperation,
-) -> Result<Option<u32>> {
+) -> Result<Option<PageHeader>> {
     let response = send_request::<_, String>(
         runner,
         url,
@@ -53,7 +54,16 @@ pub fn num_pages<R: HttpRunner<Response = Response>>(
         http::Method::HEAD,
         api_operation,
     )?;
-    let page_header = response.get_page_headers();
+    Ok(response.get_page_headers())
+}
+
+pub fn num_pages<R: HttpRunner<Response = Response>>(
+    runner: &Arc<R>,
+    url: &str,
+    request_headers: Headers,
+    api_operation: ApiOperation,
+) -> Result<Option<u32>> {
+    let page_header = get_page_header(runner, url, request_headers, api_operation)?;
     match page_header {
         Some(page_header) => {
             if let Some(last_page) = page_header.last {
@@ -64,6 +74,36 @@ pub fn num_pages<R: HttpRunner<Response = Response>>(
         // Github does not return page headers when there is only one page, so
         // we assume 1 page in this case.
         None => Ok(Some(1)),
+    }
+}
+
+pub fn num_resources<R: HttpRunner<Response = Response>>(
+    runner: &Arc<R>,
+    url: &str,
+    request_headers: Headers,
+    api_operation: ApiOperation,
+) -> Result<Option<NumberDeltaErr>> {
+    let page_header = get_page_header(runner, url, request_headers, api_operation)?;
+    match page_header {
+        Some(page_header) => {
+            // total resources per_page * total_pages
+            if let Some(last_page) = page_header.last {
+                let count = last_page.number * page_header.per_page;
+                return Ok(Some(NumberDeltaErr {
+                    num: count,
+                    delta: page_header.per_page,
+                }));
+            }
+            Ok(None)
+        }
+        None => {
+            // Github does not return page headers when there is only one page, so
+            // we assume 1 page in this case.
+            Ok(Some(NumberDeltaErr {
+                num: 1,
+                delta: api_defaults::DEFAULT_PER_PAGE,
+            }))
+        }
     }
 }
 
@@ -351,7 +391,7 @@ send!(github_trending_language_projects, Response);
 
 #[cfg(test)]
 mod test {
-    use crate::test::utils::MockRunner;
+    use crate::{io::Page, test::utils::MockRunner};
 
     use super::*;
 
@@ -374,5 +414,56 @@ mod test {
         let headers = Headers::new();
         let operation = ApiOperation::Pipeline;
         assert!(num_pages(&client, url, headers, operation).is_err());
+    }
+
+    #[test]
+    fn test_num_resources_assume_one_if_pages_not_available() {
+        let headers = Headers::new();
+        let response = Response::builder().status(200).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let url = "https://github.com/api/v4/projects/1/pipelines?page=1";
+        let num_resources = num_resources(&client, url, headers, ApiOperation::Pipeline).unwrap();
+        assert_eq!(30, num_resources.unwrap().delta);
+    }
+
+    #[test]
+    fn test_num_resources_with_last_page_and_per_page_available() {
+        let mut headers = Headers::new();
+        // Value doesn't matter as we are injecting the header processor
+        // enforcing the last page and per_page values.
+        headers.set("link", "");
+        let response = Response::builder()
+            .status(200)
+            .headers(headers)
+            .link_header_processor(|_link| {
+                let mut page_header = PageHeader::new();
+                let next_page =
+                    Page::new("https://gitlab.com/api/v4/projects/1/pipelines?page=2", 2);
+                let last_page =
+                    Page::new("https://gitlab.com/api/v4/projects/1/pipelines?page=4", 4);
+                page_header.set_next_page(next_page);
+                page_header.set_last_page(last_page);
+                page_header.per_page = 20;
+                page_header
+            })
+            .build()
+            .unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let url = "https://gitlab.com/api/v4/projects/1/pipelines?page=1";
+        let num_resources = num_resources(&client, url, Headers::new(), ApiOperation::Pipeline)
+            .unwrap()
+            .unwrap();
+        assert_eq!(80, num_resources.num);
+        assert_eq!(20, num_resources.delta);
+    }
+
+    #[test]
+    fn test_numresources_error_on_404() {
+        let response = Response::builder().status(404).build().unwrap();
+        let client = Arc::new(MockRunner::new(vec![response]));
+        let url = "https://github.com/api/v4/projects/1/pipelines";
+        let headers = Headers::new();
+        let operation = ApiOperation::Pipeline;
+        assert!(num_resources(&client, url, headers, operation).is_err());
     }
 }

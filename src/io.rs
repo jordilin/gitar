@@ -174,10 +174,10 @@ pub fn parse_link_headers(link: &str) -> PageHeader {
                 if per_page.len() > 1 {
                     let per_page = per_page[1].to_string();
                     let per_page: u32 = per_page.parse().unwrap_or(api_defaults::DEFAULT_PER_PAGE);
-                    page_header.per_page = Some(per_page);
+                    page_header.per_page = per_page;
                 }
             } else {
-                page_header.per_page = Some(api_defaults::DEFAULT_PER_PAGE);
+                page_header.per_page = api_defaults::DEFAULT_PER_PAGE;
             };
             let url = cap[1].to_string();
             if let Some(page_cap) = RE_PAGE_NUMBER.captures(&url) {
@@ -203,8 +203,8 @@ pub fn parse_link_headers(link: &str) -> PageHeader {
             }
         }
     }
-    if page_header.per_page.is_none() {
-        page_header.per_page = Some(api_defaults::DEFAULT_PER_PAGE);
+    if page_header.per_page == 0 {
+        page_header.per_page = api_defaults::DEFAULT_PER_PAGE;
     }
     page_header
 }
@@ -213,7 +213,7 @@ pub fn parse_link_headers(link: &str) -> PageHeader {
 pub struct PageHeader {
     pub next: Option<Page>,
     pub last: Option<Page>,
-    pub per_page: Option<u32>,
+    pub per_page: u32,
 }
 
 impl PageHeader {
@@ -446,7 +446,7 @@ mod test {
         let page_headers = parse_link_headers(link);
         assert_eq!(91, page_headers.last.unwrap().number);
         assert_eq!(2, page_headers.next.unwrap().number);
-        assert_eq!(20, page_headers.per_page.unwrap());
+        assert_eq!(20, page_headers.per_page);
     }
 
     #[test]
@@ -455,10 +455,7 @@ mod test {
         let page_headers = parse_link_headers(link);
         assert_eq!(91, page_headers.last.unwrap().number);
         assert_eq!(2, page_headers.next.unwrap().number);
-        assert_eq!(
-            api_defaults::DEFAULT_PER_PAGE,
-            page_headers.per_page.unwrap()
-        );
+        assert_eq!(api_defaults::DEFAULT_PER_PAGE, page_headers.per_page);
     }
 
     #[test]
@@ -467,10 +464,7 @@ mod test {
         let page_headers = parse_link_headers(link);
         assert_eq!(91, page_headers.last.unwrap().number);
         assert_eq!(None, page_headers.next);
-        assert_eq!(
-            api_defaults::DEFAULT_PER_PAGE,
-            page_headers.per_page.unwrap()
-        );
+        assert_eq!(api_defaults::DEFAULT_PER_PAGE, page_headers.per_page);
     }
 
     #[test]
@@ -479,9 +473,6 @@ mod test {
         let page_headers = parse_link_headers(link);
         assert_eq!(91, page_headers.last.unwrap().number);
         assert_eq!(2, page_headers.next.unwrap().number);
-        assert_eq!(
-            api_defaults::DEFAULT_PER_PAGE,
-            page_headers.per_page.unwrap()
-        );
+        assert_eq!(api_defaults::DEFAULT_PER_PAGE, page_headers.per_page);
     }
 }

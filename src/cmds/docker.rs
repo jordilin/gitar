@@ -9,7 +9,7 @@ use crate::{
     Result,
 };
 
-use super::common::process_num_pages;
+use super::common::{process_num_metadata, MetadataName};
 
 #[derive(Builder)]
 pub struct DockerListCliArgs {
@@ -210,10 +210,10 @@ fn get_num_pages<W: Write>(
 ) -> Result<()> {
     if cli_args.tags {
         let result = remote.num_pages_repository_tags(cli_args.repo_id.unwrap());
-        return process_num_pages(result, writer);
+        return process_num_metadata(result, MetadataName::Pages, writer);
     }
     let result = remote.num_pages_repositories();
-    process_num_pages(result, writer)
+    process_num_metadata(result, MetadataName::Pages, writer)
 }
 
 #[cfg(test)]

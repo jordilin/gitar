@@ -9,7 +9,7 @@ use crate::display::{Column, DisplayBody};
 use crate::remote::{ListBodyArgs, ListRemoteCliArgs};
 use crate::Result;
 
-use super::common;
+use super::common::{self, num_release_resources};
 
 #[derive(Builder, Clone)]
 pub struct ReleaseBodyArgs {
@@ -72,6 +72,9 @@ pub fn execute(
             if cli_args.num_pages {
                 return num_release_pages(remote, std::io::stdout());
             }
+            if cli_args.num_resources {
+                return num_release_resources(remote, std::io::stdout());
+            }
             let from_to_args = crate::remote::validate_from_to_page(&cli_args)?;
             let body_args = ReleaseBodyArgs::builder()
                 .from_to_page(from_to_args)
@@ -92,6 +95,8 @@ fn list_releases<W: Write>(
 
 #[cfg(test)]
 mod test {
+    use crate::api_traits::NumberDeltaErr;
+
     use super::*;
 
     struct MockDeploy {
@@ -121,6 +126,10 @@ mod test {
         }
 
         fn num_pages(&self) -> Result<Option<u32>> {
+            todo!()
+        }
+
+        fn num_resources(&self) -> Result<Option<NumberDeltaErr>> {
             todo!()
         }
     }
