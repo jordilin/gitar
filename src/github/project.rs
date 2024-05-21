@@ -91,6 +91,19 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             ApiOperation::Project,
         )
     }
+
+    fn num_resources(
+        &self,
+        args: ProjectListBodyArgs,
+    ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+        let url = self.list_project_url(&args, true);
+        query::num_resources(
+            &self.runner,
+            &url,
+            self.request_headers(),
+            ApiOperation::Project,
+        )
+    }
 }
 
 impl<R> Github<R> {

@@ -1,6 +1,7 @@
 use crate::{
-    api_traits::{ApiOperation, Deploy},
+    api_traits::{ApiOperation, Deploy, NumberDeltaErr},
     cmds::release::{Release, ReleaseBodyArgs},
+    http,
     io::{HttpRunner, Response},
     remote::query,
     Result,
@@ -22,9 +23,21 @@ impl<R: HttpRunner<Response = Response>> Deploy for Gitlab<R> {
     }
 
     fn num_pages(&self) -> Result<Option<u32>> {
+        let (url, headers) = self.resource_release_metadata_url();
+        query::num_pages(&self.runner, &url, headers, ApiOperation::Release)
+    }
+
+    fn num_resources(&self) -> Result<Option<NumberDeltaErr>> {
+        let (url, headers) = self.resource_release_metadata_url();
+        query::num_resources(&self.runner, &url, headers, ApiOperation::Release)
+    }
+}
+
+impl<R> Gitlab<R> {
+    fn resource_release_metadata_url(&self) -> (String, http::Headers) {
         let url = format!("{}/releases?page=1", self.rest_api_basepath());
         let headers = self.headers();
-        query::num_pages(&self.runner, &url, headers, ApiOperation::Release)
+        (url, headers)
     }
 }
 

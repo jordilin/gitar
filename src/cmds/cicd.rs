@@ -8,7 +8,9 @@ use std::fmt::Display;
 use std::io::Write;
 use std::sync::Arc;
 
-use super::common::{self, num_cicd_pages, process_num_pages};
+use super::common::{
+    self, num_cicd_pages, num_cicd_resources, num_runner_pages, num_runner_resources,
+};
 
 #[derive(Builder, Clone, Debug)]
 pub struct Pipeline {
@@ -218,6 +220,8 @@ pub fn execute(
             let remote = remote::get_cicd(domain, path, config, cli_args.get_args.refresh_cache)?;
             if cli_args.num_pages {
                 return num_cicd_pages(remote, std::io::stdout());
+            } else if cli_args.num_resources {
+                return num_cicd_resources(remote, std::io::stdout());
             }
             let from_to_args = remote::validate_from_to_page(&cli_args)?;
             let body_args = PipelineBodyArgs::builder()
@@ -242,7 +246,10 @@ pub fn execute(
                     .all(cli_args.all)
                     .build()?;
                 if cli_args.list_args.num_pages {
-                    return process_num_pages(remote.num_pages(body_args), std::io::stdout());
+                    return num_runner_pages(remote, body_args, std::io::stdout());
+                }
+                if cli_args.list_args.num_resources {
+                    return num_runner_resources(remote, body_args, std::io::stdout());
                 }
                 list_runners(remote, body_args, cli_args, std::io::stdout())
             }
@@ -323,6 +330,10 @@ mod test {
                 return Err(error::gen("Error"));
             }
             return Ok(self.num_pages);
+        }
+
+        fn num_resources(&self) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+            todo!()
         }
     }
 
@@ -519,6 +530,13 @@ mod test {
                 return Err(error::gen("Error"));
             }
             Ok(None)
+        }
+
+        fn num_resources(
+            &self,
+            _args: RunnerListBodyArgs,
+        ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+            todo!()
         }
     }
 

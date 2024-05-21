@@ -41,6 +41,9 @@ pub fn execute(
             if cli_args.list_args.num_pages {
                 return common::num_project_pages(remote, body_args, std::io::stdout());
             }
+            if cli_args.list_args.num_resources {
+                return common::num_project_resources(remote, body_args, std::io::stdout());
+            }
             list_user_projects(remote, body_args, cli_args, std::io::stdout())
         }
     }
@@ -111,6 +114,13 @@ mod tests {
         }
 
         fn num_pages(&self, _args: ProjectListBodyArgs) -> Result<Option<u32>> {
+            todo!()
+        }
+
+        fn num_resources(
+            &self,
+            _args: ProjectListBodyArgs,
+        ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
             todo!()
         }
     }

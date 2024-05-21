@@ -1,5 +1,5 @@
 use crate::{
-    api_traits::{ApiOperation, Deploy},
+    api_traits::{ApiOperation, Deploy, NumberDeltaErr},
     cmds::release::{Release, ReleaseBodyArgs},
     io::{HttpRunner, Response},
     remote::query,
@@ -22,12 +22,24 @@ impl<R: HttpRunner<Response = Response>> Deploy for Github<R> {
     }
 
     fn num_pages(&self) -> Result<Option<u32>> {
+        let (url, headers) = self.resource_release_metadata_url();
+        query::num_pages(&self.runner, &url, headers, ApiOperation::Release)
+    }
+
+    fn num_resources(&self) -> Result<Option<NumberDeltaErr>> {
+        let (url, headers) = self.resource_release_metadata_url();
+        query::num_resources(&self.runner, &url, headers, ApiOperation::Release)
+    }
+}
+
+impl<R> Github<R> {
+    fn resource_release_metadata_url(&self) -> (String, crate::http::Headers) {
         let url = format!(
             "{}/repos/{}/releases?page=1",
             self.rest_api_basepath, self.path
         );
         let headers = self.request_headers();
-        query::num_pages(&self.runner, &url, headers, ApiOperation::Release)
+        (url, headers)
     }
 }
 

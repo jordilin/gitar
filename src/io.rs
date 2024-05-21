@@ -1,4 +1,5 @@
 use crate::{
+    api_defaults,
     http::{self, Headers, Request},
     log_info,
     remote::{Member, MergeRequestResponse, Project},
@@ -162,25 +163,37 @@ pub fn parse_link_headers(link: &str) -> PageHeader {
     lazy_static! {
         static ref RE_URL: Regex = Regex::new(r#"<([^>]+)>;\s*rel="([^"]+)""#).unwrap();
         static ref RE_PAGE_NUMBER: Regex = Regex::new(r"[^(per_)]page=(\d+)").unwrap();
+        static ref RE_PER_PAGE: Regex = Regex::new(r"per_page=(\d+)").unwrap();
     }
     let mut page_header = PageHeader::new();
-    for cap in RE_URL.captures_iter(link) {
+    'links: for cap in RE_URL.captures_iter(link) {
         if cap.len() > 2 && &cap[2] == NEXT {
+            // Capture per_page in next page if available to avoid re-computing
+            // this section in next matches like `first` and `last`
+            if let Some(per_page) = RE_PER_PAGE.captures(&cap[1]) {
+                if per_page.len() > 1 {
+                    let per_page = per_page[1].to_string();
+                    let per_page: u32 = per_page.parse().unwrap_or(api_defaults::DEFAULT_PER_PAGE);
+                    page_header.per_page = per_page;
+                }
+            } else {
+                page_header.per_page = api_defaults::DEFAULT_PER_PAGE;
+            };
             let url = cap[1].to_string();
-            for page_cap in RE_PAGE_NUMBER.captures_iter(&url) {
+            if let Some(page_cap) = RE_PAGE_NUMBER.captures(&url) {
                 if page_cap.len() == 2 {
                     let page_number = page_cap[1].to_string();
                     let page_number: u32 = page_number.parse().unwrap_or(0);
                     let page = Page::new(&url, page_number);
                     page_header.set_next_page(page);
-                    continue;
+                    continue 'links;
                 }
             }
         }
         // TODO pull code out - return a page and its type next or last.
         if cap.len() > 2 && &cap[2] == LAST {
             let url = cap[1].to_string();
-            for page_cap in RE_PAGE_NUMBER.captures_iter(&url) {
+            if let Some(page_cap) = RE_PAGE_NUMBER.captures(&url) {
                 if page_cap.len() == 2 {
                     let page_number = page_cap[1].to_string();
                     let page_number: u32 = page_number.parse().unwrap_or(0);
@@ -190,6 +203,9 @@ pub fn parse_link_headers(link: &str) -> PageHeader {
             }
         }
     }
+    if page_header.per_page == 0 {
+        page_header.per_page = api_defaults::DEFAULT_PER_PAGE;
+    }
     page_header
 }
 
@@ -197,6 +213,7 @@ pub fn parse_link_headers(link: &str) -> PageHeader {
 pub struct PageHeader {
     pub next: Option<Page>,
     pub last: Option<Page>,
+    pub per_page: u32,
 }
 
 impl PageHeader {
@@ -362,8 +379,8 @@ mod test {
     }
 
     #[test]
-    fn test_with_per_page() {
-        let link = r#"<https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=2&per_page=20&sort=desc>; rel="next", <https://gitlab.disney.com/api/v4/projects/15/pipelines?id=15&order_by=id&page=1&per_page=20&sort=desc>; rel="first", <https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=91&per_page=20&sort=desc>; rel="last""#;
+    fn test_link_header_has_first_next_and_last() {
+        let link = r#"<https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=2&per_page=20&sort=desc>; rel="next", <https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=1&per_page=20&sort=desc>; rel="first", <https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=91&per_page=20&sort=desc>; rel="last""#;
         let page_headers = parse_link_headers(link);
         assert_eq!(91, page_headers.last.unwrap().number);
         assert_eq!(2, page_headers.next.unwrap().number);
@@ -421,5 +438,41 @@ mod test {
                 assert!(!response.is_ok(method));
             }
         }
+    }
+
+    #[test]
+    fn test_link_headers_get_per_page_multiple_pages() {
+        let link = r#"<https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=2&per_page=20&sort=desc>; rel="next", <https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=1&per_page=20&sort=desc>; rel="first", <https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=91&per_page=20&sort=desc>; rel="last""#;
+        let page_headers = parse_link_headers(link);
+        assert_eq!(91, page_headers.last.unwrap().number);
+        assert_eq!(2, page_headers.next.unwrap().number);
+        assert_eq!(20, page_headers.per_page);
+    }
+
+    #[test]
+    fn test_link_headers_get_per_page_not_available_use_default() {
+        let link = r#"<https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=2&sort=desc>; rel="next", <https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=1&sort=desc>; rel="first", <https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=91&sort=desc>; rel="last""#;
+        let page_headers = parse_link_headers(link);
+        assert_eq!(91, page_headers.last.unwrap().number);
+        assert_eq!(2, page_headers.next.unwrap().number);
+        assert_eq!(api_defaults::DEFAULT_PER_PAGE, page_headers.per_page);
+    }
+
+    #[test]
+    fn test_link_headers_get_per_page_with_no_next_use_default() {
+        let link = r#"<https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=1&sort=desc>; rel="first", <https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=91&sort=desc>; rel="last""#;
+        let page_headers = parse_link_headers(link);
+        assert_eq!(91, page_headers.last.unwrap().number);
+        assert_eq!(None, page_headers.next);
+        assert_eq!(api_defaults::DEFAULT_PER_PAGE, page_headers.per_page);
+    }
+
+    #[test]
+    fn test_link_headers_get_per_page_available_in_last_only_use_default() {
+        let link = r#"<https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&page=2&sort=desc>; rel="next", <https://gitlab-web/api/v4/projects/15/pipelines?id=15&order_by=id&per_page=20&page=91&sort=desc>; rel="last""#;
+        let page_headers = parse_link_headers(link);
+        assert_eq!(91, page_headers.last.unwrap().number);
+        assert_eq!(2, page_headers.next.unwrap().number);
+        assert_eq!(api_defaults::DEFAULT_PER_PAGE, page_headers.per_page);
     }
 }

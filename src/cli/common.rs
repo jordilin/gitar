@@ -23,6 +23,11 @@ pub struct ListArgs {
     /// How many pages are available
     #[clap(long)]
     num_pages: bool,
+    /// How many resources are available. Result is an approximation depending
+    /// on total pages and default per_page query param. Total given as an
+    /// interval (min, max)
+    #[clap(long)]
+    pub num_resources: bool,
     /// Created after date (ISO 8601 YYYY-MM-DDTHH:MM:SSZ)
     #[clap(long)]
     created_after: Option<String>,
@@ -122,6 +127,7 @@ impl From<ListArgs> for ListRemoteCliArgs {
             .to_page(args.to_page)
             .page_number(args.page)
             .num_pages(args.num_pages)
+            .num_resources(args.num_resources)
             .created_after(args.created_after)
             .created_before(args.created_before)
             .sort(args.sort.into())

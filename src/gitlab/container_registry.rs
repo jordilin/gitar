@@ -45,11 +45,7 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
     }
 
     fn num_pages_repository_tags(&self, repository_id: i64) -> Result<Option<u32>> {
-        let url = format!(
-            "{}/registry/repositories/{}/tags?page=1",
-            self.rest_api_basepath(),
-            repository_id
-        );
+        let url = self.resource_repository_tags_metadata_url(repository_id);
         query::num_pages(
             &self.runner,
             &url,
@@ -58,9 +54,32 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
         )
     }
 
+    fn num_resources_repository_tags(
+        &self,
+        repository_id: i64,
+    ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+        let url = self.resource_repository_tags_metadata_url(repository_id);
+        query::num_resources(
+            &self.runner,
+            &url,
+            self.headers(),
+            ApiOperation::ContainerRegistry,
+        )
+    }
+
     fn num_pages_repositories(&self) -> Result<Option<u32>> {
-        let url = format!("{}/registry/repositories?page=1", self.rest_api_basepath());
+        let url = self.resource_repositories_metadata_url();
         query::num_pages(
+            &self.runner,
+            &url,
+            self.headers(),
+            ApiOperation::ContainerRegistry,
+        )
+    }
+
+    fn num_resources_repositories(&self) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+        let url = self.resource_repositories_metadata_url();
+        query::num_resources(
             &self.runner,
             &url,
             self.headers(),
@@ -83,6 +102,22 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
             http::Method::GET,
             ApiOperation::ContainerRegistry,
         )
+    }
+}
+
+impl<R> Gitlab<R> {
+    fn resource_repository_tags_metadata_url(&self, repository_id: i64) -> String {
+        let url = format!(
+            "{}/registry/repositories/{}/tags?page=1",
+            self.rest_api_basepath(),
+            repository_id
+        );
+        url
+    }
+
+    fn resource_repositories_metadata_url(&self) -> String {
+        let url = format!("{}/registry/repositories?page=1", self.rest_api_basepath());
+        url
     }
 }
 

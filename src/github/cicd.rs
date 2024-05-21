@@ -1,12 +1,12 @@
 use super::Github;
-use crate::api_traits::{ApiOperation, CicdRunner};
+use crate::api_traits::{ApiOperation, CicdRunner, NumberDeltaErr};
 use crate::cmds::cicd::{Pipeline, PipelineBodyArgs, RunnerListBodyArgs, RunnerMetadata};
 use crate::remote::query;
 use crate::{
     api_traits::Cicd,
     io::{HttpRunner, Response},
 };
-use crate::{time, Result};
+use crate::{http, time, Result};
 
 impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
@@ -31,12 +31,24 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
     }
 
     fn num_pages(&self) -> Result<Option<u32>> {
+        let (url, headers) = self.resource_cicd_metadata_url();
+        query::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
+    }
+
+    fn num_resources(&self) -> Result<Option<NumberDeltaErr>> {
+        let (url, headers) = self.resource_cicd_metadata_url();
+        query::num_resources(&self.runner, &url, headers, ApiOperation::Pipeline)
+    }
+}
+
+impl<R> Github<R> {
+    fn resource_cicd_metadata_url(&self) -> (String, http::Headers) {
         let url = format!(
             "{}/repos/{}/actions/runs?page=1",
             self.rest_api_basepath, self.path
         );
         let headers = self.request_headers();
-        query::num_pages(&self.runner, &url, headers, ApiOperation::Pipeline)
+        (url, headers)
     }
 }
 
@@ -51,6 +63,10 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Github<R> {
 
     fn num_pages(&self, _args: RunnerListBodyArgs) -> Result<Option<u32>> {
         todo!();
+    }
+
+    fn num_resources(&self, _args: RunnerListBodyArgs) -> Result<Option<NumberDeltaErr>> {
+        todo!()
     }
 }
 

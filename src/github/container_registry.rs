@@ -27,4 +27,15 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Github<R> {
     fn get_image_metadata(&self, _repository_id: i64, _tag: &str) -> Result<ImageMetadata> {
         todo!()
     }
+
+    fn num_resources_repository_tags(
+        &self,
+        _repository_id: i64,
+    ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+        todo!()
+    }
+
+    fn num_resources_repositories(&self) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+        todo!()
+    }
 }

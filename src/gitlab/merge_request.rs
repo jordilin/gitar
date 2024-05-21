@@ -1,4 +1,4 @@
-use crate::api_traits::{ApiOperation, CommentMergeRequest, RemoteProject};
+use crate::api_traits::{ApiOperation, CommentMergeRequest, NumberDeltaErr, RemoteProject};
 use crate::cli::browse::BrowseOptions;
 use crate::cmds::merge_request::{
     Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs,
@@ -156,6 +156,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         query::num_pages(&self.runner, &url, headers, ApiOperation::MergeRequest)
     }
 
+    fn num_resources(&self, args: MergeRequestListBodyArgs) -> Result<Option<NumberDeltaErr>> {
+        let url = self.list_merge_request_url(&args, true);
+        let mut headers = Headers::new();
+        headers.set("PRIVATE-TOKEN", self.api_token());
+        query::num_resources(&self.runner, &url, headers, ApiOperation::MergeRequest)
+    }
+
     fn approve(&self, id: i64) -> Result<MergeRequestResponse> {
         let url = format!("{}/merge_requests/{}/approve", self.rest_api_basepath(), id);
         let result = query::gitlab_merge_request::<_, ()>(
@@ -193,6 +200,15 @@ impl<R> Gitlab<R> {
         if num_pages {
             url.push_str("&page=1");
         }
+        url
+    }
+
+    fn resource_comments_metadata_url(&self, args: CommentMergeRequestListBodyArgs) -> String {
+        let url = format!(
+            "{}/merge_requests/{}/notes?page=1",
+            self.rest_api_basepath(),
+            args.id
+        );
         url
     }
 }
@@ -235,13 +251,21 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Gitlab<R> {
     }
 
     fn num_pages(&self, args: CommentMergeRequestListBodyArgs) -> Result<Option<u32>> {
-        let url = format!(
-            "{}/merge_requests/{}/notes?page=1",
-            self.rest_api_basepath(),
-            args.id
-        );
-
+        let url = self.resource_comments_metadata_url(args);
         query::num_pages(
+            &self.runner,
+            &url,
+            self.headers(),
+            ApiOperation::MergeRequest,
+        )
+    }
+
+    fn num_resources(
+        &self,
+        args: CommentMergeRequestListBodyArgs,
+    ) -> Result<Option<NumberDeltaErr>> {
+        let url = self.resource_comments_metadata_url(args);
+        query::num_resources(
             &self.runner,
             &url,
             self.headers(),
