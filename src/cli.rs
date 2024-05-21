@@ -36,7 +36,7 @@ const CLI_STYLE: Styles = Styles::styled()
     .usage(AnsiColor::Red.on_default().bold());
 
 #[derive(Parser)]
-#[command(about = "A Github/Gitlab CLI tool", styles = CLI_STYLE)]
+#[command(about = "A Github/Gitlab CLI tool", styles = CLI_STYLE, version)]
 #[clap(next_help_heading = "Global options")]
 struct Args {
     #[clap(subcommand)]
