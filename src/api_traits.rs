@@ -77,7 +77,9 @@ pub trait ContainerRegistry {
     fn list_repositories(&self, args: DockerListBodyArgs) -> Result<Vec<RegistryRepository>>;
     fn list_repository_tags(&self, args: DockerListBodyArgs) -> Result<Vec<RepositoryTag>>;
     fn num_pages_repository_tags(&self, repository_id: i64) -> Result<Option<u32>>;
+    fn num_resources_repository_tags(&self, repository_id: i64) -> Result<Option<NumberDeltaErr>>;
     fn num_pages_repositories(&self) -> Result<Option<u32>>;
+    fn num_resources_repositories(&self) -> Result<Option<NumberDeltaErr>>;
     fn get_image_metadata(&self, repository_id: i64, tag: &str) -> Result<ImageMetadata>;
 }
 

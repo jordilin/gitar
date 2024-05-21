@@ -187,6 +187,9 @@ fn validate_and_list<W: Write>(
     if cli_args.list_args.num_pages {
         return get_num_pages(remote, cli_args, writer);
     }
+    if cli_args.list_args.num_resources {
+        return get_num_resources(remote, cli_args, writer);
+    }
     let body_args = remote::validate_from_to_page(&cli_args.list_args)?;
     let body_args = DockerListBodyArgs::builder()
         .repos(cli_args.repos)
@@ -214,6 +217,19 @@ fn get_num_pages<W: Write>(
     }
     let result = remote.num_pages_repositories();
     process_num_metadata(result, MetadataName::Pages, writer)
+}
+
+fn get_num_resources<W: Write>(
+    remote: Arc<dyn ContainerRegistry + Send + Sync>,
+    cli_args: DockerListCliArgs,
+    writer: W,
+) -> Result<()> {
+    if cli_args.tags {
+        let result = remote.num_resources_repository_tags(cli_args.repo_id.unwrap());
+        return process_num_metadata(result, MetadataName::Resources, writer);
+    }
+    let result = remote.num_resources_repositories();
+    process_num_metadata(result, MetadataName::Resources, writer)
 }
 
 #[cfg(test)]
@@ -286,6 +302,17 @@ mod tests {
                 .build()
                 .unwrap();
             Ok(metadata)
+        }
+
+        fn num_resources_repository_tags(
+            &self,
+            _repository_id: i64,
+        ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+            todo!()
+        }
+
+        fn num_resources_repositories(&self) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+            todo!()
         }
     }
 
