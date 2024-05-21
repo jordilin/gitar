@@ -78,6 +78,14 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
         let url = self.list_project_url(&args, true);
         query::num_pages(&self.runner, &url, self.headers(), ApiOperation::Project)
     }
+
+    fn num_resources(
+        &self,
+        args: ProjectListBodyArgs,
+    ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+        let url = self.list_project_url(&args, true);
+        query::num_resources(&self.runner, &url, self.headers(), ApiOperation::Project)
+    }
 }
 
 impl<R> Gitlab<R> {

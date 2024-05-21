@@ -41,6 +41,7 @@ pub trait RemoteProject {
     fn get_url(&self, option: BrowseOptions) -> String;
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Project>>;
     fn num_pages(&self, args: ProjectListBodyArgs) -> Result<Option<u32>>;
+    fn num_resources(&self, args: ProjectListBodyArgs) -> Result<Option<NumberDeltaErr>>;
 }
 
 pub trait Cicd {

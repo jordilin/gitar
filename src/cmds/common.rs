@@ -106,6 +106,7 @@ query_pages!(
     MergeRequestListBodyArgs
 );
 query_pages!(num_project_pages, RemoteProject, ProjectListBodyArgs);
+query_num_resources!(num_project_resources, RemoteProject, ProjectListBodyArgs);
 query_pages!(
     num_comment_merge_request_pages,
     CommentMergeRequest,

@@ -988,6 +988,13 @@ mod tests {
         fn num_pages(&self, _args: ProjectListBodyArgs) -> Result<Option<u32>> {
             todo!()
         }
+
+        fn num_resources(
+            &self,
+            _args: ProjectListBodyArgs,
+        ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+            todo!()
+        }
     }
 
     impl CommentMergeRequest for MockRemoteProject {
