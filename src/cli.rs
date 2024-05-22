@@ -52,6 +52,14 @@ struct Args {
         value_parser = validate_domain_project_repo_path
     )]
     pub repo: Option<String>,
+    /// Bypass local .git/config. Use domain. Ex. for my subcommands
+    #[clap(
+        long,
+        global = true,
+        value_name = "DOMAIN",
+        default_value = "github.com"
+    )]
+    pub domain: Option<String>,
 }
 
 #[derive(Parser)]
@@ -96,7 +104,7 @@ pub fn parse_cli() -> OptionArgs {
         Command::My(sub_matches) => Some(CliOptions::My(sub_matches.into())),
         Command::Trending(sub_matches) => Some(CliOptions::Trending(sub_matches.into())),
     };
-    OptionArgs::new(options, CliArgs::new(args.verbose, args.repo))
+    OptionArgs::new(options, CliArgs::new(args.verbose, args.repo, args.domain))
 }
 
 pub enum CliOptions {
@@ -115,11 +123,16 @@ pub enum CliOptions {
 pub struct CliArgs {
     pub verbose: bool,
     pub repo: Option<String>,
+    pub domain: Option<String>,
 }
 
 impl CliArgs {
-    pub fn new(verbose: bool, repo: Option<String>) -> Self {
-        CliArgs { verbose, repo }
+    pub fn new(verbose: bool, repo: Option<String>, domain: Option<String>) -> Self {
+        CliArgs {
+            verbose,
+            repo,
+            domain,
+        }
     }
 }
 

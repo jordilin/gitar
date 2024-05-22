@@ -16,7 +16,6 @@ const CONFIG_PATH: &str = ".config/gitar/api";
 fn get_config_domain_path(
     config_file: &Path,
     cli_args: &gr::cli::CliArgs,
-    cli_domain: Option<String>,
     requires_local_repo: bool,
     read_config: bool,
 ) -> Result<(Arc<gr::config::Config>, String, String)> {
@@ -27,9 +26,11 @@ fn get_config_domain_path(
             return Err(error::gen("No remote url found. Please set a remote url."));
         };
         (domain, path)
-    } else if let Some(cli_domain) = cli_domain {
-        // Case for trending repositories.
-        (cli_domain, String::new())
+    } else if cli_args.domain.is_some() {
+        (
+            cli_args.domain.as_ref().unwrap().to_string(),
+            "".to_string(),
+        )
     } else {
         return Err(error::gen("No domain found. Please set a domain."));
     };
@@ -58,50 +59,45 @@ fn main() -> Result<()> {
     match cli_options {
         CliOptions::MergeRequest(options) => {
             let (config, domain, path) =
-                get_config_domain_path(&config_file, &cli_args, None, true, true)?;
+                get_config_domain_path(&config_file, &cli_args, true, true)?;
             merge_request::execute(options, cli_args, config, domain, path)
         }
         CliOptions::Browse(options) => {
             // Use default config for browsing - does not require auth.
             let (config, domain, path) =
-                get_config_domain_path(&config_file, &cli_args, None, true, false)?;
+                get_config_domain_path(&config_file, &cli_args, true, false)?;
             browse::execute(options, config, domain, path)
         }
         CliOptions::Pipeline(options) => {
             let (config, domain, path) =
-                get_config_domain_path(&config_file, &cli_args, None, true, true)?;
+                get_config_domain_path(&config_file, &cli_args, true, true)?;
             cicd::execute(options, config, domain, path)
         }
         CliOptions::Project(options) => {
             let (config, domain, path) =
-                get_config_domain_path(&config_file, &cli_args, None, true, true)?;
+                get_config_domain_path(&config_file, &cli_args, true, true)?;
             project::execute(options, config, domain, path)
         }
         CliOptions::Docker(options) => {
             let (config, domain, path) =
-                get_config_domain_path(&config_file, &cli_args, None, true, true)?;
+                get_config_domain_path(&config_file, &cli_args, true, true)?;
             docker::execute(options, config, domain, path)
         }
         CliOptions::Release(options) => {
             let (config, domain, path) =
-                get_config_domain_path(&config_file, &cli_args, None, true, true)?;
+                get_config_domain_path(&config_file, &cli_args, true, true)?;
             cmds::release::execute(options, config, domain, path)
         }
         CliOptions::My(options) => {
             let (config, domain, path) =
-                get_config_domain_path(&config_file, &cli_args, None, true, true)?;
+                get_config_domain_path(&config_file, &cli_args, false, true)?;
             cmds::my::execute(options, config, domain, path)
         }
         CliOptions::Trending(options) => match options {
             TrendingOptions::Get(args) => {
-                let (config, _, _) = get_config_domain_path(
-                    &config_file,
-                    &cli_args,
-                    Some(args.domain.clone()),
-                    false,
-                    true,
-                )?;
-                cmds::trending::execute(args, config)
+                let (config, domain, _) =
+                    get_config_domain_path(&config_file, &cli_args, false, true)?;
+                cmds::trending::execute(args, config, domain)
             }
         },
         CliOptions::Init(options) => init::execute(options, config_file),

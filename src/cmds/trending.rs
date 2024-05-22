@@ -10,7 +10,6 @@ use crate::Result;
 use super::common;
 
 pub struct TrendingCliArgs {
-    pub domain: String,
     pub language: String,
     pub get_args: GetRemoteCliArgs,
     // Used for macro compatibility when listing resources during display.
@@ -43,9 +42,9 @@ impl From<TrendingProject> for DisplayBody {
     }
 }
 
-pub fn execute(cli_args: TrendingCliArgs, config: Arc<Config>) -> Result<()> {
+pub fn execute(cli_args: TrendingCliArgs, config: Arc<Config>, domain: String) -> Result<()> {
     let remote = remote::get_trending(
-        cli_args.domain.clone(),
+        domain.clone(),
         // does not matter in this command. Implementing it for
         // Github.com which is just a query against HTML page.
         "".to_string(),
@@ -88,7 +87,6 @@ mod tests {
     fn test_no_urls() {
         let remote = Arc::new(MockTrendingProjectURL::default());
         let cli_args = TrendingCliArgs {
-            domain: "gitlab".to_string(),
             language: "rust".to_string(),
             get_args: GetRemoteCliArgs::builder().build().unwrap(),
             flush: false,
@@ -112,7 +110,6 @@ mod tests {
         ];
         let remote = Arc::new(MockTrendingProjectURL::new(projects));
         let cli_args = TrendingCliArgs {
-            domain: "gitlab".to_string(),
             language: "rust".to_string(),
             get_args: GetRemoteCliArgs::builder().build().unwrap(),
             flush: false,
