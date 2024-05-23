@@ -28,8 +28,7 @@ fn get_config_domain_path(
             Err(err) => {
                 return Err(GRError::GitRemoteUrlNotFound(format!(
                     "{}: {}",
-                    err,
-                    "Unable to get the remote url.".to_string()
+                    err, "Unable to get the remote url."
                 ))
                 .into())
             }
