@@ -7,7 +7,7 @@ use crate::{
         docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
         merge_request::{Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs},
         project::ProjectListBodyArgs,
-        release::{Release, ReleaseBodyArgs},
+        release::{Release, ReleaseAssetListBodyArgs, ReleaseAssetMetadata, ReleaseBodyArgs},
         trending::TrendingProject,
     },
     io::CmdInfo,
@@ -62,6 +62,12 @@ pub trait Deploy {
     fn list(&self, args: ReleaseBodyArgs) -> Result<Vec<Release>>;
     fn num_pages(&self) -> Result<Option<u32>>;
     fn num_resources(&self) -> Result<Option<NumberDeltaErr>>;
+}
+
+pub trait DeployAsset {
+    fn list(&self, args: ReleaseAssetListBodyArgs) -> Result<Vec<ReleaseAssetMetadata>>;
+    fn num_pages(&self, args: ReleaseAssetListBodyArgs) -> Result<Option<u32>>;
+    fn num_resources(&self, args: ReleaseAssetListBodyArgs) -> Result<Option<NumberDeltaErr>>;
 }
 
 pub trait UserInfo {

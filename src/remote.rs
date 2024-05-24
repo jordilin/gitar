@@ -1,8 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 
 use crate::api_traits::{
-    Cicd, CicdRunner, CommentMergeRequest, ContainerRegistry, Deploy, MergeRequest, RemoteProject,
-    Timestamp, TrendingProjectURL, UserInfo,
+    Cicd, CicdRunner, CommentMergeRequest, ContainerRegistry, Deploy, DeployAsset, MergeRequest,
+    RemoteProject, Timestamp, TrendingProjectURL, UserInfo,
 };
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
@@ -578,6 +578,7 @@ get!(get_cicd, Cicd);
 get!(get_project, RemoteProject);
 get!(get_registry, ContainerRegistry);
 get!(get_deploy, Deploy);
+get!(get_deploy_asset, DeployAsset);
 get!(get_auth_user, UserInfo);
 get!(get_cicd_runner, CicdRunner);
 get!(get_comment_mr, CommentMergeRequest);

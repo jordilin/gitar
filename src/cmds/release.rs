@@ -1,12 +1,12 @@
 use std::io::Write;
 use std::sync::Arc;
 
-use crate::api_traits::{Deploy, Timestamp};
-use crate::cli::release::ReleaseOptions;
+use crate::api_traits::{Deploy, DeployAsset, Timestamp};
+use crate::cli::release::{ReleaseAssetOptions, ReleaseOptions};
 use crate::cmds::common::num_release_pages;
 use crate::config::Config;
 use crate::display::{Column, DisplayBody};
-use crate::remote::{ListBodyArgs, ListRemoteCliArgs};
+use crate::remote::{self, ListBodyArgs, ListRemoteCliArgs};
 use crate::Result;
 
 use super::common::{self, num_release_resources};
@@ -61,13 +61,60 @@ impl Timestamp for Release {
 
 #[derive(Builder, Clone)]
 pub struct ReleaseAssetListCliArgs {
-    pub id: String,
+    pub id: i64,
     pub list_args: ListRemoteCliArgs,
 }
 
 impl ReleaseAssetListCliArgs {
     pub fn builder() -> ReleaseAssetListCliArgsBuilder {
         ReleaseAssetListCliArgsBuilder::default()
+    }
+}
+
+#[derive(Builder, Clone)]
+pub struct ReleaseAssetListBodyArgs {
+    pub id: i64,
+    pub list_args: Option<ListBodyArgs>,
+}
+
+impl ReleaseAssetListBodyArgs {
+    pub fn builder() -> ReleaseAssetListBodyArgsBuilder {
+        ReleaseAssetListBodyArgsBuilder::default()
+    }
+}
+
+#[derive(Builder, Clone)]
+pub struct ReleaseAssetMetadata {
+    id: String,
+    name: String,
+    url: String,
+    size: String,
+    created_at: String,
+    updated_at: String,
+}
+
+impl ReleaseAssetMetadata {
+    pub fn builder() -> ReleaseAssetMetadataBuilder {
+        ReleaseAssetMetadataBuilder::default()
+    }
+}
+
+impl From<ReleaseAssetMetadata> for DisplayBody {
+    fn from(asset: ReleaseAssetMetadata) -> Self {
+        DisplayBody::new(vec![
+            Column::new("ID", asset.id),
+            Column::new("Name", asset.name),
+            Column::new("URL", asset.url),
+            Column::new("Size", asset.size),
+            Column::new("Created At", asset.created_at),
+            Column::new("Updated At", asset.updated_at),
+        ])
+    }
+}
+
+impl Timestamp for ReleaseAssetMetadata {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
     }
 }
 
@@ -87,15 +134,28 @@ pub fn execute(
             if cli_args.num_resources {
                 return num_release_resources(remote, std::io::stdout());
             }
-            let from_to_args = crate::remote::validate_from_to_page(&cli_args)?;
+            let from_to_args = remote::validate_from_to_page(&cli_args)?;
             let body_args = ReleaseBodyArgs::builder()
                 .from_to_page(from_to_args)
                 .build()?;
             list_releases(remote, body_args, cli_args, std::io::stdout())
         }
-        ReleaseOptions::Assets(cli_args) => {
-            todo!();
-        }
+        ReleaseOptions::Assets(cli_opts) => match cli_opts {
+            ReleaseAssetOptions::List(cli_args) => {
+                let remote = crate::remote::get_deploy_asset(
+                    domain,
+                    path,
+                    config,
+                    cli_args.list_args.get_args.refresh_cache,
+                )?;
+                let list_args = remote::validate_from_to_page(&cli_args.list_args)?;
+                let body_args = ReleaseAssetListBodyArgs::builder()
+                    .id(cli_args.id)
+                    .list_args(list_args)
+                    .build()?;
+                list_release_assets(remote, body_args, cli_args, std::io::stdout())
+            }
+        },
     }
 }
 
@@ -106,6 +166,15 @@ fn list_releases<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     common::list_releases(remote, body_args, cli_args, &mut writer)
+}
+
+fn list_release_assets<W: Write>(
+    remote: Arc<dyn DeployAsset>,
+    body_args: ReleaseAssetListBodyArgs,
+    cli_args: ReleaseAssetListCliArgs,
+    mut writer: W,
+) -> Result<()> {
+    common::list_release_assets(remote, body_args, cli_args, &mut writer)
 }
 
 #[cfg(test)]
@@ -189,5 +258,46 @@ mod test {
         let mut writer = Vec::new();
         list_releases(remote, body_args, cli_args, &mut writer).unwrap();
         assert_eq!("", String::from_utf8(writer).unwrap());
+    }
+
+    impl DeployAsset for MockDeploy {
+        fn list(&self, _args: ReleaseAssetListBodyArgs) -> Result<Vec<ReleaseAssetMetadata>> {
+            let asset = ReleaseAssetMetadata::builder().
+                id("155582366".to_string()).
+                name("gr-x86_64-unknown-linux-musl.tar.gz".to_string()).
+                url("https://github.com/jordilin/gitar/releases/download/v0.1.28/gr-x86_64-unknown-linux-musl.tar.gz".to_string()).
+                size("2871690".to_string())
+                .created_at("2024-03-08T08:29:47Z".to_string())
+                .updated_at("2024-03-08T08:29:47Z".to_string()).build().unwrap();
+            Ok(vec![asset])
+        }
+
+        fn num_pages(&self, _args: ReleaseAssetListBodyArgs) -> Result<Option<u32>> {
+            todo!()
+        }
+
+        fn num_resources(&self, _args: ReleaseAssetListBodyArgs) -> Result<Option<NumberDeltaErr>> {
+            todo!()
+        }
+    }
+
+    #[test]
+    fn test_list_release_assets() {
+        let remote = Arc::new(MockDeploy::new(false));
+        let id = 155582366;
+        let body_args = ReleaseAssetListBodyArgs::builder()
+            .id(id)
+            .list_args(Some(ListBodyArgs::builder().build().unwrap()))
+            .build()
+            .unwrap();
+        let cli_args = ReleaseAssetListCliArgs::builder()
+            .id(id)
+            .list_args(ListRemoteCliArgs::builder().build().unwrap())
+            .build()
+            .unwrap();
+        let mut writer = Vec::new();
+        list_release_assets(remote, body_args, cli_args, &mut writer).unwrap();
+        assert_eq!(
+            "ID|Name|URL|Size|Created At|Updated At\n155582366|gr-x86_64-unknown-linux-musl.tar.gz|https://github.com/jordilin/gitar/releases/download/v0.1.28/gr-x86_64-unknown-linux-musl.tar.gz|2871690|2024-03-08T08:29:47Z|2024-03-08T08:29:47Z\n", String::from_utf8(writer).unwrap());
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
-    api_traits::{ApiOperation, Deploy, NumberDeltaErr},
-    cmds::release::{Release, ReleaseBodyArgs},
+    api_traits::{ApiOperation, Deploy, DeployAsset, NumberDeltaErr},
+    cmds::release::{Release, ReleaseAssetListBodyArgs, ReleaseAssetMetadata, ReleaseBodyArgs},
     io::{HttpRunner, Response},
     remote::query,
     Result,
@@ -40,6 +40,20 @@ impl<R> Github<R> {
         );
         let headers = self.request_headers();
         (url, headers)
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> DeployAsset for Github<R> {
+    fn list(&self, args: ReleaseAssetListBodyArgs) -> Result<Vec<ReleaseAssetMetadata>> {
+        todo!()
+    }
+
+    fn num_pages(&self, args: ReleaseAssetListBodyArgs) -> Result<Option<u32>> {
+        todo!()
+    }
+
+    fn num_resources(&self, args: ReleaseAssetListBodyArgs) -> Result<Option<NumberDeltaErr>> {
+        todo!()
     }
 }
 

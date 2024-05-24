@@ -67,7 +67,7 @@ impl From<ListAssets> for ReleaseAssetOptions {
 impl From<ListAssets> for ReleaseAssetListCliArgs {
     fn from(args: ListAssets) -> Self {
         ReleaseAssetListCliArgs::builder()
-            .id(args.release_id.to_string())
+            .id(args.release_id)
             .list_args(args.list_args.into())
             .build()
             .unwrap()
@@ -147,7 +147,7 @@ mod test {
         let options: ReleaseAssetOptions = list_args.into();
         match options {
             ReleaseAssetOptions::List(args) => {
-                assert_eq!(args.id, "1");
+                assert_eq!(args.id, 1);
                 assert_eq!(args.list_args.from_page, Some(1));
                 assert_eq!(args.list_args.to_page, Some(2));
             }

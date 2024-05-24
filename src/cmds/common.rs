@@ -8,13 +8,13 @@ use std::io::Write;
 use std::sync::Arc;
 
 use crate::api_traits::{
-    Cicd, CicdRunner, CommentMergeRequest, Deploy, RemoteProject, TrendingProjectURL,
+    Cicd, CicdRunner, CommentMergeRequest, Deploy, DeployAsset, RemoteProject, TrendingProjectURL,
 };
 
 use super::cicd::{RunnerListBodyArgs, RunnerListCliArgs};
 use super::merge_request::{CommentMergeRequestListBodyArgs, CommentMergeRequestListCliArgs};
 use super::project::{ProjectListBodyArgs, ProjectListCliArgs};
-use super::release::ReleaseBodyArgs;
+use super::release::{ReleaseAssetListBodyArgs, ReleaseAssetListCliArgs, ReleaseBodyArgs};
 use super::trending::TrendingCliArgs;
 use super::{cicd::PipelineBodyArgs, merge_request::MergeRequestListCliArgs};
 
@@ -187,6 +187,13 @@ list_resource!(
 );
 
 list_resource!(list_releases, Deploy, ReleaseBodyArgs, ListRemoteCliArgs);
+list_resource!(
+    list_release_assets,
+    DeployAsset,
+    ReleaseAssetListBodyArgs,
+    ReleaseAssetListCliArgs,
+    true
+);
 
 list_resource!(
     list_user_projects,
