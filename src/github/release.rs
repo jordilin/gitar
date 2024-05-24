@@ -45,14 +45,25 @@ impl<R> Github<R> {
 
 impl<R: HttpRunner<Response = Response>> DeployAsset for Github<R> {
     fn list(&self, args: ReleaseAssetListBodyArgs) -> Result<Vec<ReleaseAssetMetadata>> {
+        let url = format!(
+            "{}/repos/{}/releases/{}/assets",
+            self.rest_api_basepath, self.path, args.id
+        );
+        query::github_release_assets(
+            &self.runner,
+            &url,
+            args.list_args,
+            self.request_headers(),
+            None,
+            ApiOperation::Release,
+        )
+    }
+
+    fn num_pages(&self, _args: ReleaseAssetListBodyArgs) -> Result<Option<u32>> {
         todo!()
     }
 
-    fn num_pages(&self, args: ReleaseAssetListBodyArgs) -> Result<Option<u32>> {
-        todo!()
-    }
-
-    fn num_resources(&self, args: ReleaseAssetListBodyArgs) -> Result<Option<NumberDeltaErr>> {
+    fn num_resources(&self, _args: ReleaseAssetListBodyArgs) -> Result<Option<NumberDeltaErr>> {
         todo!()
     }
 }
@@ -96,6 +107,32 @@ impl From<GithubReleaseFields> for Release {
     }
 }
 
+pub struct GithubReleaseAssetFields {
+    release_asset: ReleaseAssetMetadata,
+}
+
+impl From<&serde_json::Value> for GithubReleaseAssetFields {
+    fn from(value: &serde_json::Value) -> Self {
+        Self {
+            release_asset: ReleaseAssetMetadata::builder()
+                .id(value["id"].as_i64().unwrap().to_string())
+                .name(value["name"].as_str().unwrap().to_string())
+                .url(value["browser_download_url"].as_str().unwrap().to_string())
+                .size(value["size"].as_i64().unwrap().to_string())
+                .created_at(value["created_at"].as_str().unwrap().to_string())
+                .updated_at(value["updated_at"].as_str().unwrap().to_string())
+                .build()
+                .unwrap(),
+        }
+    }
+}
+
+impl From<GithubReleaseAssetFields> for ReleaseAssetMetadata {
+    fn from(fields: GithubReleaseAssetFields) -> Self {
+        fields.release_asset
+    }
+}
+
 #[cfg(test)]
 mod test {
 
@@ -103,7 +140,7 @@ mod test {
         api_traits::ApiOperation,
         http::Headers,
         setup_client,
-        test::utils::{default_github, ContractType, ResponseContracts},
+        test::utils::{default_github, get_contract, ContractType, ResponseContracts},
     };
 
     use super::*;
@@ -147,5 +184,30 @@ mod test {
         );
         assert_eq!(Some(ApiOperation::Release), *client.api_operation.borrow());
         assert_eq!(Some(2), runs);
+    }
+
+    #[test]
+    fn test_list_release_assets() {
+        let contracts = ResponseContracts::new(ContractType::Github).add_body(
+            200,
+            Some(format!(
+                "[{}]",
+                get_contract(ContractType::Github, "release_asset.json")
+            )),
+            None,
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn DeployAsset);
+        let args = ReleaseAssetListBodyArgs::builder()
+            .id(123)
+            .list_args(None)
+            .build()
+            .unwrap();
+        let runs = github.list(args).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/releases/123/assets",
+            *client.url(),
+        );
+        assert_eq!(Some(ApiOperation::Release), *client.api_operation.borrow());
+        assert_eq!(1, runs.len());
     }
 }
