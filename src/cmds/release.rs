@@ -59,6 +59,18 @@ impl Timestamp for Release {
     }
 }
 
+#[derive(Builder, Clone)]
+pub struct ReleaseAssetListCliArgs {
+    pub id: String,
+    pub list_args: ListRemoteCliArgs,
+}
+
+impl ReleaseAssetListCliArgs {
+    pub fn builder() -> ReleaseAssetListCliArgsBuilder {
+        ReleaseAssetListCliArgsBuilder::default()
+    }
+}
+
 pub fn execute(
     options: ReleaseOptions,
     config: Arc<Config>,
@@ -80,6 +92,9 @@ pub fn execute(
                 .from_to_page(from_to_args)
                 .build()?;
             list_releases(remote, body_args, cli_args, std::io::stdout())
+        }
+        ReleaseOptions::Assets(cli_args) => {
+            todo!();
         }
     }
 }
