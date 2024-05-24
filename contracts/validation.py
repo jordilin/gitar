@@ -5,6 +5,7 @@ import json
 def _verify_all_keys_exist(expected, actual):
     for key in expected:
         if key not in actual:
+            print("Actual JSON: ", actual)
             print("Expected JSON key [{}] not found in upstream".format(key))
             return False
         if type(expected[key]) == dict:
