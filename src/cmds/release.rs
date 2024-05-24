@@ -42,11 +42,11 @@ impl Release {
 impl From<Release> for DisplayBody {
     fn from(release: Release) -> Self {
         DisplayBody::new(vec![
+            Column::new("ID", release.id),
             Column::new("Tag", release.tag),
             Column::new("Title", release.title),
             Column::new("Description", release.description),
             Column::new("URL", release.url),
-            Column::new("ID", release.id),
             Column::new("Created At", release.created_at),
             Column::new("Updated At", release.updated_at),
         ])
@@ -229,7 +229,7 @@ mod test {
         let mut writer = Vec::new();
         list_releases(remote, body_args, cli_args, &mut writer).unwrap();
         assert_eq!(
-            "Tag|Title|Description|URL|ID|Created At|Updated At\nv1.0.0|First release|Initial release|https://github.com/jordilin/githapi/releases/tag/v0.1.20|1|2021-01-01T00:00:00Z|2021-01-01T00:00:01Z\n",
+            "ID|Tag|Title|Description|URL|Created At|Updated At\n1|v1.0.0|First release|Initial release|https://github.com/jordilin/githapi/releases/tag/v0.1.20|2021-01-01T00:00:00Z|2021-01-01T00:00:01Z\n",
             String::from_utf8(writer).unwrap(),
         );
     }
