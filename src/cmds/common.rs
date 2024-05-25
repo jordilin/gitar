@@ -8,13 +8,13 @@ use std::io::Write;
 use std::sync::Arc;
 
 use crate::api_traits::{
-    Cicd, CicdRunner, CommentMergeRequest, Deploy, RemoteProject, TrendingProjectURL,
+    Cicd, CicdRunner, CommentMergeRequest, Deploy, DeployAsset, RemoteProject, TrendingProjectURL,
 };
 
 use super::cicd::{RunnerListBodyArgs, RunnerListCliArgs};
 use super::merge_request::{CommentMergeRequestListBodyArgs, CommentMergeRequestListCliArgs};
 use super::project::{ProjectListBodyArgs, ProjectListCliArgs};
-use super::release::ReleaseBodyArgs;
+use super::release::{ReleaseAssetListBodyArgs, ReleaseAssetListCliArgs, ReleaseBodyArgs};
 use super::trending::TrendingCliArgs;
 use super::{cicd::PipelineBodyArgs, merge_request::MergeRequestListCliArgs};
 
@@ -97,6 +97,11 @@ pub fn process_num_metadata<W: Write, T: Display>(
 }
 
 query_pages!(num_release_pages, Deploy);
+query_pages!(
+    num_release_asset_pages,
+    DeployAsset,
+    ReleaseAssetListBodyArgs
+);
 query_pages!(num_cicd_pages, Cicd);
 query_pages!(num_runner_pages, CicdRunner, RunnerListBodyArgs);
 
@@ -114,6 +119,11 @@ query_pages!(
 );
 
 query_num_resources!(num_release_resources, Deploy);
+query_num_resources!(
+    num_release_asset_resources,
+    DeployAsset,
+    ReleaseAssetListBodyArgs
+);
 query_num_resources!(num_cicd_resources, Cicd);
 query_num_resources!(num_runner_resources, CicdRunner, RunnerListBodyArgs);
 query_num_resources!(
@@ -187,6 +197,13 @@ list_resource!(
 );
 
 list_resource!(list_releases, Deploy, ReleaseBodyArgs, ListRemoteCliArgs);
+list_resource!(
+    list_release_assets,
+    DeployAsset,
+    ReleaseAssetListBodyArgs,
+    ReleaseAssetListCliArgs,
+    true
+);
 
 list_resource!(
     list_user_projects,

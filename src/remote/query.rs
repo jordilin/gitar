@@ -10,14 +10,14 @@ use crate::{
         cicd::{Pipeline, Runner, RunnerMetadata},
         docker::{ImageMetadata, RegistryRepository, RepositoryTag},
         merge_request::Comment,
-        release::Release,
+        release::{Release, ReleaseAssetMetadata},
     },
     display, error,
     github::{
         cicd::GithubPipelineFields,
         merge_request::{GithubMergeRequestCommentFields, GithubMergeRequestFields},
         project::{GithubMemberFields, GithubProjectFields},
-        release::GithubReleaseFields,
+        release::{GithubReleaseAssetFields, GithubReleaseFields},
         user::GithubUserFields,
     },
     gitlab::{
@@ -333,6 +333,12 @@ paged!(
 
 paged!(github_releases, GithubReleaseFields, Release);
 paged!(gitlab_releases, GitlabReleaseFields, Release);
+
+paged!(
+    github_release_assets,
+    GithubReleaseAssetFields,
+    ReleaseAssetMetadata
+);
 
 paged!(gitlab_list_project_runners, GitlabRunnerFields, Runner);
 

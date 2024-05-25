@@ -7,7 +7,7 @@ use crate::{
         docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
         merge_request::{Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs},
         project::ProjectListBodyArgs,
-        release::{Release, ReleaseBodyArgs},
+        release::{Release, ReleaseAssetListBodyArgs, ReleaseAssetMetadata, ReleaseBodyArgs},
         trending::TrendingProject,
     },
     io::CmdInfo,
@@ -64,6 +64,12 @@ pub trait Deploy {
     fn num_resources(&self) -> Result<Option<NumberDeltaErr>>;
 }
 
+pub trait DeployAsset {
+    fn list(&self, args: ReleaseAssetListBodyArgs) -> Result<Vec<ReleaseAssetMetadata>>;
+    fn num_pages(&self, args: ReleaseAssetListBodyArgs) -> Result<Option<u32>>;
+    fn num_resources(&self, args: ReleaseAssetListBodyArgs) -> Result<Option<NumberDeltaErr>>;
+}
+
 pub trait UserInfo {
     /// Get the user's information from the remote API.
     fn get(&self) -> Result<Member>;
@@ -115,6 +121,9 @@ impl NumberDeltaErr {
     }
 
     fn compute_interval(&self) -> (u32, u32) {
+        if self.num < self.delta {
+            return (1, self.delta);
+        }
         (self.num - self.delta + 1, self.num)
     }
 }
@@ -178,5 +187,11 @@ mod tests {
     fn test_delta_err_display() {
         let delta_err = NumberDeltaErr::new(40, 20);
         assert_eq!("(21, 40)", delta_err.to_string());
+    }
+
+    #[test]
+    fn test_num_less_than_delta_begins_at_one_up_to_delta() {
+        let delta_err = NumberDeltaErr::new(25, 30);
+        assert_eq!("(1, 30)", delta_err.to_string());
     }
 }
