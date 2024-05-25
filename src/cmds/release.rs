@@ -31,6 +31,8 @@ pub struct Release {
     tag: String,
     title: String,
     description: String,
+    #[builder(default)]
+    prerelease: bool,
     created_at: String,
     updated_at: String,
 }
@@ -49,6 +51,7 @@ impl From<Release> for DisplayBody {
             Column::new("Title", release.title),
             Column::new("Description", release.description),
             Column::new("URL", release.url),
+            Column::new("Prerelease", release.prerelease.to_string()),
             Column::new("Created At", release.created_at),
             Column::new("Updated At", release.updated_at),
         ])
@@ -207,15 +210,18 @@ mod test {
             if self.empty_releases {
                 return Ok(vec![]);
             }
-            Ok(vec![Release {
-                id: String::from("1"),
-                url: String::from("https://github.com/jordilin/githapi/releases/tag/v0.1.20"),
-                tag: String::from("v1.0.0"),
-                title: String::from("First release"),
-                description: String::from("Initial release"),
-                created_at: String::from("2021-01-01T00:00:00Z"),
-                updated_at: String::from("2021-01-01T00:00:01Z"),
-            }])
+            Ok(vec![Release::builder()
+                .id(String::from("1"))
+                .url(String::from(
+                    "https://github.com/jordilin/githapi/releases/tag/v0.1.20",
+                ))
+                .tag(String::from("v1.0.0"))
+                .title(String::from("First release"))
+                .description(String::from("Initial release"))
+                .created_at(String::from("2021-01-01T00:00:00Z"))
+                .updated_at(String::from("2021-01-01T00:00:01Z"))
+                .build()
+                .unwrap()])
         }
 
         fn num_pages(&self) -> Result<Option<u32>> {
