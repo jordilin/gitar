@@ -56,43 +56,32 @@ impl<R: HttpRunner<Response = Response>> DeployAsset for Gitlab<R> {
 }
 
 pub struct GitlabReleaseFields {
-    id: String,
-    url: String,
-    tag: String,
-    title: String,
-    description: String,
-    created_at: String,
-    updated_at: String,
+    release: Release,
 }
 
 impl From<&serde_json::Value> for GitlabReleaseFields {
     fn from(value: &serde_json::Value) -> Self {
         Self {
-            // There's no id available in the response per se. Grab the short commit
-            // id instead
-            id: value["commit"]["short_id"].as_str().unwrap().to_string(),
-            url: value["_links"]["self"].as_str().unwrap().to_string(),
-            tag: value["tag_name"].as_str().unwrap().to_string(),
-            title: value["name"].as_str().unwrap().to_string(),
-            description: value["description"].as_str().unwrap().to_string(),
-            created_at: value["created_at"].as_str().unwrap().to_string(),
-            updated_at: value["released_at"].as_str().unwrap().to_string(),
+            release: Release::builder()
+                // There's no id available in the response per se. Grab the short commit
+                // id instead
+                .id(value["commit"]["short_id"].as_str().unwrap().to_string())
+                .url(value["_links"]["self"].as_str().unwrap().to_string())
+                .tag(value["tag_name"].as_str().unwrap().to_string())
+                .title(value["name"].as_str().unwrap().to_string())
+                .description(value["description"].as_str().unwrap().to_string())
+                .prerelease(value["upcoming_release"].as_bool().unwrap())
+                .created_at(value["created_at"].as_str().unwrap().to_string())
+                .updated_at(value["released_at"].as_str().unwrap().to_string())
+                .build()
+                .unwrap(),
         }
     }
 }
 
 impl From<GitlabReleaseFields> for Release {
     fn from(fields: GitlabReleaseFields) -> Self {
-        Release::builder()
-            .id(fields.id)
-            .url(fields.url)
-            .tag(fields.tag)
-            .title(fields.title)
-            .description(fields.description)
-            .created_at(fields.created_at)
-            .updated_at(fields.updated_at)
-            .build()
-            .unwrap()
+        fields.release
     }
 }
 

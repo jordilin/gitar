@@ -244,7 +244,7 @@ mod test {
         let mut writer = Vec::new();
         list_releases(remote, body_args, cli_args, &mut writer).unwrap();
         assert_eq!(
-            "ID|Tag|Title|Description|URL|Created At|Updated At\n1|v1.0.0|First release|Initial release|https://github.com/jordilin/githapi/releases/tag/v0.1.20|2021-01-01T00:00:00Z|2021-01-01T00:00:01Z\n",
+            "ID|Tag|Title|Description|URL|Prerelease|Created At|Updated At\n1|v1.0.0|First release|Initial release|https://github.com/jordilin/githapi/releases/tag/v0.1.20|false|2021-01-01T00:00:00Z|2021-01-01T00:00:01Z\n",
             String::from_utf8(writer).unwrap(),
         );
     }
