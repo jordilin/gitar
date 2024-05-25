@@ -121,6 +121,9 @@ impl NumberDeltaErr {
     }
 
     fn compute_interval(&self) -> (u32, u32) {
+        if self.num < self.delta {
+            return (1, self.delta);
+        }
         (self.num - self.delta + 1, self.num)
     }
 }
@@ -184,5 +187,11 @@ mod tests {
     fn test_delta_err_display() {
         let delta_err = NumberDeltaErr::new(40, 20);
         assert_eq!("(21, 40)", delta_err.to_string());
+    }
+
+    #[test]
+    fn test_num_less_than_delta_begins_at_one_up_to_delta() {
+        let delta_err = NumberDeltaErr::new(25, 30);
+        assert_eq!("(1, 30)", delta_err.to_string());
     }
 }

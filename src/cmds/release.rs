@@ -9,7 +9,9 @@ use crate::display::{Column, DisplayBody};
 use crate::remote::{self, ListBodyArgs, ListRemoteCliArgs};
 use crate::Result;
 
-use super::common::{self, num_release_resources};
+use super::common::{
+    self, num_release_asset_pages, num_release_asset_resources, num_release_resources,
+};
 
 #[derive(Builder, Clone)]
 pub struct ReleaseBodyArgs {
@@ -148,11 +150,18 @@ pub fn execute(
                     config,
                     cli_args.list_args.get_args.refresh_cache,
                 )?;
+
                 let list_args = remote::validate_from_to_page(&cli_args.list_args)?;
                 let body_args = ReleaseAssetListBodyArgs::builder()
                     .id(cli_args.id)
                     .list_args(list_args)
                     .build()?;
+                if cli_args.list_args.num_pages {
+                    return num_release_asset_pages(remote, body_args, std::io::stdout());
+                }
+                if cli_args.list_args.num_resources {
+                    return num_release_asset_resources(remote, body_args, std::io::stdout());
+                }
                 list_release_assets(remote, body_args, cli_args, std::io::stdout())
             }
         },
