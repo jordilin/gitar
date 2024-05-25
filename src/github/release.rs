@@ -89,41 +89,30 @@ impl<R: HttpRunner<Response = Response>> DeployAsset for Github<R> {
 }
 
 pub struct GithubReleaseFields {
-    id: String,
-    url: String,
-    tag: String,
-    title: String,
-    description: String,
-    created_at: String,
-    updated_at: String,
+    release: Release,
 }
 
 impl From<&serde_json::Value> for GithubReleaseFields {
     fn from(value: &serde_json::Value) -> Self {
         Self {
-            id: value["id"].as_i64().unwrap().to_string(),
-            url: value["html_url"].as_str().unwrap().to_string(),
-            tag: value["tag_name"].as_str().unwrap().to_string(),
-            title: value["name"].as_str().unwrap().to_string(),
-            description: value["body"].as_str().unwrap_or_default().to_string(),
-            created_at: value["created_at"].as_str().unwrap().to_string(),
-            updated_at: value["published_at"].as_str().unwrap().to_string(),
+            release: Release::builder()
+                .id(value["id"].as_i64().unwrap().to_string())
+                .url(value["html_url"].as_str().unwrap().to_string())
+                .tag(value["tag_name"].as_str().unwrap().to_string())
+                .title(value["name"].as_str().unwrap().to_string())
+                .description(value["body"].as_str().unwrap_or_default().to_string())
+                .prerelease(value["prerelease"].as_bool().unwrap_or(false))
+                .created_at(value["created_at"].as_str().unwrap().to_string())
+                .updated_at(value["published_at"].as_str().unwrap().to_string())
+                .build()
+                .unwrap(),
         }
     }
 }
 
 impl From<GithubReleaseFields> for Release {
     fn from(fields: GithubReleaseFields) -> Self {
-        Release::builder()
-            .id(fields.id)
-            .url(fields.url)
-            .tag(fields.tag)
-            .title(fields.title)
-            .description(fields.description)
-            .created_at(fields.created_at)
-            .updated_at(fields.updated_at)
-            .build()
-            .unwrap()
+        fields.release
     }
 }
 
