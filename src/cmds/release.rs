@@ -66,7 +66,7 @@ impl Timestamp for Release {
 
 #[derive(Builder, Clone)]
 pub struct ReleaseAssetListCliArgs {
-    pub id: i64,
+    pub id: String,
     pub list_args: ListRemoteCliArgs,
 }
 
@@ -78,7 +78,8 @@ impl ReleaseAssetListCliArgs {
 
 #[derive(Builder, Clone)]
 pub struct ReleaseAssetListBodyArgs {
-    pub id: i64,
+    // It can be a release tag (Gitlab) or an actual release id (Github)
+    pub id: String,
     pub list_args: Option<ListBodyArgs>,
 }
 
@@ -156,7 +157,7 @@ pub fn execute(
 
                 let list_args = remote::validate_from_to_page(&cli_args.list_args)?;
                 let body_args = ReleaseAssetListBodyArgs::builder()
-                    .id(cli_args.id)
+                    .id(cli_args.id.clone())
                     .list_args(list_args)
                     .build()?;
                 if cli_args.list_args.num_pages {
@@ -299,9 +300,9 @@ mod test {
     #[test]
     fn test_list_release_assets() {
         let remote = Arc::new(MockDeploy::new(false));
-        let id = 155582366;
+        let id = "155582366".to_string();
         let body_args = ReleaseAssetListBodyArgs::builder()
-            .id(id)
+            .id(id.clone())
             .list_args(Some(ListBodyArgs::builder().build().unwrap()))
             .build()
             .unwrap();

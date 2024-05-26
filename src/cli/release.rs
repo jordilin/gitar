@@ -26,9 +26,9 @@ pub enum ReleaseAssetSubcommand {
 
 #[derive(Parser)]
 pub struct ListAssets {
-    /// Release ID
+    /// Release ID (Github) or Release Tag (Gitlab)
     #[clap()]
-    release_id: i64,
+    release_id: String,
     #[command(flatten)]
     list_args: ListArgs,
 }
@@ -137,7 +137,7 @@ mod test {
             Command::Release(ReleaseCommand {
                 subcommand: ReleaseSubcommand::Assets(ReleaseAssetSubcommand::List(options)),
             }) => {
-                assert_eq!(options.release_id, 1);
+                assert_eq!("1".to_string(), options.release_id);
                 assert_eq!(options.list_args.from_page, Some(1));
                 assert_eq!(options.list_args.to_page, Some(2));
                 options
@@ -147,7 +147,7 @@ mod test {
         let options: ReleaseAssetOptions = list_args.into();
         match options {
             ReleaseAssetOptions::List(args) => {
-                assert_eq!(args.id, 1);
+                assert_eq!("1".to_string(), args.id);
                 assert_eq!(args.list_args.from_page, Some(1));
                 assert_eq!(args.list_args.to_page, Some(2));
             }

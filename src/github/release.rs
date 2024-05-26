@@ -207,7 +207,7 @@ mod test {
         );
         let (client, github) = setup_client!(contracts, default_github(), dyn DeployAsset);
         let args = ReleaseAssetListBodyArgs::builder()
-            .id(123)
+            .id("123".to_string())
             .list_args(None)
             .build()
             .unwrap();
@@ -232,7 +232,7 @@ mod test {
         );
         let (client, github) = setup_client!(contracts, default_github(), dyn DeployAsset);
         let args = ReleaseAssetListBodyArgs::builder()
-            .id(123)
+            .id("123".to_string())
             .list_args(None)
             .build()
             .unwrap();
@@ -257,7 +257,7 @@ mod test {
         );
         let (client, github) = setup_client!(contracts, default_github(), dyn DeployAsset);
         let args = ReleaseAssetListBodyArgs::builder()
-            .id(123)
+            .id("123".to_string())
             .list_args(None)
             .build()
             .unwrap();
