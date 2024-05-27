@@ -34,7 +34,7 @@
     "commit_path": "/jordilin/gitlapi/-/commit/48786891676aa58677a5f43223ec4bcdd367988d",
     "tag_path": "/jordilin/gitlapi/-/tags/v0.1.18-alpha-2",
     "assets": {
-        "count": 4,
+        "count": 5,
         "sources": [
             {
                 "format": "zip",
@@ -53,7 +53,15 @@
                 "url": "https://gitlab.com/jordilin/gitlapi/-/archive/v0.1.18-alpha-2/gitlapi-v0.1.18-alpha-2.tar"
             }
         ],
-        "links": []
+        "links": [
+            {
+                "id": 4163140,
+                "name": "GitLab 17.0 release post",
+                "url": "https://about.gitlab.com/releases/2024/05/16/gitlab-17-0-released/",
+                "direct_asset_url": "https://about.gitlab.com/releases/2024/05/16/gitlab-17-0-released/",
+                "link_type": "other"
+            }
+        ]
     },
     "evidences": [
         {
