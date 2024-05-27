@@ -395,6 +395,8 @@ send!(create_merge_request_comment, Response);
 
 send!(github_trending_language_projects, Response);
 
+send!(gitlab_get_release, Response);
+
 #[cfg(test)]
 mod test {
     use crate::{io::Page, test::utils::MockRunner};
