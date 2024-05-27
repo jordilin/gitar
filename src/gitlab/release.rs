@@ -34,16 +34,14 @@ impl<R: HttpRunner<Response = Response>> Deploy for Gitlab<R> {
     }
 }
 
-impl<R> Gitlab<R> {
+impl<R: HttpRunner<Response = Response>> Gitlab<R> {
     fn resource_release_metadata_url(&self) -> (String, http::Headers) {
         let url = format!("{}/releases?page=1", self.rest_api_basepath());
         let headers = self.headers();
         (url, headers)
     }
-}
 
-impl<R: HttpRunner<Response = Response>> DeployAsset for Gitlab<R> {
-    fn list(&self, args: ReleaseAssetListBodyArgs) -> Result<Vec<ReleaseAssetMetadata>> {
+    fn get_release(&self, args: ReleaseAssetListBodyArgs) -> Result<serde_json::Value> {
         let url = format!("{}/releases/{}", self.rest_api_basepath(), args.id);
         let response = query::gitlab_get_release::<_, ()>(
             &self.runner,
@@ -53,8 +51,15 @@ impl<R: HttpRunner<Response = Response>> DeployAsset for Gitlab<R> {
             GET,
             ApiOperation::Release,
         )?;
-        let mut asset_metatadata = Vec::new();
         let release = json_loads(&response.body)?;
+        Ok(release)
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> DeployAsset for Gitlab<R> {
+    fn list(&self, args: ReleaseAssetListBodyArgs) -> Result<Vec<ReleaseAssetMetadata>> {
+        let release = self.get_release(args)?;
+        let mut asset_metatadata = Vec::new();
         let assets = release["assets"]["sources"].as_array().unwrap();
         for asset in assets {
             let asset_data = ReleaseAssetMetadata::builder()
@@ -71,12 +76,25 @@ impl<R: HttpRunner<Response = Response>> DeployAsset for Gitlab<R> {
         Ok(asset_metatadata)
     }
 
-    fn num_pages(&self, _args: ReleaseAssetListBodyArgs) -> Result<Option<u32>> {
-        todo!()
+    fn num_pages(&self, args: ReleaseAssetListBodyArgs) -> Result<Option<u32>> {
+        let url = format!("{}/releases/{}?page=1", self.rest_api_basepath(), args.id);
+        // Assets is a one single request to the release API endpoint for
+        // Gitlab, so there's only one page available. If the HEAD request
+        // succeeds, then set it to one.
+        if query::num_pages(&self.runner, &url, self.headers(), ApiOperation::Release).is_ok() {
+            Ok(Some(1))
+        } else {
+            Ok(None)
+        }
     }
 
-    fn num_resources(&self, _args: ReleaseAssetListBodyArgs) -> Result<Option<NumberDeltaErr>> {
-        todo!()
+    fn num_resources(&self, args: ReleaseAssetListBodyArgs) -> Result<Option<NumberDeltaErr>> {
+        // Number of resources comes by doing a GET request to the release API
+        // See JSON doc contracts/gitlab/list_release_assets.json where the
+        // number or resources is in the field assets.count
+        let release = self.get_release(args)?;
+        let count = release["assets"]["count"].as_u64().unwrap();
+        Ok(Some(NumberDeltaErr::new(1, count as u32)))
     }
 }
 
@@ -199,5 +217,44 @@ mod test {
             .unwrap();
         let assets = gitlab.list(args);
         assert!(assets.is_err());
+    }
+
+    #[test]
+    fn test_list_release_assets_num_pages() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "list_release_assets.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn DeployAsset);
+        let args = ReleaseAssetListBodyArgs::builder()
+            .id("v0.1.18-alpha-2".to_string())
+            .list_args(None)
+            .build()
+            .unwrap();
+        let num_pages = gitlab.num_pages(args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/releases/v0.1.18-alpha-2?page=1",
+            *client.url(),
+        );
+        assert_eq!(Some(ApiOperation::Release), *client.api_operation.borrow());
+        assert_eq!(Some(1), num_pages);
+    }
+
+    #[test]
+    fn test_list_release_assets_num_resources() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "list_release_assets.json",
+            None,
+        );
+        let (_, gitlab) = setup_client!(contracts, default_gitlab(), dyn DeployAsset);
+        let args = ReleaseAssetListBodyArgs::builder()
+            .id("v0.1.18-alpha-2".to_string())
+            .list_args(None)
+            .build()
+            .unwrap();
+        let num_resources = gitlab.num_resources(args).unwrap().unwrap();
+        assert_eq!("(1, 4)", &num_resources.to_string());
     }
 }
