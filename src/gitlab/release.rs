@@ -71,11 +71,8 @@ impl<R: HttpRunner<Response = Response>> DeployAsset for Gitlab<R> {
         // Assets is a one single request to the release API endpoint for
         // Gitlab, so there's only one page available. If the HEAD request
         // succeeds, then set it to one.
-        if query::num_pages(&self.runner, &url, self.headers(), ApiOperation::Release).is_ok() {
-            Ok(Some(1))
-        } else {
-            Ok(None)
-        }
+        query::num_pages(&self.runner, &url, self.headers(), ApiOperation::Release)?;
+        Ok(Some(1))
     }
 
     fn num_resources(&self, args: ReleaseAssetListBodyArgs) -> Result<Option<NumberDeltaErr>> {
