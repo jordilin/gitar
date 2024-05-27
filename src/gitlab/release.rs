@@ -110,6 +110,8 @@ fn build_release_assets(
     let assets = release["assets"][asset_type.as_ref()].as_array().unwrap();
     for asset in assets {
         let asset_data = ReleaseAssetMetadata::builder()
+            // There's no id available in the response per se. Grab the short commit
+            // id instead
             .id(release["commit"]["short_id"].as_str().unwrap().to_string())
             .name(release["name"].as_str().unwrap().to_string())
             .url(asset["url"].as_str().unwrap().to_string())
