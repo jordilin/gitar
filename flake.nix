@@ -20,9 +20,9 @@
         };
 
         inherit (pkgs) lib;
-        rust = (pkgs.rust-bin.stable.latest.default.override {
+        rust = (pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default.override {
               extensions = [ "rust-src" "llvm-tools-preview" ];
-        });
+        }));
         craneLib = (crane.mkLib pkgs).overrideToolchain rust;
         src = lib.cleanSourceWith {
           src = craneLib.path ./.;
