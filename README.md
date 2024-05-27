@@ -243,7 +243,7 @@ In Gitlab they are known as pipelines and in Github as actions.
 | Operation | GitLab | GitHub |
 | --------- | -------------- | -------------- |
 | List releases | &#x2714; | &#x2714; |
-| List release assets | &#x2716; | &#x2714; |
+| List release assets | &#x2714; | &#x2714; |
 
 ### Auth User
 
