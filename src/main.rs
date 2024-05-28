@@ -12,7 +12,7 @@ use gr::{
     Result,
 };
 
-const CONFIG_PATH: &str = ".config/gitar/api";
+const DEFAULT_CONFIG_PATH: &str = ".config/gitar/api";
 
 fn get_config_domain_path(
     config_file: &Path,
@@ -63,13 +63,16 @@ fn get_config_domain_path(
 
 fn main() -> Result<()> {
     let home_dir = std::env::var("HOME").unwrap();
-    let config_file = Path::new(&home_dir).join(CONFIG_PATH);
     let option_args = parse_cli();
     let cli_options = option_args.cli_options.unwrap_or_else(|| {
         eprintln!("Please specify a subcommand");
         std::process::exit(1);
     });
     let cli_args = option_args.cli_args;
+    let mut config_file = Path::new(&home_dir).join(DEFAULT_CONFIG_PATH);
+    if let Some(ref config) = cli_args.config {
+        config_file = Path::new(&config).to_path_buf();
+    }
     if cli_args.verbose {
         let env = Env::default().default_filter_or("info");
         env_logger::init_from_env(env);

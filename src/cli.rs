@@ -60,6 +60,9 @@ struct Args {
         default_value = "github.com"
     )]
     pub domain: Option<String>,
+    /// Full path to the config location. Default is $HOME/.config/gitar/api
+    #[clap(long, global = true, value_name = "PATH")]
+    pub config: Option<String>,
 }
 
 #[derive(Parser)]
@@ -104,7 +107,10 @@ pub fn parse_cli() -> OptionArgs {
         Command::My(sub_matches) => Some(CliOptions::My(sub_matches.into())),
         Command::Trending(sub_matches) => Some(CliOptions::Trending(sub_matches.into())),
     };
-    OptionArgs::new(options, CliArgs::new(args.verbose, args.repo, args.domain))
+    OptionArgs::new(
+        options,
+        CliArgs::new(args.verbose, args.repo, args.domain, args.config),
+    )
 }
 
 pub enum CliOptions {
@@ -124,14 +130,21 @@ pub struct CliArgs {
     pub verbose: bool,
     pub repo: Option<String>,
     pub domain: Option<String>,
+    pub config: Option<String>,
 }
 
 impl CliArgs {
-    pub fn new(verbose: bool, repo: Option<String>, domain: Option<String>) -> Self {
+    pub fn new(
+        verbose: bool,
+        repo: Option<String>,
+        domain: Option<String>,
+        config: Option<String>,
+    ) -> Self {
         CliArgs {
             verbose,
             repo,
             domain,
+            config,
         }
     }
 }
