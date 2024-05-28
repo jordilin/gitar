@@ -1,4 +1,5 @@
 pub mod browse;
+pub mod cache;
 pub mod cicd;
 pub mod common;
 pub mod docker;
