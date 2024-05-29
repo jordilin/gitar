@@ -153,5 +153,9 @@ fn handle_cli_options(
             }
         },
         CliOptions::Init(options) => init::execute(options, config_file),
+        CliOptions::Cache(options) => {
+            let (config, _, _) = get_config_domain_path(&config_file, &cli_args, false, true)?;
+            cmds::cache::execute(options, config)
+        }
     }
 }

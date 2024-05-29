@@ -1,4 +1,5 @@
 pub mod browse;
+pub mod cache;
 pub mod cicd;
 pub mod common;
 pub mod docker;
@@ -22,6 +23,8 @@ use self::project::{ProjectCommand, ProjectOptions};
 use self::release::{ReleaseCommand, ReleaseOptions};
 use self::trending::TrendingCommand;
 use self::trending::TrendingOptions;
+use cache::CacheCommand;
+use cache::CacheOptions;
 use merge_request::{MergeRequestCommand, MergeRequestOptions};
 
 use std::option::Option;
@@ -91,6 +94,8 @@ enum Command {
     Trending(TrendingCommand),
     #[clap(name = "init", about = "Initialize the config file")]
     Init(InitCommand),
+    #[clap(name = "cache", about = "Local cache operations")]
+    Cache(CacheCommand),
 }
 
 // Parse cli and return CliOptions
@@ -106,6 +111,7 @@ pub fn parse_cli() -> OptionArgs {
         Command::Release(sub_matches) => Some(CliOptions::Release(sub_matches.into())),
         Command::My(sub_matches) => Some(CliOptions::My(sub_matches.into())),
         Command::Trending(sub_matches) => Some(CliOptions::Trending(sub_matches.into())),
+        Command::Cache(sub_matches) => Some(CliOptions::Cache(sub_matches.into())),
     };
     OptionArgs::new(
         options,
@@ -123,6 +129,7 @@ pub enum CliOptions {
     Release(ReleaseOptions),
     My(MyOptions),
     Trending(TrendingOptions),
+    Cache(CacheOptions),
 }
 
 #[derive(Clone)]
