@@ -1,0 +1,10 @@
+[book]
+authors = ["Jordi Carrillo Bosch"]
+language = "en"
+multilingual = false
+src = "src"
+title = "GitAR User Guide"
+
+[preprocessor.toc]
+command = "mdbook-toc"
+renderer = ["html"]
