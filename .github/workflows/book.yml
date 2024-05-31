@@ -4,7 +4,7 @@ name: Book Pages deployment
 on:
   push:
     branches:
-      - test
+      - main
 
 jobs:
   deploy:
