@@ -11,3 +11,4 @@ curl-test.sh
 result
 contracts/__pycache__
 lcov.info
+/doc/book

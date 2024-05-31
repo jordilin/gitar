@@ -97,6 +97,9 @@
             act
             # Github actions linter
             actionlint
+            # Documentation
+            mdbook
+            mdbook-toc
           ] ++ scripts;
           shellHook = ''
             rustc --version
