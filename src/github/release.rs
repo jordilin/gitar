@@ -99,7 +99,7 @@ impl From<&serde_json::Value> for GithubReleaseFields {
                 .id(value["id"].as_i64().unwrap().to_string())
                 .url(value["html_url"].as_str().unwrap().to_string())
                 .tag(value["tag_name"].as_str().unwrap().to_string())
-                .title(value["name"].as_str().unwrap().to_string())
+                .title(value["name"].as_str().unwrap_or_default().to_string())
                 .description(value["body"].as_str().unwrap_or_default().to_string())
                 .prerelease(value["prerelease"].as_bool().unwrap_or(false))
                 .created_at(value["created_at"].as_str().unwrap().to_string())
