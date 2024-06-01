@@ -5,6 +5,11 @@ multilingual = false
 src = "src"
 title = "GitAR User Guide"
 
+[output.html]
+git-repository-url = "https://github.com/jordilin/gitar/tree/main/doc/src"
+edit-url-template = "https://github.com/jordilin/gitar/edit/main/doc/{path}"
+search.use-boolean-and = true
+
 [preprocessor.toc]
 command = "mdbook-toc"
 renderer = ["html"]

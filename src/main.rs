@@ -2,7 +2,7 @@ use std::{fs::File, path::Path, sync::Arc};
 
 use env_logger::Env;
 use gr::{
-    cli::{parse_cli, trending::TrendingOptions, CliOptions},
+    cli::{browse::BrowseOptions, parse_cli, trending::TrendingOptions, CliOptions},
     cmds::{self, browse, cicd, docker, merge_request, project},
     error::GRError,
     git, init,
@@ -157,5 +157,11 @@ fn handle_cli_options(
             let (config, _, _) = get_config_domain_path(&config_file, &cli_args, false, true)?;
             cmds::cache::execute(options, config)
         }
+        CliOptions::Manual => browse::execute(
+            BrowseOptions::Manual,
+            Arc::new(gr::config::Config::default()),
+            "".to_string(),
+            "".to_string(),
+        ),
     }
 }

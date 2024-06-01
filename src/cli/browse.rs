@@ -44,6 +44,7 @@ pub enum BrowseOptions {
     MergeRequests,
     MergeRequestId(i64),
     Pipelines,
+    Manual,
 }
 
 #[derive(Parser)]
