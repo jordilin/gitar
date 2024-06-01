@@ -3,6 +3,8 @@
 name: Book Pages deployment
 on:
   push:
+    paths:
+      - 'doc/**'
     branches:
       - main
 
