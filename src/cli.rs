@@ -96,6 +96,12 @@ enum Command {
     Init(InitCommand),
     #[clap(name = "cache", about = "Local cache operations")]
     Cache(CacheCommand),
+    #[clap(
+        name = "manual",
+        about = "Open the user manual in the browser",
+        visible_alias = "man"
+    )]
+    Manual,
 }
 
 // Parse cli and return CliOptions
@@ -112,6 +118,7 @@ pub fn parse_cli() -> OptionArgs {
         Command::My(sub_matches) => Some(CliOptions::My(sub_matches.into())),
         Command::Trending(sub_matches) => Some(CliOptions::Trending(sub_matches.into())),
         Command::Cache(sub_matches) => Some(CliOptions::Cache(sub_matches.into())),
+        Command::Manual => Some(CliOptions::Manual),
     };
     OptionArgs::new(
         options,
@@ -130,6 +137,7 @@ pub enum CliOptions {
     My(MyOptions),
     Trending(TrendingOptions),
     Cache(CacheOptions),
+    Manual,
 }
 
 #[derive(Clone)]

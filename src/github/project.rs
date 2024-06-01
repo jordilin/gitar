@@ -66,6 +66,9 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             BrowseOptions::MergeRequests => format!("{}/pulls", base_url),
             BrowseOptions::MergeRequestId(id) => format!("{}/pull/{}", base_url, id),
             BrowseOptions::Pipelines => format!("{}/actions", base_url),
+            // Manual is only one URL and it's the user guide. Handled in the
+            // browser command.
+            BrowseOptions::Manual => unreachable!(),
         }
     }
 
