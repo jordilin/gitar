@@ -92,6 +92,9 @@ enum Command {
     My(MyCommand),
     #[clap(name = "tr", about = "Trending repositories. Github.com only.")]
     Trending(TrendingCommand),
+    /// Interactively execute gitar amplifier commands using gitar. gr-in-gr
+    #[clap(name = "amps")]
+    Amps,
     #[clap(name = "init", about = "Initialize the config file")]
     Init(InitCommand),
     #[clap(name = "cache", about = "Local cache operations")]
@@ -119,6 +122,7 @@ pub fn parse_cli() -> OptionArgs {
         Command::Trending(sub_matches) => Some(CliOptions::Trending(sub_matches.into())),
         Command::Cache(sub_matches) => Some(CliOptions::Cache(sub_matches.into())),
         Command::Manual => Some(CliOptions::Manual),
+        Command::Amps => Some(CliOptions::Amps),
     };
     OptionArgs::new(
         options,
@@ -138,6 +142,7 @@ pub enum CliOptions {
     Trending(TrendingOptions),
     Cache(CacheOptions),
     Manual,
+    Amps,
 }
 
 #[derive(Clone)]

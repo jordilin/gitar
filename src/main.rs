@@ -163,5 +163,6 @@ fn handle_cli_options(
             "".to_string(),
             "".to_string(),
         ),
+        CliOptions::Amps => cmds::amps::execute(config_file),
     }
 }

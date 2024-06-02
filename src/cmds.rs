@@ -1,3 +1,4 @@
+pub mod amps;
 pub mod browse;
 pub mod cache;
 pub mod cicd;
