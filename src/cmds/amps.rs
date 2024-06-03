@@ -2,6 +2,7 @@ use std::path::Path;
 
 use crate::{
     dialog,
+    error::GRError,
     io::{Response, TaskRunner},
     shell, Result,
 };
@@ -21,7 +22,15 @@ pub fn execute(config_file: std::path::PathBuf) -> Result<()> {
 fn list_amps(runner: impl TaskRunner<Response = Response>, amps_path: &str) -> Result<Vec<String>> {
     let cmd = vec!["ls", amps_path];
     let response = runner.run(cmd)?;
-    let amps = response.body.split('\n').map(|s| s.to_string()).collect();
+    if response.body.is_empty() {
+        return Err(GRError::PreconditionNotMet(format!(
+            "No amps are available in {}. Please check \
+            https://github.com/jordilin/gitar-amps for installation instructions",
+            amps_path
+        ))
+        .into());
+    }
+    let amps: Vec<String> = response.body.split('\n').map(|s| s.to_string()).collect();
     Ok(amps)
 }
 
@@ -127,5 +136,30 @@ mod tests {
         let base_path = Path::new("/tmp");
         assert!(amp_runner.exec_amps(amp_script, base_path).is_ok());
         assert_eq!(1, *runner.run_count.borrow());
+    }
+
+    #[test]
+    fn test_list_amps_error_if_none_available() {
+        let response = Response::builder()
+            .status(0)
+            .body("".to_string())
+            .build()
+            .unwrap();
+        let runner = MockRunner::new(vec![response]);
+        let amps_path = "/tmp/amps";
+        let amps = list_amps(runner, amps_path);
+        match amps {
+            Err(err) => match err.downcast_ref::<GRError>() {
+                Some(GRError::PreconditionNotMet(msg)) => {
+                    assert_eq!(
+                        "No amps are available in /tmp/amps. Please check \
+                        https://github.com/jordilin/gitar-amps for installation instructions",
+                        msg
+                    );
+                }
+                _ => panic!("Expected error"),
+            },
+            Ok(_) => panic!("Expected error"),
+        }
     }
 }
