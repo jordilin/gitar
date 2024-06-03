@@ -8,7 +8,7 @@ use gr::{
     git, init,
     io::CmdInfo,
     remote::get_domain_path,
-    shell::Shell,
+    shell::BlockingCommand,
     Result,
 };
 
@@ -23,7 +23,7 @@ fn get_config_domain_path(
     let (domain, path) = if cli_args.repo.is_some() {
         get_domain_path(cli_args.repo.as_ref().unwrap())
     } else if requires_local_repo {
-        match git::remote_url(&Shell) {
+        match git::remote_url(&BlockingCommand) {
             Ok(CmdInfo::RemoteUrl { domain, path }) => (domain, path),
             Err(err) => {
                 return Err(GRError::GitRemoteUrlNotFound(format!(
@@ -163,5 +163,6 @@ fn handle_cli_options(
             "".to_string(),
             "".to_string(),
         ),
+        CliOptions::Amps => cmds::amps::execute(config_file),
     }
 }

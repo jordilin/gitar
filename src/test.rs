@@ -57,6 +57,7 @@ pub mod utils {
         pub http_method: RefCell<http::Method>,
         pub throttled: RefCell<u32>,
         pub milliseconds_throttled: RefCell<Milliseconds>,
+        pub run_count: RefCell<u32>,
     }
 
     impl MockRunner {
@@ -71,6 +72,7 @@ pub mod utils {
                 http_method: RefCell::new(http::Method::GET),
                 throttled: RefCell::new(0),
                 milliseconds_throttled: RefCell::new(Milliseconds::new(0)),
+                run_count: RefCell::new(0),
             }
         }
 
@@ -114,6 +116,7 @@ pub mod utils {
                     .join(" "),
             );
             let response = self.responses.borrow_mut().pop().unwrap();
+            *self.run_count.borrow_mut() += 1;
             match response.status {
                 0 => return Ok(response),
                 _ => return Err(error::gen(&response.body)),

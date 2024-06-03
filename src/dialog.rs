@@ -178,3 +178,21 @@ pub fn show_summary_merge_request(
         Err(error::gen("User cancelled"))
     }
 }
+
+pub fn prompt_args() -> String {
+    Input::with_theme(&ColorfulTheme::default())
+        .with_prompt("args: ")
+        .allow_empty(true)
+        .interact_text()
+        .unwrap()
+}
+
+pub fn fuzzy_select(amps: Vec<String>) -> Result<String> {
+    let selection = dialoguer::FuzzySelect::with_theme(&ColorfulTheme::default())
+        .with_prompt("amp:")
+        .default(0)
+        .items(&amps)
+        .interact()
+        .unwrap();
+    Ok(amps[selection].to_string())
+}
