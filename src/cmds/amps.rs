@@ -9,7 +9,7 @@ use crate::{
 pub fn execute(config_file: std::path::PathBuf) -> Result<()> {
     let base_path = config_file.parent().unwrap();
     let amps_scripts = base_path.join("amps");
-    let runner = shell::Shell;
+    let runner = shell::BlockingCommand;
     let amps = list_amps(runner, amps_scripts.to_str().unwrap())?;
     let amp_script = dialog::fuzzy_select(amps)?;
     let stream_runner = shell::StreamingCommand;

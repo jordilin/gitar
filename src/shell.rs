@@ -10,9 +10,9 @@ use std::process::Command;
 use std::str;
 use std::thread;
 
-pub struct Shell;
+pub struct BlockingCommand;
 
-impl TaskRunner for Shell {
+impl TaskRunner for BlockingCommand {
     type Response = Response;
 
     fn run<T>(&self, cmd: T) -> Result<Self::Response>
@@ -101,9 +101,6 @@ impl TaskRunner for StreamingCommand {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-
-    use crate::test::utils::MockRunner;
 
     use super::*;
 

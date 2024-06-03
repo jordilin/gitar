@@ -10,7 +10,7 @@ use crate::remote::{
     GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs, Member, MergeRequestBodyArgs,
     MergeRequestListBodyArgs, MergeRequestState, Project,
 };
-use crate::shell::Shell;
+use crate::shell::BlockingCommand;
 use crate::{dialog, display, exec, git, remote, Cmd, Result};
 use std::{
     fs::File,
@@ -177,17 +177,22 @@ pub fn execute(
             let project_remote =
                 remote::get_project(domain, path, config.clone(), cli_args.refresh_cache)?;
             if let Some(commit_message) = &cli_args.commit {
-                git::add(&Shell)?;
-                git::commit(&Shell, commit_message)?;
+                git::add(&BlockingCommand)?;
+                git::commit(&BlockingCommand, commit_message)?;
             }
             let cmds = if let Some(description_file) = &cli_args.description_from_file {
                 let reader = get_reader_file_cli(description_file)?;
-                cmds(project_remote, &cli_args, Arc::new(Shell), Some(reader))
+                cmds(
+                    project_remote,
+                    &cli_args,
+                    Arc::new(BlockingCommand),
+                    Some(reader),
+                )
             } else {
                 cmds(
                     project_remote,
                     &cli_args,
-                    Arc::new(Shell),
+                    Arc::new(BlockingCommand),
                     None::<Cursor<&str>>,
                 )
             };
@@ -385,10 +390,10 @@ fn open(
     let args = user_prompt_confirmation(&mr_body, config, description, &target_branch, cli_args)?;
 
     if cli_args.rebase.is_some() {
-        git::rebase(&Shell, cli_args.rebase.as_ref().unwrap())?;
+        git::rebase(&BlockingCommand, cli_args.rebase.as_ref().unwrap())?;
     }
 
-    let outgoing_commits = git::outgoing_commits(&Shell, "origin", &target_branch)?;
+    let outgoing_commits = git::outgoing_commits(&BlockingCommand, "origin", &target_branch)?;
 
     if outgoing_commits.is_empty() {
         return Err(GRError::PreconditionNotMet(
@@ -402,7 +407,7 @@ fn open(
         dialog::show_summary_merge_request(&outgoing_commits, &args, cli_args.accept_summary)
     {
         println!("\nTaking off... 🚀\n");
-        git::push(&Shell, "origin", &mr_body.repo)?;
+        git::push(&BlockingCommand, "origin", &mr_body.repo)?;
         let merge_request_response = remote.open(args)?;
         println!("Merge request opened: {}", merge_request_response.web_url);
         if cli_args.open_browser {
@@ -574,8 +579,8 @@ fn merge(remote: Arc<dyn MergeRequest>, merge_request_id: i64) -> Result<()> {
 fn checkout(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
     let merge_request = remote.get(id)?;
     // assume origin for now
-    git::fetch(Arc::new(Shell), "origin".to_string())?;
-    git::checkout(&Shell, &merge_request.source_branch)
+    git::fetch(Arc::new(BlockingCommand), "origin".to_string())?;
+    git::checkout(&BlockingCommand, &merge_request.source_branch)
 }
 
 fn close(remote: Arc<dyn MergeRequest>, id: i64) -> Result<()> {
