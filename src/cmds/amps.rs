@@ -82,7 +82,10 @@ impl<'a, A: Fn() -> String, R: TaskRunner<Response = Response>> Amp<'a, A, R> {
             }
         }
         let cmd_path = base_path.join("amps").join(amp);
-        let cmd = vec![cmd_path.to_str().unwrap(), &args];
+        let mut cmd = vec![cmd_path.to_str().unwrap()];
+        for arg in args.split_whitespace() {
+            cmd.push(arg);
+        }
         self.runner.run(cmd)?;
         Ok(())
     }

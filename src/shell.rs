@@ -71,10 +71,9 @@ impl TaskRunner for StreamingCommand {
         let args = args[1..]
             .iter()
             .map(|s| s.as_ref().to_str().unwrap())
-            .collect::<Vec<&str>>()
-            .join(" ");
+            .collect::<Vec<&str>>();
         let mut child = Command::new(cmd_path)
-            .arg(&args)
+            .args(&args)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()?;
