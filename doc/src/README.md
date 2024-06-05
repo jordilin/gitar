@@ -23,3 +23,7 @@ The tool is written in Rust and it is available for Linux, MacOS.
 **[Getting Started](./getting_started.md)**
 
 Get started by installing the binary and creating a configuration file.
+
+**[Gitar commands](./cmds/index.md)**
+
+List of commands available in Gitar.

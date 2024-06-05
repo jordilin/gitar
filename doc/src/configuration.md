@@ -93,26 +93,80 @@ pages that can be retrieved per API call. This takes effect on list operations
 in every subcommand that has listing support. This can be increased/decreased on
 a per API basis.
 
-- `domain.max_pages_api_project` This API type is used to retrieve information
+- `<domain>.max_pages_api_project=<number>` This API type is used to retrieve information
   about a project/repository such as its members. When opening a merge request
   gitar will pull up to `max_pages_api_project` pages of members to find the
   your username to assign the pull request to. If you get an error that your
   username cannot be found, increase this number. Once the members have been
   retrieved, the list is permanently cached for next calls, so it will be fast.
 
-- `domain.max_pages_api_merge_request` This API type is used to retrieve
+- `<domain>.max_pages_api_merge_request=<number>` This API type is used to retrieve
   information about pull/merge requests. For example, listing opened, merged,
   closed pull requests, etc...
 
-- `domain.max_pages_api_pipeline` This API type is used to retrieve information
+- `<domain>.max_pages_api_pipeline=<number>` This API type is used to retrieve information
   about CI/CD pipelines/actions that run in the given project. This takes place
   in list operations in the `pp` subcommand.
 
-- `domain.max_pages_api_release` This API type is used to retrieve information
+- `<domain>.max_pages_api_release=<number>` This API type is used to retrieve information
   about releases in the current project, such as listing releases and its
   assets.
 
-- `domain.max_pages_api_container_registry` This API type is used to retrieve
+- `<domain>.max_pages_api_container_registry=<number>` This API type is used to retrieve
   information about container registry images in the current project. This is
   supported in Gitlab only. This takes place in list operations in the `dk`
   subcommand.
+
+### Local cache duration for each API type
+
+Gitar has local caching support for each API type. Every HTTP response
+is cached and the next time the same request is made, the same response is
+returned until expired. The responses are stored in a local cache directory
+which can be configured by setting:
+
+- `<domain>.cache_location=<full-path-to-cache-directory>` The path needs to exist
+  and be writable by the user running the gitar command.
+
+Cache values are a number followed by a letter representing the time unit. For
+example `5m` means 5 minutes, `5d` means 5 days, `30s` means 30 seconds. The
+units supported are `s` for seconds, `m` for minutes, `h` for hours, `d` for
+days. A cache value of `0` followed by a time unit means automatic expiration of
+the cache. In that case, gitar will contact the remote API doing a conditional
+HTTP request to check if the cache is still valid and return the cached response
+if it is. Otherwise, it will automatically update the cache with the new
+response.
+
+Cache duration for each API type is as follows:
+
+- `<domain>.cache_api_merge_request_expiration=<number><time-unit>` This API type is
+  used to retrieve information about pull/merge requests. For example, listing
+  opened, merged, closed pull requests.
+
+- `<domain>.cache_api_project_expiration=<number><time-unit>` This API type is
+  used to retrieve information about a project/repository such as its members.
+  When opening a merge request gitar will pull up to `max_pages_api_project`
+  pages information to retrieve project information and its members. Project
+  information does not change often, so a higher cache value of a few days can
+  be ok. Members of a project, project ID, etc... can be cached for longer time
+  depending on the projects you work on.
+
+- `<domain>.cache_api_pipeline_expiration=<number><time-unit>` This API type is used
+  to retrieve information about CI/CD pipelines/actions that run in the given
+  project. A low cache value is recommended for this API type as the status of
+  pipelines change often in projects.
+
+- `<domain>.cache_api_container_registry_expiration=<number><time-unit>` This
+  API type is used to retrieve information about container registry images in
+  the current project. This is supported in Gitlab only. This takes place in
+  list operations in the `dk` subcommand.
+
+- `<domain>.cache_api_release_expiration=<number><time-unit>` This API type is
+  used to retrieve information about releases in the current project, such as
+  listing releases and its assets.
+
+- `<domain>.cache_api_single_page_expiration=<number><time-unit>` This API type
+  is used to retrieve information about single page calls. For example, trending
+  repositories in github.com. A value of `1d` is recommended for this API type.
+
+>**Note**: Local cache can be automatically expired and refreshed by issuing the
+`-r` flag when running the `gr` command.
