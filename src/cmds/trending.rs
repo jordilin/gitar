@@ -42,9 +42,9 @@ impl From<TrendingProject> for DisplayBody {
     }
 }
 
-pub fn execute(cli_args: TrendingCliArgs, config: Arc<Config>, domain: String) -> Result<()> {
+pub fn execute(cli_args: TrendingCliArgs, config: Arc<Config>, domain: &str) -> Result<()> {
     let remote = remote::get_trending(
-        domain.clone(),
+        domain.to_string(),
         // does not matter in this command. Implementing it for
         // Github.com which is just a query against HTML page.
         "".to_string(),

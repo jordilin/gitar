@@ -9,10 +9,12 @@ use crate::io::RateLimitHeader;
 pub enum GRError {
     #[error("Precondition not met error: {0}")]
     PreconditionNotMet(String),
-    #[error("Remote url not found: {0}")]
+    #[error("Remote url not found. Make sure you are in a git repository: {0}")]
     GitRemoteUrlNotFound(String),
-    #[error("--domain option expected: {0}")]
-    DomainOrRepoExpected(String),
+    #[error("--domain expected: {0}")]
+    DomainExpected(String),
+    #[error("--repo expected: {0}")]
+    RepoExpected(String),
     #[error("Time conversion error: {0}")]
     TimeConversionError(String),
     #[error("Configuration error: {0}")]

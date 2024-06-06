@@ -56,12 +56,7 @@ struct Args {
     )]
     pub repo: Option<String>,
     /// Bypass local .git/config. Use domain. Ex. for my subcommands
-    #[clap(
-        long,
-        global = true,
-        value_name = "DOMAIN",
-        default_value = "github.com"
-    )]
+    #[clap(long, global = true, value_name = "DOMAIN")]
     pub domain: Option<String>,
     /// Full path to the config location. Default is $HOME/.config/gitar/api
     #[clap(long, global = true, value_name = "PATH")]
