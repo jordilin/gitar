@@ -1,4 +1,6 @@
 use std::fmt::{self, Display, Formatter};
+use std::fs::File;
+use std::path::Path;
 
 use crate::api_traits::{
     Cicd, CicdRunner, CommentMergeRequest, ContainerRegistry, Deploy, DeployAsset, MergeRequest,
@@ -10,9 +12,10 @@ use crate::display::{Column, DisplayBody, Format};
 use crate::error::GRError;
 use crate::github::Github;
 use crate::gitlab::Gitlab;
+use crate::io::{CmdInfo, Response, TaskRunner};
 use crate::time::Milliseconds;
-use crate::Result;
-use crate::{error, http};
+use crate::{cli, error, http};
+use crate::{git, Result};
 use std::convert::TryFrom;
 use std::sync::Arc;
 
@@ -584,15 +587,117 @@ get!(get_cicd_runner, CicdRunner);
 get!(get_comment_mr, CommentMergeRequest);
 get!(get_trending, TrendingProjectURL);
 
-pub fn get_domain_path(repo_cli: &str) -> (String, String) {
+pub fn extract_domain_path(repo_cli: &str) -> (String, String) {
     let parts: Vec<&str> = repo_cli.split('/').collect();
     let domain = parts[0].to_string();
     let path = parts[1..].join("/");
     (domain, path)
 }
 
+/// Given a CLI command, the command can work as long as user is in a cd
+/// repository, user passes --domain flag (DomainArgs) or --repo flag
+/// (RepoArgs). Some CLI commands might work with one variant, with both, with
+/// all or might have no requirement at all.
+pub enum CliDomainRequirements {
+    CdInLocalRepo,
+    DomainArgs,
+    RepoArgs,
+}
+
+impl CliDomainRequirements {
+    pub fn check<R: TaskRunner<Response = Response>>(
+        &self,
+        cli_args: &cli::CliArgs,
+        runner: &R,
+    ) -> Result<(String, String)> {
+        match self {
+            CliDomainRequirements::CdInLocalRepo => match git::remote_url(runner) {
+                Ok(CmdInfo::RemoteUrl { domain, path }) => Ok((domain, path)),
+                Err(err) => Err(GRError::GitRemoteUrlNotFound(format!("{}", err)).into()),
+                _ => Err(GRError::ApplicationError(
+                    "Could not get remote url during startup. \
+                        main::get_config_domain_path - Please open a bug to \
+                        https://github.com/jordilin/gitar"
+                        .to_string(),
+                )
+                .into()),
+            },
+            CliDomainRequirements::DomainArgs => {
+                if cli_args.domain.is_some() {
+                    Ok((
+                        cli_args.domain.as_ref().unwrap().to_string(),
+                        "".to_string(),
+                    ))
+                } else {
+                    Err(GRError::DomainExpected("Missing domain information".to_string()).into())
+                }
+            }
+            CliDomainRequirements::RepoArgs => {
+                if cli_args.repo.is_some() {
+                    Ok(extract_domain_path(cli_args.repo.as_ref().unwrap()))
+                } else {
+                    Err(GRError::RepoExpected("Missing repository information".to_string()).into())
+                }
+            }
+        }
+    }
+}
+
+impl Display for CliDomainRequirements {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            CliDomainRequirements::CdInLocalRepo => write!(f, "cd to a git repository"),
+            CliDomainRequirements::DomainArgs => write!(f, "provide --domain option"),
+            CliDomainRequirements::RepoArgs => write!(f, "provide --repo option"),
+        }
+    }
+}
+
+pub fn get_domain_path<R: TaskRunner<Response = Response>>(
+    cli_args: &cli::CliArgs,
+    requirements: &[CliDomainRequirements],
+    runner: &R,
+) -> Result<(String, String)> {
+    let mut errors = Vec::new();
+    for requirement in requirements {
+        match requirement.check(cli_args, runner) {
+            Ok((d, p)) => return Ok((d, p)),
+            Err(err) => {
+                errors.push(err);
+            }
+        }
+    }
+    let trace = errors
+        .iter()
+        .map(|e| format!("{}", e))
+        .collect::<Vec<String>>()
+        .join("\n");
+
+    let expectations_missed_trace = requirements
+        .iter()
+        .map(|r| format!("{}", r))
+        .collect::<Vec<String>>()
+        .join(" OR ");
+
+    Err(GRError::PreconditionNotMet(format!(
+        "\n\nMissed requirements: {}\n\n Errors:\n\n {}",
+        expectations_missed_trace, trace
+    ))
+    .into())
+}
+
+pub fn read_config(config_file: &Path, domain: &str) -> Result<Arc<Config>> {
+    let f = File::open(config_file)?;
+    let config = Config::new(f, domain)?;
+    Ok(Arc::new(config))
+}
+
 #[cfg(test)]
 mod test {
+    use cli::CliArgs;
+
+    use crate::test::utils::MockRunner;
+
     use super::*;
 
     #[test]
@@ -985,8 +1090,71 @@ mod test {
     #[test]
     fn test_retrieve_domain_path_from_repo_cli_flag() {
         let repo_cli = "github.com/jordilin/gitar";
-        let (domain, path) = get_domain_path(repo_cli);
+        let (domain, path) = extract_domain_path(repo_cli);
         assert_eq!("github.com", domain);
         assert_eq!("jordilin/gitar", path);
+    }
+
+    #[test]
+    fn test_cli_requires_cd_local_repo_run_git_remote() {
+        let cli_args = CliArgs::new(false, None, None, None);
+        let response = Response::builder()
+            .body("git@github.com:jordilin/gitar.git".to_string())
+            .build()
+            .unwrap();
+        let runner = MockRunner::new(vec![response]);
+        let requirements = vec![CliDomainRequirements::CdInLocalRepo];
+        let (domain, path) = get_domain_path(&cli_args, &requirements, &runner).unwrap();
+        assert_eq!("github.com", domain);
+        assert_eq!("jordilin/gitar", path);
+    }
+
+    #[test]
+    fn test_cli_requires_cd_local_repo_run_git_remote_error() {
+        let cli_args = CliArgs::new(false, None, None, None);
+        let response = Response::builder().body("".to_string()).build().unwrap();
+        let runner = MockRunner::new(vec![response]);
+        let requirements = vec![CliDomainRequirements::CdInLocalRepo];
+        let result = get_domain_path(&cli_args, &requirements, &runner);
+        match result {
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::PreconditionNotMet(_)) => (),
+                _ => panic!("Expected error::GRError::GitRemoteUrlNotFound"),
+            },
+            _ => panic!("Expected error"),
+        }
+    }
+
+    #[test]
+    fn test_cli_requires_repo_args_or_cd_repo_fails_on_cd_repo() {
+        let cli_args = CliArgs::new(
+            false,
+            Some("github.com/jordilin/gitar".to_string()),
+            None,
+            None,
+        );
+        let requirements = vec![
+            CliDomainRequirements::CdInLocalRepo,
+            CliDomainRequirements::RepoArgs,
+        ];
+        let response = Response::builder().body("".to_string()).build().unwrap();
+        let (domain, path) =
+            get_domain_path(&cli_args, &requirements, &MockRunner::new(vec![response])).unwrap();
+        assert_eq!("github.com", domain);
+        assert_eq!("jordilin/gitar", path);
+    }
+
+    #[test]
+    fn test_cli_requires_domain_args_or_cd_repo_fails_on_cd_repo() {
+        let cli_args = CliArgs::new(false, None, Some("github.com".to_string()), None);
+        let requirements = vec![
+            CliDomainRequirements::CdInLocalRepo,
+            CliDomainRequirements::DomainArgs,
+        ];
+        let response = Response::builder().body("".to_string()).build().unwrap();
+        let (domain, path) =
+            get_domain_path(&cli_args, &requirements, &MockRunner::new(vec![response])).unwrap();
+        assert_eq!("github.com", domain);
+        assert_eq!("", path);
     }
 }
