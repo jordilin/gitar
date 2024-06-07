@@ -8,10 +8,12 @@ use std::io::Write;
 use std::sync::Arc;
 
 use crate::api_traits::{
-    Cicd, CicdRunner, CommentMergeRequest, Deploy, DeployAsset, RemoteProject, TrendingProjectURL,
+    Cicd, CicdRunner, CodeGist, CommentMergeRequest, Deploy, DeployAsset, RemoteProject,
+    TrendingProjectURL,
 };
 
 use super::cicd::{RunnerListBodyArgs, RunnerListCliArgs};
+use super::gist::{GistListBodyArgs, GistListCliArgs};
 use super::merge_request::{CommentMergeRequestListBodyArgs, CommentMergeRequestListCliArgs};
 use super::project::{ProjectListBodyArgs, ProjectListCliArgs};
 use super::release::{ReleaseAssetListBodyArgs, ReleaseAssetListCliArgs, ReleaseBodyArgs};
@@ -210,6 +212,14 @@ list_resource!(
     RemoteProject,
     ProjectListBodyArgs,
     ProjectListCliArgs,
+    true
+);
+
+list_resource!(
+    list_user_gists,
+    CodeGist,
+    GistListBodyArgs,
+    GistListCliArgs,
     true
 );
 
