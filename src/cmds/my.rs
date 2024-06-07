@@ -46,6 +46,7 @@ pub fn execute(
             }
             list_user_projects(remote, body_args, cli_args, std::io::stdout())
         }
+        MyOptions::Gist(_) => todo!(),
     }
 }
 

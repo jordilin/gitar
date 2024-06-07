@@ -5,6 +5,7 @@ use crate::{
     cmds::{
         cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata},
         docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
+        gist::{Gist, GistListBodyArgs},
         merge_request::{Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs},
         project::ProjectListBodyArgs,
         release::{Release, ReleaseAssetListBodyArgs, ReleaseAssetMetadata, ReleaseBodyArgs},
@@ -73,6 +74,10 @@ pub trait DeployAsset {
 pub trait UserInfo {
     /// Get the user's information from the remote API.
     fn get(&self) -> Result<Member>;
+}
+
+pub trait CodeGist {
+    fn list(&self, args: GistListBodyArgs) -> Result<Vec<Gist>>;
 }
 
 pub trait Timestamp {
