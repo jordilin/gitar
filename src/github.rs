@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 pub mod cicd;
 pub mod container_registry;
+pub mod gist;
 pub mod merge_request;
 pub mod project;
 pub mod release;

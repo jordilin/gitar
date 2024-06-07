@@ -1,7 +1,7 @@
 use std::{io::Write, sync::Arc};
 
 use crate::{
-    api_traits::CodeGist,
+    api_traits::{CodeGist, Timestamp},
     display::{Column, DisplayBody},
     remote::{ListBodyArgs, ListRemoteCliArgs},
     Result,
@@ -35,7 +35,8 @@ impl GistListBodyArgs {
 pub struct Gist {
     pub url: String,
     pub description: String,
-    pub file: String,
+    pub files: String,
+    pub created_at: String,
 }
 
 impl Gist {
@@ -48,11 +49,18 @@ impl From<Gist> for DisplayBody {
     fn from(gist: Gist) -> Self {
         DisplayBody {
             columns: vec![
-                Column::new("File", gist.file),
+                Column::new("Files", gist.files),
                 Column::new("URL", gist.url),
                 Column::new("Description", gist.description),
+                Column::new("Created at", gist.created_at),
             ],
         }
+    }
+}
+
+impl Timestamp for Gist {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
     }
 }
 
@@ -76,7 +84,8 @@ mod tests {
             let gist = Gist::builder()
                 .url("https://gist.github.com/aa5a315d61ae9438b18d".to_string())
                 .description("A gist".to_string())
-                .file("main.rs".to_string())
+                .files("main.rs,hello_rust.rs".to_string())
+                .created_at("2021-08-01T00:00:00Z".to_string())
                 .build()
                 .unwrap();
             Ok(vec![gist])
@@ -94,7 +103,7 @@ mod tests {
         let remote = Arc::new(GistMock);
         assert!(list_user_gists(remote, body_args, cli_args, &mut buff).is_ok());
         assert_eq!(
-            "File|URL|Description\nmain.rs|https://gist.github.com/aa5a315d61ae9438b18d|A gist\n",
+            "Files|URL|Description|Created at\nmain.rs,hello_rust.rs|https://gist.github.com/aa5a315d61ae9438b18d|A gist|2021-08-01T00:00:00Z\n",
             String::from_utf8(buff).unwrap()
         );
     }
