@@ -90,6 +90,14 @@ mod tests {
                 .unwrap();
             Ok(vec![gist])
         }
+
+        fn num_pages(&self) -> Result<Option<u32>> {
+            todo!()
+        }
+
+        fn num_resources(&self) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+            todo!()
+        }
     }
 
     #[test]

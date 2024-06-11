@@ -1,8 +1,9 @@
 use crate::{
-    api_traits::{ApiOperation, CodeGist},
+    api_traits::{ApiOperation, CodeGist, NumberDeltaErr},
     cmds::gist::{Gist, GistListBodyArgs},
     io::{HttpRunner, Response},
-    remote::query,
+    remote::{query, URLQueryParamBuilder},
+    Result,
 };
 
 use super::Github;
@@ -11,7 +12,7 @@ use super::Github;
 
 impl<R: HttpRunner<Response = Response>> CodeGist for Github<R> {
     fn list(&self, args: GistListBodyArgs) -> crate::Result<Vec<Gist>> {
-        let url = format!("{}/gists", self.rest_api_basepath);
+        let url = self.auth_user_gist_url(false);
         query::github_list_user_gists(
             &self.runner,
             &url,
@@ -20,6 +21,37 @@ impl<R: HttpRunner<Response = Response>> CodeGist for Github<R> {
             None,
             ApiOperation::Project,
         )
+    }
+
+    fn num_pages(&self) -> Result<Option<u32>> {
+        let url = self.auth_user_gist_url(true);
+        query::num_pages(
+            &self.runner,
+            &url,
+            self.request_headers(),
+            ApiOperation::Project,
+        )
+    }
+
+    fn num_resources(&self) -> Result<Option<NumberDeltaErr>> {
+        let url = self.auth_user_gist_url(true);
+        query::num_resources(
+            &self.runner,
+            &url,
+            self.request_headers(),
+            ApiOperation::Project,
+        )
+    }
+}
+
+impl<R> Github<R> {
+    fn auth_user_gist_url(&self, first_page: bool) -> String {
+        let url = format!("{}/gists", self.rest_api_basepath);
+        let mut url_query_param = URLQueryParamBuilder::new(&url);
+        if first_page {
+            url_query_param.add_param("page", "1");
+        }
+        url_query_param.build()
     }
 }
 
@@ -75,5 +107,30 @@ mod tests {
         let gists = github.list(args).unwrap();
         assert_eq!("https://api.github.com/gists", *client.url());
         assert_eq!(1, gists.len());
+    }
+
+    #[test]
+    fn test_github_num_pages() {
+        let contracts = ResponseContracts::new(ContractType::Github).add_contract(
+            200,
+            "list_user_gist.json",
+            None,
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn CodeGist);
+        let num_pages = github.num_pages().unwrap();
+        assert_eq!("https://api.github.com/gists?page=1", *client.url());
+        assert_eq!(1, num_pages.unwrap());
+    }
+
+    #[test]
+    fn test_github_num_resources() {
+        let contracts = ResponseContracts::new(ContractType::Github).add_contract(
+            200,
+            "list_user_gist.json",
+            None,
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn CodeGist);
+        github.num_resources().unwrap();
+        assert_eq!("https://api.github.com/gists?page=1", *client.url());
     }
 }

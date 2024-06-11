@@ -78,6 +78,8 @@ pub trait UserInfo {
 
 pub trait CodeGist {
     fn list(&self, args: GistListBodyArgs) -> Result<Vec<Gist>>;
+    fn num_pages(&self) -> Result<Option<u32>>;
+    fn num_resources(&self) -> Result<Option<NumberDeltaErr>>;
 }
 
 pub trait Timestamp {

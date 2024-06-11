@@ -139,6 +139,9 @@ query_pages!(
     CommentMergeRequestListBodyArgs
 );
 
+query_pages!(num_user_gists, CodeGist);
+query_num_resources!(num_user_gist_resources, CodeGist);
+
 macro_rules! list_resource {
     ($func_name:ident, $trait_name:ident, $body_args:ident, $cli_args:ident, $embeds_list_args: literal) => {
         pub fn $func_name<W: Write>(

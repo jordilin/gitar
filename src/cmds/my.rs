@@ -53,6 +53,12 @@ pub fn execute(
                 config,
                 cli_args.list_args.get_args.refresh_cache,
             )?;
+            if cli_args.list_args.num_pages {
+                return common::num_user_gists(remote, std::io::stdout());
+            }
+            if cli_args.list_args.num_resources {
+                return common::num_user_gist_resources(remote, std::io::stdout());
+            }
             let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
             let body_args = gist::GistListBodyArgs::builder()
                 .body_args(from_to_args)
