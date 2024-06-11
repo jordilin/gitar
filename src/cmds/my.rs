@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    common, merge_request,
+    common, gist, merge_request,
     project::{ProjectListBodyArgs, ProjectListCliArgs},
 };
 
@@ -46,7 +46,19 @@ pub fn execute(
             }
             list_user_projects(remote, body_args, cli_args, std::io::stdout())
         }
-        MyOptions::Gist(_) => todo!(),
+        MyOptions::Gist(cli_args) => {
+            let remote = remote::get_gist(
+                domain,
+                path,
+                config,
+                cli_args.list_args.get_args.refresh_cache,
+            )?;
+            let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
+            let body_args = gist::GistListBodyArgs::builder()
+                .body_args(from_to_args)
+                .build()?;
+            gist::list_user_gists(remote, body_args, cli_args, std::io::stdout())
+        }
     }
 }
 
