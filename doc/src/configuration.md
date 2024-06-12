@@ -32,10 +32,10 @@ To get an API token for Github, go to your Github account settings -> Developer
 settings -> Personal access tokens -> Tokens (classic)
 At the time of writing, the URL is <https://github.com/settings/tokens>
 
-Create a new token with the scopes: `repo`, `user`, `project` By clicking on
-each scope check box it will automatically select all the sub-scopes under it.
-Then copy the token and place it in the configuration file. You'll see a line
-like:
+Create a new token with the scopes: `repo`, `user`, `project`, `gist`. By
+clicking on each scope check box it will automatically select all the sub-scopes
+under it. Then copy the token and place it in the configuration file. You'll see
+a line like:
 
 ```verbatim
 github.com.api_token=<your-token>

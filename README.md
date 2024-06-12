@@ -255,6 +255,7 @@ the auth token.
 | List assigned merge requests | &#x2714; | &#x2714; |
 | List your projects | &#x2714; | &#x2714; |
 | List your starred projects | &#x2714; | &#x2714; |
+| List your gists | &#x2716; | &#x2714; |
 
 
 ### Trending Repositories
