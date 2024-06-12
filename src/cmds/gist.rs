@@ -51,7 +51,12 @@ impl From<Gist> for DisplayBody {
             columns: vec![
                 Column::new("Files", gist.files),
                 Column::new("URL", gist.url),
-                Column::new("Description", gist.description),
+                Column::builder()
+                    .name("Description".to_string())
+                    .value(gist.description)
+                    .optional(true)
+                    .build()
+                    .unwrap(),
                 Column::new("Created at", gist.created_at),
             ],
         }
@@ -111,7 +116,7 @@ mod tests {
         let remote = Arc::new(GistMock);
         assert!(list_user_gists(remote, body_args, cli_args, &mut buff).is_ok());
         assert_eq!(
-            "Files|URL|Description|Created at\nmain.rs,hello_rust.rs|https://gist.github.com/aa5a315d61ae9438b18d|A gist|2021-08-01T00:00:00Z\n",
+            "Files|URL|Created at\nmain.rs,hello_rust.rs|https://gist.github.com/aa5a315d61ae9438b18d|2021-08-01T00:00:00Z\n",
             String::from_utf8(buff).unwrap()
         );
     }
