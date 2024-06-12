@@ -158,6 +158,8 @@ pub enum ApiOperation {
     Release,
     // Get request to a single URL page. Ex. The trending repositories in github.com
     SinglePage,
+    // Gists
+    Gist,
 }
 
 impl Display for ApiOperation {
@@ -169,6 +171,7 @@ impl Display for ApiOperation {
             ApiOperation::ContainerRegistry => write!(f, "container_registry"),
             ApiOperation::Release => write!(f, "release"),
             ApiOperation::SinglePage => write!(f, "single_page"),
+            ApiOperation::Gist => write!(f, "gist"),
         }
     }
 }

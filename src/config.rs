@@ -119,6 +119,13 @@ impl Config {
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(REST_API_MAX_PAGES),
         );
+        max_pages.insert(
+            ApiOperation::Gist,
+            domain_config_data
+                .get("max_pages_api_gist")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(REST_API_MAX_PAGES),
+        );
         max_pages
     }
 
@@ -165,6 +172,13 @@ impl Config {
             ApiOperation::SinglePage,
             domain_config_data
                 .get("cache_api_single_page_expiration")
+                .unwrap_or(&"".to_string())
+                .to_string(),
+        );
+        cache_expirations.insert(
+            ApiOperation::Gist,
+            domain_config_data
+                .get("cache_api_gist_expiration")
                 .unwrap_or(&"".to_string())
                 .to_string(),
         );
@@ -378,7 +392,8 @@ mod test {
         github.com.cache_api_project_expiration=3h
         github.com.cache_api_container_registry_expiration=4h
         github.com.cache_api_single_page_expiration=1d
-        github.com.cache_api_release_expiration=5h"#;
+        github.com.cache_api_release_expiration=5h
+        github.com.cache_api_gist_expiration=1d"#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(Config::new(reader, domain).unwrap());
@@ -394,6 +409,7 @@ mod test {
         );
         assert_eq!("5h", config.get_cache_expiration(&ApiOperation::Release));
         assert_eq!("1d", config.get_cache_expiration(&ApiOperation::SinglePage));
+        assert_eq!("1d", config.get_cache_expiration(&ApiOperation::Gist));
     }
 
     #[test]
@@ -535,5 +551,18 @@ mod test {
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!(15, config.get_max_pages(&ApiOperation::Release));
+    }
+
+    #[test]
+    fn test_get_max_pages_for_gists() {
+        let config_data = r#"
+        gitlab.com.api_token=1234
+        gitlab.com.cache_location=/home/user/.config/mr_cache
+        gitlab.com.max_pages_api_gist=15
+        "#;
+        let domain = "gitlab.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Arc::new(Config::new(reader, domain).unwrap());
+        assert_eq!(15, config.get_max_pages(&ApiOperation::Gist));
     }
 }

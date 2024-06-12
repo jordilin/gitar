@@ -29,6 +29,8 @@ const CONFIG_TEMPLATE: &str = r#"
 <DOMAIN>.cache_api_release_expiration=1d
 # Expire single page calls in 1 day. Ex. Trending repositories in github.com
 <DOMAIN>.cache_api_single_page_expiration=1d
+# Expire your user gists in 1 day
+<DOMAIN>.cache_api_gist_expiration=1d
 
 ## Max pages configuration
 
@@ -42,6 +44,8 @@ const CONFIG_TEMPLATE: &str = r#"
 <DOMAIN>.max_pages_api_container_registry=10
 # Get up to 10 pages of releases when listing
 <DOMAIN>.max_pages_api_release=10
+# Get up to 5 pages of your gists
+<DOMAIN>.max_pages_api_gist=5
 
 # Rate limit remaining threshold. Threshold by which the tool will stop
 # processing requests. Defaults to 10 if not provided. The remote has a counter
