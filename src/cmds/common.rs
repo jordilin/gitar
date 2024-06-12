@@ -8,10 +8,12 @@ use std::io::Write;
 use std::sync::Arc;
 
 use crate::api_traits::{
-    Cicd, CicdRunner, CommentMergeRequest, Deploy, DeployAsset, RemoteProject, TrendingProjectURL,
+    Cicd, CicdRunner, CodeGist, CommentMergeRequest, Deploy, DeployAsset, RemoteProject,
+    TrendingProjectURL,
 };
 
 use super::cicd::{RunnerListBodyArgs, RunnerListCliArgs};
+use super::gist::{GistListBodyArgs, GistListCliArgs};
 use super::merge_request::{CommentMergeRequestListBodyArgs, CommentMergeRequestListCliArgs};
 use super::project::{ProjectListBodyArgs, ProjectListCliArgs};
 use super::release::{ReleaseAssetListBodyArgs, ReleaseAssetListCliArgs, ReleaseBodyArgs};
@@ -137,6 +139,9 @@ query_pages!(
     CommentMergeRequestListBodyArgs
 );
 
+query_pages!(num_user_gists, CodeGist);
+query_num_resources!(num_user_gist_resources, CodeGist);
+
 macro_rules! list_resource {
     ($func_name:ident, $trait_name:ident, $body_args:ident, $cli_args:ident, $embeds_list_args: literal) => {
         pub fn $func_name<W: Write>(
@@ -210,6 +215,14 @@ list_resource!(
     RemoteProject,
     ProjectListBodyArgs,
     ProjectListCliArgs,
+    true
+);
+
+list_resource!(
+    list_user_gists,
+    CodeGist,
+    GistListBodyArgs,
+    GistListCliArgs,
     true
 );
 

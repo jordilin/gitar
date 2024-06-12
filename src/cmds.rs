@@ -4,6 +4,7 @@ pub mod cache;
 pub mod cicd;
 pub mod common;
 pub mod docker;
+pub mod gist;
 pub mod merge_request;
 pub mod my;
 pub mod project;

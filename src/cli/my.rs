@@ -1,6 +1,8 @@
 use clap::Parser;
 
-use crate::cmds::{merge_request::MergeRequestListCliArgs, project::ProjectListCliArgs};
+use crate::cmds::{
+    gist::GistListCliArgs, merge_request::MergeRequestListCliArgs, project::ProjectListCliArgs,
+};
 
 use super::{common::ListArgs, merge_request::ListMergeRequest, project::ListProject};
 
@@ -18,11 +20,14 @@ enum MySubcommand {
     Project(ListProject),
     #[clap(about = "Lists your starred projects", name = "st")]
     Star(ListStar),
+    #[clap(about = "Lists your gists", name = "gs")]
+    Gist(ListGist),
 }
 
 pub enum MyOptions {
     MergeRequest(MergeRequestListCliArgs),
     Project(ProjectListCliArgs),
+    Gist(GistListCliArgs),
 }
 
 impl From<MyCommand> for MyOptions {
@@ -31,6 +36,7 @@ impl From<MyCommand> for MyOptions {
             MySubcommand::MergeRequest(options) => options.into(),
             MySubcommand::Project(options) => options.into(),
             MySubcommand::Star(options) => options.into(),
+            MySubcommand::Gist(options) => options.into(),
         }
     }
 }
@@ -67,6 +73,23 @@ impl From<ListStar> for MyOptions {
             ProjectListCliArgs::builder()
                 .list_args(options.list_args.into())
                 .stars(true)
+                .build()
+                .unwrap(),
+        )
+    }
+}
+
+#[derive(Parser)]
+pub struct ListGist {
+    #[clap(flatten)]
+    pub list_args: ListArgs,
+}
+
+impl From<ListGist> for MyOptions {
+    fn from(options: ListGist) -> Self {
+        MyOptions::Gist(
+            GistListCliArgs::builder()
+                .list_args(options.list_args.into())
                 .build()
                 .unwrap(),
         )
@@ -131,6 +154,22 @@ mod tests {
         match options {
             MyOptions::Project(_) => {}
             _ => panic!("Expected MyOptions::Star"),
+        }
+    }
+
+    #[test]
+    fn test_my_gists_cli_args() {
+        let args = Args::parse_from(vec!["gr", "my", "gs"]);
+        let my_command = match args.command {
+            Command::My(MyCommand {
+                subcommand: MySubcommand::Gist(options),
+            }) => options,
+            _ => panic!("Expected MyCommand"),
+        };
+        let options: MyOptions = my_command.into();
+        match options {
+            MyOptions::Gist(_) => {}
+            _ => panic!("Expected MyOptions::Gist"),
         }
     }
 }

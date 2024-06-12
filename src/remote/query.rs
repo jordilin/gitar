@@ -9,12 +9,14 @@ use crate::{
     cmds::{
         cicd::{Pipeline, Runner, RunnerMetadata},
         docker::{ImageMetadata, RegistryRepository, RepositoryTag},
+        gist::Gist,
         merge_request::Comment,
         release::{Release, ReleaseAssetMetadata},
     },
     display, error,
     github::{
         cicd::GithubPipelineFields,
+        gist::GithubGistFields,
         merge_request::{GithubMergeRequestCommentFields, GithubMergeRequestFields},
         project::{GithubMemberFields, GithubProjectFields},
         release::{GithubReleaseAssetFields, GithubReleaseFields},
@@ -356,6 +358,8 @@ paged!(
     GithubMergeRequestCommentFields,
     Comment
 );
+
+paged!(github_list_user_gists, GithubGistFields, Gist);
 
 // Single HTTP requests
 

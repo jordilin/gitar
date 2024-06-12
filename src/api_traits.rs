@@ -5,6 +5,7 @@ use crate::{
     cmds::{
         cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata},
         docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
+        gist::{Gist, GistListBodyArgs},
         merge_request::{Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs},
         project::ProjectListBodyArgs,
         release::{Release, ReleaseAssetListBodyArgs, ReleaseAssetMetadata, ReleaseBodyArgs},
@@ -73,6 +74,12 @@ pub trait DeployAsset {
 pub trait UserInfo {
     /// Get the user's information from the remote API.
     fn get(&self) -> Result<Member>;
+}
+
+pub trait CodeGist {
+    fn list(&self, args: GistListBodyArgs) -> Result<Vec<Gist>>;
+    fn num_pages(&self) -> Result<Option<u32>>;
+    fn num_resources(&self) -> Result<Option<NumberDeltaErr>>;
 }
 
 pub trait Timestamp {
@@ -151,6 +158,8 @@ pub enum ApiOperation {
     Release,
     // Get request to a single URL page. Ex. The trending repositories in github.com
     SinglePage,
+    // Gists
+    Gist,
 }
 
 impl Display for ApiOperation {
@@ -162,6 +171,7 @@ impl Display for ApiOperation {
             ApiOperation::ContainerRegistry => write!(f, "container_registry"),
             ApiOperation::Release => write!(f, "release"),
             ApiOperation::SinglePage => write!(f, "single_page"),
+            ApiOperation::Gist => write!(f, "gist"),
         }
     }
 }
