@@ -62,7 +62,7 @@ pub struct GithubGistFields {
 impl From<&serde_json::Value> for GithubGistFields {
     fn from(value: &serde_json::Value) -> Self {
         let gist = Gist::builder()
-            .url(value["url"].as_str().unwrap().to_string())
+            .url(value["html_url"].as_str().unwrap().to_string())
             .description(value["description"].as_str().unwrap().to_string())
             .files(
                 value["files"]
