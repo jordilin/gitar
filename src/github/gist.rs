@@ -19,7 +19,7 @@ impl<R: HttpRunner<Response = Response>> CodeGist for Github<R> {
             args.body_args,
             self.request_headers(),
             None,
-            ApiOperation::Project,
+            ApiOperation::Gist,
         )
     }
 
@@ -29,7 +29,7 @@ impl<R: HttpRunner<Response = Response>> CodeGist for Github<R> {
             &self.runner,
             &url,
             self.request_headers(),
-            ApiOperation::Project,
+            ApiOperation::Gist,
         )
     }
 
@@ -39,7 +39,7 @@ impl<R: HttpRunner<Response = Response>> CodeGist for Github<R> {
             &self.runner,
             &url,
             self.request_headers(),
-            ApiOperation::Project,
+            ApiOperation::Gist,
         )
     }
 }
@@ -107,6 +107,7 @@ mod tests {
         let gists = github.list(args).unwrap();
         assert_eq!("https://api.github.com/gists", *client.url());
         assert_eq!(1, gists.len());
+        assert_eq!(Some(ApiOperation::Gist), *client.api_operation.borrow());
     }
 
     #[test]
@@ -120,6 +121,7 @@ mod tests {
         let num_pages = github.num_pages().unwrap();
         assert_eq!("https://api.github.com/gists?page=1", *client.url());
         assert_eq!(1, num_pages.unwrap());
+        assert_eq!(Some(ApiOperation::Gist), *client.api_operation.borrow());
     }
 
     #[test]
@@ -132,5 +134,6 @@ mod tests {
         let (client, github) = setup_client!(contracts, default_github(), dyn CodeGist);
         github.num_resources().unwrap();
         assert_eq!("https://api.github.com/gists?page=1", *client.url());
+        assert_eq!(Some(ApiOperation::Gist), *client.api_operation.borrow());
     }
 }
