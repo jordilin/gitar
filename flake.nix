@@ -39,6 +39,7 @@
         };
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
         gr = craneLib.buildPackage (commonArgs // {
+          pname = "gr";
           inherit cargoArtifacts;
         });
 
