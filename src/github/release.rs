@@ -42,7 +42,7 @@ impl<R> Github<R> {
         (url, headers)
     }
 
-    fn resource_release_assets_metadatda_url(&self, args: ReleaseAssetListBodyArgs) -> String {
+    fn resource_release_assets_metadata_url(&self, args: ReleaseAssetListBodyArgs) -> String {
         let url = format!(
             "{}/repos/{}/releases/{}/assets?page=1",
             self.rest_api_basepath, self.path, args.id
@@ -68,7 +68,7 @@ impl<R: HttpRunner<Response = Response>> DeployAsset for Github<R> {
     }
 
     fn num_pages(&self, args: ReleaseAssetListBodyArgs) -> Result<Option<u32>> {
-        let url = self.resource_release_assets_metadatda_url(args);
+        let url = self.resource_release_assets_metadata_url(args);
         query::num_pages(
             &self.runner,
             &url,
@@ -78,7 +78,7 @@ impl<R: HttpRunner<Response = Response>> DeployAsset for Github<R> {
     }
 
     fn num_resources(&self, args: ReleaseAssetListBodyArgs) -> Result<Option<NumberDeltaErr>> {
-        let url = self.resource_release_assets_metadatda_url(args);
+        let url = self.resource_release_assets_metadata_url(args);
         query::num_resources(
             &self.runner,
             &url,
