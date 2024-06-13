@@ -237,6 +237,7 @@ In Gitlab they are known as pipelines and in Github as actions.
 | Open git repo in browser | &#x2714; | &#x2714; |
 | Open merge request in browser | &#x2714; | &#x2714; |
 | Open pipeline in browser | &#x2714; | &#x2714; |
+| Open releases in browser | &#x2714; | &#x2714; |
 
 ### Releases
 
