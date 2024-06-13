@@ -1,6 +1,6 @@
 [package]
 name = "git-ar"
-version = "0.1.68"
+version = "0.1.69"
 edition = "2021"
 
 license = "MIT"
