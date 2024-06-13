@@ -14,6 +14,8 @@ enum BrowseSubcommand {
     MergeRequest(MergeRequestBrowse),
     #[clap(name = "pp", about = "Open the ci/cd pipelines using your browser")]
     Pipelines,
+    #[clap(name = "rl", about = "Open the releases page using your browser")]
+    Release,
 }
 
 impl From<MergeRequestBrowse> for BrowseOptions {
@@ -31,6 +33,7 @@ impl From<BrowseCommand> for BrowseOptions {
             Some(BrowseSubcommand::Repo) => BrowseOptions::Repo,
             Some(BrowseSubcommand::MergeRequest(options)) => options.into(),
             Some(BrowseSubcommand::Pipelines) => BrowseOptions::Pipelines,
+            Some(BrowseSubcommand::Release) => BrowseOptions::Releases,
             // defaults to open repo in browser
             None => BrowseOptions::Repo,
         }
@@ -44,6 +47,7 @@ pub enum BrowseOptions {
     MergeRequests,
     MergeRequestId(i64),
     Pipelines,
+    Releases,
     Manual,
 }
 

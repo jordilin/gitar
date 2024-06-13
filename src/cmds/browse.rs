@@ -32,6 +32,10 @@ pub fn execute(
             let remote = remote::get_project(domain, path, config, false)?;
             Ok(open::that(remote.get_url(BrowseOptions::Pipelines))?)
         }
+        BrowseOptions::Releases => {
+            let remote = remote::get_project(domain, path, config, false)?;
+            Ok(open::that(remote.get_url(BrowseOptions::Releases))?)
+        }
         BrowseOptions::Manual => Ok(open::that(crate::USER_GUIDE_URL)?),
     }
 }
