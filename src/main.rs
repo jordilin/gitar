@@ -45,8 +45,8 @@ fn handle_cli_options(
     match cli_options {
         CliOptions::MergeRequest(options) => {
             let requirements = vec![
-                CliDomainRequirements::CdInLocalRepo,
                 CliDomainRequirements::RepoArgs,
+                CliDomainRequirements::CdInLocalRepo,
             ];
             let (domain, path) =
                 remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
@@ -57,8 +57,8 @@ fn handle_cli_options(
             // Use default config for browsing - does not require auth.
             let config = Arc::new(gr::config::Config::default());
             let requirements = vec![
-                CliDomainRequirements::CdInLocalRepo,
                 CliDomainRequirements::RepoArgs,
+                CliDomainRequirements::CdInLocalRepo,
             ];
             let (domain, path) =
                 remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
@@ -66,8 +66,8 @@ fn handle_cli_options(
         }
         CliOptions::Pipeline(options) => {
             let requirements = vec![
-                CliDomainRequirements::CdInLocalRepo,
                 CliDomainRequirements::RepoArgs,
+                CliDomainRequirements::CdInLocalRepo,
             ];
             let (domain, path) =
                 remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
@@ -76,8 +76,8 @@ fn handle_cli_options(
         }
         CliOptions::Project(options) => {
             let requirements = vec![
-                CliDomainRequirements::CdInLocalRepo,
                 CliDomainRequirements::RepoArgs,
+                CliDomainRequirements::CdInLocalRepo,
             ];
             let (domain, path) =
                 remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
@@ -86,8 +86,8 @@ fn handle_cli_options(
         }
         CliOptions::Docker(options) => {
             let requirements = vec![
-                CliDomainRequirements::CdInLocalRepo,
                 CliDomainRequirements::RepoArgs,
+                CliDomainRequirements::CdInLocalRepo,
             ];
             let (domain, path) =
                 remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
@@ -96,8 +96,8 @@ fn handle_cli_options(
         }
         CliOptions::Release(options) => {
             let requirements = vec![
-                CliDomainRequirements::CdInLocalRepo,
                 CliDomainRequirements::RepoArgs,
+                CliDomainRequirements::CdInLocalRepo,
             ];
             let (domain, path) =
                 remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
@@ -106,8 +106,8 @@ fn handle_cli_options(
         }
         CliOptions::My(options) => {
             let requirements = vec![
-                CliDomainRequirements::CdInLocalRepo,
                 CliDomainRequirements::DomainArgs,
+                CliDomainRequirements::CdInLocalRepo,
             ];
             let (domain, path) =
                 remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
@@ -126,9 +126,9 @@ fn handle_cli_options(
         CliOptions::Init(options) => init::execute(options, config_file),
         CliOptions::Cache(options) => {
             let requirements = vec![
-                CliDomainRequirements::CdInLocalRepo,
                 CliDomainRequirements::DomainArgs,
                 CliDomainRequirements::RepoArgs,
+                CliDomainRequirements::CdInLocalRepo,
             ];
             let (domain, _) = remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
             let config = remote::read_config(&config_file, &domain)?;
