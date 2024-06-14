@@ -15,6 +15,7 @@ pub mod utils {
     use serde::Serialize;
     use std::{
         cell::{Ref, RefCell},
+        ffi::OsStr,
         fmt::Write,
         fs::File,
         io::Read,
@@ -106,8 +107,7 @@ pub mod utils {
 
         fn run<T>(&self, cmd: T) -> Result<Self::Response>
         where
-            T: IntoIterator,
-            T::Item: AsRef<std::ffi::OsStr>,
+            T: IntoIterator<Item: AsRef<OsStr>>,
         {
             self.cmd.replace(
                 cmd.into_iter()

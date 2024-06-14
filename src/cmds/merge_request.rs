@@ -640,6 +640,7 @@ fn list_comments<W: Write>(
 #[cfg(test)]
 mod tests {
     use std::{
+        ffi::OsStr,
         io::{Cursor, Read},
         sync::Mutex,
     };
@@ -1044,8 +1045,7 @@ mod tests {
 
         fn run<T>(&self, _cmd: T) -> Result<Self::Response>
         where
-            T: IntoIterator,
-            T::Item: AsRef<std::ffi::OsStr>,
+            T: IntoIterator<Item: AsRef<OsStr>>,
         {
             let response = self.responses.lock().unwrap().pop().unwrap();
             Ok(Response::builder().body(response.body).build().unwrap())

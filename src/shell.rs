@@ -17,8 +17,7 @@ impl TaskRunner for BlockingCommand {
 
     fn run<T>(&self, cmd: T) -> Result<Self::Response>
     where
-        T: IntoIterator,
-        T::Item: AsRef<OsStr>,
+        T: IntoIterator<Item: AsRef<OsStr>>,
     {
         run_args(cmd)
     }
@@ -26,8 +25,7 @@ impl TaskRunner for BlockingCommand {
 
 fn run_args<T>(args: T) -> Result<Response>
 where
-    T: IntoIterator,
-    T::Item: AsRef<OsStr>,
+    T: IntoIterator<Item: AsRef<OsStr>>,
 {
     let args: Vec<_> = args.into_iter().collect();
     let mut process = process::Command::new(&args[0]);
@@ -63,8 +61,7 @@ impl TaskRunner for StreamingCommand {
 
     fn run<T>(&self, cmd: T) -> Result<Self::Response>
     where
-        T: IntoIterator,
-        T::Item: AsRef<std::ffi::OsStr>,
+        T: IntoIterator<Item: AsRef<OsStr>>,
     {
         let args: Vec<_> = cmd.into_iter().collect();
         let cmd_path = &args[0];
