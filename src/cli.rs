@@ -1,3 +1,4 @@
+pub mod amps;
 pub mod browse;
 pub mod cache;
 pub mod cicd;
@@ -23,6 +24,8 @@ use self::project::{ProjectCommand, ProjectOptions};
 use self::release::{ReleaseCommand, ReleaseOptions};
 use self::trending::TrendingCommand;
 use self::trending::TrendingOptions;
+use amps::AmpsCommand;
+use amps::AmpsOptions;
 use cache::CacheCommand;
 use cache::CacheOptions;
 use merge_request::{MergeRequestCommand, MergeRequestOptions};
@@ -89,7 +92,7 @@ enum Command {
     Trending(TrendingCommand),
     /// Interactively execute gitar amplifier commands using gitar. gr-in-gr
     #[clap(name = "amps")]
-    Amps,
+    Amps(AmpsCommand),
     #[clap(name = "init", about = "Initialize the config file")]
     Init(InitCommand),
     #[clap(name = "cache", about = "Local cache operations")]
@@ -117,7 +120,7 @@ pub fn parse_cli() -> OptionArgs {
         Command::Trending(sub_matches) => Some(CliOptions::Trending(sub_matches.into())),
         Command::Cache(sub_matches) => Some(CliOptions::Cache(sub_matches.into())),
         Command::Manual => Some(CliOptions::Manual),
-        Command::Amps => Some(CliOptions::Amps),
+        Command::Amps(sub_matches) => Some(CliOptions::Amps(sub_matches.into())),
     };
     OptionArgs::new(
         options,
@@ -137,7 +140,7 @@ pub enum CliOptions {
     Trending(TrendingOptions),
     Cache(CacheOptions),
     Manual,
-    Amps,
+    Amps(AmpsOptions),
 }
 
 #[derive(Clone)]

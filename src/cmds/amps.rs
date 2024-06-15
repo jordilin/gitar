@@ -1,22 +1,46 @@
 use std::path::Path;
 
 use crate::{
+    cli::amps::AmpsOptions::{self, Exec},
     dialog,
     error::GRError,
     io::{Response, TaskRunner},
     shell, Result,
 };
 
-pub fn execute(config_file: std::path::PathBuf) -> Result<()> {
-    let base_path = config_file.parent().unwrap();
-    let amps_scripts = base_path.join("amps");
-    let runner = shell::BlockingCommand;
-    let amps = list_amps(runner, amps_scripts.to_str().unwrap())?;
-    let amp_script = dialog::fuzzy_select(amps)?;
-    let stream_runner = shell::StreamingCommand;
-    let amp_runner = Amp::new(dialog::prompt_args, &stream_runner);
-    amp_runner.exec_amps(amp_script, base_path)?;
-    Ok(())
+pub fn execute(options: AmpsOptions, config_file: std::path::PathBuf) -> Result<()> {
+    match options {
+        Exec(amp_name_args) => {
+            let base_path = config_file.parent().unwrap();
+            let amps_scripts = base_path.join("amps");
+            if amp_name_args.is_empty() {
+                let runner = shell::BlockingCommand;
+                let amps = list_amps(runner, amps_scripts.to_str().unwrap())?;
+                let amp_script = dialog::fuzzy_select(amps)?;
+                let stream_runner = shell::StreamingCommand;
+                let amp_runner = Amp::new(dialog::prompt_args, &stream_runner);
+                amp_runner.exec_amps(amp_script, base_path)?;
+                return Ok(());
+            }
+            let stream_runner = shell::StreamingCommand;
+            let amp_name_args: Vec<&str> = amp_name_args.split(' ').collect();
+            let amp_name = amp_name_args[0];
+            let amp_path = amps_scripts.join(amp_name);
+            let args = amp_name_args[1..].join(" ");
+            stream_runner.run(vec![&amp_path.to_str().unwrap(), &args.as_str()])?;
+            Ok(())
+        }
+        _ => {
+            let base_path = config_file.parent().unwrap();
+            let amps_scripts = base_path.join("amps");
+            let runner = shell::BlockingCommand;
+            let amps = list_amps(runner, amps_scripts.to_str().unwrap())?;
+            for amp in amps {
+                println!("{}", amp);
+            }
+            Ok(())
+        }
+    }
 }
 
 fn list_amps(runner: impl TaskRunner<Response = Response>, amps_path: &str) -> Result<Vec<String>> {
