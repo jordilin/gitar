@@ -5,6 +5,7 @@
 ## Commands available
 
 - [Merge request](./merge_request.md)
+- [Amps](./amps.md)
 
 All gitar commands have a set of common options that can be used to control
 their behavior.
