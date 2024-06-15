@@ -54,5 +54,8 @@ audit:
     mkdir -p .cargo-audit-db/db
     cargo audit -D warnings -d .cargo-audit-db/db
 
+mdbook-serve:
+    mdbook serve doc --open
+
 doc:
     cargo doc --no-deps --open

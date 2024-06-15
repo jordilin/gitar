@@ -53,7 +53,8 @@ You can download the latest release from the releases page
 <https://github.com/jordilin/gitar/releases> and place the binary anywhere in
 your path.
 
-Or you can build from source.
+Or you can build from source. Building from source requires the latest stable
+release of Rust.
 
 ```bash
 cargo build --release
