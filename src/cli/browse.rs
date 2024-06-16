@@ -13,7 +13,7 @@ enum BrowseSubcommand {
     #[clap(name = "mr", about = "Open the merge requests using your browser")]
     MergeRequest(MergeRequestBrowse),
     #[clap(name = "pp", about = "Open the ci/cd pipelines using your browser")]
-    Pipelines,
+    Pipelines(PipelineBrowse),
     #[clap(name = "rl", about = "Open the releases page using your browser")]
     Release,
 }
@@ -27,12 +27,21 @@ impl From<MergeRequestBrowse> for BrowseOptions {
     }
 }
 
+impl From<PipelineBrowse> for BrowseOptions {
+    fn from(options: PipelineBrowse) -> Self {
+        match options.id {
+            Some(id) => BrowseOptions::PipelineId(id),
+            None => BrowseOptions::Pipelines,
+        }
+    }
+}
+
 impl From<BrowseCommand> for BrowseOptions {
     fn from(options: BrowseCommand) -> Self {
         match options.subcommand {
             Some(BrowseSubcommand::Repo) => BrowseOptions::Repo,
             Some(BrowseSubcommand::MergeRequest(options)) => options.into(),
-            Some(BrowseSubcommand::Pipelines) => BrowseOptions::Pipelines,
+            Some(BrowseSubcommand::Pipelines(options)) => options.into(),
             Some(BrowseSubcommand::Release) => BrowseOptions::Releases,
             // defaults to open repo in browser
             None => BrowseOptions::Repo,
@@ -47,6 +56,7 @@ pub enum BrowseOptions {
     MergeRequests,
     MergeRequestId(i64),
     Pipelines,
+    PipelineId(i64),
     Releases,
     Manual,
 }
@@ -54,6 +64,13 @@ pub enum BrowseOptions {
 #[derive(Parser)]
 struct MergeRequestBrowse {
     /// Open merge/pull request id in the browser
+    #[clap()]
+    pub id: Option<i64>,
+}
+
+#[derive(Parser)]
+struct PipelineBrowse {
+    /// Open pipeline id in the browser
     #[clap()]
     pub id: Option<i64>,
 }
@@ -110,11 +127,32 @@ mod test {
     #[test]
     fn test_browse_command_pipelines() {
         let args = Args::parse_from(vec!["gr", "br", "pp"]);
-        match args.command {
+        let pp_browse = match args.command {
             Command::Browse(BrowseCommand {
-                subcommand: Some(BrowseSubcommand::Pipelines),
-            }) => {}
+                subcommand: Some(BrowseSubcommand::Pipelines(options)),
+            }) => {
+                assert_eq!(options.id, None);
+                options
+            }
             _ => panic!("Expected Pipelines BrowseCommand"),
-        }
+        };
+        let options: BrowseOptions = pp_browse.into();
+        assert_eq!(options, BrowseOptions::Pipelines);
+    }
+
+    #[test]
+    fn test_browse_command_pp_id() {
+        let args = Args::parse_from(vec!["gr", "br", "pp", "1"]);
+        let mr_browse = match args.command {
+            Command::Browse(BrowseCommand {
+                subcommand: Some(BrowseSubcommand::Pipelines(options)),
+            }) => {
+                assert_eq!(options.id, Some(1));
+                options
+            }
+            _ => panic!("Expected Pipeline BrowseCommand"),
+        };
+        let options: BrowseOptions = mr_browse.into();
+        assert_eq!(options, BrowseOptions::PipelineId(1));
     }
 }

@@ -14,6 +14,7 @@ use super::common::{
 
 #[derive(Builder, Clone, Debug)]
 pub struct Pipeline {
+    id: i64,
     pub status: String,
     web_url: String,
     branch: String,
@@ -39,6 +40,7 @@ impl From<Pipeline> for DisplayBody {
     fn from(p: Pipeline) -> DisplayBody {
         DisplayBody {
             columns: vec![
+                Column::new("ID", p.id.to_string()),
                 Column::new("URL", p.web_url),
                 Column::new("Branch", p.branch),
                 Column::new("SHA", p.sha),
@@ -342,6 +344,7 @@ mod test {
         let pp_remote = PipelineListMock::builder()
             .pipelines(vec![
                 Pipeline::builder()
+                    .id(123)
                     .status("success".to_string())
                     .web_url("https://gitlab.com/owner/repo/-/pipelines/123".to_string())
                     .branch("master".to_string())
@@ -352,6 +355,7 @@ mod test {
                     .build()
                     .unwrap(),
                 Pipeline::builder()
+                    .id(456)
                     .status("failed".to_string())
                     .web_url("https://gitlab.com/owner/repo/-/pipelines/456".to_string())
                     .branch("master".to_string())
@@ -373,9 +377,9 @@ mod test {
         list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
             String::from_utf8(buf).unwrap(),
-            "URL|Branch|SHA|Created at|Updated at|Duration|Status\n\
-             https://gitlab.com/owner/repo/-/pipelines/123|master|1234567890abcdef|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|60|success\n\
-             https://gitlab.com/owner/repo/-/pipelines/456|master|1234567890abcdef|2020-01-01T00:00:00Z|2020-01-01T00:01:01Z|61|failed\n")
+            "ID|URL|Branch|SHA|Created at|Updated at|Duration|Status\n\
+             123|https://gitlab.com/owner/repo/-/pipelines/123|master|1234567890abcdef|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|60|success\n\
+             456|https://gitlab.com/owner/repo/-/pipelines/456|master|1234567890abcdef|2020-01-01T00:00:00Z|2020-01-01T00:01:01Z|61|failed\n")
     }
 
     #[test]
@@ -451,6 +455,7 @@ mod test {
         let pp_remote = PipelineListMock::builder()
             .pipelines(vec![
                 Pipeline::builder()
+                    .id(123)
                     .status("success".to_string())
                     .web_url("https://gitlab.com/owner/repo/-/pipelines/123".to_string())
                     .branch("master".to_string())
@@ -461,6 +466,7 @@ mod test {
                     .build()
                     .unwrap(),
                 Pipeline::builder()
+                    .id(456)
                     .status("failed".to_string())
                     .web_url("https://gitlab.com/owner/repo/-/pipelines/456".to_string())
                     .branch("master".to_string())
@@ -489,8 +495,8 @@ mod test {
             .unwrap();
         list_pipelines(Arc::new(pp_remote), body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
-            "https://gitlab.com/owner/repo/-/pipelines/123|master|1234567890abcdef|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|60|success\n\
-             https://gitlab.com/owner/repo/-/pipelines/456|master|1234567890abcdef|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|60|failed\n",
+            "123|https://gitlab.com/owner/repo/-/pipelines/123|master|1234567890abcdef|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|60|success\n\
+             456|https://gitlab.com/owner/repo/-/pipelines/456|master|1234567890abcdef|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|60|failed\n",
             String::from_utf8(buf).unwrap(),
         )
     }

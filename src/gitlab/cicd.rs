@@ -218,6 +218,7 @@ impl From<&serde_json::Value> for GitlabPipelineFields {
     fn from(data: &serde_json::Value) -> Self {
         GitlabPipelineFields {
             pipeline: Pipeline::builder()
+                .id(data["id"].as_i64().unwrap_or_default())
                 .status(data["status"].as_str().unwrap().to_string())
                 .web_url(data["web_url"].as_str().unwrap().to_string())
                 .branch(data["ref"].as_str().unwrap().to_string())

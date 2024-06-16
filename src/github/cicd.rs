@@ -78,6 +78,7 @@ impl From<&serde_json::Value> for GithubPipelineFields {
     fn from(pipeline_data: &serde_json::Value) -> Self {
         GithubPipelineFields {
             pipeline: Pipeline::builder()
+                .id(pipeline_data["id"].as_i64().unwrap_or_default())
                 // Github has `conclusion` as the final
                 // state of the pipeline. It also has a
                 // `status` field to represent the current
