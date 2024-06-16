@@ -33,7 +33,8 @@ pub fn execute(
             Ok(open::that(remote.get_url(BrowseOptions::Pipelines))?)
         }
         BrowseOptions::PipelineId(id) => {
-            todo!();
+            let remote = remote::get_project(domain, path, config, false)?;
+            Ok(open::that(remote.get_url(BrowseOptions::PipelineId(id)))?)
         }
         BrowseOptions::Releases => {
             let remote = remote::get_project(domain, path, config, false)?;

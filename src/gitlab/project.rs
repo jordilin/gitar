@@ -58,7 +58,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
             BrowseOptions::MergeRequests => format!("{}/merge_requests", base_url),
             BrowseOptions::MergeRequestId(id) => format!("{}/-/merge_requests/{}", base_url, id),
             BrowseOptions::Pipelines => format!("{}/pipelines", base_url),
-            BrowseOptions::PipelineId(id) => todo!(),
+            BrowseOptions::PipelineId(id) => format!("{}/-/pipelines/{}", base_url, id),
             BrowseOptions::Releases => format!("{}/-/releases", base_url),
             // Manual is only one URL and it's the user guide. Handled in the
             // browser command.
@@ -392,6 +392,17 @@ mod test {
         assert_eq!(
             ApiOperation::Project,
             *client.api_operation.borrow().as_ref().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_get_url_pipeline_id() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab);
+        let (_, github) = setup_client!(contracts, default_gitlab(), dyn RemoteProject);
+        let url = github.get_url(BrowseOptions::PipelineId(9527070386));
+        assert_eq!(
+            "https://gitlab.com/jordilin/gitlapi/-/pipelines/9527070386",
+            url
         );
     }
 }

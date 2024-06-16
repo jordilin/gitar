@@ -66,7 +66,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             BrowseOptions::MergeRequests => format!("{}/pulls", base_url),
             BrowseOptions::MergeRequestId(id) => format!("{}/pull/{}", base_url, id),
             BrowseOptions::Pipelines => format!("{}/actions", base_url),
-            BrowseOptions::PipelineId(id) => todo!(),
+            BrowseOptions::PipelineId(id) => format!("{}/actions/runs/{}", base_url, id),
             BrowseOptions::Releases => format!("{}/releases", base_url),
             // Manual is only one URL and it's the user guide. Handled in the
             // browser command.
@@ -349,5 +349,16 @@ mod test {
         github.num_pages(body_args).unwrap();
         assert_eq!("https://api.github.com/user/starred?page=1", *client.url());
         assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_get_url_pipeline_id() {
+        let contracts = ResponseContracts::new(ContractType::Github);
+        let (_, github) = setup_client!(contracts, default_github(), dyn RemoteProject);
+        let url = github.get_url(BrowseOptions::PipelineId(9527070386));
+        assert_eq!(
+            "https://github.com/jordilin/githapi/actions/runs/9527070386",
+            url
+        );
     }
 }
