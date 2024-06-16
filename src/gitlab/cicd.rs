@@ -1,7 +1,8 @@
 use super::Gitlab;
 use crate::api_traits::{ApiOperation, CicdRunner};
 use crate::cmds::cicd::{
-    Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata, RunnerStatus,
+    LintResponse, Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata,
+    RunnerStatus,
 };
 use crate::http::{self, Headers};
 use crate::remote::{query, URLQueryParamBuilder};
@@ -36,6 +37,10 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
     fn num_resources(&self) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
         let (url, headers) = self.resource_cicd_metadata_url();
         query::num_resources(&self.runner, &url, headers, ApiOperation::Pipeline)
+    }
+
+    fn lint(&self, body: &[u8]) -> Result<LintResponse> {
+        todo!()
     }
 }
 

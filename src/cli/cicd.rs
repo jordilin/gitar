@@ -1,7 +1,7 @@
 use clap::{Parser, ValueEnum};
 
 use crate::{
-    cmds::cicd::{RunnerListCliArgs, RunnerMetadataGetCliArgs, RunnerStatus},
+    cmds::cicd::{LintFilePathArgs, RunnerListCliArgs, RunnerMetadataGetCliArgs, RunnerStatus},
     remote::ListRemoteCliArgs,
 };
 
@@ -15,12 +15,19 @@ pub struct PipelineCommand {
 
 #[derive(Parser)]
 enum PipelineSubcommand {
-    #[clap(about = "Lint .gitlab-ci.yml file")]
-    Lint,
+    #[clap(about = "Lint ci yml files. Default is .gitlab-ci.yml")]
+    Lint(FilePathArgs),
     #[clap(about = "List pipelines")]
     List(ListArgs),
     #[clap(subcommand, name = "rn", about = "Runner operations")]
     Runners(RunnerSubCommand),
+}
+
+#[derive(Parser)]
+struct FilePathArgs {
+    /// Path to the ci yml file.
+    #[clap(default_value = ".gitlab-ci.yml")]
+    path: String,
 }
 
 #[derive(Parser)]
@@ -67,10 +74,25 @@ struct RunnerMetadata {
 impl From<PipelineCommand> for PipelineOptions {
     fn from(options: PipelineCommand) -> Self {
         match options.subcommand {
-            PipelineSubcommand::Lint => PipelineOptions::Lint,
+            PipelineSubcommand::Lint(options) => options.into(),
             PipelineSubcommand::List(options) => options.into(),
             PipelineSubcommand::Runners(options) => options.into(),
         }
+    }
+}
+
+impl From<FilePathArgs> for PipelineOptions {
+    fn from(options: FilePathArgs) -> Self {
+        PipelineOptions::Lint(options.into())
+    }
+}
+
+impl From<FilePathArgs> for LintFilePathArgs {
+    fn from(options: FilePathArgs) -> Self {
+        LintFilePathArgs::builder()
+            .path(options.path)
+            .build()
+            .unwrap()
     }
 }
 
@@ -128,7 +150,7 @@ impl From<RunnerMetadata> for RunnerOptions {
 }
 
 pub enum PipelineOptions {
-    Lint,
+    Lint(LintFilePathArgs),
     List(ListRemoteCliArgs),
     Runners(RunnerOptions),
 }

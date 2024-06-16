@@ -1,6 +1,8 @@
 use super::Github;
 use crate::api_traits::{ApiOperation, CicdRunner, NumberDeltaErr};
-use crate::cmds::cicd::{Pipeline, PipelineBodyArgs, RunnerListBodyArgs, RunnerMetadata};
+use crate::cmds::cicd::{
+    LintResponse, Pipeline, PipelineBodyArgs, RunnerListBodyArgs, RunnerMetadata,
+};
 use crate::remote::query;
 use crate::{
     api_traits::Cicd,
@@ -38,6 +40,10 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
     fn num_resources(&self) -> Result<Option<NumberDeltaErr>> {
         let (url, headers) = self.resource_cicd_metadata_url();
         query::num_resources(&self.runner, &url, headers, ApiOperation::Pipeline)
+    }
+
+    fn lint(&self, body: &[u8]) -> Result<LintResponse> {
+        todo!()
     }
 }
 
