@@ -58,6 +58,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
             BrowseOptions::MergeRequests => format!("{}/merge_requests", base_url),
             BrowseOptions::MergeRequestId(id) => format!("{}/-/merge_requests/{}", base_url, id),
             BrowseOptions::Pipelines => format!("{}/pipelines", base_url),
+            BrowseOptions::PipelineId(id) => todo!(),
             BrowseOptions::Releases => format!("{}/-/releases", base_url),
             // Manual is only one URL and it's the user guide. Handled in the
             // browser command.
