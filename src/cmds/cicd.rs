@@ -218,6 +218,7 @@ pub fn execute(
     path: String,
 ) -> Result<()> {
     match options {
+        PipelineOptions::Lint => todo!(),
         PipelineOptions::List(cli_args) => {
             let remote = remote::get_cicd(domain, path, config, cli_args.get_args.refresh_cache)?;
             if cli_args.num_pages {

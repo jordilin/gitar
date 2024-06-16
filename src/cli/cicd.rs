@@ -15,6 +15,8 @@ pub struct PipelineCommand {
 
 #[derive(Parser)]
 enum PipelineSubcommand {
+    #[clap(about = "Lint .gitlab-ci.yml file")]
+    Lint,
     #[clap(about = "List pipelines")]
     List(ListArgs),
     #[clap(subcommand, name = "rn", about = "Runner operations")]
@@ -65,6 +67,7 @@ struct RunnerMetadata {
 impl From<PipelineCommand> for PipelineOptions {
     fn from(options: PipelineCommand) -> Self {
         match options.subcommand {
+            PipelineSubcommand::Lint => PipelineOptions::Lint,
             PipelineSubcommand::List(options) => options.into(),
             PipelineSubcommand::Runners(options) => options.into(),
         }
@@ -125,6 +128,7 @@ impl From<RunnerMetadata> for RunnerOptions {
 }
 
 pub enum PipelineOptions {
+    Lint,
     List(ListRemoteCliArgs),
     Runners(RunnerOptions),
 }
