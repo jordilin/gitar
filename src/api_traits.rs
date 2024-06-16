@@ -5,6 +5,7 @@ use crate::{
     cmds::{
         cicd::{
             LintResponse, Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata,
+            YamlBytes,
         },
         docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
         gist::{Gist, GistListBodyArgs},
@@ -54,7 +55,7 @@ pub trait Cicd {
     fn num_resources(&self) -> Result<Option<NumberDeltaErr>>;
     /// Lints ci/cd pipeline file contents. In gitlab this is the .gitlab-ci.yml
     /// file. Checks that the file is valid and has no syntax errors.
-    fn lint(&self, body: &[u8]) -> Result<LintResponse>;
+    fn lint(&self, body: YamlBytes) -> Result<LintResponse>;
 }
 
 pub trait CicdRunner {

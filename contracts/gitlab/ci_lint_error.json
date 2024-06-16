@@ -1,0 +1,8 @@
+{
+    "valid": false,
+    "merged_yaml": "---\ntest_job:\n  script: echo 1\n",
+    "errors": [
+        "jobs config should contain at least one visible job"
+    ],
+    "warnings": []
+}

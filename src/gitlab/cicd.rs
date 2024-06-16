@@ -2,9 +2,9 @@ use super::Gitlab;
 use crate::api_traits::{ApiOperation, CicdRunner};
 use crate::cmds::cicd::{
     LintResponse, Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata,
-    RunnerStatus,
+    RunnerStatus, YamlBytes,
 };
-use crate::http::{self, Headers};
+use crate::http::{self, Body, Headers};
 use crate::remote::{query, URLQueryParamBuilder};
 use crate::{
     api_traits::Cicd,
@@ -39,8 +39,19 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
         query::num_resources(&self.runner, &url, headers, ApiOperation::Pipeline)
     }
 
-    fn lint(&self, body: &[u8]) -> Result<LintResponse> {
-        todo!()
+    // https://docs.gitlab.com/ee/api/lint.html#validate-the-ci-yaml-configuration
+    fn lint(&self, body: YamlBytes) -> Result<LintResponse> {
+        let url = format!("{}/ci/lint", self.rest_api_basepath());
+        let mut payload = Body::new();
+        payload.add("content", body.to_string());
+        query::gitlab_lint_ci_file(
+            &self.runner,
+            &url,
+            Some(payload),
+            self.headers(),
+            http::Method::POST,
+            ApiOperation::Pipeline,
+        )
     }
 }
 
@@ -243,6 +254,32 @@ impl From<&serde_json::Value> for GitlabPipelineFields {
 impl From<GitlabPipelineFields> for Pipeline {
     fn from(fields: GitlabPipelineFields) -> Self {
         fields.pipeline
+    }
+}
+
+pub struct GitlabLintResponseFields {
+    lint_response: LintResponse,
+}
+
+impl From<&serde_json::Value> for GitlabLintResponseFields {
+    fn from(data: &serde_json::Value) -> Self {
+        GitlabLintResponseFields {
+            lint_response: LintResponse {
+                valid: data["valid"].as_bool().unwrap(),
+                errors: data["errors"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_str().unwrap().to_string())
+                    .collect(),
+            },
+        }
+    }
+}
+
+impl From<GitlabLintResponseFields> for LintResponse {
+    fn from(fields: GitlabLintResponseFields) -> Self {
+        fields.lint_response
     }
 }
 
@@ -595,5 +632,45 @@ mod test {
             *client.url(),
         );
         assert_eq!(Some(1), num_pages);
+    }
+
+    fn gen_gitlab_ci_body<'a>() -> YamlBytes<'a> {
+        YamlBytes::new(
+            b"image: alpine\n\
+          stages:\n\
+            - build\n\
+          build:\n\
+            stage: build\n\
+            script:\n\
+              - echo \"Building\"\n",
+        )
+    }
+
+    #[test]
+    fn test_lint_ci_file_ok() {
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_contract(201, "ci_lint_ok.json", None);
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn Cicd);
+        let response = gitlab.lint(gen_gitlab_ci_body()).unwrap();
+        assert!(response.valid);
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/ci/lint",
+            *client.url()
+        );
+    }
+
+    #[test]
+    fn test_lint_ci_file_error() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            201,
+            "ci_lint_error.json",
+            None,
+        );
+        let (_, gitlab) = setup_client!(contracts, default_gitlab(), dyn Cicd);
+        let result = gitlab.lint(gen_gitlab_ci_body());
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert!(!response.valid);
+        assert!(response.errors.len() > 0);
     }
 }

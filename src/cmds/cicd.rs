@@ -80,6 +80,21 @@ pub struct LintResponse {
     pub errors: Vec<String>,
 }
 
+pub struct YamlBytes<'a>(&'a [u8]);
+
+impl YamlBytes<'_> {
+    pub fn new(data: &[u8]) -> YamlBytes {
+        YamlBytes(data)
+    }
+}
+
+impl Display for YamlBytes<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = String::from_utf8_lossy(self.0);
+        write!(f, "{}", s)
+    }
+}
+
 #[derive(Builder, Clone)]
 pub struct Runner {
     pub id: i64,
@@ -236,7 +251,7 @@ pub fn execute(
     match options {
         PipelineOptions::Lint(args) => {
             let remote = remote::get_cicd(domain, path, config, false)?;
-            let file = std::fs::File::open(&args.path)?;
+            let file = std::fs::File::open(args.path)?;
             let body = read_ci_file(file)?;
             lint_ci_file(remote, &body, std::io::stdout())
         }
@@ -321,7 +336,7 @@ fn read_ci_file<R: Read>(mut reader: R) -> Result<Vec<u8>> {
 }
 
 fn lint_ci_file<W: Write>(remote: Arc<dyn Cicd>, body: &[u8], mut writer: W) -> Result<()> {
-    let response = remote.lint(body)?;
+    let response = remote.lint(YamlBytes::new(body))?;
     if response.valid {
         writeln!(writer, "File is valid.")?;
     } else {
@@ -381,7 +396,7 @@ mod test {
             todo!()
         }
 
-        fn lint(&self, _body: &[u8]) -> Result<LintResponse> {
+        fn lint(&self, _body: YamlBytes) -> Result<LintResponse> {
             if self.error {
                 return Ok(LintResponse {
                     valid: false,
