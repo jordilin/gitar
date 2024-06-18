@@ -3,7 +3,10 @@ use std::fmt::Display;
 use crate::{
     cli::browse::BrowseOptions,
     cmds::{
-        cicd::{Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata},
+        cicd::{
+            LintResponse, Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata,
+            YamlBytes,
+        },
         docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
         gist::{Gist, GistListBodyArgs},
         merge_request::{Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs},
@@ -50,6 +53,9 @@ pub trait Cicd {
     fn get_pipeline(&self, id: i64) -> Result<Pipeline>;
     fn num_pages(&self) -> Result<Option<u32>>;
     fn num_resources(&self) -> Result<Option<NumberDeltaErr>>;
+    /// Lints ci/cd pipeline file contents. In gitlab this is the .gitlab-ci.yml
+    /// file. Checks that the file is valid and has no syntax errors.
+    fn lint(&self, body: YamlBytes) -> Result<LintResponse>;
 }
 
 pub trait CicdRunner {

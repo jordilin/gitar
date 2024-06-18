@@ -1,0 +1,6 @@
+{
+    "valid": true,
+    "merged_yaml": "---\ntest_job:\n  script: echo 1\n",
+    "errors": [],
+    "warnings": []
+}

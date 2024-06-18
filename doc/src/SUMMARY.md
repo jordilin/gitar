@@ -5,5 +5,6 @@
   - [Installation](./installation.md)
   - [Configuration](./configuration.md)
 - [Gitar commands](./cmds/index.md)
-  - [Merge request](./cmds/merge_request.md)
+  - [Merge requests](./cmds/merge_request.md)
+  - [Pipelines](./cmds/pipeline.md)
   - [Amps](./cmds/amps.md)

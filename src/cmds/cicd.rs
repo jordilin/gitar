@@ -3,9 +3,9 @@ use crate::cli::cicd::{PipelineOptions, RunnerOptions};
 use crate::config::Config;
 use crate::display::{Column, DisplayBody};
 use crate::remote::{GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs};
-use crate::{display, remote, Result};
+use crate::{display, error, remote, Result};
 use std::fmt::Display;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::sync::Arc;
 
 use super::common::{
@@ -61,6 +61,37 @@ pub struct PipelineBodyArgs {
 impl PipelineBodyArgs {
     pub fn builder() -> PipelineBodyArgsBuilder {
         PipelineBodyArgsBuilder::default()
+    }
+}
+
+#[derive(Builder, Clone)]
+pub struct LintFilePathArgs {
+    pub path: String,
+}
+
+impl LintFilePathArgs {
+    pub fn builder() -> LintFilePathArgsBuilder {
+        LintFilePathArgsBuilder::default()
+    }
+}
+
+pub struct LintResponse {
+    pub valid: bool,
+    pub errors: Vec<String>,
+}
+
+pub struct YamlBytes<'a>(&'a [u8]);
+
+impl YamlBytes<'_> {
+    pub fn new(data: &[u8]) -> YamlBytes {
+        YamlBytes(data)
+    }
+}
+
+impl Display for YamlBytes<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = String::from_utf8_lossy(self.0);
+        write!(f, "{}", s)
     }
 }
 
@@ -218,6 +249,12 @@ pub fn execute(
     path: String,
 ) -> Result<()> {
     match options {
+        PipelineOptions::Lint(args) => {
+            let remote = remote::get_cicd(domain, path, config, false)?;
+            let file = std::fs::File::open(args.path)?;
+            let body = read_ci_file(file)?;
+            lint_ci_file(remote, &body, std::io::stdout())
+        }
         PipelineOptions::List(cli_args) => {
             let remote = remote::get_cicd(domain, path, config, cli_args.get_args.refresh_cache)?;
             if cli_args.num_pages {
@@ -292,13 +329,34 @@ fn list_pipelines<W: Write>(
     common::list_pipelines(remote, body_args, cli_args, &mut writer)
 }
 
+fn read_ci_file<R: Read>(mut reader: R) -> Result<Vec<u8>> {
+    let mut buf = Vec::new();
+    reader.read_to_end(&mut buf)?;
+    Ok(buf)
+}
+
+fn lint_ci_file<W: Write>(remote: Arc<dyn Cicd>, body: &[u8], mut writer: W) -> Result<()> {
+    let response = remote.lint(YamlBytes::new(body))?;
+    if response.valid {
+        writeln!(writer, "File is valid.")?;
+    } else {
+        for error in response.errors {
+            writeln!(writer, "{}", error)?;
+        }
+        return Err(error::gen("Linting failed."));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
+    use std::io::Cursor;
+
     use super::*;
     use crate::error;
 
     #[derive(Clone, Builder)]
-    struct PipelineListMock {
+    struct PipelineMock {
         #[builder(default = "vec![]")]
         pipelines: Vec<Pipeline>,
         #[builder(default = "false")]
@@ -307,13 +365,13 @@ mod test {
         num_pages: Option<u32>,
     }
 
-    impl PipelineListMock {
-        pub fn builder() -> PipelineListMockBuilder {
-            PipelineListMockBuilder::default()
+    impl PipelineMock {
+        pub fn builder() -> PipelineMockBuilder {
+            PipelineMockBuilder::default()
         }
     }
 
-    impl Cicd for PipelineListMock {
+    impl Cicd for PipelineMock {
         fn list(&self, _args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
             if self.error {
                 return Err(error::gen("Error"));
@@ -337,11 +395,24 @@ mod test {
         fn num_resources(&self) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
             todo!()
         }
+
+        fn lint(&self, _body: YamlBytes) -> Result<LintResponse> {
+            if self.error {
+                return Ok(LintResponse {
+                    valid: false,
+                    errors: vec!["YAML Error".to_string()],
+                });
+            }
+            Ok(LintResponse {
+                valid: true,
+                errors: vec![],
+            })
+        }
     }
 
     #[test]
     fn test_list_pipelines() {
-        let pp_remote = PipelineListMock::builder()
+        let pp_remote = PipelineMock::builder()
             .pipelines(vec![
                 Pipeline::builder()
                     .id(123)
@@ -384,7 +455,7 @@ mod test {
 
     #[test]
     fn test_list_pipelines_empty_warns_message() {
-        let pp_remote = PipelineListMock::builder().build().unwrap();
+        let pp_remote = PipelineMock::builder().build().unwrap();
         let mut buf = Vec::new();
 
         let body_args = PipelineBodyArgs::builder()
@@ -398,7 +469,7 @@ mod test {
 
     #[test]
     fn test_pipelines_empty_with_flush_option_no_warn_message() {
-        let pp_remote = PipelineListMock::builder().build().unwrap();
+        let pp_remote = PipelineMock::builder().build().unwrap();
         let mut buf = Vec::new();
         let body_args = PipelineBodyArgs::builder()
             .from_to_page(None)
@@ -411,7 +482,7 @@ mod test {
 
     #[test]
     fn test_list_pipelines_error() {
-        let pp_remote = PipelineListMock::builder().error(true).build().unwrap();
+        let pp_remote = PipelineMock::builder().error(true).build().unwrap();
         let mut buf = Vec::new();
         let body_args = PipelineBodyArgs::builder()
             .from_to_page(None)
@@ -423,10 +494,7 @@ mod test {
 
     #[test]
     fn test_list_number_of_pipelines_pages() {
-        let pp_remote = PipelineListMock::builder()
-            .num_pages(3 as u32)
-            .build()
-            .unwrap();
+        let pp_remote = PipelineMock::builder().num_pages(3 as u32).build().unwrap();
         let mut buf = Vec::new();
         num_cicd_pages(Arc::new(pp_remote), &mut buf).unwrap();
         assert_eq!("3\n", String::from_utf8(buf).unwrap(),)
@@ -434,7 +502,7 @@ mod test {
 
     #[test]
     fn test_no_pages_available() {
-        let pp_remote = PipelineListMock::builder().build().unwrap();
+        let pp_remote = PipelineMock::builder().build().unwrap();
         let mut buf = Vec::new();
         num_cicd_pages(Arc::new(pp_remote), &mut buf).unwrap();
         assert_eq!(
@@ -445,14 +513,14 @@ mod test {
 
     #[test]
     fn test_number_of_pages_error() {
-        let pp_remote = PipelineListMock::builder().error(true).build().unwrap();
+        let pp_remote = PipelineMock::builder().error(true).build().unwrap();
         let mut buf = Vec::new();
         assert!(num_cicd_pages(Arc::new(pp_remote), &mut buf).is_err());
     }
 
     #[test]
     fn test_list_pipelines_no_headers() {
-        let pp_remote = PipelineListMock::builder()
+        let pp_remote = PipelineMock::builder()
             .pipelines(vec![
                 Pipeline::builder()
                     .id(123)
@@ -662,5 +730,47 @@ mod test {
              1|true|tag1, tag2|amd64|linux|2020-01-01T00:00:00Z|13.0.0|1234567890abcdef\n",
             String::from_utf8(buf).unwrap()
         )
+    }
+
+    fn gen_gitlab_ci_body() -> Vec<u8> {
+        b"image: alpine\n\
+          stages:\n\
+            - build\n\
+            - test\n\
+          build:\n\
+            stage: build\n\
+            script:\n\
+              - echo \"Building\"\n\
+          test:\n\
+            stage: test\n\
+            script:\n\
+              - echo \"Testing\"\n"
+            .to_vec()
+    }
+
+    #[test]
+    fn test_read_gitlab_ci_file_contents() {
+        let expected_body = gen_gitlab_ci_body();
+        let buf = Cursor::new(&expected_body);
+        let body = read_ci_file(buf).unwrap();
+        assert_eq!(*expected_body, *body);
+    }
+
+    #[test]
+    fn test_lint_ci_file_success() {
+        let mock_cicd = Arc::new(PipelineMock::builder().build().unwrap());
+        let mut writer = Vec::new();
+        let result = lint_ci_file(mock_cicd, &gen_gitlab_ci_body(), &mut writer);
+        assert!(result.is_ok());
+        assert_eq!(String::from_utf8(writer).unwrap(), "File is valid.\n");
+    }
+
+    #[test]
+    fn test_lint_ci_file_has_errors_prints_errors() {
+        let mock_cicd = Arc::new(PipelineMock::builder().error(true).build().unwrap());
+        let mut writer = Vec::new();
+        let result = lint_ci_file(mock_cicd, &gen_gitlab_ci_body(), &mut writer);
+        assert!(result.is_err());
+        assert_eq!(String::from_utf8(writer).unwrap(), "YAML Error\n");
     }
 }
