@@ -264,6 +264,12 @@ pub fn execute(
             let body = read_ci_file(file)?;
             lint_ci_file(remote, &body, false, std::io::stdout())
         }
+        PipelineOptions::MergedCi => {
+            let remote = remote::get_cicd(domain, path, config, false)?;
+            let file = std::fs::File::open(".gitlab-ci.yml")?;
+            let body = read_ci_file(file)?;
+            lint_ci_file(remote, &body, true, std::io::stdout())
+        }
         PipelineOptions::List(cli_args) => {
             let remote = remote::get_cicd(domain, path, config, cli_args.get_args.refresh_cache)?;
             if cli_args.num_pages {
