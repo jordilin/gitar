@@ -8,6 +8,9 @@ use std::fmt::Display;
 use std::io::{Read, Write};
 use std::sync::Arc;
 
+pub mod mermaid;
+pub mod yaml;
+
 use super::common::{
     self, num_cicd_pages, num_cicd_resources, num_runner_pages, num_runner_resources,
 };
