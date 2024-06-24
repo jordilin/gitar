@@ -33,3 +33,17 @@ Where `<status>` can be one of the following values:
 - `stale`
 - `never-contacted`
 - `all`
+
+## Get the merged .gitlab-ci.yml
+
+In the scenario where you use a Gitlab pipeline declared in `.gitlab-ci.yml` and
+the pipeline contains `include` statements, you can use the following command to
+obtain the total configuration of the pipeline:
+
+```bash
+gr pp merged-ci
+```
+
+This will print out to the console the total merged `.gitlab-ci.yml` file that
+includes all the contents from the included yaml files. If the pipeline has
+errors it will print out the errors if any.

@@ -75,9 +75,18 @@ impl LintFilePathArgs {
     }
 }
 
+#[derive(Builder, Clone)]
 pub struct LintResponse {
     pub valid: bool,
+    #[builder(default)]
+    pub merged_yaml: String,
     pub errors: Vec<String>,
+}
+
+impl LintResponse {
+    pub fn builder() -> LintResponseBuilder {
+        LintResponseBuilder::default()
+    }
 }
 
 pub struct YamlBytes<'a>(&'a [u8]);
@@ -253,7 +262,13 @@ pub fn execute(
             let remote = remote::get_cicd(domain, path, config, false)?;
             let file = std::fs::File::open(args.path)?;
             let body = read_ci_file(file)?;
-            lint_ci_file(remote, &body, std::io::stdout())
+            lint_ci_file(remote, &body, false, std::io::stdout())
+        }
+        PipelineOptions::MergedCi => {
+            let remote = remote::get_cicd(domain, path, config, false)?;
+            let file = std::fs::File::open(".gitlab-ci.yml")?;
+            let body = read_ci_file(file)?;
+            lint_ci_file(remote, &body, true, std::io::stdout())
         }
         PipelineOptions::List(cli_args) => {
             let remote = remote::get_cicd(domain, path, config, cli_args.get_args.refresh_cache)?;
@@ -335,9 +350,24 @@ fn read_ci_file<R: Read>(mut reader: R) -> Result<Vec<u8>> {
     Ok(buf)
 }
 
-fn lint_ci_file<W: Write>(remote: Arc<dyn Cicd>, body: &[u8], mut writer: W) -> Result<()> {
+fn lint_ci_file<W: Write>(
+    remote: Arc<dyn Cicd>,
+    body: &[u8],
+    display_merged_ci_yaml: bool,
+    mut writer: W,
+) -> Result<()> {
     let response = remote.lint(YamlBytes::new(body))?;
     if response.valid {
+        if display_merged_ci_yaml {
+            let lines = response.merged_yaml.split('\n');
+            for line in lines {
+                if line.is_empty() {
+                    continue;
+                }
+                writeln!(writer, "{}", line)?;
+            }
+            return Ok(());
+        }
         writeln!(writer, "File is valid.")?;
     } else {
         for error in response.errors {
@@ -363,6 +393,8 @@ mod test {
         error: bool,
         #[builder(setter(into, strip_option), default)]
         num_pages: Option<u32>,
+        #[builder(default)]
+        gitlab_ci_merged_yaml: String,
     }
 
     impl PipelineMock {
@@ -398,15 +430,18 @@ mod test {
 
         fn lint(&self, _body: YamlBytes) -> Result<LintResponse> {
             if self.error {
-                return Ok(LintResponse {
-                    valid: false,
-                    errors: vec!["YAML Error".to_string()],
-                });
+                return Ok(LintResponse::builder()
+                    .valid(false)
+                    .errors(vec!["YAML Error".to_string()])
+                    .build()
+                    .unwrap());
             }
-            Ok(LintResponse {
-                valid: true,
-                errors: vec![],
-            })
+            Ok(LintResponse::builder()
+                .valid(true)
+                .errors(vec![])
+                .merged_yaml(self.gitlab_ci_merged_yaml.clone())
+                .build()
+                .unwrap())
         }
     }
 
@@ -760,7 +795,7 @@ mod test {
     fn test_lint_ci_file_success() {
         let mock_cicd = Arc::new(PipelineMock::builder().build().unwrap());
         let mut writer = Vec::new();
-        let result = lint_ci_file(mock_cicd, &gen_gitlab_ci_body(), &mut writer);
+        let result = lint_ci_file(mock_cicd, &gen_gitlab_ci_body(), false, &mut writer);
         assert!(result.is_ok());
         assert_eq!(String::from_utf8(writer).unwrap(), "File is valid.\n");
     }
@@ -769,8 +804,42 @@ mod test {
     fn test_lint_ci_file_has_errors_prints_errors() {
         let mock_cicd = Arc::new(PipelineMock::builder().error(true).build().unwrap());
         let mut writer = Vec::new();
-        let result = lint_ci_file(mock_cicd, &gen_gitlab_ci_body(), &mut writer);
+        let result = lint_ci_file(mock_cicd, &gen_gitlab_ci_body(), false, &mut writer);
         assert!(result.is_err());
         assert_eq!(String::from_utf8(writer).unwrap(), "YAML Error\n");
+    }
+
+    #[test]
+    fn test_get_merged_yaml_from_lint_response() {
+        let response = LintResponse::builder()
+            .valid(true)
+            .merged_yaml("image: alpine\nstages:\n  - build\n  - test\nbuild:\n  stage: build\n  script:\n  - echo \"Building\"\ntest:\n  stage: test\n  script:\n  - echo \"Testing\"\n".to_string())
+            .errors(vec![])
+            .build()
+            .unwrap();
+        let mut writer = Vec::new();
+        let mock_cicd = Arc::new(
+            PipelineMock::builder()
+                .gitlab_ci_merged_yaml(response.merged_yaml)
+                .build()
+                .unwrap(),
+        );
+
+        let result = lint_ci_file(mock_cicd, &gen_gitlab_ci_body(), true, &mut writer);
+        assert!(result.is_ok());
+        let merged_gitlab_ci = r#"image: alpine
+stages:
+  - build
+  - test
+build:
+  stage: build
+  script:
+  - echo "Building"
+test:
+  stage: test
+  script:
+  - echo "Testing"
+"#;
+        assert_eq!(merged_gitlab_ci, String::from_utf8(writer).unwrap());
     }
 }

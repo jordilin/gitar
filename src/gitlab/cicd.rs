@@ -264,15 +264,19 @@ pub struct GitlabLintResponseFields {
 impl From<&serde_json::Value> for GitlabLintResponseFields {
     fn from(data: &serde_json::Value) -> Self {
         GitlabLintResponseFields {
-            lint_response: LintResponse {
-                valid: data["valid"].as_bool().unwrap(),
-                errors: data["errors"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|v| v.as_str().unwrap().to_string())
-                    .collect(),
-            },
+            lint_response: LintResponse::builder()
+                .valid(data["valid"].as_bool().unwrap())
+                .errors(
+                    data["errors"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|v| v.as_str().unwrap().to_string())
+                        .collect(),
+                )
+                .merged_yaml(data["merged_yaml"].as_str().unwrap().to_string())
+                .build()
+                .unwrap(),
         }
     }
 }

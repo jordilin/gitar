@@ -17,6 +17,10 @@ pub struct PipelineCommand {
 enum PipelineSubcommand {
     #[clap(about = "Lint ci yml files. Default is .gitlab-ci.yml")]
     Lint(FilePathArgs),
+    #[clap(
+        about = "Get merged .gitlab-ci.yml. Total .gitlab-ci.yml result of merging included yaml pipeline files in the repository"
+    )]
+    MergedCi,
     #[clap(about = "List pipelines")]
     List(ListArgs),
     #[clap(subcommand, name = "rn", about = "Runner operations")]
@@ -75,6 +79,7 @@ impl From<PipelineCommand> for PipelineOptions {
     fn from(options: PipelineCommand) -> Self {
         match options.subcommand {
             PipelineSubcommand::Lint(options) => options.into(),
+            PipelineSubcommand::MergedCi => PipelineOptions::MergedCi,
             PipelineSubcommand::List(options) => options.into(),
             PipelineSubcommand::Runners(options) => options.into(),
         }
@@ -153,6 +158,7 @@ pub enum PipelineOptions {
     Lint(LintFilePathArgs),
     List(ListRemoteCliArgs),
     Runners(RunnerOptions),
+    MergedCi,
 }
 
 pub enum RunnerOptions {
@@ -260,6 +266,63 @@ mod test {
                 assert_eq!(args.id, 123);
             }
             _ => panic!("Expected RunnerOptions::Get"),
+        }
+    }
+
+    #[test]
+    fn test_lint_ci_file_args() {
+        let args = Args::parse_from(vec!["gr", "pp", "lint"]);
+        let options = match args.command {
+            Command::Pipeline(PipelineCommand {
+                subcommand: PipelineSubcommand::Lint(options),
+            }) => {
+                assert_eq!(options.path, ".gitlab-ci.yml");
+                options
+            }
+            _ => panic!("Expected PipelineCommand"),
+        };
+        let options: PipelineOptions = options.into();
+        match options {
+            PipelineOptions::Lint(args) => {
+                assert_eq!(args.path, ".gitlab-ci.yml");
+            }
+            _ => panic!("Expected PipelineOptions::Lint"),
+        }
+    }
+
+    #[test]
+    fn test_lint_ci_file_args_with_path() {
+        let args = Args::parse_from(vec!["gr", "pp", "lint", "path/to/ci.yml"]);
+        let options = match args.command {
+            Command::Pipeline(PipelineCommand {
+                subcommand: PipelineSubcommand::Lint(options),
+            }) => {
+                assert_eq!(options.path, "path/to/ci.yml");
+                options
+            }
+            _ => panic!("Expected PipelineCommand"),
+        };
+        let options: PipelineOptions = options.into();
+        match options {
+            PipelineOptions::Lint(args) => {
+                assert_eq!(args.path, "path/to/ci.yml");
+            }
+            _ => panic!("Expected PipelineOptions::Lint"),
+        }
+    }
+
+    #[test]
+    fn test_merged_ci_file_args() {
+        let args = Args::parse_from(vec!["gr", "pp", "merged-ci"]);
+        let options = match args.command {
+            Command::Pipeline(PipelineCommand {
+                subcommand: PipelineSubcommand::MergedCi,
+            }) => PipelineOptions::MergedCi,
+            _ => panic!("Expected PipelineCommand"),
+        };
+        match options {
+            PipelineOptions::MergedCi => {}
+            _ => panic!("Expected PipelineOptions::MergedCi"),
         }
     }
 }
