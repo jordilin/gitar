@@ -143,7 +143,7 @@ impl<T: ToCicdEntity> CicdParser for YamlParser<T> {
             let mut stages = Vec::new();
             for cicd_stage_name in cicd_stage_names {
                 if let Some(stage_name) = cicd_stage_name.as_str() {
-                    let stage = Stage::new(&stage_name);
+                    let stage = Stage::new(stage_name);
                     stages.push(stage);
                 }
             }
@@ -182,7 +182,7 @@ impl<T: ToCicdEntity> CicdParser for YamlParser<T> {
                             .map(|rule| {
                                 if let Some(rule) = rule.as_hash() {
                                     let mut rule_map = HashMap::new();
-                                    for (key, value) in rule.into_iter() {
+                                    for (key, value) in rule.iter() {
                                         rule_map.insert(key.clone(), value.clone());
                                     }
                                     rule_map
@@ -291,13 +291,14 @@ fn combine_matrix_values(matrix: &CicdEntity) -> Vec<String> {
     all_values
 }
 
+#[derive(Default)]
 pub struct Mermaid {
     pub buf: Vec<String>,
 }
 
 impl Mermaid {
     pub fn new() -> Self {
-        Self { buf: vec![] }
+        Self::default()
     }
 
     pub fn push(&mut self, line: String) {
@@ -339,7 +340,7 @@ pub fn generate_mermaid_stages_diagram(parser: impl CicdParser) -> Result<Mermai
         let jobs = &stage_obj.jobs;
 
         // draw state with all jobs as states in the stage
-        let stage_name = stage_obj.name.replace("-", "_");
+        let stage_name = stage_obj.name.replace('-', "_");
 
         if stage_name == ".pre" {
             continue;
@@ -358,13 +359,12 @@ pub fn generate_mermaid_stages_diagram(parser: impl CicdParser) -> Result<Mermai
         // current one is compatible and the second stage after current one is
         // also compatible, there should not be a link between the first and the
         // second.
-        'stages: for j in i + 1..stage_names.len() {
-            let next_stage_name = &stage_names[j];
+        'stages: for next_stage_name in stage_names.iter().skip(i + 1) {
             let next_stage_obj = stages_map.get(next_stage_name).unwrap();
             let next_jobs = &next_stage_obj.jobs;
 
             // Replace - for _ in stage name to avoid mermaid errors
-            let next_stage_name = next_stage_obj.name.replace("-", "_");
+            let next_stage_name = next_stage_obj.name.replace('-', "_");
 
             // if there's compatibility after first stage, there should not be a
             // link on the second stage
@@ -386,8 +386,8 @@ pub fn generate_mermaid_stages_diagram(parser: impl CicdParser) -> Result<Mermai
 }
 
 fn rules_compatible(
-    rules1: &Vec<HashMap<String, CicdEntity>>,
-    rules2: &Vec<HashMap<String, CicdEntity>>,
+    rules1: &[HashMap<String, CicdEntity>],
+    rules2: &[HashMap<String, CicdEntity>],
 ) -> bool {
     if rules1.is_empty() || rules2.is_empty() {
         return true;
