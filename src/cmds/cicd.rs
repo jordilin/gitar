@@ -1,3 +1,6 @@
+use mermaid::{generate_mermaid_stages_diagram, YamlParser};
+use yaml::load_yaml;
+
 use crate::api_traits::{Cicd, CicdRunner, Timestamp};
 use crate::cli::cicd::{PipelineOptions, RunnerOptions};
 use crate::config::Config;
@@ -274,7 +277,12 @@ pub fn execute(
             lint_ci_file(remote, &body, true, std::io::stdout())
         }
         PipelineOptions::Chart => {
-            todo!();
+            let file = std::fs::File::open(".gitlab-ci.yml")?;
+            let body = read_ci_file(file)?;
+            let parser = YamlParser::new(load_yaml(&String::from_utf8_lossy(&body)));
+            let chart = generate_mermaid_stages_diagram(parser)?;
+            println!("{}", chart);
+            Ok(())
         }
         PipelineOptions::List(cli_args) => {
             let remote = remote::get_cicd(domain, path, config, cli_args.get_args.refresh_cache)?;
