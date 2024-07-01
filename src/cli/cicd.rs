@@ -21,6 +21,8 @@ enum PipelineSubcommand {
         about = "Get merged .gitlab-ci.yml. Total .gitlab-ci.yml result of merging included yaml pipeline files in the repository"
     )]
     MergedCi,
+    #[clap(about = "Create a Mermaid diagram of the pipeline")]
+    Chart,
     #[clap(about = "List pipelines")]
     List(ListArgs),
     #[clap(subcommand, name = "rn", about = "Runner operations")]
@@ -80,6 +82,7 @@ impl From<PipelineCommand> for PipelineOptions {
         match options.subcommand {
             PipelineSubcommand::Lint(options) => options.into(),
             PipelineSubcommand::MergedCi => PipelineOptions::MergedCi,
+            PipelineSubcommand::Chart => PipelineOptions::Chart,
             PipelineSubcommand::List(options) => options.into(),
             PipelineSubcommand::Runners(options) => options.into(),
         }
@@ -159,6 +162,7 @@ pub enum PipelineOptions {
     List(ListRemoteCliArgs),
     Runners(RunnerOptions),
     MergedCi,
+    Chart,
 }
 
 pub enum RunnerOptions {
@@ -323,6 +327,21 @@ mod test {
         match options {
             PipelineOptions::MergedCi => {}
             _ => panic!("Expected PipelineOptions::MergedCi"),
+        }
+    }
+
+    #[test]
+    fn test_chart_cli_args() {
+        let args = Args::parse_from(vec!["gr", "pp", "chart"]);
+        let options = match args.command {
+            Command::Pipeline(PipelineCommand {
+                subcommand: PipelineSubcommand::Chart,
+            }) => PipelineOptions::MergedCi,
+            _ => panic!("Expected PipelineCommand"),
+        };
+        match options {
+            PipelineOptions::MergedCi => {}
+            _ => panic!("Expected PipelineOptions::Chart"),
         }
     }
 }
