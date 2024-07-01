@@ -227,6 +227,10 @@ impl<T: ToCicdEntity> CicdParser for YamlParser<T> {
                         }
                     }
                 }
+                // If job begins with dot, then it's a template.
+                if job_name.starts_with('.') {
+                    continue;
+                }
                 let job = Job::new(&job_name, rules.clone());
                 let mut parallel_jobs = vec![];
                 // check if it's a parallel job
@@ -577,20 +581,23 @@ mod tests {
             vec!["build"],
             vec![(
                 ".build_job_template",
-                CicdEntity::Hash(HashMap::from([(
-                    "script".to_string(),
-                    CicdEntity::Vec(vec![CicdEntity::String("echo \"Building\"".to_string())]),
-                )])),
+                CicdEntity::Hash(HashMap::from([
+                    ("stage".to_string(), CicdEntity::String("build".to_string())),
+                    (
+                        "script".to_string(),
+                        CicdEntity::Vec(vec![CicdEntity::String("echo \"Building\"".to_string())]),
+                    ),
+                ])),
             )],
         );
 
         let parser = YamlParser::new(mock);
         let mut stages = HashMap::new();
-        stages.insert("test".to_string(), Stage::new("test"));
+        stages.insert("build".to_string(), Stage::new("build"));
 
         parser.get_jobs(&mut stages);
 
-        assert_eq!(stages["test"].jobs.len(), 0);
+        assert_eq!(stages["build"].jobs.len(), 0);
     }
 
     #[test]
