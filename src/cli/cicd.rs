@@ -21,7 +21,7 @@ enum PipelineSubcommand {
         about = "Get merged .gitlab-ci.yml. Total .gitlab-ci.yml result of merging included yaml pipeline files in the repository"
     )]
     MergedCi,
-    #[clap(about = "Create a Mermaid diagram of the pipeline")]
+    #[clap(about = "Create a Mermaid diagram of the .gitlab-ci.yml pipeline")]
     Chart,
     #[clap(about = "List pipelines")]
     List(ListArgs),
