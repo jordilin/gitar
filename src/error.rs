@@ -37,6 +37,8 @@ pub enum GRError {
     RemoteServerError(String),
     #[error("HTTP Transport error/network outage: {0}")]
     HttpTransportError(String),
+    #[error("Mermaid parsing error: {0}")]
+    MermaidParsingError(String),
 }
 
 pub trait AddContext<T, E>: Context<T, E> {
