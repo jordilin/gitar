@@ -266,6 +266,7 @@ fn combine_matrix_values(matrix: &CicdEntity) -> Vec<String> {
     let keys = map.keys().collect::<Vec<&String>>();
     let mut all_values = vec![];
     let mut previous_values = vec![];
+    let num_matrix_keys = keys.len();
     for key in keys {
         let values = if let Some(values) = map.get(key).unwrap().as_vec() {
             values
@@ -287,6 +288,11 @@ fn combine_matrix_values(matrix: &CicdEntity) -> Vec<String> {
             }
         }
         previous_values = new_values;
+    }
+    if all_values.is_empty() && num_matrix_keys == 1 {
+        // This is the case where there is only one key in the matrix. The
+        // values could be an array, so we need one job per value.
+        all_values = previous_values;
     }
     all_values
 }
@@ -820,6 +826,66 @@ mod tests {
         assert!(job_names
             .iter()
             .any(|name| name.contains("3.8") && name.contains("postgres")));
+    }
+
+    #[test]
+    fn test_parse_parallel_job_one_element_array() {
+        let mock = create_mock_cicd_entity(
+            vec!["test"],
+            vec![(
+                "parallel_job",
+                CicdEntity::Hash(HashMap::from([
+                    ("stage".to_string(), CicdEntity::String("test".to_string())),
+                    (
+                        "script".to_string(),
+                        CicdEntity::Vec(vec![CicdEntity::String(
+                            "echo \"Testing with $RUST_VERSION\"".to_string(),
+                        )]),
+                    ),
+                    (
+                        "parallel".to_string(),
+                        CicdEntity::Hash(HashMap::from([(
+                            "matrix".to_string(),
+                            CicdEntity::Vec(vec![CicdEntity::Hash(HashMap::from([(
+                                "RUST_VERSION".to_string(),
+                                CicdEntity::Vec(vec![
+                                    CicdEntity::String("1.50".to_string()),
+                                    CicdEntity::String("1.60".to_string()),
+                                ]),
+                            )]))]),
+                        )])),
+                    ),
+                ])),
+            )],
+        );
+
+        let parser = YamlParser::new(mock);
+        let mut stages = HashMap::new();
+        stages.insert("test".to_string(), Stage::new("test"));
+
+        parser.get_jobs(&mut stages);
+
+        assert_eq!(stages["test"].jobs.len(), 2);
+
+        // Create a set of expected job names
+        let expected_job_names: HashSet<String> = ["parallel_job-1.50", "parallel_job-1.60"]
+            .iter()
+            .map(|&s| s.to_string())
+            .collect();
+
+        // Check that each job name in the stage matches one of the expected names
+        for job in &stages["test"].jobs {
+            assert!(
+                expected_job_names.contains(&job.name),
+                "Unexpected job name: {}",
+                job.name
+            );
+        }
+
+        // Check that we have all combinations of Python versions and databases
+        let job_names: HashSet<&String> = stages["test"].jobs.iter().map(|job| &job.name).collect();
+        assert!(job_names.iter().any(|name| name.contains("1.50")));
+        assert!(job_names.iter().any(|name| name.contains("1.60")));
     }
 
     #[test]
