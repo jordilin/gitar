@@ -340,15 +340,15 @@ pub fn generate_mermaid_stages_diagram(parser: impl CicdParser) -> Result<Mermai
 
     parser.get_jobs(&mut stages_map);
 
-    for i in 0..stage_names.len() {
-        let stage = &stage_names[i];
+    for (i, stage) in stage_names.iter().enumerate() {
         let stage_obj = stages_map.get(stage).unwrap();
         let jobs = &stage_obj.jobs;
 
-        // draw state with all jobs as states in the stage
+        // Replace - for _ in stage name to avoid mermaid errors
         let stage_name = stage_obj.name.replace('-', "_");
 
-        if stage_name == ".pre" {
+        // Include .pre and .post stages only if they have jobs
+        if (stage_name == ".pre" || stage_name == ".post") && jobs.is_empty() {
             continue;
         }
 
@@ -368,6 +368,13 @@ pub fn generate_mermaid_stages_diagram(parser: impl CicdParser) -> Result<Mermai
         'stages: for next_stage_name in stage_names.iter().skip(i + 1) {
             let next_stage_obj = stages_map.get(next_stage_name).unwrap();
             let next_jobs = &next_stage_obj.jobs;
+
+            // Skip .pre and .post stages if they have no jobs
+            if (next_stage_obj.name == ".pre" || next_stage_obj.name == ".post")
+                && next_jobs.is_empty()
+            {
+                continue;
+            }
 
             // Replace - for _ in stage name to avoid mermaid errors
             let next_stage_name = next_stage_obj.name.replace('-', "_");
@@ -1056,13 +1063,41 @@ mod tests {
     }
 
     #[test]
-    fn test_pipeline_with_pre_stage() -> Result<()> {
+    fn test_pipeline_with_pre_and_post_stages() -> Result<()> {
         let parser = create_mock_parser(
-            vec![".pre", "build", "test"],
+            vec![".pre", "build", "test", ".post"],
             vec![
                 (".pre", vec![("setup", vec![])]),
                 ("build", vec![("compile", vec![])]),
                 ("test", vec![("unit-test", vec![])]),
+                (".post", vec![("cleanup", vec![])]),
+            ],
+        );
+
+        let mermaid = generate_mermaid_stages_diagram(parser)?;
+        let diagram = mermaid.to_string();
+
+        assert!(diagram.contains("state .pre{"));
+        assert!(diagram.contains("state .post{"));
+        assert!(diagram.contains(".pre --> build"));
+        assert!(diagram.contains("test --> .post"));
+        assert!(diagram.contains("state build{"));
+        assert!(diagram.contains("state test{"));
+        assert!(diagram.contains("state \"setup\" as anchorT0"));
+        assert!(diagram.contains("state \"cleanup\" as anchorT3"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_pipeline_with_empty_pre_and_post_stages() -> Result<()> {
+        let parser = create_mock_parser(
+            vec![".pre", "build", "test", ".post"],
+            vec![
+                (".pre", vec![]),
+                ("build", vec![("compile", vec![])]),
+                ("test", vec![("unit-test", vec![])]),
+                (".post", vec![]),
             ],
         );
 
@@ -1070,9 +1105,10 @@ mod tests {
         let diagram = mermaid.to_string();
 
         assert!(!diagram.contains("state .pre{"));
+        assert!(!diagram.contains("state .post{"));
+        assert!(diagram.contains("build --> test"));
         assert!(diagram.contains("state build{"));
         assert!(diagram.contains("state test{"));
-        assert!(diagram.contains("build --> test"));
 
         Ok(())
     }
