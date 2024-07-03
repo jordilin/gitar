@@ -266,6 +266,7 @@ fn combine_matrix_values(matrix: &CicdEntity) -> Vec<String> {
     let keys = map.keys().collect::<Vec<&String>>();
     let mut all_values = vec![];
     let mut previous_values = vec![];
+    let num_matrix_keys = keys.len();
     for key in keys {
         let values = if let Some(values) = map.get(key).unwrap().as_vec() {
             values
@@ -287,6 +288,11 @@ fn combine_matrix_values(matrix: &CicdEntity) -> Vec<String> {
             }
         }
         previous_values = new_values;
+    }
+    if all_values.is_empty() && num_matrix_keys == 1 {
+        // This is the case where there is only one key in the matrix. The
+        // values could be an array, so we need one job per value.
+        all_values = previous_values;
     }
     all_values
 }
@@ -334,15 +340,15 @@ pub fn generate_mermaid_stages_diagram(parser: impl CicdParser) -> Result<Mermai
 
     parser.get_jobs(&mut stages_map);
 
-    for i in 0..stage_names.len() {
-        let stage = &stage_names[i];
+    for (i, stage) in stage_names.iter().enumerate() {
         let stage_obj = stages_map.get(stage).unwrap();
         let jobs = &stage_obj.jobs;
 
-        // draw state with all jobs as states in the stage
+        // Replace - for _ in stage name to avoid mermaid errors
         let stage_name = stage_obj.name.replace('-', "_");
 
-        if stage_name == ".pre" {
+        // Include .pre and .post stages only if they have jobs
+        if (stage_name == ".pre" || stage_name == ".post") && jobs.is_empty() {
             continue;
         }
 
@@ -362,6 +368,13 @@ pub fn generate_mermaid_stages_diagram(parser: impl CicdParser) -> Result<Mermai
         'stages: for next_stage_name in stage_names.iter().skip(i + 1) {
             let next_stage_obj = stages_map.get(next_stage_name).unwrap();
             let next_jobs = &next_stage_obj.jobs;
+
+            // Skip .pre and .post stages if they have no jobs
+            if (next_stage_obj.name == ".pre" || next_stage_obj.name == ".post")
+                && next_jobs.is_empty()
+            {
+                continue;
+            }
 
             // Replace - for _ in stage name to avoid mermaid errors
             let next_stage_name = next_stage_obj.name.replace('-', "_");
@@ -823,6 +836,66 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_parallel_job_one_element_array() {
+        let mock = create_mock_cicd_entity(
+            vec!["test"],
+            vec![(
+                "parallel_job",
+                CicdEntity::Hash(HashMap::from([
+                    ("stage".to_string(), CicdEntity::String("test".to_string())),
+                    (
+                        "script".to_string(),
+                        CicdEntity::Vec(vec![CicdEntity::String(
+                            "echo \"Testing with $RUST_VERSION\"".to_string(),
+                        )]),
+                    ),
+                    (
+                        "parallel".to_string(),
+                        CicdEntity::Hash(HashMap::from([(
+                            "matrix".to_string(),
+                            CicdEntity::Vec(vec![CicdEntity::Hash(HashMap::from([(
+                                "RUST_VERSION".to_string(),
+                                CicdEntity::Vec(vec![
+                                    CicdEntity::String("1.50".to_string()),
+                                    CicdEntity::String("1.60".to_string()),
+                                ]),
+                            )]))]),
+                        )])),
+                    ),
+                ])),
+            )],
+        );
+
+        let parser = YamlParser::new(mock);
+        let mut stages = HashMap::new();
+        stages.insert("test".to_string(), Stage::new("test"));
+
+        parser.get_jobs(&mut stages);
+
+        assert_eq!(stages["test"].jobs.len(), 2);
+
+        // Create a set of expected job names
+        let expected_job_names: HashSet<String> = ["parallel_job-1.50", "parallel_job-1.60"]
+            .iter()
+            .map(|&s| s.to_string())
+            .collect();
+
+        // Check that each job name in the stage matches one of the expected names
+        for job in &stages["test"].jobs {
+            assert!(
+                expected_job_names.contains(&job.name),
+                "Unexpected job name: {}",
+                job.name
+            );
+        }
+
+        // Check that we have all combinations of Python versions and databases
+        let job_names: HashSet<&String> = stages["test"].jobs.iter().map(|job| &job.name).collect();
+        assert!(job_names.iter().any(|name| name.contains("1.50")));
+        assert!(job_names.iter().any(|name| name.contains("1.60")));
+    }
+
+    #[test]
     fn test_get_stages() {
         let mock = create_mock_cicd_entity(
             vec!["build", "test", "deploy"],
@@ -990,13 +1063,41 @@ mod tests {
     }
 
     #[test]
-    fn test_pipeline_with_pre_stage() -> Result<()> {
+    fn test_pipeline_with_pre_and_post_stages() -> Result<()> {
         let parser = create_mock_parser(
-            vec![".pre", "build", "test"],
+            vec![".pre", "build", "test", ".post"],
             vec![
                 (".pre", vec![("setup", vec![])]),
                 ("build", vec![("compile", vec![])]),
                 ("test", vec![("unit-test", vec![])]),
+                (".post", vec![("cleanup", vec![])]),
+            ],
+        );
+
+        let mermaid = generate_mermaid_stages_diagram(parser)?;
+        let diagram = mermaid.to_string();
+
+        assert!(diagram.contains("state .pre{"));
+        assert!(diagram.contains("state .post{"));
+        assert!(diagram.contains(".pre --> build"));
+        assert!(diagram.contains("test --> .post"));
+        assert!(diagram.contains("state build{"));
+        assert!(diagram.contains("state test{"));
+        assert!(diagram.contains("state \"setup\" as anchorT0"));
+        assert!(diagram.contains("state \"cleanup\" as anchorT3"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_pipeline_with_empty_pre_and_post_stages() -> Result<()> {
+        let parser = create_mock_parser(
+            vec![".pre", "build", "test", ".post"],
+            vec![
+                (".pre", vec![]),
+                ("build", vec![("compile", vec![])]),
+                ("test", vec![("unit-test", vec![])]),
+                (".post", vec![]),
             ],
         );
 
@@ -1004,9 +1105,10 @@ mod tests {
         let diagram = mermaid.to_string();
 
         assert!(!diagram.contains("state .pre{"));
+        assert!(!diagram.contains("state .post{"));
+        assert!(diagram.contains("build --> test"));
         assert!(diagram.contains("state build{"));
         assert!(diagram.contains("state test{"));
-        assert!(diagram.contains("build --> test"));
 
         Ok(())
     }
