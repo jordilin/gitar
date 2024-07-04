@@ -393,18 +393,15 @@ pub fn generate_mermaid_stages_diagram(
             continue;
         }
 
-        match chart_type {
-            ChartType::StagesWithJobs => {
-                mermaid.push(format!("    state {}{}", stage_name, "{"));
-                let anchor_name = format!("anchorT{}", i);
-                mermaid.push("        direction LR".to_string());
-                mermaid.push(format!("        state \"jobs\" as {}", anchor_name));
-                for job in jobs.iter() {
-                    mermaid.push(format!("        state \"{}\" as {}", job.name, anchor_name));
-                }
-                mermaid.push(format!("    {}", "}"));
+        if chart_type == ChartType::StagesWithJobs {
+            mermaid.push(format!("    state {}{}", stage_name, "{"));
+            let anchor_name = format!("anchorT{}", i);
+            mermaid.push("        direction LR".to_string());
+            mermaid.push(format!("        state \"jobs\" as {}", anchor_name));
+            for job in jobs.iter() {
+                mermaid.push(format!("        state \"{}\" as {}", job.name, anchor_name));
             }
-            _ => (),
+            mermaid.push(format!("    {}", "}"));
         }
 
         // check all next stages for compatibility. If the first stage after

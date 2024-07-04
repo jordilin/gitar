@@ -280,7 +280,7 @@ pub fn execute(
             let file = std::fs::File::open(".gitlab-ci.yml")?;
             let body = read_ci_file(file)?;
             let parser = YamlParser::new(load_yaml(&String::from_utf8_lossy(&body)));
-            let chart = generate_mermaid_stages_diagram(parser, args.into())?;
+            let chart = generate_mermaid_stages_diagram(parser, args)?;
             println!("{}", chart);
             Ok(())
         }
