@@ -276,11 +276,11 @@ pub fn execute(
             let body = read_ci_file(file)?;
             lint_ci_file(remote, &body, true, std::io::stdout())
         }
-        PipelineOptions::Chart => {
+        PipelineOptions::Chart(args) => {
             let file = std::fs::File::open(".gitlab-ci.yml")?;
             let body = read_ci_file(file)?;
             let parser = YamlParser::new(load_yaml(&String::from_utf8_lossy(&body)));
-            let chart = generate_mermaid_stages_diagram(parser)?;
+            let chart = generate_mermaid_stages_diagram(parser, args)?;
             println!("{}", chart);
             Ok(())
         }

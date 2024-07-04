@@ -1,7 +1,10 @@
 use clap::{Parser, ValueEnum};
 
 use crate::{
-    cmds::cicd::{LintFilePathArgs, RunnerListCliArgs, RunnerMetadataGetCliArgs, RunnerStatus},
+    cmds::cicd::{
+        mermaid::ChartType, LintFilePathArgs, RunnerListCliArgs, RunnerMetadataGetCliArgs,
+        RunnerStatus,
+    },
     remote::ListRemoteCliArgs,
 };
 
@@ -22,7 +25,7 @@ enum PipelineSubcommand {
     )]
     MergedCi,
     #[clap(about = "Create a Mermaid diagram of the .gitlab-ci.yml pipeline")]
-    Chart,
+    Chart(ChartArgs),
     #[clap(about = "List pipelines")]
     List(ListArgs),
     #[clap(subcommand, name = "rn", about = "Runner operations")]
@@ -34,6 +37,20 @@ struct FilePathArgs {
     /// Path to the ci yml file.
     #[clap(default_value = ".gitlab-ci.yml")]
     path: String,
+}
+
+#[derive(Parser)]
+struct ChartArgs {
+    /// Chart variant. Stages with jobs or just jobs
+    #[clap(long, default_value = "stageswithjobs")]
+    chart_type: ChartTypeCli,
+}
+
+#[derive(ValueEnum, Clone, PartialEq, Debug)]
+enum ChartTypeCli {
+    #[clap(name = "stageswithjobs")]
+    StagesWithJobs,
+    Jobs,
 }
 
 #[derive(Parser)]
@@ -77,12 +94,33 @@ struct RunnerMetadata {
     get_args: GetArgs,
 }
 
+impl From<ChartTypeCli> for ChartType {
+    fn from(chart_type: ChartTypeCli) -> Self {
+        match chart_type {
+            ChartTypeCli::StagesWithJobs => ChartType::StagesWithJobs,
+            ChartTypeCli::Jobs => ChartType::Jobs,
+        }
+    }
+}
+
+impl From<ChartArgs> for ChartType {
+    fn from(args: ChartArgs) -> Self {
+        args.chart_type.into()
+    }
+}
+
+impl From<ChartArgs> for PipelineOptions {
+    fn from(options: ChartArgs) -> Self {
+        PipelineOptions::Chart(options.into())
+    }
+}
+
 impl From<PipelineCommand> for PipelineOptions {
     fn from(options: PipelineCommand) -> Self {
         match options.subcommand {
             PipelineSubcommand::Lint(options) => options.into(),
             PipelineSubcommand::MergedCi => PipelineOptions::MergedCi,
-            PipelineSubcommand::Chart => PipelineOptions::Chart,
+            PipelineSubcommand::Chart(options) => PipelineOptions::Chart(options.into()),
             PipelineSubcommand::List(options) => options.into(),
             PipelineSubcommand::Runners(options) => options.into(),
         }
@@ -162,7 +200,7 @@ pub enum PipelineOptions {
     List(ListRemoteCliArgs),
     Runners(RunnerOptions),
     MergedCi,
-    Chart,
+    Chart(ChartType),
 }
 
 pub enum RunnerOptions {
@@ -335,12 +373,18 @@ mod test {
         let args = Args::parse_from(vec!["gr", "pp", "chart"]);
         let options = match args.command {
             Command::Pipeline(PipelineCommand {
-                subcommand: PipelineSubcommand::Chart,
-            }) => PipelineOptions::MergedCi,
+                subcommand: PipelineSubcommand::Chart(options),
+            }) => {
+                assert_eq!(options.chart_type, ChartTypeCli::StagesWithJobs);
+                options
+            }
             _ => panic!("Expected PipelineCommand"),
         };
+        let options: PipelineOptions = options.into();
         match options {
-            PipelineOptions::MergedCi => {}
+            PipelineOptions::Chart(args) => {
+                assert_eq!(args, ChartType::StagesWithJobs);
+            }
             _ => panic!("Expected PipelineOptions::Chart"),
         }
     }

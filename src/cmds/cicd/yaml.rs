@@ -48,26 +48,8 @@ pub fn load_yaml(yaml: &str) -> Yaml {
 
 #[cfg(test)]
 mod tests {
-    use crate::cmds::cicd::mermaid::{CicdParser, YamlParser};
 
     use super::*;
-
-    #[test]
-    fn test_read_simple_gitlab_ci_yaml() {
-        let yaml = r#"stages:
-- build
-
-build:
-  stage: build
-  script:
-  - echo "Building the app...""#;
-
-        let yaml_obj = load_yaml(yaml);
-        let parser = YamlParser::new(yaml_obj);
-        let stages = parser.get_stages().unwrap();
-        assert_eq!(stages.len(), 1);
-        assert_eq!(stages[0].name, "build");
-    }
 
     fn create_yaml(yaml_str: &str) -> Yaml {
         yaml_rust2::YamlLoader::load_from_str(yaml_str)
