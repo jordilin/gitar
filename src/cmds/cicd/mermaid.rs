@@ -26,6 +26,7 @@ impl Stage {
 type StageName = String;
 
 // Map of stage names to their respective stages.
+#[derive(Debug)]
 pub struct StageMap {
     stage_names: Vec<StageName>,
     stages: HashMap<StageName, Stage>,
@@ -352,12 +353,28 @@ impl Display for Mermaid {
     }
 }
 
+pub enum ChartType {
+    StagesWithJobs,
+    Jobs,
+}
+
 /// Generate a Mermaid state diagram with each stage encapsulating all its jobs
 /// and the links in between stages.
-pub fn generate_mermaid_stages_diagram(parser: impl CicdParser) -> Result<Mermaid> {
+pub fn generate_mermaid_stages_diagram(
+    parser: impl CicdParser,
+    chart_type: ChartType,
+) -> Result<Mermaid> {
     let mut mermaid = Mermaid::new();
-    mermaid.push("stateDiagram-v2".to_string());
-    mermaid.push("    direction LR".to_string());
+
+    match chart_type {
+        ChartType::StagesWithJobs => {
+            mermaid.push("stateDiagram-v2".to_string());
+            mermaid.push("    direction LR".to_string());
+        }
+        ChartType::Jobs => {
+            mermaid.push("graph LR".to_string());
+        }
+    }
 
     let mut stages = parser.get_stages()?;
 
@@ -375,14 +392,19 @@ pub fn generate_mermaid_stages_diagram(parser: impl CicdParser) -> Result<Mermai
             continue;
         }
 
-        mermaid.push(format!("    state {}{}", stage_name, "{"));
-        let anchor_name = format!("anchorT{}", i);
-        mermaid.push("        direction LR".to_string());
-        mermaid.push(format!("        state \"jobs\" as {}", anchor_name));
-        for job in jobs.iter() {
-            mermaid.push(format!("        state \"{}\" as {}", job.name, anchor_name));
+        match chart_type {
+            ChartType::StagesWithJobs => {
+                mermaid.push(format!("    state {}{}", stage_name, "{"));
+                let anchor_name = format!("anchorT{}", i);
+                mermaid.push("        direction LR".to_string());
+                mermaid.push(format!("        state \"jobs\" as {}", anchor_name));
+                for job in jobs.iter() {
+                    mermaid.push(format!("        state \"{}\" as {}", job.name, anchor_name));
+                }
+                mermaid.push(format!("    {}", "}"));
+            }
+            _ => (),
         }
-        mermaid.push(format!("    {}", "}"));
 
         // check all next stages for compatibility. If the first stage after
         // current one is compatible and the second stage after current one is
@@ -403,17 +425,31 @@ pub fn generate_mermaid_stages_diagram(parser: impl CicdParser) -> Result<Mermai
             let next_stage_name = next_stage_obj.name.replace('-', "_");
 
             // if there's compatibility after first stage, there should not be a
-            // link on the second stage
+            // link on the second stage. For jobs, we need to continue looping
+            // till we finish all the next stage jobs and link them up. If the
+            // jobs in next stage are compatible we control that with the
+            // `jobs_first_stage_compatible` variable. Once we finish iterating
+            // over the next stage jobs, then we break next stage loop.
+            let mut jobs_first_stage_compatible = false;
             for job in jobs.iter() {
                 for next_job in next_jobs.iter() {
                     if rules_compatible(&job.rules, &next_job.rules) {
-                        // link stage to next stage
-                        let link = format!("    {} --> {}", stage_name, next_stage_name);
-                        mermaid.push(link);
-                        // break as we know this stage is compatible
-                        break 'stages;
+                        match chart_type {
+                            ChartType::StagesWithJobs => {
+                                mermaid.push(format!("    {} --> {}", stage_name, next_stage_name));
+                                // break as we know this stage is compatible
+                                break 'stages;
+                            }
+                            ChartType::Jobs => {
+                                jobs_first_stage_compatible = true;
+                                mermaid.push(format!("    {} --> {}", job.name, next_job.name));
+                            }
+                        }
                     }
                 }
+            }
+            if jobs_first_stage_compatible {
+                break 'stages;
             }
         }
     }
@@ -1013,7 +1049,7 @@ mod tests {
             ],
         );
 
-        let mermaid = generate_mermaid_stages_diagram(parser)?;
+        let mermaid = generate_mermaid_stages_diagram(parser, ChartType::StagesWithJobs)?;
         let diagram = mermaid.to_string();
 
         assert!(diagram.contains("stateDiagram-v2"));
@@ -1042,7 +1078,7 @@ mod tests {
             ],
         );
 
-        let mermaid = generate_mermaid_stages_diagram(parser)?;
+        let mermaid = generate_mermaid_stages_diagram(parser, ChartType::StagesWithJobs)?;
         let diagram = mermaid.to_string();
 
         assert!(diagram.contains("build --> deploy"));
@@ -1089,7 +1125,7 @@ mod tests {
             ],
         );
 
-        let mermaid = generate_mermaid_stages_diagram(parser)?;
+        let mermaid = generate_mermaid_stages_diagram(parser, ChartType::StagesWithJobs)?;
         let diagram = mermaid.to_string();
 
         assert!(diagram.contains("build --> test"));
@@ -1110,7 +1146,7 @@ mod tests {
             ],
         );
 
-        let mermaid = generate_mermaid_stages_diagram(parser)?;
+        let mermaid = generate_mermaid_stages_diagram(parser, ChartType::StagesWithJobs)?;
         let diagram = mermaid.to_string();
 
         assert!(diagram.contains("state .pre{"));
@@ -1137,7 +1173,7 @@ mod tests {
             ],
         );
 
-        let mermaid = generate_mermaid_stages_diagram(parser)?;
+        let mermaid = generate_mermaid_stages_diagram(parser, ChartType::StagesWithJobs)?;
         let diagram = mermaid.to_string();
 
         assert!(!diagram.contains("state .pre{"));
@@ -1169,7 +1205,7 @@ mod tests {
             ],
         );
 
-        let mermaid = generate_mermaid_stages_diagram(parser)?;
+        let mermaid = generate_mermaid_stages_diagram(parser, ChartType::StagesWithJobs)?;
         let diagram = mermaid.to_string();
 
         assert!(diagram.contains("state build_and_compile{"));
@@ -1177,6 +1213,114 @@ mod tests {
         assert!(diagram.contains("state deploy_to_production{"));
         assert!(diagram.contains("build_and_compile --> run_all_tests"));
         assert!(diagram.contains("run_all_tests --> deploy_to_production"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simple_pipeline_jobs_only() -> Result<()> {
+        let parser = create_mock_parser(
+            vec!["build", "test", "deploy"],
+            vec![
+                ("build", vec![("compile", vec![])]),
+                (
+                    "test",
+                    vec![("unit-test", vec![]), ("integration-test", vec![])],
+                ),
+                ("deploy", vec![("production", vec![])]),
+            ],
+        );
+
+        let mermaid = generate_mermaid_stages_diagram(parser, ChartType::Jobs)?;
+        let diagram = mermaid.to_string();
+
+        assert!(diagram.contains("graph LR"));
+        assert!(diagram.contains("compile --> unit-test"));
+        assert!(diagram.contains("compile --> integration-test"));
+        assert!(diagram.contains("unit-test --> production"));
+        assert!(diagram.contains("integration-test --> production"));
+        assert!(!diagram.contains("state build{"));
+        assert!(!diagram.contains("state test{"));
+        assert!(!diagram.contains("state deploy{"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_pipeline_with_rules_jobs_only() -> Result<()> {
+        let parser = create_mock_parser(
+            vec!["build", "test", "deploy"],
+            vec![
+                (
+                    "build",
+                    vec![(
+                        "compile",
+                        vec![HashMap::from([(
+                            "only".to_string(),
+                            CicdEntity::String("main".to_string()),
+                        )])],
+                    )],
+                ),
+                (
+                    "test",
+                    vec![(
+                        "unit-test",
+                        vec![HashMap::from([(
+                            "only".to_string(),
+                            CicdEntity::String("main".to_string()),
+                        )])],
+                    )],
+                ),
+                (
+                    "deploy",
+                    vec![(
+                        "production",
+                        vec![HashMap::from([(
+                            "only".to_string(),
+                            CicdEntity::String("tags".to_string()),
+                        )])],
+                    )],
+                ),
+            ],
+        );
+
+        let mermaid = generate_mermaid_stages_diagram(parser, ChartType::Jobs)?;
+        let diagram = mermaid.to_string();
+
+        assert!(diagram.contains("graph LR"));
+        assert!(diagram.contains("compile --> unit-test"));
+        assert!(!diagram.contains("unit-test --> production"));
+        assert!(!diagram.contains("compile --> production"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_pipeline_with_multiple_jobs_per_stage_jobs_only() -> Result<()> {
+        let parser = create_mock_parser(
+            vec!["build", "test", "deploy"],
+            vec![
+                ("build", vec![("compile", vec![]), ("lint", vec![])]),
+                (
+                    "test",
+                    vec![("unit-test", vec![]), ("integration-test", vec![])],
+                ),
+                ("deploy", vec![("staging", vec![]), ("production", vec![])]),
+            ],
+        );
+
+        let mermaid = generate_mermaid_stages_diagram(parser, ChartType::Jobs)?;
+        let diagram = mermaid.to_string();
+
+        assert!(diagram.contains("graph LR"));
+        assert!(diagram.contains("compile --> unit-test"));
+        assert!(diagram.contains("compile --> integration-test"));
+        assert!(diagram.contains("lint --> unit-test"));
+        assert!(diagram.contains("lint --> integration-test"));
+        assert!(diagram.contains("unit-test --> staging"));
+        assert!(diagram.contains("unit-test --> production"));
+        assert!(diagram.contains("integration-test --> staging"));
+        assert!(diagram.contains("integration-test --> production"));
 
         Ok(())
     }

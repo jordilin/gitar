@@ -1,4 +1,4 @@
-use mermaid::{generate_mermaid_stages_diagram, YamlParser};
+use mermaid::{generate_mermaid_stages_diagram, ChartType, YamlParser};
 use yaml::load_yaml;
 
 use crate::api_traits::{Cicd, CicdRunner, Timestamp};
@@ -280,7 +280,7 @@ pub fn execute(
             let file = std::fs::File::open(".gitlab-ci.yml")?;
             let body = read_ci_file(file)?;
             let parser = YamlParser::new(load_yaml(&String::from_utf8_lossy(&body)));
-            let chart = generate_mermaid_stages_diagram(parser)?;
+            let chart = generate_mermaid_stages_diagram(parser, ChartType::Jobs)?;
             println!("{}", chart);
             Ok(())
         }
