@@ -23,6 +23,36 @@ impl Stage {
     }
 }
 
+type StageName = String;
+
+// Map of stage names to their respective stages.
+pub struct StageMap {
+    stage_names: Vec<StageName>,
+    stages: HashMap<StageName, Stage>,
+}
+
+impl StageMap {
+    fn new() -> Self {
+        Self {
+            stage_names: vec![],
+            stages: HashMap::new(),
+        }
+    }
+
+    fn insert(&mut self, name: StageName, stage: Stage) {
+        self.stage_names.push(name.clone());
+        self.stages.insert(name, stage);
+    }
+
+    fn get_mut(&mut self, name: &str) -> Option<&mut Stage> {
+        self.stages.get_mut(name)
+    }
+
+    fn contains_key(&self, name: &str) -> bool {
+        self.stages.contains_key(name)
+    }
+}
+
 /// A job is a unique unit of work that is executed in a gitlab-ci pipeline. They
 /// belong to a stage. No job can be named the same, so we can uniquely identify
 /// them by name.
@@ -121,8 +151,9 @@ pub trait ToCicdEntity {
 }
 
 pub trait CicdParser {
-    fn get_stages(&self) -> Result<Vec<Stage>>;
-    fn get_jobs(&self, stages: &mut HashMap<String, Stage>);
+    fn get_stages(&self) -> Result<StageMap>;
+    /// Gathers the jobs and populate the stages with their corresponding jobs
+    fn get_jobs(&self, stages: &mut StageMap);
 }
 
 // Encapsulates the YAML parser library that we use to parse the YAML file.
@@ -137,14 +168,14 @@ impl<T> YamlParser<T> {
 }
 
 impl<T: ToCicdEntity> CicdParser for YamlParser<T> {
-    fn get_stages(&self) -> Result<Vec<Stage>> {
+    fn get_stages(&self) -> Result<StageMap> {
         let entity = self.parser.get(&Some(EntityName::Stage));
         if let Some(cicd_stage_names) = entity.as_vec() {
-            let mut stages = Vec::new();
+            let mut stages = StageMap::new();
             for cicd_stage_name in cicd_stage_names {
                 if let Some(stage_name) = cicd_stage_name.as_str() {
                     let stage = Stage::new(stage_name);
-                    stages.push(stage);
+                    stages.insert(stage_name.to_string(), stage);
                 }
             }
             Ok(stages)
@@ -153,7 +184,7 @@ impl<T: ToCicdEntity> CicdParser for YamlParser<T> {
         }
     }
 
-    fn get_jobs(&self, stages: &mut HashMap<String, Stage>) {
+    fn get_jobs(&self, stages: &mut StageMap) {
         let entity = self.parser.get(&Some(EntityName::Job));
         if let Some(cicd_job_details) = entity.as_hash() {
             for (job, job_details) in cicd_job_details {
@@ -328,20 +359,12 @@ pub fn generate_mermaid_stages_diagram(parser: impl CicdParser) -> Result<Mermai
     mermaid.push("stateDiagram-v2".to_string());
     mermaid.push("    direction LR".to_string());
 
-    let stages = parser.get_stages()?;
-    let stage_names = stages
-        .iter()
-        .map(|s| s.name.clone())
-        .collect::<Vec<String>>();
-    let mut stages_map = stages
-        .into_iter()
-        .map(|stage| (stage.name.clone(), stage))
-        .collect::<HashMap<String, Stage>>();
+    let mut stages = parser.get_stages()?;
 
-    parser.get_jobs(&mut stages_map);
+    parser.get_jobs(&mut stages);
 
-    for (i, stage) in stage_names.iter().enumerate() {
-        let stage_obj = stages_map.get(stage).unwrap();
+    for (i, stage) in stages.stage_names.iter().enumerate() {
+        let stage_obj = stages.stages.get(stage).unwrap();
         let jobs = &stage_obj.jobs;
 
         // Replace - for _ in stage name to avoid mermaid errors
@@ -365,8 +388,8 @@ pub fn generate_mermaid_stages_diagram(parser: impl CicdParser) -> Result<Mermai
         // current one is compatible and the second stage after current one is
         // also compatible, there should not be a link between the first and the
         // second.
-        'stages: for next_stage_name in stage_names.iter().skip(i + 1) {
-            let next_stage_obj = stages_map.get(next_stage_name).unwrap();
+        'stages: for next_stage_name in stages.stage_names.iter().skip(i + 1) {
+            let next_stage_obj = stages.stages.get(next_stage_name).unwrap();
             let next_jobs = &next_stage_obj.jobs;
 
             // Skip .pre and .post stages if they have no jobs
@@ -551,13 +574,13 @@ mod tests {
         );
 
         let parser = YamlParser::new(mock);
-        let mut stages = HashMap::new();
-        stages.insert("build".to_string(), Stage::new("build"));
+        let mut stage_map = StageMap::new();
+        stage_map.insert("build".to_string(), Stage::new("build"));
 
-        parser.get_jobs(&mut stages);
+        parser.get_jobs(&mut stage_map);
 
-        assert_eq!(stages["build"].jobs.len(), 1);
-        assert_eq!(stages["build"].jobs[0].name, "build_job");
+        assert_eq!(stage_map.stages["build"].jobs.len(), 1);
+        assert_eq!(stage_map.stages["build"].jobs[0].name, "build_job");
     }
 
     #[test]
@@ -580,12 +603,12 @@ mod tests {
         );
 
         let parser = YamlParser::new(mock);
-        let mut stages = HashMap::new();
-        stages.insert("build".to_string(), Stage::new("build"));
+        let mut stage_map = StageMap::new();
+        stage_map.insert("build".to_string(), Stage::new("build"));
 
-        parser.get_jobs(&mut stages);
+        parser.get_jobs(&mut stage_map);
 
-        assert_eq!(stages["build"].jobs.len(), 0);
+        assert_eq!(stage_map.stages["build"].jobs.len(), 0);
     }
 
     #[test]
@@ -605,12 +628,12 @@ mod tests {
         );
 
         let parser = YamlParser::new(mock);
-        let mut stages = HashMap::new();
-        stages.insert("build".to_string(), Stage::new("build"));
+        let mut stage_map = StageMap::new();
+        stage_map.insert("build".to_string(), Stage::new("build"));
 
-        parser.get_jobs(&mut stages);
+        parser.get_jobs(&mut stage_map);
 
-        assert_eq!(stages["build"].jobs.len(), 0);
+        assert_eq!(stage_map.stages["build"].jobs.len(), 0);
     }
 
     #[test]
@@ -637,15 +660,16 @@ mod tests {
         );
 
         let parser = YamlParser::new(mock);
-        let mut stages = HashMap::new();
-        stages.insert("test".to_string(), Stage::new("test"));
 
-        parser.get_jobs(&mut stages);
+        let mut stage_map = StageMap::new();
+        stage_map.insert("test".to_string(), Stage::new("test"));
 
-        assert_eq!(stages["test"].jobs.len(), 1);
-        assert_eq!(stages["test"].jobs[0].name, "test_job");
-        assert_eq!(stages["test"].jobs[0].rules.len(), 1);
-        assert!(stages["test"].jobs[0].rules[0].contains_key("if"));
+        parser.get_jobs(&mut stage_map);
+
+        assert_eq!(stage_map.stages["test"].jobs.len(), 1);
+        assert_eq!(stage_map.stages["test"].jobs[0].name, "test_job");
+        assert_eq!(stage_map.stages["test"].jobs[0].rules.len(), 1);
+        assert!(stage_map.stages["test"].jobs[0].rules[0].contains_key("if"));
     }
 
     #[test]
@@ -675,16 +699,16 @@ mod tests {
         );
 
         let parser = YamlParser::new(mock);
-        let mut stages = HashMap::new();
-        stages.insert("deploy".to_string(), Stage::new("deploy"));
+        let mut stage_map = StageMap::new();
+        stage_map.insert("deploy".to_string(), Stage::new("deploy"));
 
-        parser.get_jobs(&mut stages);
+        parser.get_jobs(&mut stage_map);
 
-        assert_eq!(stages["deploy"].jobs.len(), 1);
-        assert_eq!(stages["deploy"].jobs[0].name, "deploy_job");
-        assert_eq!(stages["deploy"].jobs[0].rules.len(), 2);
+        assert_eq!(stage_map.stages["deploy"].jobs.len(), 1);
+        assert_eq!(stage_map.stages["deploy"].jobs[0].name, "deploy_job");
+        assert_eq!(stage_map.stages["deploy"].jobs[0].rules.len(), 2);
 
-        let rules = &stages["deploy"].jobs[0].rules;
+        let rules = &stage_map.stages["deploy"].jobs[0].rules;
         let main_rule = rules.iter().find(|r| r["only"].as_str() == Some("main"));
         let develop_rule = rules.iter().find(|r| r["only"].as_str() == Some("develop"));
 
@@ -725,16 +749,16 @@ mod tests {
         );
 
         let parser = YamlParser::new(mock);
-        let mut stages = HashMap::new();
-        stages.insert("deploy".to_string(), Stage::new("deploy"));
+        let mut stage_map = StageMap::new();
+        stage_map.insert("deploy".to_string(), Stage::new("deploy"));
 
-        parser.get_jobs(&mut stages);
+        parser.get_jobs(&mut stage_map);
 
-        assert_eq!(stages["deploy"].jobs.len(), 1);
-        assert_eq!(stages["deploy"].jobs[0].name, "deploy_job");
-        assert_eq!(stages["deploy"].jobs[0].rules.len(), 2);
+        assert_eq!(stage_map.stages["deploy"].jobs.len(), 1);
+        assert_eq!(stage_map.stages["deploy"].jobs[0].name, "deploy_job");
+        assert_eq!(stage_map.stages["deploy"].jobs[0].rules.len(), 2);
 
-        let rules = &stages["deploy"].jobs[0].rules;
+        let rules = &stage_map.stages["deploy"].jobs[0].rules;
         let main_rule = rules.iter().find(|r| r["only"].as_str() == Some("main"));
         let release_rule = rules
             .iter()
@@ -788,12 +812,12 @@ mod tests {
         );
 
         let parser = YamlParser::new(mock);
-        let mut stages = HashMap::new();
-        stages.insert("test".to_string(), Stage::new("test"));
+        let mut stage_map = StageMap::new();
+        stage_map.insert("test".to_string(), Stage::new("test"));
 
-        parser.get_jobs(&mut stages);
+        parser.get_jobs(&mut stage_map);
 
-        assert_eq!(stages["test"].jobs.len(), 4);
+        assert_eq!(stage_map.stages["test"].jobs.len(), 4);
 
         // Create a set of expected job names
         let expected_job_names: HashSet<String> = [
@@ -811,7 +835,7 @@ mod tests {
         .collect();
 
         // Check that each job name in the stage matches one of the expected names
-        for job in &stages["test"].jobs {
+        for job in &stage_map.stages["test"].jobs {
             assert!(
                 expected_job_names.contains(&job.name),
                 "Unexpected job name: {}",
@@ -820,7 +844,11 @@ mod tests {
         }
 
         // Check that we have all combinations of Python versions and databases
-        let job_names: HashSet<&String> = stages["test"].jobs.iter().map(|job| &job.name).collect();
+        let job_names: HashSet<&String> = stage_map.stages["test"]
+            .jobs
+            .iter()
+            .map(|job| &job.name)
+            .collect();
         assert!(job_names
             .iter()
             .any(|name| name.contains("3.7") && name.contains("mysql")));
@@ -867,12 +895,12 @@ mod tests {
         );
 
         let parser = YamlParser::new(mock);
-        let mut stages = HashMap::new();
-        stages.insert("test".to_string(), Stage::new("test"));
+        let mut stage_map = StageMap::new();
+        stage_map.insert("test".to_string(), Stage::new("test"));
 
-        parser.get_jobs(&mut stages);
+        parser.get_jobs(&mut stage_map);
 
-        assert_eq!(stages["test"].jobs.len(), 2);
+        assert_eq!(stage_map.stages["test"].jobs.len(), 2);
 
         // Create a set of expected job names
         let expected_job_names: HashSet<String> = ["parallel_job-1.50", "parallel_job-1.60"]
@@ -881,7 +909,7 @@ mod tests {
             .collect();
 
         // Check that each job name in the stage matches one of the expected names
-        for job in &stages["test"].jobs {
+        for job in &stage_map.stages["test"].jobs {
             assert!(
                 expected_job_names.contains(&job.name),
                 "Unexpected job name: {}",
@@ -890,7 +918,11 @@ mod tests {
         }
 
         // Check that we have all combinations of Python versions and databases
-        let job_names: HashSet<&String> = stages["test"].jobs.iter().map(|job| &job.name).collect();
+        let job_names: HashSet<&String> = stage_map.stages["test"]
+            .jobs
+            .iter()
+            .map(|job| &job.name)
+            .collect();
         assert!(job_names.iter().any(|name| name.contains("1.50")));
         assert!(job_names.iter().any(|name| name.contains("1.60")));
     }
@@ -903,12 +935,12 @@ mod tests {
         );
 
         let parser = YamlParser::new(mock);
-        let stages = parser.get_stages().unwrap();
+        let stage_map = parser.get_stages().unwrap();
 
-        assert_eq!(stages.len(), 3);
-        assert_eq!(stages[0].name, "build");
-        assert_eq!(stages[1].name, "test");
-        assert_eq!(stages[2].name, "deploy");
+        assert_eq!(stage_map.stage_names.len(), 3);
+        assert_eq!(stage_map.stage_names[0], "build");
+        assert_eq!(stage_map.stage_names[1], "test");
+        assert_eq!(stage_map.stage_names[2], "deploy");
     }
 
     // Mermaid testing
@@ -924,11 +956,15 @@ mod tests {
     }
 
     impl CicdParser for MockParser {
-        fn get_stages(&self) -> Result<Vec<Stage>> {
-            Ok(self.stages.iter().map(|s| Stage::new(s)).collect())
+        fn get_stages(&self) -> Result<StageMap> {
+            let mut map = StageMap::new();
+            for stage in &self.stages {
+                map.insert(stage.clone(), Stage::new(stage));
+            }
+            Ok(map)
         }
 
-        fn get_jobs(&self, stages: &mut HashMap<String, Stage>) {
+        fn get_jobs(&self, stages: &mut StageMap) {
             for (stage_name, mock_jobs) in &self.jobs {
                 if let Some(stage) = stages.get_mut(stage_name) {
                     stage.jobs = mock_jobs
