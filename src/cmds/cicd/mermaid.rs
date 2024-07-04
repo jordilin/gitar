@@ -353,6 +353,7 @@ impl Display for Mermaid {
     }
 }
 
+#[derive(Eq, PartialEq, Debug)]
 pub enum ChartType {
     StagesWithJobs,
     Jobs,
