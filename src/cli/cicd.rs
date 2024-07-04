@@ -41,7 +41,7 @@ struct FilePathArgs {
 
 #[derive(Parser)]
 struct ChartArgs {
-    /// Chart variant. Stages with jobs or just jobs
+    /// Chart variant. Stages with jobs, stages or just jobs
     #[clap(long, default_value = "stageswithjobs")]
     chart_type: ChartTypeCli,
 }
@@ -51,6 +51,7 @@ enum ChartTypeCli {
     #[clap(name = "stageswithjobs")]
     StagesWithJobs,
     Jobs,
+    Stages,
 }
 
 #[derive(Parser)]
@@ -99,6 +100,7 @@ impl From<ChartTypeCli> for ChartType {
         match chart_type {
             ChartTypeCli::StagesWithJobs => ChartType::StagesWithJobs,
             ChartTypeCli::Jobs => ChartType::Jobs,
+            ChartTypeCli::Stages => ChartType::Stages,
         }
     }
 }

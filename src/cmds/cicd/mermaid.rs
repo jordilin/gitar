@@ -357,6 +357,7 @@ impl Display for Mermaid {
 pub enum ChartType {
     StagesWithJobs,
     Jobs,
+    Stages,
 }
 
 /// Generate a Mermaid state diagram with each stage encapsulating all its jobs
@@ -372,7 +373,7 @@ pub fn generate_mermaid_stages_diagram(
             mermaid.push("stateDiagram-v2".to_string());
             mermaid.push("    direction LR".to_string());
         }
-        ChartType::Jobs => {
+        ChartType::Jobs | ChartType::Stages => {
             mermaid.push("graph LR".to_string());
         }
     }
@@ -433,7 +434,7 @@ pub fn generate_mermaid_stages_diagram(
                 for next_job in next_jobs.iter() {
                     if rules_compatible(&job.rules, &next_job.rules) {
                         match chart_type {
-                            ChartType::StagesWithJobs => {
+                            ChartType::StagesWithJobs | ChartType::Stages => {
                                 mermaid.push(format!("    {} --> {}", stage_name, next_stage_name));
                                 // break as we know this stage is compatible
                                 break 'stages;
@@ -1319,6 +1320,33 @@ mod tests {
         assert!(diagram.contains("unit-test --> production"));
         assert!(diagram.contains("integration-test --> staging"));
         assert!(diagram.contains("integration-test --> production"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simple_pipeline_stages_only() -> Result<()> {
+        let parser = create_mock_parser(
+            vec!["build", "test", "deploy"],
+            vec![
+                ("build", vec![("compile", vec![])]),
+                (
+                    "test",
+                    vec![("unit-test", vec![]), ("integration-test", vec![])],
+                ),
+                ("deploy", vec![("production", vec![])]),
+            ],
+        );
+
+        let mermaid = generate_mermaid_stages_diagram(parser, ChartType::Stages)?;
+        let diagram = mermaid.to_string();
+
+        assert!(diagram.contains("graph LR"));
+        assert!(diagram.contains("build --> test"));
+        assert!(diagram.contains("test --> deploy"));
+        assert!(!diagram.contains("state build{"));
+        assert!(!diagram.contains("state test{"));
+        assert!(!diagram.contains("state deploy{"));
 
         Ok(())
     }
