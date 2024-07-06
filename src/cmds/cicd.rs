@@ -263,6 +263,7 @@ pub struct Job {
     id: i64,
     name: String,
     branch: String,
+    url: String,
     author_name: String,
     commit_sha: String,
     pipeline_id: i64,
@@ -272,7 +273,7 @@ pub struct Job {
     created_at: String,
     started_at: String,
     finished_at: String,
-    duration: u64,
+    duration: String,
 }
 
 impl Job {
@@ -291,6 +292,7 @@ impl From<Job> for DisplayBody {
                 Column::new("Branch", j.branch),
                 Column::new("Commit SHA", j.commit_sha),
                 Column::new("Pipeline ID", j.pipeline_id.to_string()),
+                Column::new("URL", j.url),
                 Column::new("Runner Tags", j.runner_tags.join(", ")),
                 Column::new("Stage", j.stage),
                 Column::new("Status", j.status),
@@ -300,6 +302,12 @@ impl From<Job> for DisplayBody {
                 Column::new("Duration", j.duration.to_string()),
             ],
         }
+    }
+}
+
+impl Timestamp for Job {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
     }
 }
 
@@ -318,7 +326,7 @@ impl JobListCliArgs {
 
 #[derive(Builder, Clone)]
 pub struct JobListBodyArgs {
-    list_args: Option<ListBodyArgs>,
+    pub list_args: Option<ListBodyArgs>,
 }
 
 impl JobListBodyArgs {
@@ -1002,13 +1010,14 @@ test:
                 .author_name("user1".to_string())
                 .commit_sha("1234567890abcdef".to_string())
                 .pipeline_id(1)
+                .url("https://gitlab.com/owner/repo/-/jobs/1".to_string())
                 .runner_tags(vec!["tag1".to_string(), "tag2".to_string()])
                 .stage("build".to_string())
                 .status("success".to_string())
                 .created_at("2020-01-01T00:00:00Z".to_string())
                 .started_at("2020-01-01T00:01:00Z".to_string())
                 .finished_at("2020-01-01T00:01:30Z".to_string())
-                .duration(30)
+                .duration("25".to_string())
                 .build()
                 .unwrap(),
             Job::builder()
@@ -1018,13 +1027,14 @@ test:
                 .author_name("user2".to_string())
                 .commit_sha("1234567890abcdef".to_string())
                 .pipeline_id(1)
+                .url("https://gitlab.com/owner/repo/-/jobs/2".to_string())
                 .runner_tags(vec!["tag1".to_string(), "tag2".to_string()])
                 .stage("test".to_string())
                 .status("failed".to_string())
                 .created_at("2020-01-01T00:00:00Z".to_string())
                 .started_at("2020-01-01T00:01:00Z".to_string())
                 .finished_at("2020-01-01T00:01:30Z".to_string())
-                .duration(30)
+                .duration("30".to_string())
                 .build()
                 .unwrap(),
         ];
@@ -1037,9 +1047,7 @@ test:
             .unwrap();
         list_jobs(Arc::new(remote), body_args, cli_args, &mut buf).unwrap();
         assert_eq!(
-            "ID|Name|Author Name|Branch|Commit SHA|Pipeline ID|Runner Tags|Stage|Status|Created At|Started At|Finished At|Duration\n\
-             1|job1|user1|main|1234567890abcdef|1|tag1, tag2|build|success|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|2020-01-01T00:01:30Z|30\n\
-             2|job2|user2|main|1234567890abcdef|1|tag1, tag2|test|failed|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|2020-01-01T00:01:30Z|30\n",
+"ID|Name|Author Name|Branch|Commit SHA|Pipeline ID|URL|Runner Tags|Stage|Status|Created At|Started At|Finished At|Duration\n1|job1|user1|main|1234567890abcdef|1|https://gitlab.com/owner/repo/-/jobs/1|tag1, tag2|build|success|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|2020-01-01T00:01:30Z|25\n2|job2|user2|main|1234567890abcdef|1|https://gitlab.com/owner/repo/-/jobs/2|tag1, tag2|test|failed|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|2020-01-01T00:01:30Z|30\n",
             String::from_utf8(buf).unwrap()
         );
     }

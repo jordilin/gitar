@@ -459,7 +459,6 @@ mod test {
                 assert_eq!(args.list_args.from_page, Some(1));
                 assert_eq!(args.list_args.to_page, Some(2));
             }
-            _ => panic!("Expected JobOptions::List"),
         }
     }
 }

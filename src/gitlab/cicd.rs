@@ -94,9 +94,69 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
     }
 }
 
+pub struct GitlabProjectJobFields {
+    job: Job,
+}
+
+impl From<&serde_json::Value> for GitlabProjectJobFields {
+    fn from(data: &serde_json::Value) -> Self {
+        GitlabProjectJobFields {
+            job: Job::builder()
+                .id(data["id"].as_i64().unwrap_or_default())
+                .name(data["name"].as_str().unwrap_or_default().to_string())
+                .branch(data["ref"].as_str().unwrap_or_default().to_string())
+                .url(data["web_url"].as_str().unwrap_or_default().to_string())
+                .author_name(
+                    data["user"]["name"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .commit_sha(
+                    data["commit"]["id"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .pipeline_id(data["pipeline"]["id"].as_i64().unwrap_or_default())
+                .runner_tags(
+                    data["tag_list"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|v| v.as_str().unwrap().to_string())
+                        .collect(),
+                )
+                .stage(data["stage"].as_str().unwrap_or_default().to_string())
+                .status(data["status"].as_str().unwrap_or_default().to_string())
+                .created_at(data["created_at"].as_str().unwrap_or_default().to_string())
+                .started_at(data["started_at"].as_str().unwrap_or_default().to_string())
+                .finished_at(data["finished_at"].as_str().unwrap_or_default().to_string())
+                .duration(data["duration"].as_f64().unwrap_or_default().to_string())
+                .build()
+                .unwrap(),
+        }
+    }
+}
+
+impl From<GitlabProjectJobFields> for Job {
+    fn from(fields: GitlabProjectJobFields) -> Self {
+        fields.job
+    }
+}
+
 impl<R: HttpRunner<Response = Response>> CicdJob for Gitlab<R> {
-    fn list(&self, _args: JobListBodyArgs) -> Result<Vec<Job>> {
-        todo!();
+    // https://docs.gitlab.com/ee/api/jobs.html#list-project-jobs
+    fn list(&self, args: JobListBodyArgs) -> Result<Vec<Job>> {
+        let url = format!("{}/jobs", self.rest_api_basepath());
+        query::gitlab_list_project_jobs(
+            &self.runner,
+            &url,
+            args.list_args,
+            self.headers(),
+            None,
+            ApiOperation::Pipeline,
+        )
     }
 
     fn num_pages(&self, _args: JobListBodyArgs) -> Result<Option<u32>> {
@@ -693,5 +753,23 @@ mod test {
         let response = result.unwrap();
         assert!(!response.valid);
         assert!(response.errors.len() > 0);
+    }
+
+    #[test]
+    fn test_gitlab_project_pipeline_jobs() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "list_project_jobs.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdJob);
+        let body_args = JobListBodyArgs::builder().list_args(None).build().unwrap();
+        gitlab.list(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/jobs",
+            *client.url()
+        );
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
     }
 }

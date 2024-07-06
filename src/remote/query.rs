@@ -7,7 +7,7 @@ use crate::{
     api_defaults,
     api_traits::{ApiOperation, NumberDeltaErr},
     cmds::{
-        cicd::{LintResponse, Pipeline, Runner, RunnerMetadata},
+        cicd::{Job, LintResponse, Pipeline, Runner, RunnerMetadata},
         docker::{ImageMetadata, RegistryRepository, RepositoryTag},
         gist::Gist,
         merge_request::Comment,
@@ -24,8 +24,8 @@ use crate::{
     },
     gitlab::{
         cicd::{
-            GitlabLintResponseFields, GitlabPipelineFields, GitlabRunnerFields,
-            GitlabRunnerMetadataFields,
+            GitlabLintResponseFields, GitlabPipelineFields, GitlabProjectJobFields,
+            GitlabRunnerFields, GitlabRunnerMetadataFields,
         },
         container_registry::{
             GitlabImageMetadataFields, GitlabRegistryRepositoryFields, GitlabRepositoryTagFields,
@@ -346,6 +346,7 @@ paged!(
 );
 
 paged!(gitlab_list_project_runners, GitlabRunnerFields, Runner);
+paged!(gitlab_list_project_jobs, GitlabProjectJobFields, Job);
 
 paged!(gitlab_list_projects, GitlabProjectFields, Project);
 paged!(github_list_projects, GithubProjectFields, Project);
