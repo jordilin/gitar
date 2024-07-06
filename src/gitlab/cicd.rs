@@ -160,14 +160,16 @@ impl<R: HttpRunner<Response = Response>> CicdJob for Gitlab<R> {
     }
 
     fn num_pages(&self, _args: JobListBodyArgs) -> Result<Option<u32>> {
-        todo!();
+        let url = format!("{}/jobs?page=1", self.rest_api_basepath());
+        query::num_pages(&self.runner, &url, self.headers(), ApiOperation::Pipeline)
     }
 
     fn num_resources(
         &self,
         _args: JobListBodyArgs,
     ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
-        todo!();
+        let url = format!("{}/jobs?page=1", self.rest_api_basepath());
+        query::num_resources(&self.runner, &url, self.headers(), ApiOperation::Pipeline)
     }
 }
 
@@ -771,5 +773,43 @@ mod test {
         );
         assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
         assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_gitlab_project_jobs_num_pages() {
+        let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/jobs?page=2>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/jobs?page=2>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdJob);
+        let body_args = JobListBodyArgs::builder().list_args(None).build().unwrap();
+        let num_pages = gitlab.num_pages(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/jobs?page=1",
+            *client.url(),
+        );
+        assert_eq!(Some(2), num_pages);
+    }
+
+    #[test]
+    fn test_gitlab_project_jobs_num_resources() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body::<String>(
+            200,
+            None,
+            Some(Headers::new()),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdJob);
+        let body_args = JobListBodyArgs::builder().list_args(None).build().unwrap();
+        let num_resources = gitlab.num_resources(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/jobs?page=1",
+            *client.url()
+        );
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+        assert_eq!("(1, 30)", &num_resources.unwrap().to_string());
     }
 }
