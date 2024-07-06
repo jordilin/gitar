@@ -1,7 +1,8 @@
 use super::Github;
-use crate::api_traits::{ApiOperation, CicdRunner, NumberDeltaErr};
+use crate::api_traits::{ApiOperation, CicdJob, CicdRunner, NumberDeltaErr};
 use crate::cmds::cicd::{
-    LintResponse, Pipeline, PipelineBodyArgs, RunnerListBodyArgs, RunnerMetadata, YamlBytes,
+    Job, JobListBodyArgs, LintResponse, Pipeline, PipelineBodyArgs, RunnerListBodyArgs,
+    RunnerMetadata, YamlBytes,
 };
 use crate::remote::query;
 use crate::{
@@ -73,6 +74,23 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Github<R> {
 
     fn num_resources(&self, _args: RunnerListBodyArgs) -> Result<Option<NumberDeltaErr>> {
         todo!()
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> CicdJob for Github<R> {
+    fn list(&self, _args: JobListBodyArgs) -> Result<Vec<Job>> {
+        todo!();
+    }
+
+    fn num_pages(&self, _args: JobListBodyArgs) -> Result<Option<u32>> {
+        todo!();
+    }
+
+    fn num_resources(
+        &self,
+        _args: JobListBodyArgs,
+    ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+        todo!();
     }
 }
 

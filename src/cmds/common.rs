@@ -8,11 +8,11 @@ use std::io::Write;
 use std::sync::Arc;
 
 use crate::api_traits::{
-    Cicd, CicdRunner, CodeGist, CommentMergeRequest, Deploy, DeployAsset, RemoteProject,
+    Cicd, CicdJob, CicdRunner, CodeGist, CommentMergeRequest, Deploy, DeployAsset, RemoteProject,
     TrendingProjectURL,
 };
 
-use super::cicd::{RunnerListBodyArgs, RunnerListCliArgs};
+use super::cicd::{JobListBodyArgs, JobListCliArgs, RunnerListBodyArgs, RunnerListCliArgs};
 use super::gist::{GistListBodyArgs, GistListCliArgs};
 use super::merge_request::{CommentMergeRequestListBodyArgs, CommentMergeRequestListCliArgs};
 use super::project::{ProjectListBodyArgs, ProjectListCliArgs};
@@ -106,6 +106,7 @@ query_pages!(
 );
 query_pages!(num_cicd_pages, Cicd);
 query_pages!(num_runner_pages, CicdRunner, RunnerListBodyArgs);
+query_pages!(num_job_pages, CicdJob, JobListBodyArgs);
 
 query_pages!(
     num_merge_request_pages,
@@ -128,6 +129,7 @@ query_num_resources!(
 );
 query_num_resources!(num_cicd_resources, Cicd);
 query_num_resources!(num_runner_resources, CicdRunner, RunnerListBodyArgs);
+query_num_resources!(num_job_resources, CicdJob, JobListBodyArgs);
 query_num_resources!(
     num_merge_request_resources,
     MergeRequest,
@@ -200,6 +202,8 @@ list_resource!(
     RunnerListCliArgs,
     true
 );
+
+list_resource!(list_jobs, CicdJob, JobListBodyArgs, JobListCliArgs, true);
 
 list_resource!(list_releases, Deploy, ReleaseBodyArgs, ListRemoteCliArgs);
 list_resource!(

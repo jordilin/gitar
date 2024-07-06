@@ -3,8 +3,8 @@ use std::fs::File;
 use std::path::Path;
 
 use crate::api_traits::{
-    Cicd, CicdRunner, CodeGist, CommentMergeRequest, ContainerRegistry, Deploy, DeployAsset,
-    MergeRequest, RemoteProject, Timestamp, TrendingProjectURL, UserInfo,
+    Cicd, CicdJob, CicdRunner, CodeGist, CommentMergeRequest, ContainerRegistry, Deploy,
+    DeployAsset, MergeRequest, RemoteProject, Timestamp, TrendingProjectURL, UserInfo,
 };
 use crate::cache::filesystem::FileCache;
 use crate::config::Config;
@@ -587,6 +587,7 @@ get!(get_cicd_runner, CicdRunner);
 get!(get_comment_mr, CommentMergeRequest);
 get!(get_trending, TrendingProjectURL);
 get!(get_gist, CodeGist);
+get!(get_cicd_job, CicdJob);
 
 pub fn extract_domain_path(repo_cli: &str) -> (String, String) {
     let parts: Vec<&str> = repo_cli.split('/').collect();

@@ -217,6 +217,7 @@ In Gitlab they are known as pipelines and in Github as actions.
 | Get pipeline runner details | &#x2714; | &#x2716; |
 | Lint pipeline configuration | &#x2714; | &#x2716; |
 | Get total merged pipeline configuration | &#x2714; | &#x2716; |
+| List project jobs | &#x2714; | &#x2716; |
 
 
 ### Container registry
