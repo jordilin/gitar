@@ -1,8 +1,8 @@
 use mermaid::{generate_mermaid_stages_diagram, YamlParser};
 use yaml::load_yaml;
 
-use crate::api_traits::{Cicd, CicdRunner, Timestamp};
-use crate::cli::cicd::{PipelineOptions, RunnerOptions};
+use crate::api_traits::{Cicd, CicdJob, CicdRunner, Timestamp};
+use crate::cli::cicd::{JobOptions, PipelineOptions, RunnerOptions};
 use crate::config::Config;
 use crate::display::{Column, DisplayBody};
 use crate::remote::{GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs};
@@ -15,7 +15,8 @@ pub mod mermaid;
 pub mod yaml;
 
 use super::common::{
-    self, num_cicd_pages, num_cicd_resources, num_runner_pages, num_runner_resources,
+    self, num_cicd_pages, num_cicd_resources, num_job_pages, num_job_resources, num_runner_pages,
+    num_runner_resources,
 };
 
 #[derive(Builder, Clone, Debug)]
@@ -257,6 +258,7 @@ impl Display for RunnerStatus {
     }
 }
 
+#[derive(Builder, Clone)]
 pub struct Job {
     id: i64,
     name: String,
@@ -273,6 +275,34 @@ pub struct Job {
     duration: u64,
 }
 
+impl Job {
+    pub fn builder() -> JobBuilder {
+        JobBuilder::default()
+    }
+}
+
+impl From<Job> for DisplayBody {
+    fn from(j: Job) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("ID", j.id.to_string()),
+                Column::new("Name", j.name),
+                Column::new("Author Name", j.author_name),
+                Column::new("Branch", j.branch),
+                Column::new("Commit SHA", j.commit_sha),
+                Column::new("Pipeline ID", j.pipeline_id.to_string()),
+                Column::new("Runner Tags", j.runner_tags.join(", ")),
+                Column::new("Stage", j.stage),
+                Column::new("Status", j.status),
+                Column::new("Created At", j.created_at),
+                Column::new("Started At", j.started_at),
+                Column::new("Finished At", j.finished_at),
+                Column::new("Duration", j.duration.to_string()),
+            ],
+        }
+    }
+}
+
 // Technically no need to encapsulate the common ListRemoteCliArgs but we might
 // need to add pipeline_id to retrieve jobs from a specific pipeline.
 #[derive(Builder, Clone)]
@@ -286,8 +316,15 @@ impl JobListCliArgs {
     }
 }
 
+#[derive(Builder, Clone)]
 pub struct JobListBodyArgs {
     list_args: Option<ListBodyArgs>,
+}
+
+impl JobListBodyArgs {
+    pub fn builder() -> JobListBodyArgsBuilder {
+        JobListBodyArgsBuilder::default()
+    }
 }
 
 pub fn execute(
@@ -330,7 +367,25 @@ pub fn execute(
                 .build()?;
             list_pipelines(remote, body_args, cli_args, std::io::stdout())
         }
-        PipelineOptions::Jobs(_) => todo!(),
+        PipelineOptions::Jobs(options) => match options {
+            JobOptions::List(cli_args) => {
+                let remote = remote::get_cicd_job(
+                    domain,
+                    path,
+                    config,
+                    cli_args.list_args.get_args.refresh_cache,
+                )?;
+                let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
+                let body_args = JobListBodyArgs::builder().list_args(from_to_args).build()?;
+                if cli_args.list_args.num_pages {
+                    return num_job_pages(remote, body_args, std::io::stdout());
+                }
+                if cli_args.list_args.num_resources {
+                    return num_job_resources(remote, body_args, std::io::stdout());
+                }
+                list_jobs(remote, body_args, cli_args, std::io::stdout())
+            }
+        },
         PipelineOptions::Runners(options) => match options {
             RunnerOptions::List(cli_args) => {
                 let remote = remote::get_cicd_runner(
@@ -383,6 +438,15 @@ fn list_runners<W: Write>(
     common::list_runners(remote, body_args, cli_args, &mut writer)
 }
 
+fn list_jobs<W: Write>(
+    remote: Arc<dyn CicdJob>,
+    body_args: JobListBodyArgs,
+    cli_args: JobListCliArgs,
+    mut writer: W,
+) -> Result<()> {
+    common::list_jobs(remote, body_args, cli_args, &mut writer)
+}
+
 fn list_pipelines<W: Write>(
     remote: Arc<dyn Cicd>,
     body_args: PipelineBodyArgs,
@@ -431,7 +495,7 @@ mod test {
     use std::io::Cursor;
 
     use super::*;
-    use crate::error;
+    use crate::{api_traits::NumberDeltaErr, error};
 
     #[derive(Clone, Builder)]
     struct PipelineMock {
@@ -889,5 +953,94 @@ test:
   - echo "Testing"
 "#;
         assert_eq!(merged_gitlab_ci, String::from_utf8(writer).unwrap());
+    }
+
+    #[derive(Builder)]
+    struct JobMock {
+        #[builder(default)]
+        jobs: Vec<Job>,
+        #[builder(default)]
+        error: bool,
+        #[builder(default)]
+        num_pages: Option<u32>,
+    }
+
+    impl JobMock {
+        pub fn builder() -> JobMockBuilder {
+            JobMockBuilder::default()
+        }
+    }
+
+    impl CicdJob for JobMock {
+        fn list(&self, _args: JobListBodyArgs) -> Result<Vec<Job>> {
+            if self.error {
+                return Err(error::gen("Error"));
+            }
+            let jj = self.jobs.clone();
+            Ok(jj)
+        }
+
+        fn num_pages(&self, _args: JobListBodyArgs) -> Result<Option<u32>> {
+            if self.error {
+                return Err(error::gen("Error"));
+            }
+            Ok(self.num_pages)
+        }
+
+        fn num_resources(&self, _args: JobListBodyArgs) -> Result<Option<NumberDeltaErr>> {
+            todo!()
+        }
+    }
+
+    #[test]
+    fn test_list_pipeline_jobs() {
+        let jobs = vec![
+            Job::builder()
+                .id(1)
+                .name("job1".to_string())
+                .branch("main".to_string())
+                .author_name("user1".to_string())
+                .commit_sha("1234567890abcdef".to_string())
+                .pipeline_id(1)
+                .runner_tags(vec!["tag1".to_string(), "tag2".to_string()])
+                .stage("build".to_string())
+                .status("success".to_string())
+                .created_at("2020-01-01T00:00:00Z".to_string())
+                .started_at("2020-01-01T00:01:00Z".to_string())
+                .finished_at("2020-01-01T00:01:30Z".to_string())
+                .duration(30)
+                .build()
+                .unwrap(),
+            Job::builder()
+                .id(2)
+                .name("job2".to_string())
+                .branch("main".to_string())
+                .author_name("user2".to_string())
+                .commit_sha("1234567890abcdef".to_string())
+                .pipeline_id(1)
+                .runner_tags(vec!["tag1".to_string(), "tag2".to_string()])
+                .stage("test".to_string())
+                .status("failed".to_string())
+                .created_at("2020-01-01T00:00:00Z".to_string())
+                .started_at("2020-01-01T00:01:00Z".to_string())
+                .finished_at("2020-01-01T00:01:30Z".to_string())
+                .duration(30)
+                .build()
+                .unwrap(),
+        ];
+        let remote = JobMock::builder().jobs(jobs).build().unwrap();
+        let mut buf = Vec::new();
+        let body_args = JobListBodyArgs::builder().list_args(None).build().unwrap();
+        let cli_args = JobListCliArgs::builder()
+            .list_args(ListRemoteCliArgs::builder().build().unwrap())
+            .build()
+            .unwrap();
+        list_jobs(Arc::new(remote), body_args, cli_args, &mut buf).unwrap();
+        assert_eq!(
+            "ID|Name|Author Name|Branch|Commit SHA|Pipeline ID|Runner Tags|Stage|Status|Created At|Started At|Finished At|Duration\n\
+             1|job1|user1|main|1234567890abcdef|1|tag1, tag2|build|success|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|2020-01-01T00:01:30Z|30\n\
+             2|job2|user2|main|1234567890abcdef|1|tag1, tag2|test|failed|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|2020-01-01T00:01:30Z|30\n",
+            String::from_utf8(buf).unwrap()
+        );
     }
 }

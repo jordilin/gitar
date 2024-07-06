@@ -1,8 +1,8 @@
 use super::Gitlab;
-use crate::api_traits::{ApiOperation, CicdRunner};
+use crate::api_traits::{ApiOperation, CicdJob, CicdRunner};
 use crate::cmds::cicd::{
-    LintResponse, Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata,
-    RunnerStatus, YamlBytes,
+    Job, JobListBodyArgs, LintResponse, Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs,
+    RunnerMetadata, RunnerStatus, YamlBytes,
 };
 use crate::http::{self, Body, Headers};
 use crate::remote::{query, URLQueryParamBuilder};
@@ -91,6 +91,23 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
     ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
         let url = self.list_runners_url(&args, true);
         query::num_resources(&self.runner, &url, self.headers(), ApiOperation::Pipeline)
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> CicdJob for Gitlab<R> {
+    fn list(&self, _args: JobListBodyArgs) -> Result<Vec<Job>> {
+        todo!();
+    }
+
+    fn num_pages(&self, _args: JobListBodyArgs) -> Result<Option<u32>> {
+        todo!();
+    }
+
+    fn num_resources(
+        &self,
+        _args: JobListBodyArgs,
+    ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
+        todo!();
     }
 }
 
