@@ -257,6 +257,39 @@ impl Display for RunnerStatus {
     }
 }
 
+pub struct Job {
+    id: i64,
+    name: String,
+    branch: String,
+    author_name: String,
+    commit_sha: String,
+    pipeline_id: i64,
+    runner_tags: Vec<String>,
+    stage: String,
+    status: String,
+    created_at: String,
+    started_at: String,
+    finished_at: String,
+    duration: u64,
+}
+
+// Technically no need to encapsulate the common ListRemoteCliArgs but we might
+// need to add pipeline_id to retrieve jobs from a specific pipeline.
+#[derive(Builder, Clone)]
+pub struct JobListCliArgs {
+    pub list_args: ListRemoteCliArgs,
+}
+
+impl JobListCliArgs {
+    pub fn builder() -> JobListCliArgsBuilder {
+        JobListCliArgsBuilder::default()
+    }
+}
+
+pub struct JobListBodyArgs {
+    list_args: Option<ListBodyArgs>,
+}
+
 pub fn execute(
     options: PipelineOptions,
     config: Arc<Config>,
@@ -297,6 +330,7 @@ pub fn execute(
                 .build()?;
             list_pipelines(remote, body_args, cli_args, std::io::stdout())
         }
+        PipelineOptions::Jobs(_) => todo!(),
         PipelineOptions::Runners(options) => match options {
             RunnerOptions::List(cli_args) => {
                 let remote = remote::get_cicd_runner(

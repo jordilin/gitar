@@ -4,8 +4,8 @@ use crate::{
     cli::browse::BrowseOptions,
     cmds::{
         cicd::{
-            LintResponse, Pipeline, PipelineBodyArgs, Runner, RunnerListBodyArgs, RunnerMetadata,
-            YamlBytes,
+            Job, JobListBodyArgs, LintResponse, Pipeline, PipelineBodyArgs, Runner,
+            RunnerListBodyArgs, RunnerMetadata, YamlBytes,
         },
         docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
         gist::{Gist, GistListBodyArgs},
@@ -63,6 +63,12 @@ pub trait CicdRunner {
     fn get(&self, id: i64) -> Result<RunnerMetadata>;
     fn num_pages(&self, args: RunnerListBodyArgs) -> Result<Option<u32>>;
     fn num_resources(&self, args: RunnerListBodyArgs) -> Result<Option<NumberDeltaErr>>;
+}
+
+pub trait CicdJob {
+    fn list(&self, args: JobListBodyArgs) -> Result<Vec<Job>>;
+    fn num_pages(&self, args: JobListBodyArgs) -> Result<Option<u32>>;
+    fn num_resources(&self, args: JobListBodyArgs) -> Result<Option<NumberDeltaErr>>;
 }
 
 pub trait Deploy {

@@ -2,8 +2,8 @@ use clap::{Parser, ValueEnum};
 
 use crate::{
     cmds::cicd::{
-        mermaid::ChartType, LintFilePathArgs, RunnerListCliArgs, RunnerMetadataGetCliArgs,
-        RunnerStatus,
+        mermaid::ChartType, JobListCliArgs, LintFilePathArgs, RunnerListCliArgs,
+        RunnerMetadataGetCliArgs, RunnerStatus,
     },
     remote::ListRemoteCliArgs,
 };
@@ -28,8 +28,22 @@ enum PipelineSubcommand {
     Chart(ChartArgs),
     #[clap(about = "List pipelines")]
     List(ListArgs),
+    #[clap(subcommand, name = "jb", about = "Job operations")]
+    Jobs(JobsSubCommand),
     #[clap(subcommand, name = "rn", about = "Runner operations")]
     Runners(RunnerSubCommand),
+}
+
+#[derive(Parser)]
+enum JobsSubCommand {
+    #[clap(about = "List jobs")]
+    List(ListJob),
+}
+
+#[derive(Parser)]
+struct ListJob {
+    #[command(flatten)]
+    list_args: ListArgs,
 }
 
 #[derive(Parser)]
@@ -125,6 +139,7 @@ impl From<PipelineCommand> for PipelineOptions {
             PipelineSubcommand::Chart(options) => PipelineOptions::Chart(options.into()),
             PipelineSubcommand::List(options) => options.into(),
             PipelineSubcommand::Runners(options) => options.into(),
+            PipelineSubcommand::Jobs(options) => options.into(),
         }
     }
 }
@@ -197,12 +212,36 @@ impl From<RunnerMetadata> for RunnerOptions {
     }
 }
 
+impl From<ListJob> for JobOptions {
+    fn from(options: ListJob) -> Self {
+        JobOptions::List(
+            JobListCliArgs::builder()
+                .list_args(options.list_args.into())
+                .build()
+                .unwrap(),
+        )
+    }
+}
+
+impl From<JobsSubCommand> for PipelineOptions {
+    fn from(options: JobsSubCommand) -> Self {
+        match options {
+            JobsSubCommand::List(options) => PipelineOptions::Jobs(options.into()),
+        }
+    }
+}
+
 pub enum PipelineOptions {
     Lint(LintFilePathArgs),
     List(ListRemoteCliArgs),
     Runners(RunnerOptions),
     MergedCi,
     Chart(ChartType),
+    Jobs(JobOptions),
+}
+
+pub enum JobOptions {
+    List(JobListCliArgs),
 }
 
 pub enum RunnerOptions {
@@ -388,6 +427,39 @@ mod test {
                 assert_eq!(args, ChartType::StagesWithJobs);
             }
             _ => panic!("Expected PipelineOptions::Chart"),
+        }
+    }
+
+    #[test]
+    fn test_pipeline_cli_jobs_list() {
+        let args = Args::parse_from(vec![
+            "gr",
+            "pp",
+            "jb",
+            "list",
+            "--from-page",
+            "1",
+            "--to-page",
+            "2",
+        ]);
+
+        let list_args = match args.command {
+            Command::Pipeline(PipelineCommand {
+                subcommand: PipelineSubcommand::Jobs(JobsSubCommand::List(options)),
+            }) => {
+                assert_eq!(options.list_args.from_page, Some(1));
+                assert_eq!(options.list_args.to_page, Some(2));
+                options
+            }
+            _ => panic!("Expected PipelineCommand"),
+        };
+        let options: JobOptions = list_args.into();
+        match options {
+            JobOptions::List(args) => {
+                assert_eq!(args.list_args.from_page, Some(1));
+                assert_eq!(args.list_args.to_page, Some(2));
+            }
+            _ => panic!("Expected JobOptions::List"),
         }
     }
 }
