@@ -38,6 +38,7 @@ pub struct MergeRequestCliArgs {
     pub open_browser: bool,
     pub accept_summary: bool,
     pub commit: Option<String>,
+    pub force: bool,
     pub draft: bool,
 }
 
@@ -407,7 +408,7 @@ fn open(
         dialog::show_summary_merge_request(&outgoing_commits, &args, cli_args.accept_summary)
     {
         println!("\nTaking off... 🚀\n");
-        git::push(&BlockingCommand, "origin", &mr_body.repo)?;
+        git::push(&BlockingCommand, "origin", &mr_body.repo, cli_args.force)?;
         let merge_request_response = remote.open(args)?;
         println!("Merge request opened: {}", merge_request_response.web_url);
         if cli_args.open_browser {
@@ -1093,6 +1094,7 @@ mod tests {
             .accept_summary(false)
             .commit(Some("commit".to_string()))
             .draft(false)
+            .force(false)
             .build()
             .unwrap();
 
@@ -1129,6 +1131,7 @@ mod tests {
             .accept_summary(false)
             .commit(None)
             .draft(false)
+            .force(false)
             .build()
             .unwrap();
 
@@ -1165,6 +1168,7 @@ mod tests {
             .accept_summary(false)
             .commit(None)
             .draft(false)
+            .force(false)
             .build()
             .unwrap();
 
@@ -1334,6 +1338,7 @@ mod tests {
             .accept_summary(false)
             .commit(Some("commit".to_string()))
             .draft(false)
+            .force(false)
             .build()
             .unwrap();
 
