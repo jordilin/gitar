@@ -50,17 +50,12 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
             }
         }
         let url = format!("{}/merge_requests", self.rest_api_basepath());
-        let http_method = if args.amend {
-            http::Method::PUT
-        } else {
-            http::Method::POST
-        };
         let response = query::gitlab_merge_request_response(
             &self.runner,
             &url,
-            Some(body),
+            Some(body.clone()),
             self.headers(),
-            http_method,
+            http::Method::POST,
             ApiOperation::MergeRequest,
         )?;
         // if status code is 409, it means that the merge request already
@@ -77,6 +72,21 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                 .last()
                 .unwrap()
                 .trim_matches('!');
+            if args.amend {
+                let url = format!(
+                    "{}/merge_requests/{}",
+                    self.rest_api_basepath(),
+                    merge_request_iid
+                );
+                query::gitlab_merge_request_response(
+                    &self.runner,
+                    &url,
+                    Some(body),
+                    self.headers(),
+                    http::Method::PUT,
+                    ApiOperation::MergeRequest,
+                )?;
+            }
             let merge_request_url = format!(
                 "https://{}/{}/-/merge_requests/{}",
                 self.domain, self.path, merge_request_iid
@@ -445,20 +455,6 @@ mod test {
     }
 
     #[test]
-    fn test_amend_merge_request() {
-        let mr_args = MergeRequestBodyArgs::builder().amend(true).build().unwrap();
-        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
-            201,
-            "merge_request.json",
-            None,
-        );
-        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
-        assert!(gitlab.open(mr_args).is_ok());
-        let mut actual_method = client.http_method.borrow_mut();
-        assert_eq!(http::Method::PUT, actual_method.pop().unwrap());
-    }
-
-    #[test]
     fn test_open_merge_request_target_repo() {
         // current repo, targetting jordilin/gitar
         let client_type = ClientType::Gitlab(
@@ -492,6 +488,7 @@ mod test {
         let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
         assert!(gitlab.open(mr_args).is_err());
     }
+
     #[test]
     fn test_merge_request_already_exists_status_code_409_conflict() {
         let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
@@ -503,6 +500,23 @@ mod test {
         let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
         assert!(gitlab.open(mr_args).is_ok());
     }
+
+    #[test]
+    fn test_amend_existing_merge_request() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab)
+            .add_contract(200, "merge_request.json", None)
+            .add_contract(409, "merge_request_conflict.json", None);
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
+        let mr_args = MergeRequestBodyArgs::builder().amend(true).build().unwrap();
+        assert!(gitlab.open(mr_args).is_ok());
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/33",
+            *client.url()
+        );
+        let actual_method = client.http_method.borrow();
+        assert_eq!(http::Method::PUT, actual_method[1]);
+    }
+
     #[test]
     fn test_gitlab_merge_request_num_pages() {
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=1>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=2>; rel=\"last\"";
