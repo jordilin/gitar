@@ -436,7 +436,8 @@ mod test {
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests",
             *client.url(),
         );
-        assert_eq!(http::Method::POST, *client.http_method.borrow());
+        let mut actual_method = client.http_method.borrow_mut();
+        assert_eq!(http::Method::POST, actual_method.pop().unwrap());
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
@@ -453,7 +454,8 @@ mod test {
         );
         let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
         assert!(gitlab.open(mr_args).is_ok());
-        assert_eq!(http::Method::PUT, *client.http_method.borrow());
+        let mut actual_method = client.http_method.borrow_mut();
+        assert_eq!(http::Method::PUT, actual_method.pop().unwrap());
     }
 
     #[test]
@@ -685,7 +687,8 @@ mod test {
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/33",
             *client.url()
         );
-        assert_eq!(http::Method::PUT, *client.http_method.borrow());
+        let mut actual_method = client.http_method.borrow_mut();
+        assert_eq!(http::Method::PUT, actual_method.pop().unwrap());
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
@@ -720,7 +723,8 @@ mod test {
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/33/approve",
             *client.url()
         );
-        assert_eq!(http::Method::POST, *client.http_method.borrow());
+        let mut actual_method = client.http_method.borrow_mut();
+        assert_eq!(http::Method::POST, actual_method.pop().unwrap());
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()

@@ -331,6 +331,7 @@ fn user_prompt_confirmation(
             .assignee_id("".to_string())
             .username("".to_string())
             .remove_source_branch("true".to_string())
+            .amend(cli_args.amend)
             .draft(cli_args.draft)
             .build()?);
     }
@@ -366,6 +367,7 @@ fn user_prompt_confirmation(
         // TODO make this configurable
         .remove_source_branch("true".to_string())
         .draft(cli_args.draft)
+        .amend(cli_args.amend)
         .build()?)
 }
 
