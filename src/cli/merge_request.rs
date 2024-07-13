@@ -125,6 +125,9 @@ struct CreateMergeRequest {
     /// Adds and commits all changes before creating the merge request
     #[clap(long)]
     pub commit: Option<String>,
+    /// Force push the current branch to the remote repository
+    #[clap(long)]
+    pub force: bool,
     /// Set up the merge request as draft
     #[clap(long, visible_alias = "wip")]
     pub draft: bool,
@@ -258,6 +261,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .accept_summary(options.yes)
                 .commit(options.commit)
                 .draft(options.draft)
+                .force(options.force)
                 .build()
                 .unwrap(),
         )

@@ -176,8 +176,9 @@ pub fn outgoing_commits(
     Ok(response.body)
 }
 
-pub fn push(runner: &impl TaskRunner, remote: &str, repo: &Repo) -> Result<CmdInfo> {
-    let cmd = format!("git push {} {}", remote, repo.current_branch);
+pub fn push(runner: &impl TaskRunner, remote: &str, repo: &Repo, force: bool) -> Result<CmdInfo> {
+    let force_str = if force { "+" } else { "" };
+    let cmd = format!("git push {} {}{}", remote, force_str, repo.current_branch);
     let cmd_params = cmd.split(' ').collect::<Vec<&str>>();
     runner.run(cmd_params)?;
     Ok(CmdInfo::Ignore)
@@ -512,7 +513,7 @@ mod tests {
         let runner = MockRunner::new(vec![response]);
         let mut repo = Repo::new();
         repo.with_current_branch("new_feature");
-        push(&runner, "origin", &repo).unwrap();
+        push(&runner, "origin", &repo, false).unwrap();
         assert_eq!("git push origin new_feature", *runner.cmd());
     }
 
@@ -526,7 +527,18 @@ mod tests {
         let runner = MockRunner::new(vec![response]);
         let mut repo = Repo::new();
         repo.with_current_branch("new_feature");
-        assert!(push(&runner, "origin", &repo).is_err());
+        assert!(push(&runner, "origin", &repo, false).is_err());
+    }
+
+    #[test]
+    fn test_git_force_push_cmd_is_correct() {
+        let response = Response::builder().build().unwrap();
+        let runner = MockRunner::new(vec![response]);
+        let mut repo = Repo::new();
+        repo.with_current_branch("new_feature");
+        let force = true;
+        push(&runner, "origin", &repo, force).unwrap();
+        assert_eq!("git push origin +new_feature", *runner.cmd());
     }
 
     #[test]
