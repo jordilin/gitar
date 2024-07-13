@@ -44,12 +44,30 @@ impl Config {
     pub fn new<T: Read>(reader: T, domain: &str) -> Result<Self> {
         let config = Config::parse(reader, domain)?;
         let domain_config_data = config.get(domain).unwrap();
-        let api_token = domain_config_data.get("api_token").ok_or_else(|| {
-            error::gen(format!(
-                "No api_token found for domain {} in config",
-                domain
-            ))
-        })?;
+        // ENV VAR API token takes preference. For a given domain, we try to fetch
+        // <DOMAIN>_API_TOKEN env var first, then we fallback to the config
+        // file. Given a domain such as gitlab.com, the env var to be set is
+        // GITLAB_API_TOKEN. If the domain is gitlab.<company>.com, the env var
+        // to be set is GITLAB_<COMPANY>_API_TOKEN.
+
+        // Remove top level domain, if any (e.g. gitlab.com -> gitlab)
+        let domain_fields = domain.split('.').collect::<Vec<&str>>();
+        let env_domain = if domain_fields.len() == 1 {
+            // There's not top level domain, such as .com
+            domain
+        } else {
+            &domain_fields[0..domain_fields.len() - 1].join("_")
+        };
+        let api_token = std::env::var(format!("{}_API_TOKEN", env_domain.to_ascii_uppercase()))
+            .or_else(|_| -> Result<String> {
+                let token_res = domain_config_data.get("api_token").ok_or_else(|| {
+                    error::gen(format!(
+                        "No api_token found for domain {} in config",
+                        domain
+                    ))
+                })?;
+                Ok(token_res.to_string())
+            })?;
         let cache_location = domain_config_data.get("cache_location").ok_or_else(|| {
             error::gen(format!(
                 "No cache_location found for domain {} in config",
@@ -564,5 +582,57 @@ mod test {
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(Config::new(reader, domain).unwrap());
         assert_eq!(15, config.get_max_pages(&ApiOperation::Gist));
+    }
+
+    #[test]
+    fn test_use_gitlab_com_api_token_envvar() {
+        let config_data = r#"
+        gitlab.com.cache_location=/home/user/.config/mr_cache
+        gitlab.com.rate_limit_remaining_threshold=15
+        "#;
+        let domain = "gitlab.com";
+        let reader = std::io::Cursor::new(config_data);
+        std::env::set_var("GITLAB_API_TOKEN", "1234");
+        let config = Arc::new(Config::new(reader, domain).unwrap());
+        assert_eq!("1234", config.api_token());
+    }
+
+    #[test]
+    fn test_use_github_com_api_token_envvar() {
+        let config_data = r#"
+        github.com.cache_location=/home/user/.config/mr_cache
+        github.com.rate_limit_remaining_threshold=15
+        "#;
+        let domain = "github.com";
+        let reader = std::io::Cursor::new(config_data);
+        std::env::set_var("GITHUB_API_TOKEN", "4567");
+        let config = Arc::new(Config::new(reader, domain).unwrap());
+        assert_eq!("4567", config.api_token());
+    }
+
+    #[test]
+    fn test_use_sub_domain_gitlab_token_env_var() {
+        let config_data = r#"
+        gitlab.company.com.cache_location=/home/user/.config/mr_cache
+        gitlab.company.com.rate_limit_remaining_threshold=15
+        "#;
+        let domain = "gitlab.company.com";
+        let reader = std::io::Cursor::new(config_data);
+        std::env::set_var("GITLAB_COMPANY_API_TOKEN", "1214");
+        let config = Arc::new(Config::new(reader, domain).unwrap());
+        assert_eq!("1214", config.api_token());
+    }
+
+    #[test]
+    fn test_domain_without_top_leven_domain_token_envvar() {
+        let config_data = r#"
+        gitlabweb.cache_location=/home/user/.config/mr_cache
+        gitlabweb.rate_limit_remaining_threshold=15
+        "#;
+        let domain = "gitlabweb";
+        let reader = std::io::Cursor::new(config_data);
+        std::env::set_var("GITLABWEB_API_TOKEN", "1294");
+        let config = Arc::new(Config::new(reader, domain).unwrap());
+        assert_eq!("1294", config.api_token());
     }
 }

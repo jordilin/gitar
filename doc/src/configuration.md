@@ -26,6 +26,31 @@ requests (traditionally your own username).
 
 ## API token
 
+Gitar needs an API token to access the Github or Gitlab API. The token can be
+set by using an environment variable or by placing it in the configuration file.
+
+### Environment variable
+
+The environment variable needs to be named after the domain you are targeting.
+For example, if the remote is `gitlab.com` the environment variable should be
+named `GITLAB_API_TOKEN` and if the remote is `github.com` the environment
+variable should be named `GITHUB_API_TOKEN`. If you have a subdomain such as
+`gitlab.yourcompany.com`, the environment variable should be named
+`GITLAB_YOURCOMPANY_API_TOKEN`. Finally, if you are using a non FQDN domain such as
+`mygitlab`, then the environment variable should be `MYGITLAB_API_TOKEN`.
+
+This can be summarized in the following table:
+
+| Domain | Environment variable |
+|--------|----------------------|
+| github.com | GITHUB_API_TOKEN |
+| gitlab.com | GITLAB_API_TOKEN |
+| gitlab.yourcompany.com | GITLAB_YOURCOMPANY_API_TOKEN |
+| mygitlab | MYGITLAB_API_TOKEN |
+
+If the environment variable is not set, then Gitar will look for the token in
+the configuration file as explained in the following sections.
+
 ### Github.com
 
 To get an API token for Github, go to your Github account settings -> Developer
