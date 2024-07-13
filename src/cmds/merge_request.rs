@@ -38,6 +38,7 @@ pub struct MergeRequestCliArgs {
     pub open_browser: bool,
     pub accept_summary: bool,
     pub commit: Option<String>,
+    pub amend: bool,
     pub force: bool,
     pub draft: bool,
 }
@@ -1095,6 +1096,7 @@ mod tests {
             .commit(Some("commit".to_string()))
             .draft(false)
             .force(false)
+            .amend(false)
             .build()
             .unwrap();
 
@@ -1132,6 +1134,7 @@ mod tests {
             .commit(None)
             .draft(false)
             .force(false)
+            .amend(false)
             .build()
             .unwrap();
 
@@ -1169,6 +1172,7 @@ mod tests {
             .commit(None)
             .draft(false)
             .force(false)
+            .amend(false)
             .build()
             .unwrap();
 
@@ -1339,6 +1343,7 @@ mod tests {
             .commit(Some("commit".to_string()))
             .draft(false)
             .force(false)
+            .amend(false)
             .build()
             .unwrap();
 
