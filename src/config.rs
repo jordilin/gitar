@@ -58,7 +58,7 @@ impl Config {
         } else {
             &domain_fields[0..domain_fields.len() - 1].join("_")
         };
-        let api_token = std::env::var(&format!("{}_API_TOKEN", env_domain.to_ascii_uppercase()))
+        let api_token = std::env::var(format!("{}_API_TOKEN", env_domain.to_ascii_uppercase()))
             .or_else(|_| -> Result<String> {
                 let token_res = domain_config_data.get("api_token").ok_or_else(|| {
                     error::gen(format!(
