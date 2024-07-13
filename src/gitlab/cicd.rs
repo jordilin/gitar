@@ -47,7 +47,7 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
         query::gitlab_lint_ci_file(
             &self.runner,
             &url,
-            Some(payload),
+            Some(&payload),
             self.headers(),
             http::Method::POST,
             ApiOperation::Pipeline,

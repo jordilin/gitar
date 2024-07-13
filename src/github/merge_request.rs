@@ -83,8 +83,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         match query::github_merge_request_response(
             &self.runner,
             &mr_url,
-            // TODO, clone for now as might be needed for amend. Should be ref instead.
-            Some(body.clone()),
+            Some(&body),
             self.request_headers(),
             POST,
             ApiOperation::MergeRequest,
@@ -122,7 +121,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                         query::github_merge_request::<_, &Vec<&str>>(
                             &self.runner,
                             &issues_url,
-                            Some(body),
+                            Some(&body),
                             self.request_headers(),
                             PATCH,
                             ApiOperation::MergeRequest,
@@ -168,7 +167,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                                 query::github_merge_request::<_, String>(
                                     &self.runner,
                                     &url,
-                                    Some(body),
+                                    Some(&body),
                                     self.request_headers(),
                                     PATCH,
                                     ApiOperation::MergeRequest,
@@ -291,7 +290,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         query::github_merge_request::<_, &str>(
             &self.runner,
             &url,
-            Some(body),
+            Some(&body),
             self.request_headers(),
             PATCH,
             ApiOperation::MergeRequest,
@@ -326,7 +325,7 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Github<R> {
         query::create_merge_request_comment(
             &self.runner,
             &url,
-            Some(body),
+            Some(&body),
             self.request_headers(),
             POST,
             ApiOperation::MergeRequest,

@@ -53,7 +53,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         let response = query::gitlab_merge_request_response(
             &self.runner,
             &url,
-            Some(body.clone()),
+            Some(&body),
             self.headers(),
             http::Method::POST,
             ApiOperation::MergeRequest,
@@ -81,7 +81,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                 query::gitlab_merge_request_response(
                     &self.runner,
                     &url,
-                    Some(body),
+                    Some(&body),
                     self.headers(),
                     http::Method::PUT,
                     ApiOperation::MergeRequest,
@@ -157,7 +157,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         query::gitlab_merge_request::<_, &str>(
             &self.runner,
             &url,
-            Some(body),
+            Some(&body),
             self.headers(),
             http::Method::PUT,
             ApiOperation::MergeRequest,
@@ -240,7 +240,7 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Gitlab<R> {
         query::create_merge_request_comment(
             &self.runner,
             &url,
-            Some(body),
+            Some(&body),
             self.headers(),
             http::Method::POST,
             ApiOperation::MergeRequest,

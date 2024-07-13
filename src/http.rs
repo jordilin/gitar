@@ -50,7 +50,7 @@ impl<C, D: ConfigProperties> Client<C, D> {
         let call = || -> std::result::Result<ureq::Response, ureq::Error> {
             match request.method {
                 Method::GET | Method::HEAD => ureq_req.call(),
-                _ => ureq_req.send_json(serde_json::to_value(&request.body).unwrap()),
+                _ => ureq_req.send_json(serde_json::to_value(request.body).unwrap()),
             }
         };
         match call() {
@@ -227,9 +227,9 @@ impl Headers {
 
 #[derive(Builder)]
 #[builder(pattern = "owned")]
-pub struct Request<T> {
+pub struct Request<'a, T> {
     #[builder(setter(into, strip_option), default)]
-    body: Option<Body<T>>,
+    body: Option<&'a Body<T>>,
     #[builder(default)]
     headers: Headers,
     pub method: Method,
@@ -238,8 +238,8 @@ pub struct Request<T> {
     pub max_pages: Option<i64>,
 }
 
-impl<T> Request<T> {
-    pub fn builder() -> RequestBuilder<T> {
+impl<'a, T> Request<'a, T> {
+    pub fn builder() -> RequestBuilder<'a, T> {
         RequestBuilder::default()
     }
 
@@ -264,10 +264,6 @@ impl<T> Request<T> {
 
     pub fn api_operation(&self) -> &Option<ApiOperation> {
         &self.resource.api_operation
-    }
-
-    pub fn with_body(&mut self, body: Body<T>) {
-        self.body = Some(body);
     }
 
     pub fn set_header(&mut self, key: &str, value: &str) {
@@ -356,7 +352,7 @@ impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
 
 pub struct Paginator<'a, R, T> {
     runner: &'a Arc<R>,
-    request: Request<T>,
+    request: Request<'a, T>,
     page_url: Option<String>,
     iter: u32,
     throttle_time: Option<Milliseconds>,
@@ -366,7 +362,7 @@ pub struct Paginator<'a, R, T> {
 impl<'a, R, T> Paginator<'a, R, T> {
     pub fn new(
         runner: &'a Arc<R>,
-        request: Request<T>,
+        request: Request<'a, T>,
         page_url: &str,
         throttle_time: Option<Milliseconds>,
         backoff_max_retries: u32,

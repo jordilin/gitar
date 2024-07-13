@@ -124,7 +124,7 @@ macro_rules! send {
         pub fn $func_name<R: HttpRunner<Response = Response>, T: Serialize>(
             runner: &Arc<R>,
             url: &str,
-            body: Option<Body<T>>,
+            body: Option<&Body<T>>,
             request_headers: Headers,
             method: http::Method,
             operation: ApiOperation,
@@ -138,7 +138,7 @@ macro_rules! send {
         pub fn $func_name<R: HttpRunner<Response = Response>, T: Serialize>(
             runner: &Arc<R>,
             url: &str,
-            body: Option<Body<T>>,
+            body: Option<&Body<T>>,
             request_headers: Headers,
             method: http::Method,
             operation: ApiOperation,
@@ -150,7 +150,7 @@ macro_rules! send {
         pub fn $func_name<R: HttpRunner<Response = Response>, T: Serialize>(
             runner: &Arc<R>,
             url: &str,
-            body: Option<Body<T>>,
+            body: Option<&Body<T>>,
             request_headers: Headers,
             method: http::Method,
             operation: ApiOperation,
@@ -164,7 +164,7 @@ macro_rules! send {
 fn send_request<R: HttpRunner<Response = Response>, T: Serialize>(
     runner: &Arc<R>,
     url: &str,
-    body: Option<Body<T>>,
+    body: Option<&Body<T>>,
     request_headers: Headers,
     method: http::Method,
     operation: ApiOperation,
@@ -284,12 +284,12 @@ macro_rules! paged {
     };
 }
 
-fn build_list_request(
+fn build_list_request<'a>(
     url: &str,
     list_args: &Option<ListBodyArgs>,
     request_headers: Headers,
     operation: ApiOperation,
-) -> Request<()> {
+) -> Request<'a, ()> {
     let mut request: http::Request<()> =
         http::Request::new(url, http::Method::GET).with_api_operation(operation);
     request.set_headers(request_headers);
