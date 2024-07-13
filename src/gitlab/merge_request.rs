@@ -50,12 +50,17 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
             }
         }
         let url = format!("{}/merge_requests", self.rest_api_basepath());
+        let http_method = if args.amend {
+            http::Method::PUT
+        } else {
+            http::Method::POST
+        };
         let response = query::gitlab_merge_request_response(
             &self.runner,
             &url,
             Some(body),
             self.headers(),
-            http::Method::POST,
+            http_method,
             ApiOperation::MergeRequest,
         )?;
         // if status code is 409, it means that the merge request already
@@ -431,10 +436,24 @@ mod test {
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests",
             *client.url(),
         );
+        assert_eq!(http::Method::POST, *client.http_method.borrow());
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
         );
+    }
+
+    #[test]
+    fn test_amend_merge_request() {
+        let mr_args = MergeRequestBodyArgs::builder().amend(true).build().unwrap();
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            201,
+            "merge_request.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
+        assert!(gitlab.open(mr_args).is_ok());
+        assert_eq!(http::Method::PUT, *client.http_method.borrow());
     }
 
     #[test]

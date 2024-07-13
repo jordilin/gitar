@@ -228,6 +228,8 @@ pub struct MergeRequestBodyArgs {
     pub remove_source_branch: String,
     #[builder(default)]
     pub draft: bool,
+    #[builder(default)]
+    pub amend: bool,
 }
 
 impl MergeRequestBodyArgs {
