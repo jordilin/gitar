@@ -83,15 +83,16 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         match query::github_merge_request_response(
             &self.runner,
             &mr_url,
-            Some(body),
+            // TODO, clone for now as might be needed for amend. Should be ref instead.
+            Some(body.clone()),
             self.request_headers(),
             POST,
             ApiOperation::MergeRequest,
         ) {
             Ok(response) => {
-                let body = response.body;
                 match response.status {
                     201 => {
+                        let body = response.body;
                         // If target repo is provided bypass user assignation
                         if !target_repo.is_empty() {
                             let json_value = json_loads(&body)?;
@@ -157,8 +158,24 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                         let merge_requests_json: Vec<serde_json::Value> =
                             serde_json::from_str(&response.body)?;
                         if merge_requests_json.len() == 1 {
+                            let mr_id = merge_requests_json[0]["number"].as_i64().unwrap();
+                            if args.amend {
+                                // Amend the existing pull request
+                                let url = format!(
+                                    "{}/repos/{}/pulls/{}",
+                                    self.rest_api_basepath, self.path, mr_id
+                                );
+                                query::github_merge_request::<_, String>(
+                                    &self.runner,
+                                    &url,
+                                    Some(body),
+                                    self.request_headers(),
+                                    PATCH,
+                                    ApiOperation::MergeRequest,
+                                )?;
+                            }
                             Ok(MergeRequestResponse::builder()
-                                .id(merge_requests_json[0]["id"].as_i64().unwrap())
+                                .id(mr_id)
                                 .web_url(
                                     merge_requests_json[0]["html_url"]
                                         .to_string()
@@ -178,7 +195,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                     }
                     _ => Err(error::gen(format!(
                         "Failed to create merge request. Status code: {}, Body: {}",
-                        response.status, body
+                        response.status, response.body
                     ))),
                 }
             }
@@ -488,6 +505,8 @@ mod test {
             "https://api.github.com/repos/jordilin/githapi/issues/23",
             *client.url(),
         );
+        let actual_method = client.http_method.borrow();
+        assert_eq!(http::Method::POST, actual_method[0]);
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
@@ -559,6 +578,42 @@ mod test {
             "https://api.github.com/repos/jordilin/githapi/pulls?head=jordilin:feature",
             *client.url(),
         );
+        let actual_method = client.http_method.borrow();
+        assert_eq!(http::Method::GET, actual_method[1]);
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_amend_existing_pull_request() {
+        let mr_args = MergeRequestBodyArgs::builder()
+            .source_branch("feature".to_string())
+            .amend(true)
+            .build()
+            .unwrap();
+        let contracts = ResponseContracts::new(ContractType::Github)
+            .add_contract(200, "merge_request.json", None)
+            .add_body(
+                200,
+                Some(format!(
+                    "[{}]",
+                    get_contract(ContractType::Github, "merge_request.json")
+                )),
+                None,
+            )
+            .add_contract(422, "merge_request_conflict.json", None);
+
+        let (client, github) = setup_client!(contracts, default_github(), dyn MergeRequest);
+
+        github.open(mr_args).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/pulls/23",
+            *client.url(),
+        );
+        let actual_method = client.http_method.borrow();
+        assert_eq!(http::Method::PATCH, actual_method[2]);
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
@@ -738,7 +793,8 @@ mod test {
             "https://api.github.com/repos/jordilin/githapi/pulls/23",
             *client.url(),
         );
-        assert_eq!(http::Method::PATCH, *client.http_method.borrow());
+        let actual_method = client.http_method.borrow();
+        assert_eq!(http::Method::PATCH, actual_method[0]);
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
@@ -777,7 +833,8 @@ mod test {
             "https://api.github.com/repos/jordilin/githapi/pulls/23/merge",
             *client.url(),
         );
-        assert_eq!(http::Method::PUT, *client.http_method.borrow());
+        let actual_method = client.http_method.borrow();
+        assert_eq!(http::Method::PUT, actual_method[0]);
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()

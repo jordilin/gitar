@@ -54,7 +54,7 @@ pub mod utils {
         url: RefCell<String>,
         pub api_operation: RefCell<Option<ApiOperation>>,
         pub config: ConfigMock,
-        pub http_method: RefCell<http::Method>,
+        pub http_method: RefCell<Vec<http::Method>>,
         pub throttled: RefCell<u32>,
         pub milliseconds_throttled: RefCell<Milliseconds>,
         pub run_count: RefCell<u32>,
@@ -69,7 +69,7 @@ pub mod utils {
                 url: RefCell::new(String::new()),
                 api_operation: RefCell::new(None),
                 config: ConfigMock::default(),
-                http_method: RefCell::new(http::Method::GET),
+                http_method: RefCell::new(Vec::new()),
                 throttled: RefCell::new(0),
                 milliseconds_throttled: RefCell::new(Milliseconds::new(0)),
                 run_count: RefCell::new(0),
@@ -132,7 +132,7 @@ pub mod utils {
             self.headers.replace(cmd.headers().clone());
             self.api_operation.replace(cmd.api_operation().clone());
             let response = self.responses.borrow_mut().pop().unwrap();
-            self.http_method.replace(cmd.method.clone());
+            self.http_method.borrow_mut().push(cmd.method.clone());
             match response.status {
                 // 409 Conflict - Merge request already exists. - Gitlab
                 // 422 Conflict - Merge request already exists. - Github

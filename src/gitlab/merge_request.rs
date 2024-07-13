@@ -53,7 +53,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         let response = query::gitlab_merge_request_response(
             &self.runner,
             &url,
-            Some(body),
+            Some(body.clone()),
             self.headers(),
             http::Method::POST,
             ApiOperation::MergeRequest,
@@ -72,6 +72,21 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                 .last()
                 .unwrap()
                 .trim_matches('!');
+            if args.amend {
+                let url = format!(
+                    "{}/merge_requests/{}",
+                    self.rest_api_basepath(),
+                    merge_request_iid
+                );
+                query::gitlab_merge_request_response(
+                    &self.runner,
+                    &url,
+                    Some(body),
+                    self.headers(),
+                    http::Method::PUT,
+                    ApiOperation::MergeRequest,
+                )?;
+            }
             let merge_request_url = format!(
                 "https://{}/{}/-/merge_requests/{}",
                 self.domain, self.path, merge_request_iid
@@ -431,6 +446,8 @@ mod test {
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests",
             *client.url(),
         );
+        let mut actual_method = client.http_method.borrow_mut();
+        assert_eq!(http::Method::POST, actual_method.pop().unwrap());
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
@@ -471,6 +488,7 @@ mod test {
         let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
         assert!(gitlab.open(mr_args).is_err());
     }
+
     #[test]
     fn test_merge_request_already_exists_status_code_409_conflict() {
         let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
@@ -482,6 +500,23 @@ mod test {
         let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
         assert!(gitlab.open(mr_args).is_ok());
     }
+
+    #[test]
+    fn test_amend_existing_merge_request() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab)
+            .add_contract(200, "merge_request.json", None)
+            .add_contract(409, "merge_request_conflict.json", None);
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
+        let mr_args = MergeRequestBodyArgs::builder().amend(true).build().unwrap();
+        assert!(gitlab.open(mr_args).is_ok());
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/33",
+            *client.url()
+        );
+        let actual_method = client.http_method.borrow();
+        assert_eq!(http::Method::PUT, actual_method[1]);
+    }
+
     #[test]
     fn test_gitlab_merge_request_num_pages() {
         let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=1>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=2>; rel=\"last\"";
@@ -666,7 +701,8 @@ mod test {
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/33",
             *client.url()
         );
-        assert_eq!(http::Method::PUT, *client.http_method.borrow());
+        let mut actual_method = client.http_method.borrow_mut();
+        assert_eq!(http::Method::PUT, actual_method.pop().unwrap());
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
@@ -701,7 +737,8 @@ mod test {
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests/33/approve",
             *client.url()
         );
-        assert_eq!(http::Method::POST, *client.http_method.borrow());
+        let mut actual_method = client.http_method.borrow_mut();
+        assert_eq!(http::Method::POST, actual_method.pop().unwrap());
         assert_eq!(
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
