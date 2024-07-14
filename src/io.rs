@@ -14,6 +14,8 @@ use std::{
     thread,
 };
 
+use rand::Rng;
+
 /// A trait that handles the execution of processes with a finite lifetime. For
 /// example, it can be an in-memory process for testing or a shell command doing
 /// I/O. It handles all processes that do not conform with the HTTP protocol.
@@ -38,6 +40,14 @@ pub trait HttpRunner {
     /// Milliseconds to wait before executing the next request
     fn throttle(&self, milliseconds: Milliseconds) {
         thread::sleep(std::time::Duration::from_millis(*milliseconds));
+    }
+    /// Random wait time between the given range before submitting the next HTTP
+    /// request. The wait time is in milliseconds. The range is inclusive.
+    fn throttle_range(&self, min: Milliseconds, max: Milliseconds) {
+        let mut rng = rand::thread_rng();
+        let wait_time = rng.gen_range(*min..=*max);
+        log_info!("Sleeping for {} milliseconds", wait_time);
+        thread::sleep(std::time::Duration::from_millis(wait_time));
     }
 }
 

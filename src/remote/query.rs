@@ -204,10 +204,12 @@ macro_rules! paged {
         ) -> Result<Vec<$return_type>> {
             let request = build_list_request(url, &list_args, request_headers, operation);
             let mut throttle_time = None;
+            let mut throttle_range = None;
             let mut backoff_max_retries = 0;
             let mut backoff_wait_time = 60;
             if let Some(list_args) = &list_args {
                 throttle_time = list_args.throttle_time;
+                throttle_range = list_args.throttle_range;
                 backoff_max_retries = list_args.get_args.backoff_max_retries;
                 backoff_wait_time = list_args.get_args.backoff_retry_after;
             }
@@ -216,6 +218,7 @@ macro_rules! paged {
                 request,
                 url,
                 throttle_time,
+                throttle_range,
                 backoff_max_retries,
                 backoff_wait_time,
             );

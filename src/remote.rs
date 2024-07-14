@@ -275,6 +275,8 @@ pub struct ListRemoteCliArgs {
     #[builder(default)]
     pub throttle_time: Option<Milliseconds>,
     #[builder(default)]
+    pub throttle_range: Option<(Milliseconds, Milliseconds)>,
+    #[builder(default)]
     pub get_args: GetRemoteCliArgs,
 }
 
@@ -327,6 +329,8 @@ pub struct ListBodyArgs {
     pub flush: bool,
     #[builder(default)]
     pub throttle_time: Option<Milliseconds>,
+    #[builder(default)]
+    pub throttle_range: Option<(Milliseconds, Milliseconds)>,
     // Carry display format for flush operations
     #[builder(default)]
     pub get_args: GetRemoteCliArgs,
@@ -375,6 +379,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .sort_mode(remote_cli_args.sort.clone())
                     .flush(remote_cli_args.flush)
                     .throttle_time(remote_cli_args.throttle_time)
+                    .throttle_range(remote_cli_args.throttle_range)
                     .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
@@ -399,6 +404,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .sort_mode(remote_cli_args.sort.clone())
                     .flush(remote_cli_args.flush)
                     .throttle_time(remote_cli_args.throttle_time)
+                    .throttle_range(remote_cli_args.throttle_range)
                     .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
@@ -421,6 +427,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                         .sort_mode(remote_cli_args.sort.clone())
                         .flush(remote_cli_args.flush)
                         .throttle_time(remote_cli_args.throttle_time)
+                        .throttle_range(remote_cli_args.throttle_range)
                         .get_args(remote_cli_args.get_args.clone())
                         .build()
                         .unwrap(),
@@ -433,6 +440,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .sort_mode(remote_cli_args.sort.clone())
                     .flush(remote_cli_args.flush)
                     .throttle_time(remote_cli_args.throttle_time)
+                    .throttle_range(remote_cli_args.throttle_range)
                     .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
@@ -448,6 +456,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                         .sort_mode(remote_cli_args.sort.clone())
                         .flush(remote_cli_args.flush)
                         .throttle_time(remote_cli_args.throttle_time)
+                        .throttle_range(remote_cli_args.throttle_range)
                         .get_args(remote_cli_args.get_args.clone())
                         .build()
                         .unwrap(),
@@ -459,6 +468,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .sort_mode(remote_cli_args.sort.clone())
                     .flush(remote_cli_args.flush)
                     .throttle_time(remote_cli_args.throttle_time)
+                    .throttle_range(remote_cli_args.throttle_range)
                     .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
@@ -474,6 +484,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                         .sort_mode(remote_cli_args.sort.clone())
                         .flush(remote_cli_args.flush)
                         .throttle_time(remote_cli_args.throttle_time)
+                        .throttle_range(remote_cli_args.throttle_range)
                         .get_args(remote_cli_args.get_args.clone())
                         .build()
                         .unwrap(),
@@ -485,6 +496,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .sort_mode(remote_cli_args.sort.clone())
                     .flush(remote_cli_args.flush)
                     .throttle_time(remote_cli_args.throttle_time)
+                    .throttle_range(remote_cli_args.throttle_range)
                     .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
@@ -499,6 +511,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                         .sort_mode(remote_cli_args.sort.clone())
                         .flush(remote_cli_args.flush)
                         .throttle_time(remote_cli_args.throttle_time)
+                        .throttle_range(remote_cli_args.throttle_range)
                         .get_args(remote_cli_args.get_args.clone())
                         .build()
                         .unwrap(),
@@ -509,6 +522,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .sort_mode(remote_cli_args.sort.clone())
                     .flush(remote_cli_args.flush)
                     .throttle_time(remote_cli_args.throttle_time)
+                    .throttle_range(remote_cli_args.throttle_range)
                     .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
