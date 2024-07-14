@@ -30,6 +30,9 @@ pub struct Project {
     html_url: String,
     created_at: String,
     description: String,
+    // Field not available in Gitlab. Set to empty string.
+    #[builder(default)]
+    language: String,
 }
 
 impl Project {
@@ -45,6 +48,7 @@ impl Project {
             html_url: String::new(),
             created_at: String::new(),
             description: String::new(),
+            language: String::new(),
         }
     }
 
@@ -75,6 +79,12 @@ impl From<Project> for DisplayBody {
                 Column::builder()
                     .name("Description".to_string())
                     .value(p.description)
+                    .optional(true)
+                    .build()
+                    .unwrap(),
+                Column::builder()
+                    .name("Language".to_string())
+                    .value(p.language)
                     .optional(true)
                     .build()
                     .unwrap(),

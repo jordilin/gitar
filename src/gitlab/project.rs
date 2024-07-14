@@ -123,6 +123,7 @@ impl From<&serde_json::Value> for GitlabProjectFields {
                 .html_url(data["web_url"].as_str().unwrap().to_string())
                 .created_at(data["created_at"].as_str().unwrap().to_string())
                 .description(data["description"].as_str().unwrap_or_default().to_string())
+                // NOTE: Project language key is not present in the Gitlab API response.
                 .build()
                 .unwrap(),
         }
