@@ -21,16 +21,25 @@ use std::sync::Arc;
 
 pub mod query;
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Builder, Clone, Debug, Default, PartialEq)]
 pub struct Project {
     pub id: i64,
     default_branch: String,
+    #[builder(default)]
     members: Vec<Member>,
     html_url: String,
     created_at: String,
+    description: String,
+    // Field not available in Gitlab. Set to empty string.
+    #[builder(default)]
+    language: String,
 }
 
 impl Project {
+    pub fn builder() -> ProjectBuilder {
+        ProjectBuilder::default()
+    }
+
     pub fn new(id: i64, default_branch: &str) -> Self {
         Project {
             id,
@@ -38,6 +47,8 @@ impl Project {
             members: Vec::new(),
             html_url: String::new(),
             created_at: String::new(),
+            description: String::new(),
+            language: String::new(),
         }
     }
 
@@ -65,6 +76,18 @@ impl From<Project> for DisplayBody {
                 Column::new("Default Branch", p.default_branch),
                 Column::new("URL", p.html_url),
                 Column::new("Created at", p.created_at),
+                Column::builder()
+                    .name("Description".to_string())
+                    .value(p.description)
+                    .optional(true)
+                    .build()
+                    .unwrap(),
+                Column::builder()
+                    .name("Language".to_string())
+                    .value(p.language)
+                    .optional(true)
+                    .build()
+                    .unwrap(),
             ],
         }
     }

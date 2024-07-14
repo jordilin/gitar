@@ -131,37 +131,38 @@ impl<R> Github<R> {
 }
 
 pub struct GithubProjectFields {
-    id: i64,
-    default_branch: String,
-    html_url: String,
-    created_at: String,
+    project: Project,
 }
 
 impl From<&serde_json::Value> for GithubProjectFields {
     fn from(project_data: &serde_json::Value) -> Self {
         GithubProjectFields {
-            id: project_data["id"].as_i64().unwrap(),
-            default_branch: project_data["default_branch"]
-                .to_string()
-                .trim_matches('"')
-                .to_string(),
-            html_url: project_data["html_url"]
-                .to_string()
-                .trim_matches('"')
-                .to_string(),
-            created_at: project_data["created_at"]
-                .to_string()
-                .trim_matches('"')
-                .to_string(),
+            project: Project::builder()
+                .id(project_data["id"].as_i64().unwrap())
+                .default_branch(project_data["default_branch"].as_str().unwrap().to_string())
+                .html_url(project_data["html_url"].as_str().unwrap().to_string())
+                .created_at(project_data["created_at"].as_str().unwrap().to_string())
+                .description(
+                    project_data["description"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .language(
+                    project_data["language"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .build()
+                .unwrap(),
         }
     }
 }
 
 impl From<GithubProjectFields> for Project {
     fn from(fields: GithubProjectFields) -> Self {
-        Project::new(fields.id, &fields.default_branch)
-            .with_html_url(&fields.html_url)
-            .with_created_at(&fields.created_at)
+        fields.project
     }
 }
 
