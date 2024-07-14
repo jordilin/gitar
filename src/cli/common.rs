@@ -38,10 +38,14 @@ pub struct ListArgs {
     /// filtering is applied
     #[clap(long, visible_alias = "flush")]
     pub stream: bool,
-    /// Throttle the requests to the server. Time to wait in milliseconds
+    /// Throttle the requests to the server. Fixed time to wait in milliseconds
     /// between each HTTP request.
-    #[clap(long, value_name = "MILLISECONDS")]
+    #[clap(long, value_name = "MILLISECONDS", group = "throttle_arg")]
     pub throttle: Option<u64>,
+    /// Throttle the requests using a random wait time between the given range.
+    /// The MIN and MAX values are in milliseconds.
+    #[arg(long, value_parser=parse_throttle_range, value_name = "MIN-MAX", group = "throttle_arg")]
+    throttle_range: Option<(u64, u64)>,
     #[clap(long, default_value_t=SortModeCli::Asc)]
     sort: SortModeCli,
     #[clap(flatten)]
@@ -134,6 +138,10 @@ impl From<ListArgs> for ListRemoteCliArgs {
             .get_args(args.get_args.into())
             .flush(args.stream)
             .throttle_time(args.throttle.map(Milliseconds::from))
+            .throttle_range(
+                args.throttle_range
+                    .map(|(min, max)| (Milliseconds::from(min), Milliseconds::from(max))),
+            )
             .build()
             .unwrap()
     }
@@ -196,6 +204,19 @@ fn fields(path: &str) -> (std::str::Split<char>, usize) {
     (fields, empty_fields)
 }
 
+fn parse_throttle_range(s: &str) -> Result<(u64, u64), String> {
+    let parts: Vec<&str> = s.split('-').collect();
+    if parts.len() != 2 {
+        return Err(String::from("Throttle range must be in the format min-max"));
+    }
+    let min = parts[0].parse::<u64>().map_err(|_| "Invalid MIN value")?;
+    let max = parts[1].parse::<u64>().map_err(|_| "Invalid MAX value")?;
+    if min >= max {
+        return Err(String::from("MIN must be less than MAX"));
+    }
+    Ok((min, max))
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -218,6 +239,53 @@ mod test {
         assert!(validate_domain_project_repo_path("github.com/jordilin").is_err());
         assert!(
             validate_domain_project_repo_path("github.com/jordilin/project/extra/extra").is_err()
+        );
+    }
+
+    #[test]
+    fn test_valid_throttle_range() {
+        assert_eq!(parse_throttle_range("100-500"), Ok((100, 500)));
+        assert_eq!(parse_throttle_range("0-1000"), Ok((0, 1000)));
+        assert_eq!(parse_throttle_range("1-2"), Ok((1, 2)));
+    }
+
+    #[test]
+    fn test_invalid_number_of_arguments() {
+        assert!(parse_throttle_range("100").is_err());
+        assert!(parse_throttle_range("100-200 300").is_err());
+        assert!(parse_throttle_range("").is_err());
+    }
+
+    #[test]
+    fn test_invalid_number_format() {
+        assert!(parse_throttle_range("abc-500").is_err());
+        assert!(parse_throttle_range("100-def").is_err());
+        assert!(parse_throttle_range("100.5-500").is_err());
+    }
+
+    #[test]
+    fn test_min_greater_than_or_equal_to_max() {
+        assert!(parse_throttle_range("500-100").is_err());
+        assert!(parse_throttle_range("100-100").is_err());
+    }
+
+    #[test]
+    fn test_error_messages() {
+        assert_eq!(
+            parse_throttle_range("100"),
+            Err("Throttle range must be in the format min-max".to_string())
+        );
+        assert_eq!(
+            parse_throttle_range("abc-500"),
+            Err("Invalid MIN value".to_string())
+        );
+        assert_eq!(
+            parse_throttle_range("100-def"),
+            Err("Invalid MAX value".to_string())
+        );
+        assert_eq!(
+            parse_throttle_range("500-100"),
+            Err("MIN must be less than MAX".to_string())
         );
     }
 }

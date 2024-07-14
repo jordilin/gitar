@@ -356,6 +356,7 @@ pub struct Paginator<'a, R, T> {
     page_url: Option<String>,
     iter: u32,
     throttle_time: Option<Milliseconds>,
+    throttle_range: Option<(Milliseconds, Milliseconds)>,
     backoff: ExponentialBackoff<'a, R>,
 }
 
@@ -365,6 +366,7 @@ impl<'a, R, T> Paginator<'a, R, T> {
         request: Request<'a, T>,
         page_url: &str,
         throttle_time: Option<Milliseconds>,
+        throttle_range: Option<(Milliseconds, Milliseconds)>,
         backoff_max_retries: u32,
         backoff_default_wait_time: u64,
     ) -> Self {
@@ -374,6 +376,7 @@ impl<'a, R, T> Paginator<'a, R, T> {
             page_url: Some(page_url.to_string()),
             iter: 0,
             throttle_time,
+            throttle_range,
             backoff: ExponentialBackoff::new(
                 runner,
                 backoff_max_retries,
@@ -404,6 +407,9 @@ impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginato
             if let Some(throttle_time) = self.throttle_time {
                 log_info!("Throttling for: {} ms", throttle_time);
                 self.runner.throttle(throttle_time);
+            } else if let Some((min, max)) = self.throttle_range {
+                log_info!("Throttling between: {} ms and {} ms", min, max);
+                self.runner.throttle_range(min, max);
             }
             match self.backoff.retry_on_error(&mut self.request) {
                 Ok(response) => {
@@ -482,7 +488,7 @@ mod test {
         let response = Response::builder().status(200).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(1, responses.len());
         assert_eq!("http://localhost", *client.url());
@@ -501,7 +507,7 @@ mod test {
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(2, responses.len());
     }
@@ -512,7 +518,7 @@ mod test {
         let response2 = response_with_last_page();
         let client = Arc::new(MockRunner::new(vec![response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(2, responses.len());
     }
@@ -526,7 +532,7 @@ mod test {
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(1, responses.len());
         assert_eq!("http://localhost", *client.url());
@@ -551,7 +557,7 @@ mod test {
             MockRunner::new(vec![response3, response2, response1]).with_config(ConfigMock::new(1)),
         );
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(1, responses.len());
     }
@@ -569,7 +575,7 @@ mod test {
         responses.reverse();
         let request: Request<()> = Request::new("http://localhost", Method::GET);
         let client = Arc::new(MockRunner::new(responses));
-        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(REST_API_MAX_PAGES, responses.len() as u32);
     }
@@ -680,13 +686,13 @@ mod test {
             .max_pages(1)
             .build()
             .unwrap();
-        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(1, responses.len());
     }
 
     #[test]
-    fn test_paginator_throttle_enabled() {
+    fn test_paginator_fixed_throttle_enabled() {
         init_test_logger();
         let response1 = response_with_next_page();
         let response2 = response_with_next_page();
@@ -698,6 +704,7 @@ mod test {
             request,
             "http://localhost",
             Some(Milliseconds::new(1)),
+            None,
             0,
             60,
         );
@@ -705,6 +712,30 @@ mod test {
         assert_eq!(3, responses.len());
         let buffer = LOG_BUFFER.lock().unwrap();
         assert!(buffer.contains("Throttling for: 1 ms"));
+        assert_eq!(Milliseconds::new(3), *client.milliseconds_throttled());
+    }
+
+    #[test]
+    fn test_paginator_range_throttle_enabled() {
+        init_test_logger();
+        let response1 = response_with_next_page();
+        let response2 = response_with_last_page();
+        let client = Arc::new(MockRunner::new(vec![response2, response1]));
+        let request: Request<()> = Request::new("http://localhost", Method::GET);
+        let paginator = Paginator::new(
+            &client,
+            request,
+            "http://localhost",
+            None,
+            Some((Milliseconds::new(1), Milliseconds::new(3))),
+            0,
+            60,
+        );
+        let responses = paginator.collect::<Vec<Result<Response>>>();
+        assert_eq!(2, responses.len());
+        let buffer = LOG_BUFFER.lock().unwrap();
+        assert!(buffer.contains("Throttling between: 1 ms and 3 ms"));
+        assert_eq!(2, *client.throttled());
     }
 
     #[test]
@@ -726,7 +757,7 @@ mod test {
             .max_pages(5)
             .build()
             .unwrap();
-        let paginator = Paginator::new(&client, request, "http://localhost", None, 0, 60);
+        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
         let responses = paginator.collect::<Vec<Result<Response>>>();
         assert_eq!(5, responses.len());
     }

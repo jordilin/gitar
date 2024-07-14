@@ -165,6 +165,13 @@ pub mod utils {
             let mut milliseconds_throttled = self.milliseconds_throttled.borrow_mut();
             *milliseconds_throttled += milliseconds;
         }
+
+        fn throttle_range(&self, min: Milliseconds, _max: Milliseconds) {
+            let mut throttled = self.throttled.borrow_mut();
+            *throttled += 1;
+            let mut milliseconds_throttled = self.milliseconds_throttled.borrow_mut();
+            *milliseconds_throttled += min;
+        }
     }
 
     pub struct ConfigMock {
@@ -237,7 +244,7 @@ pub mod utils {
 
     pub fn init_test_logger() {
         let logger = TestLogger;
-        log::set_boxed_logger(Box::new(logger)).expect("Failed to set logger");
+        log::set_boxed_logger(Box::new(logger)).unwrap_or(());
         log::set_max_level(LevelFilter::Trace);
     }
 
