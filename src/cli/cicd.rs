@@ -3,7 +3,7 @@ use clap::{Parser, ValueEnum};
 use crate::{
     cmds::cicd::{
         mermaid::ChartType, JobListCliArgs, LintFilePathArgs, RunnerListCliArgs,
-        RunnerMetadataGetCliArgs, RunnerStatus,
+        RunnerMetadataGetCliArgs, RunnerPostDataCliArgs, RunnerStatus, RunnerType,
     },
     remote::ListRemoteCliArgs,
 };
@@ -74,6 +74,8 @@ enum RunnerSubCommand {
     List(ListRunner),
     #[clap(about = "Get runner metadata")]
     Get(RunnerMetadata),
+    #[clap(about = "Create a new runner")]
+    Create(RunnerPostData),
 }
 
 #[derive(ValueEnum, Clone, PartialEq, Debug)]
@@ -107,6 +109,26 @@ struct RunnerMetadata {
     id: i64,
     #[clap(flatten)]
     get_args: GetArgs,
+}
+
+#[derive(Parser)]
+struct RunnerPostData {
+    /// Runner description
+    #[clap(long)]
+    description: Option<String>,
+    /// Runner tags. Comma separated list of tags
+    #[clap(long, value_delimiter = ',')]
+    tags: Option<Vec<String>>,
+    /// Runner type
+    #[clap(long)]
+    kind: RunnerTypeCli,
+}
+
+#[derive(ValueEnum, Clone, PartialEq, Debug)]
+enum RunnerTypeCli {
+    Instance,
+    Group,
+    Project,
 }
 
 impl From<ChartTypeCli> for ChartType {
@@ -170,6 +192,7 @@ impl From<RunnerSubCommand> for PipelineOptions {
         match options {
             RunnerSubCommand::List(options) => PipelineOptions::Runners(options.into()),
             RunnerSubCommand::Get(options) => PipelineOptions::Runners(options.into()),
+            RunnerSubCommand::Create(options) => PipelineOptions::Runners(options.into()),
         }
     }
 }
@@ -212,6 +235,29 @@ impl From<RunnerMetadata> for RunnerOptions {
     }
 }
 
+impl From<RunnerPostData> for RunnerOptions {
+    fn from(options: RunnerPostData) -> Self {
+        RunnerOptions::Create(
+            RunnerPostDataCliArgs::builder()
+                .description(options.description)
+                .tags(options.tags.map(|tags| tags.join(",").to_string()))
+                .kind(options.kind.into())
+                .build()
+                .unwrap(),
+        )
+    }
+}
+
+impl From<RunnerTypeCli> for RunnerType {
+    fn from(kind: RunnerTypeCli) -> Self {
+        match kind {
+            RunnerTypeCli::Instance => RunnerType::Instance,
+            RunnerTypeCli::Group => RunnerType::Group,
+            RunnerTypeCli::Project => RunnerType::Project,
+        }
+    }
+}
+
 impl From<ListJob> for JobOptions {
     fn from(options: ListJob) -> Self {
         JobOptions::List(
@@ -247,6 +293,7 @@ pub enum JobOptions {
 pub enum RunnerOptions {
     List(RunnerListCliArgs),
     Get(RunnerMetadataGetCliArgs),
+    Create(RunnerPostDataCliArgs),
 }
 
 #[cfg(test)]
@@ -349,6 +396,45 @@ mod test {
                 assert_eq!(args.id, 123);
             }
             _ => panic!("Expected RunnerOptions::Get"),
+        }
+    }
+
+    #[test]
+    fn test_pipeline_create_runner() {
+        let args = Args::parse_from(vec![
+            "gr",
+            "pp",
+            "rn",
+            "create",
+            "--description",
+            "test-runner",
+            "--tags",
+            "tag1,tag2",
+            "--kind",
+            "instance",
+        ]);
+        let args = match args.command {
+            Command::Pipeline(PipelineCommand {
+                subcommand: PipelineSubcommand::Runners(RunnerSubCommand::Create(options)),
+            }) => {
+                assert_eq!(options.description, Some("test-runner".to_string()));
+                assert_eq!(
+                    options.tags,
+                    Some(vec!["tag1".to_string(), "tag2".to_string()])
+                );
+                assert_eq!(options.kind, RunnerTypeCli::Instance);
+                options
+            }
+            _ => panic!("Expected PipelineCommand"),
+        };
+        let options: RunnerOptions = args.into();
+        match options {
+            RunnerOptions::Create(args) => {
+                assert_eq!(args.description, Some("test-runner".to_string()));
+                assert_eq!(args.tags, Some("tag1,tag2".to_string()));
+                assert_eq!(args.kind, RunnerType::Instance);
+            }
+            _ => panic!("Expected RunnerOptions::Create"),
         }
     }
 

@@ -237,6 +237,26 @@ impl RunnerMetadataGetCliArgs {
     }
 }
 
+#[derive(Builder, Clone)]
+pub struct RunnerPostDataCliArgs {
+    pub description: Option<String>,
+    pub tags: Option<String>,
+    pub kind: RunnerType,
+}
+
+impl RunnerPostDataCliArgs {
+    pub fn builder() -> RunnerPostDataCliArgsBuilder {
+        RunnerPostDataCliArgsBuilder::default()
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum RunnerType {
+    Instance,
+    Group,
+    Project,
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum RunnerStatus {
     Online,
@@ -423,6 +443,7 @@ pub fn execute(
                     remote::get_cicd_runner(domain, path, config, cli_args.get_args.refresh_cache)?;
                 get_runner_details(remote, cli_args, std::io::stdout())
             }
+            RunnerOptions::Create(_) => todo!(),
         },
     }
 }
