@@ -68,6 +68,8 @@ impl<C, D: ConfigProperties> Client<C, D> {
                             );
                             headers
                         });
+                // log debug response headers
+                log_debug!("Response headers: {:?}", headers);
                 let body = response.into_string().unwrap_or_default();
                 let response = Response::builder()
                     .status(status)

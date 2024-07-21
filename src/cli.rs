@@ -28,6 +28,7 @@ use amps::AmpsCommand;
 use amps::AmpsOptions;
 use cache::CacheCommand;
 use cache::CacheOptions;
+use clap::ArgAction;
 use merge_request::{MergeRequestCommand, MergeRequestOptions};
 
 use std::option::Option;
@@ -47,9 +48,9 @@ const CLI_STYLE: Styles = Styles::styled()
 struct Args {
     #[clap(subcommand)]
     pub command: Command,
-    /// Verbose mode. Enable gitar's logging
-    #[clap(long, short, global = true)]
-    verbose: bool,
+    /// Verbose mode. Enable gitar's logging. -v for INFO, -vv for DEBUG
+    #[clap(long, short, global = true, action = ArgAction::Count)]
+    verbose: u8,
     /// Bypass local .git/config. Use repo instead. Ex: github.com/jordilin/gitar
     #[clap(
         long,
@@ -145,7 +146,7 @@ pub enum CliOptions {
 
 #[derive(Clone)]
 pub struct CliArgs {
-    pub verbose: bool,
+    pub verbose: u8,
     pub repo: Option<String>,
     pub domain: Option<String>,
     pub config: Option<String>,
@@ -153,7 +154,7 @@ pub struct CliArgs {
 
 impl CliArgs {
     pub fn new(
-        verbose: bool,
+        verbose: u8,
         repo: Option<String>,
         domain: Option<String>,
         config: Option<String>,

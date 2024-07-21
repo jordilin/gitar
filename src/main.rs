@@ -24,9 +24,10 @@ fn main() -> Result<()> {
     if let Some(ref config) = cli_args.config {
         config_file = Path::new(&config).to_path_buf();
     }
-    if cli_args.verbose {
-        let env = Env::default().default_filter_or("info");
-        env_logger::init_from_env(env);
+    match cli_args.verbose {
+        1 => env_logger::init_from_env(Env::default().default_filter_or("info")),
+        2 => env_logger::init_from_env(Env::default().default_filter_or("debug")),
+        _ => (),
     }
     match handle_cli_options(cli_options, config_file, cli_args) {
         Err(err) => {
