@@ -1138,7 +1138,7 @@ mod test {
 
     #[test]
     fn test_cli_requires_cd_local_repo_run_git_remote() {
-        let cli_args = CliArgs::new(false, None, None, None);
+        let cli_args = CliArgs::new(0, None, None, None);
         let response = Response::builder()
             .body("git@github.com:jordilin/gitar.git".to_string())
             .build()
@@ -1152,7 +1152,7 @@ mod test {
 
     #[test]
     fn test_cli_requires_cd_local_repo_run_git_remote_error() {
-        let cli_args = CliArgs::new(false, None, None, None);
+        let cli_args = CliArgs::new(0, None, None, None);
         let response = Response::builder().body("".to_string()).build().unwrap();
         let runner = MockRunner::new(vec![response]);
         let requirements = vec![CliDomainRequirements::CdInLocalRepo];
@@ -1168,12 +1168,7 @@ mod test {
 
     #[test]
     fn test_cli_requires_repo_args_or_cd_repo_fails_on_cd_repo() {
-        let cli_args = CliArgs::new(
-            false,
-            Some("github.com/jordilin/gitar".to_string()),
-            None,
-            None,
-        );
+        let cli_args = CliArgs::new(0, Some("github.com/jordilin/gitar".to_string()), None, None);
         let requirements = vec![
             CliDomainRequirements::CdInLocalRepo,
             CliDomainRequirements::RepoArgs,
@@ -1187,7 +1182,7 @@ mod test {
 
     #[test]
     fn test_cli_requires_domain_args_or_cd_repo_fails_on_cd_repo() {
-        let cli_args = CliArgs::new(false, None, Some("github.com".to_string()), None);
+        let cli_args = CliArgs::new(0, None, Some("github.com".to_string()), None);
         let requirements = vec![
             CliDomainRequirements::CdInLocalRepo,
             CliDomainRequirements::DomainArgs,
