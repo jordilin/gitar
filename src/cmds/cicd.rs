@@ -290,6 +290,16 @@ pub enum RunnerType {
     Project,
 }
 
+impl Display for RunnerType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RunnerType::Instance => write!(f, "instance_type"),
+            RunnerType::Group => write!(f, "group_type"),
+            RunnerType::Project => write!(f, "project_type"),
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum RunnerStatus {
     Online,

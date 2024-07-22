@@ -93,8 +93,58 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
         query::num_resources(&self.runner, &url, self.headers(), ApiOperation::Pipeline)
     }
 
-    fn create(&self, _args: RunnerPostDataCliArgs) -> Result<RunnerRegistrationResponse> {
-        todo!()
+    /// Creates a new runner based in the authentication token workflow as
+    /// opposed to the registration based workflow which gets deprecated in
+    /// Gitlab > 16.0. The response includes an auth token that can be included
+    /// in the runner's configuration file.
+    /// API doc https://docs.gitlab.com/ee/api/users.html#create-a-runner-linked-to-a-user
+    fn create(&self, args: RunnerPostDataCliArgs) -> Result<RunnerRegistrationResponse> {
+        let url = format!("{}/runners", self.base_current_user_url);
+        let mut body = Body::new();
+        if args.description.is_some() {
+            body.add("description", args.description.unwrap());
+        }
+        if args.tags.is_some() {
+            body.add("tag_list", args.tags.unwrap());
+        }
+        body.add("runner_type", args.kind.to_string());
+
+        query::gitlab_create_runner(
+            &self.runner,
+            &url,
+            Some(&body),
+            self.headers(),
+            http::Method::POST,
+            ApiOperation::Pipeline,
+        )
+    }
+}
+
+pub struct GitlabCreateRunnerFields {
+    field: RunnerRegistrationResponse,
+}
+
+impl From<&serde_json::Value> for GitlabCreateRunnerFields {
+    fn from(data: &serde_json::Value) -> Self {
+        GitlabCreateRunnerFields {
+            field: RunnerRegistrationResponse::builder()
+                .id(data["id"].as_i64().unwrap_or_default())
+                .token(data["token"].as_str().unwrap_or_default().to_string())
+                .token_expiration(
+                    data["token_expiration"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .build()
+                .unwrap(),
+        }
+    }
+}
+
+impl From<GitlabCreateRunnerFields> for RunnerRegistrationResponse {
+    fn from(fields: GitlabCreateRunnerFields) -> Self {
+        fields.field
     }
 }
 
@@ -373,7 +423,7 @@ impl From<GitlabLintResponseFields> for LintResponse {
 #[cfg(test)]
 mod test {
 
-    use crate::cmds::cicd::RunnerStatus;
+    use crate::cmds::cicd::{RunnerStatus, RunnerType};
     use crate::remote::ListBodyArgs;
     use crate::setup_client;
     use crate::test::utils::{default_gitlab, ContractType, ResponseContracts};
@@ -815,5 +865,30 @@ mod test {
         );
         assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
         assert_eq!("(1, 30)", &num_resources.unwrap().to_string());
+    }
+
+    #[test]
+    fn test_gitlab_create_auth_token_based_instance_runner_with_description_and_tags() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            201,
+            "create_auth_runner_response.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
+        let args = RunnerPostDataCliArgs::builder()
+            .description(Some("My runner".to_string()))
+            .tags(Some("tag1,tag2".to_string()))
+            .kind(RunnerType::Instance)
+            .build()
+            .unwrap();
+        let response = gitlab.create(args).unwrap();
+        assert_eq!("https://gitlab.com/api/v4/user/runners", *client.url(),);
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(Some(ApiOperation::Pipeline), *client.api_operation.borrow());
+        assert_eq!("newtoken", response.token);
+        let body = client.request_body();
+        assert!(body.contains("description"));
+        assert!(body.contains("tag_list"));
+        assert!(body.contains("instance_type"));
     }
 }
