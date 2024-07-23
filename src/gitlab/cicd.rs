@@ -104,7 +104,10 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
         if args.description.is_some() {
             body.add("description", args.description.unwrap());
         }
-        if args.tags.is_some() {
+        if args.run_untagged {
+            body.add("run_untagged", args.run_untagged.to_string());
+        }
+        if args.tags.is_some() && !args.run_untagged {
             body.add("tag_list", args.tags.unwrap());
         }
         body.add("runner_type", args.kind.to_string());
@@ -890,5 +893,26 @@ mod test {
         assert!(body.contains("description"));
         assert!(body.contains("tag_list"));
         assert!(body.contains("instance_type"));
+    }
+
+    #[test]
+    fn test_create_new_runner_untagged_does_not_use_tag_list_in_body() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            201,
+            "create_auth_runner_response.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
+        let args = RunnerPostDataCliArgs::builder()
+            .description(Some("My runner".to_string()))
+            .tags(Some("tag1,tag2".to_string()))
+            .kind(RunnerType::Instance)
+            .run_untagged(true)
+            .build()
+            .unwrap();
+        gitlab.create(args).unwrap();
+        let body = client.request_body();
+        assert!(!body.contains("tag_list"));
+        assert!(body.contains("run_untagged"));
     }
 }

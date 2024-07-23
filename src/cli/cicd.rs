@@ -122,6 +122,9 @@ struct RunnerPostData {
     /// Runner type
     #[clap(long)]
     kind: RunnerTypeCli,
+    #[clap(long)]
+    /// Run untagged
+    run_untagged: bool,
 }
 
 #[derive(ValueEnum, Clone, PartialEq, Debug)]
@@ -242,6 +245,7 @@ impl From<RunnerPostData> for RunnerOptions {
                 .description(options.description)
                 .tags(options.tags.map(|tags| tags.join(",").to_string()))
                 .kind(options.kind.into())
+                .run_untagged(options.run_untagged)
                 .build()
                 .unwrap(),
         )

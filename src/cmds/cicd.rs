@@ -242,6 +242,8 @@ pub struct RunnerPostDataCliArgs {
     pub description: Option<String>,
     pub tags: Option<String>,
     pub kind: RunnerType,
+    #[builder(default)]
+    pub run_untagged: bool,
 }
 
 impl RunnerPostDataCliArgs {
