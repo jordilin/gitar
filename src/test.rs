@@ -58,6 +58,7 @@ pub mod utils {
         pub throttled: RefCell<u32>,
         pub milliseconds_throttled: RefCell<Milliseconds>,
         pub run_count: RefCell<u32>,
+        pub request_body: RefCell<String>,
     }
 
     impl MockRunner {
@@ -73,6 +74,7 @@ pub mod utils {
                 throttled: RefCell::new(0),
                 milliseconds_throttled: RefCell::new(Milliseconds::new(0)),
                 run_count: RefCell::new(0),
+                request_body: RefCell::new(String::new()),
             }
         }
 
@@ -98,6 +100,10 @@ pub mod utils {
 
         pub fn milliseconds_throttled(&self) -> Ref<Milliseconds> {
             self.milliseconds_throttled.borrow()
+        }
+
+        pub fn request_body(&self) -> Ref<String> {
+            self.request_body.borrow()
         }
     }
 
@@ -132,6 +138,8 @@ pub mod utils {
             self.headers.replace(cmd.headers().clone());
             self.api_operation.replace(cmd.api_operation().clone());
             let response = self.responses.borrow_mut().pop().unwrap();
+            let body = serde_json::to_string(&cmd.body).unwrap_or_default();
+            self.request_body.replace(body);
             self.http_method.borrow_mut().push(cmd.method.clone());
             match response.status {
                 // 409 Conflict - Merge request already exists. - Gitlab

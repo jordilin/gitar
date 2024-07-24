@@ -2,7 +2,7 @@ use super::Github;
 use crate::api_traits::{ApiOperation, CicdJob, CicdRunner, NumberDeltaErr};
 use crate::cmds::cicd::{
     Job, JobListBodyArgs, LintResponse, Pipeline, PipelineBodyArgs, RunnerListBodyArgs,
-    RunnerMetadata, YamlBytes,
+    RunnerMetadata, RunnerPostDataCliArgs, RunnerRegistrationResponse, YamlBytes,
 };
 use crate::remote::query;
 use crate::{
@@ -73,6 +73,10 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Github<R> {
     }
 
     fn num_resources(&self, _args: RunnerListBodyArgs) -> Result<Option<NumberDeltaErr>> {
+        todo!()
+    }
+
+    fn create(&self, _args: RunnerPostDataCliArgs) -> Result<RunnerRegistrationResponse> {
         todo!()
     }
 }

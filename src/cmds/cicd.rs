@@ -237,6 +237,75 @@ impl RunnerMetadataGetCliArgs {
     }
 }
 
+#[derive(Builder, Clone)]
+pub struct RunnerPostDataCliArgs {
+    pub description: Option<String>,
+    pub tags: Option<String>,
+    pub kind: RunnerType,
+    #[builder(default)]
+    pub run_untagged: bool,
+    #[builder(default)]
+    pub project_id: Option<i64>,
+    #[builder(default)]
+    pub group_id: Option<i64>,
+}
+
+impl RunnerPostDataCliArgs {
+    pub fn builder() -> RunnerPostDataCliArgsBuilder {
+        RunnerPostDataCliArgsBuilder::default()
+    }
+}
+
+fn create_runner<W: Write>(
+    remote: Arc<dyn CicdRunner>,
+    cli_args: RunnerPostDataCliArgs,
+    mut writer: W,
+) -> Result<()> {
+    let response = remote.create(cli_args)?;
+    writeln!(writer, "{}", response)?;
+    Ok(())
+}
+
+#[derive(Builder, Clone)]
+pub struct RunnerRegistrationResponse {
+    pub id: i64,
+    pub token: String,
+    pub token_expiration: String,
+}
+
+impl RunnerRegistrationResponse {
+    pub fn builder() -> RunnerRegistrationResponseBuilder {
+        RunnerRegistrationResponseBuilder::default()
+    }
+}
+
+impl Display for RunnerRegistrationResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Runner ID: [{}], Runner Token: [{}], Token Expiration: [{}]",
+            self.id, self.token, self.token_expiration
+        )
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum RunnerType {
+    Instance,
+    Group,
+    Project,
+}
+
+impl Display for RunnerType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RunnerType::Instance => write!(f, "instance_type"),
+            RunnerType::Group => write!(f, "group_type"),
+            RunnerType::Project => write!(f, "project_type"),
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum RunnerStatus {
     Online,
@@ -422,6 +491,10 @@ pub fn execute(
                 let remote =
                     remote::get_cicd_runner(domain, path, config, cli_args.get_args.refresh_cache)?;
                 get_runner_details(remote, cli_args, std::io::stdout())
+            }
+            RunnerOptions::Create(cli_args) => {
+                let remote = remote::get_cicd_runner(domain, path, config, false)?;
+                create_runner(remote, cli_args, std::io::stdout())
             }
         },
     }
@@ -767,6 +840,15 @@ mod test {
         ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
             todo!()
         }
+
+        fn create(&self, _args: RunnerPostDataCliArgs) -> Result<RunnerRegistrationResponse> {
+            Ok(RunnerRegistrationResponse::builder()
+                .id(1)
+                .token("token".to_string())
+                .token_expiration("2020-01-01T00:00:00Z".to_string())
+                .build()
+                .unwrap())
+        }
     }
 
     #[test]
@@ -1050,5 +1132,22 @@ test:
 "ID|Name|Author Name|Branch|Commit SHA|Pipeline ID|URL|Runner Tags|Stage|Status|Created At|Started At|Finished At|Duration\n1|job1|user1|main|1234567890abcdef|1|https://gitlab.com/owner/repo/-/jobs/1|tag1, tag2|build|success|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|2020-01-01T00:01:30Z|25\n2|job2|user2|main|1234567890abcdef|1|https://gitlab.com/owner/repo/-/jobs/2|tag1, tag2|test|failed|2020-01-01T00:00:00Z|2020-01-01T00:01:00Z|2020-01-01T00:01:30Z|30\n",
             String::from_utf8(buf).unwrap()
         );
+    }
+
+    #[test]
+    fn test_create_new_runner() {
+        let remote = RunnerMock::builder().build().unwrap();
+        let mut buf = Vec::new();
+        let cli_args = RunnerPostDataCliArgs::builder()
+            .description(Some("Runner 1".to_string()))
+            .tags(Some("tag1,tag2".to_string()))
+            .kind(RunnerType::Instance)
+            .build()
+            .unwrap();
+        create_runner(Arc::new(remote), cli_args, &mut buf).unwrap();
+        assert_eq!(
+            "Runner ID: [1], Runner Token: [token], Token Expiration: [2020-01-01T00:00:00Z]\n",
+            String::from_utf8(buf).unwrap()
+        )
     }
 }

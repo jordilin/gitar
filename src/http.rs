@@ -231,7 +231,7 @@ impl Headers {
 #[builder(pattern = "owned")]
 pub struct Request<'a, T> {
     #[builder(setter(into, strip_option), default)]
-    body: Option<&'a Body<T>>,
+    pub body: Option<&'a Body<T>>,
     #[builder(default)]
     headers: Headers,
     pub method: Method,
