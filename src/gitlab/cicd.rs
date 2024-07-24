@@ -110,6 +110,12 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
         if args.tags.is_some() && !args.run_untagged {
             body.add("tag_list", args.tags.unwrap());
         }
+        if args.project_id.is_some() {
+            body.add("project_id", args.project_id.unwrap().to_string());
+        }
+        if args.group_id.is_some() {
+            body.add("group_id", args.group_id.unwrap().to_string());
+        }
         body.add("runner_type", args.kind.to_string());
 
         query::gitlab_create_runner(
@@ -914,5 +920,45 @@ mod test {
         let body = client.request_body();
         assert!(!body.contains("tag_list"));
         assert!(body.contains("run_untagged"));
+    }
+
+    #[test]
+    fn create_project_runner_has_project_id_in_payload() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            201,
+            "create_auth_runner_response.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
+        let args = RunnerPostDataCliArgs::builder()
+            .description(Some("My runner".to_string()))
+            .tags(Some("tag1,tag2".to_string()))
+            .project_id(Some(1234))
+            .kind(RunnerType::Project)
+            .build()
+            .unwrap();
+        gitlab.create(args).unwrap();
+        let body = client.request_body();
+        assert!(body.contains("project_id"));
+    }
+
+    #[test]
+    fn create_group_runner_has_group_id_in_payload() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            201,
+            "create_auth_runner_response.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
+        let args = RunnerPostDataCliArgs::builder()
+            .description(Some("My group runner".to_string()))
+            .tags(Some("tag1,tag2".to_string()))
+            .group_id(Some(1234))
+            .kind(RunnerType::Group)
+            .build()
+            .unwrap();
+        gitlab.create(args).unwrap();
+        let body = client.request_body();
+        assert!(body.contains("group_id"));
     }
 }
