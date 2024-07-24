@@ -266,13 +266,10 @@ impl From<RunnerMetadata> for RunnerOptions {
 
 impl From<RunnerPostData> for RunnerOptions {
     fn from(options: RunnerPostData) -> Self {
-        match options.validate_runner_type_id() {
-            Err(e) => {
-                eprintln!("{}", e);
-                std::process::exit(2);
-            }
-            _ => {}
-        }
+        if let Err(e) = options.validate_runner_type_id() {
+            eprintln!("{}", e);
+            std::process::exit(2);
+        };
         RunnerOptions::Create(
             RunnerPostDataCliArgs::builder()
                 .description(options.description)
