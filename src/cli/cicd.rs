@@ -111,7 +111,7 @@ struct RunnerMetadata {
     get_args: GetArgs,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Default)]
 struct RunnerPostData {
     /// Runner description
     #[clap(long)]
@@ -125,10 +125,36 @@ struct RunnerPostData {
     #[clap(long)]
     /// Run untagged
     run_untagged: bool,
+    /// Project id. Required if runner type is project
+    #[clap(long, group = "runner_target_id")]
+    project_id: Option<i64>,
+    /// Group id. Required if runner type is group
+    #[clap(long, group = "runner_target_id")]
+    group_id: Option<i64>,
 }
 
-#[derive(ValueEnum, Clone, PartialEq, Debug)]
+impl RunnerPostData {
+    fn validate_runner_type_id(&self) -> Result<(), String> {
+        if self.kind == RunnerTypeCli::Project && self.project_id.is_none() {
+            return Err("error: project id is required for project runner".to_string());
+        }
+        if self.kind == RunnerTypeCli::Group && self.group_id.is_none() {
+            return Err("error: group id is required for group runner".to_string());
+        }
+        if self.kind == RunnerTypeCli::Instance
+            && (self.project_id.is_some() || self.group_id.is_some())
+        {
+            return Err(
+                "error: project id and group id are not required for instance runner".to_string(),
+            );
+        }
+        Ok(())
+    }
+}
+
+#[derive(ValueEnum, Clone, PartialEq, Debug, Default)]
 enum RunnerTypeCli {
+    #[default]
     Instance,
     Group,
     Project,
@@ -240,12 +266,21 @@ impl From<RunnerMetadata> for RunnerOptions {
 
 impl From<RunnerPostData> for RunnerOptions {
     fn from(options: RunnerPostData) -> Self {
+        match options.validate_runner_type_id() {
+            Err(e) => {
+                eprintln!("{}", e);
+                std::process::exit(2);
+            }
+            _ => {}
+        }
         RunnerOptions::Create(
             RunnerPostDataCliArgs::builder()
                 .description(options.description)
                 .tags(options.tags.map(|tags| tags.join(",").to_string()))
                 .kind(options.kind.into())
                 .run_untagged(options.run_untagged)
+                .project_id(options.project_id)
+                .group_id(options.group_id)
                 .build()
                 .unwrap(),
         )
@@ -302,9 +337,8 @@ pub enum RunnerOptions {
 
 #[cfg(test)]
 mod test {
-    use crate::cli::{Args, Command};
-
     use super::*;
+    use crate::cli::{Args, Command};
 
     #[test]
     fn test_pipeline_cli_list() {
@@ -550,5 +584,108 @@ mod test {
                 assert_eq!(args.list_args.to_page, Some(2));
             }
         }
+    }
+
+    #[test]
+    fn test_project_runner_with_project_id() {
+        let data = RunnerPostData {
+            kind: RunnerTypeCli::Project,
+            project_id: Some(123),
+            group_id: None,
+            ..Default::default()
+        };
+        assert!(data.validate_runner_type_id().is_ok());
+    }
+
+    #[test]
+    fn test_project_runner_without_project_id() {
+        let data = RunnerPostData {
+            kind: RunnerTypeCli::Project,
+            project_id: None,
+            group_id: None,
+            ..Default::default()
+        };
+        assert_eq!(
+            data.validate_runner_type_id(),
+            Err("error: project id is required for project runner".to_string())
+        );
+    }
+
+    #[test]
+    fn test_group_runner_with_group_id() {
+        let data = RunnerPostData {
+            kind: RunnerTypeCli::Group,
+            project_id: None,
+            group_id: Some(456),
+            ..Default::default()
+        };
+        assert!(data.validate_runner_type_id().is_ok());
+    }
+
+    #[test]
+    fn test_group_runner_without_group_id() {
+        let data = RunnerPostData {
+            kind: RunnerTypeCli::Group,
+            project_id: None,
+            group_id: None,
+            ..Default::default()
+        };
+        assert_eq!(
+            data.validate_runner_type_id(),
+            Err("error: group id is required for group runner".to_string())
+        );
+    }
+
+    #[test]
+    fn test_instance_runner_without_ids() {
+        let data = RunnerPostData {
+            kind: RunnerTypeCli::Instance,
+            project_id: None,
+            group_id: None,
+            ..Default::default()
+        };
+        assert!(data.validate_runner_type_id().is_ok());
+    }
+
+    #[test]
+    fn test_instance_runner_with_project_id() {
+        let data = RunnerPostData {
+            kind: RunnerTypeCli::Instance,
+            project_id: Some(123),
+            group_id: None,
+            ..Default::default()
+        };
+        assert_eq!(
+            data.validate_runner_type_id(),
+            Err("error: project id and group id are not required for instance runner".to_string())
+        );
+    }
+
+    #[test]
+    fn test_instance_runner_with_group_id() {
+        let data = RunnerPostData {
+            kind: RunnerTypeCli::Instance,
+            project_id: None,
+            group_id: Some(456),
+            ..Default::default()
+        };
+        assert_eq!(
+            data.validate_runner_type_id(),
+            Err("error: project id and group id are not required for instance runner".to_string())
+        );
+    }
+
+    #[test]
+    fn test_instance_runner_with_both_ids() {
+        let data = RunnerPostData {
+            kind: RunnerTypeCli::Instance,
+            project_id: Some(123),
+            group_id: Some(456),
+            ..Default::default()
+        };
+        assert_eq!(
+            data.validate_runner_type_id(),
+            Err("error: project id and group id are not required for instance runner".to_string())
+        );
     }
 }

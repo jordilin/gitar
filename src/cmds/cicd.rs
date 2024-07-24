@@ -244,6 +244,10 @@ pub struct RunnerPostDataCliArgs {
     pub kind: RunnerType,
     #[builder(default)]
     pub run_untagged: bool,
+    #[builder(default)]
+    pub project_id: Option<i64>,
+    #[builder(default)]
+    pub group_id: Option<i64>,
 }
 
 impl RunnerPostDataCliArgs {
