@@ -290,64 +290,56 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Gitlab<R> {
 }
 
 pub struct GitlabMergeRequestFields {
-    id: i64,
-    web_url: String,
-    source_branch: String,
-    author: String,
-    updated_at: String,
-    created_at: String,
-    title: String,
-    description: String,
-    merged_at: String,
-    pipeline_id: Option<i64>,
-    pipeline_url: Option<String>,
+    fields: MergeRequestResponse,
 }
 
 impl From<&serde_json::Value> for GitlabMergeRequestFields {
     fn from(data: &serde_json::Value) -> Self {
         GitlabMergeRequestFields {
-            id: data["iid"].as_i64().unwrap_or_default(),
-            web_url: data["web_url"].as_str().unwrap_or_default().to_string(),
-            source_branch: data["source_branch"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
-            author: data["author"]["username"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
-            updated_at: data["updated_at"].as_str().unwrap_or_default().to_string(),
-            created_at: data["created_at"].as_str().unwrap_or_default().to_string(),
-            title: data["title"].as_str().unwrap_or_default().to_string(),
-            description: data["description"].as_str().unwrap_or_default().to_string(),
-            // If merge request is not merged, merged_at is an empty string.
-            merged_at: data["merged_at"].as_str().unwrap_or_default().to_string(),
-            // Documentation recommends gathering head_pipeline instead of
-            // pipeline key.
-            pipeline_id: data["head_pipeline"]["id"].as_i64(),
-            pipeline_url: data["head_pipeline"]["web_url"]
-                .as_str()
-                .map(|s| s.to_string()),
+            fields: MergeRequestResponse::builder()
+                .id(data["iid"].as_i64().unwrap_or_default())
+                .web_url(data["web_url"].as_str().unwrap_or_default().to_string())
+                .source_branch(
+                    data["source_branch"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .sha(
+                    data["merge_commit_sha"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .author(
+                    data["author"]["username"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .updated_at(data["updated_at"].as_str().unwrap_or_default().to_string())
+                .created_at(data["created_at"].as_str().unwrap_or_default().to_string())
+                .title(data["title"].as_str().unwrap_or_default().to_string())
+                .description(data["description"].as_str().unwrap_or_default().to_string())
+                // If merge request is not merged, merged_at is an empty string.
+                .merged_at(data["merged_at"].as_str().unwrap_or_default().to_string())
+                // Documentation recommends gathering head_pipeline instead of
+                // pipeline key.
+                .pipeline_id(data["head_pipeline"]["id"].as_i64())
+                .pipeline_url(
+                    data["head_pipeline"]["web_url"]
+                        .as_str()
+                        .map(|s| s.to_string()),
+                )
+                .build()
+                .unwrap(),
         }
     }
 }
 
 impl From<GitlabMergeRequestFields> for MergeRequestResponse {
     fn from(fields: GitlabMergeRequestFields) -> Self {
-        MergeRequestResponse::builder()
-            .id(fields.id)
-            .web_url(fields.web_url)
-            .source_branch(fields.source_branch)
-            .author(fields.author)
-            .updated_at(fields.updated_at)
-            .created_at(fields.created_at)
-            .title(fields.title)
-            .description(fields.description)
-            .merged_at(fields.merged_at)
-            .pipeline_id(fields.pipeline_id)
-            .pipeline_url(fields.pipeline_url)
-            .build()
-            .unwrap()
+        fields.fields
     }
 }
 

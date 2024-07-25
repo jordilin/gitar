@@ -1301,8 +1301,8 @@ mod tests {
         let mut writer = Vec::new();
         get_merge_request_details(remote, cli_args, &mut writer).unwrap();
         assert_eq!(
-            "ID|Title|Source Branch|Description|Author|URL|Updated at|Merged at|Pipeline ID|Pipeline URL\n\
-             1|New feature||Implement get merge request||https://gitlab.com/owner/repo/-/merge_requests/1||2024-03-03T00:00:00Z|1|https://gitlab.com/owner/repo/-/pipelines/1\n",
+            "ID|Title|Source Branch|SHA|Description|Author|URL|Updated at|Merged at|Pipeline ID|Pipeline URL\n\
+             1|New feature|||Implement get merge request||https://gitlab.com/owner/repo/-/merge_requests/1||2024-03-03T00:00:00Z|1|https://gitlab.com/owner/repo/-/pipelines/1\n",
             String::from_utf8(writer).unwrap(),
         )
     }
