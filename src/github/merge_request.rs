@@ -373,83 +373,85 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Github<R> {
 }
 
 pub struct GithubMergeRequestFields {
-    id: i64,
-    web_url: String,
-    source_branch: String,
-    author: String,
-    updated_at: String,
-    created_at: String,
-    title: String,
-    pull_request: String,
-    description: String,
-    merged_at: String,
-    pipeline_id: Option<i64>,
-    pipeline_url: Option<String>,
+    fields: MergeRequestResponse,
 }
 
 impl From<&serde_json::Value> for GithubMergeRequestFields {
     fn from(merge_request_data: &serde_json::Value) -> Self {
         GithubMergeRequestFields {
-            id: merge_request_data["number"].as_i64().unwrap(),
-            web_url: merge_request_data["html_url"].as_str().unwrap().to_string(),
-            source_branch: merge_request_data["head"]["ref"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
-            author: merge_request_data["user"]["login"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
-            updated_at: merge_request_data["updated_at"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
-            created_at: merge_request_data["created_at"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
-            title: merge_request_data["title"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
-            pull_request: merge_request_data["pull_request"]["html_url"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
-            description: merge_request_data["body"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
-            merged_at: merge_request_data["merged_at"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
-            // Not available in the response. Set it to the same ID as the pull request
-            pipeline_id: Some(merge_request_data["number"].as_i64().unwrap()),
-            pipeline_url: merge_request_data["html_url"]
-                .as_str()
-                .map(|url| format!("{}/checks", url)),
+            fields: MergeRequestResponse::builder()
+                .id(merge_request_data["number"].as_i64().unwrap())
+                .web_url(merge_request_data["html_url"].as_str().unwrap().to_string())
+                .source_branch(
+                    merge_request_data["head"]["ref"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .sha(
+                    merge_request_data["merge_commit_sha"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .author(
+                    merge_request_data["user"]["login"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .updated_at(
+                    merge_request_data["updated_at"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .created_at(
+                    merge_request_data["created_at"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .title(
+                    merge_request_data["title"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .pull_request(
+                    merge_request_data["pull_request"]["html_url"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .description(
+                    merge_request_data["body"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                .merged_at(
+                    merge_request_data["merged_at"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+                // Not available in the response. Set it to the same ID as the pull request
+                .pipeline_id(Some(merge_request_data["number"].as_i64().unwrap()))
+                .pipeline_url(
+                    merge_request_data["html_url"]
+                        .as_str()
+                        .map(|url| format!("{}/checks", url)),
+                )
+                .build()
+                .unwrap(),
         }
     }
 }
 
 impl From<GithubMergeRequestFields> for MergeRequestResponse {
     fn from(fields: GithubMergeRequestFields) -> Self {
-        MergeRequestResponse::builder()
-            .id(fields.id)
-            .web_url(fields.web_url)
-            .source_branch(fields.source_branch)
-            .author(fields.author)
-            .updated_at(fields.updated_at)
-            .created_at(fields.created_at)
-            .title(fields.title)
-            .pull_request(fields.pull_request)
-            .description(fields.description)
-            .merged_at(fields.merged_at)
-            .pipeline_id(fields.pipeline_id)
-            .pipeline_url(fields.pipeline_url)
-            .build()
-            .unwrap()
+        fields.fields
     }
 }
 

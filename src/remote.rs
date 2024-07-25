@@ -140,6 +140,7 @@ pub struct MergeRequestResponse {
     pub author: String,
     pub updated_at: String,
     pub source_branch: String,
+    pub sha: String,
     pub created_at: String,
     pub title: String,
     // For Github to filter pull requests from issues.
@@ -164,6 +165,12 @@ impl From<MergeRequestResponse> for DisplayBody {
                 Column::new("ID", mr.id.to_string()),
                 Column::new("Title", mr.title),
                 Column::new("Source Branch", mr.source_branch),
+                Column::builder()
+                    .name("SHA".to_string())
+                    .value(mr.sha)
+                    .optional(true)
+                    .build()
+                    .unwrap(),
                 Column::builder()
                     .name("Description".to_string())
                     .value(mr.description)
