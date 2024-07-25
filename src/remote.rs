@@ -163,6 +163,7 @@ impl From<MergeRequestResponse> for DisplayBody {
             columns: vec![
                 Column::new("ID", mr.id.to_string()),
                 Column::new("Title", mr.title),
+                Column::new("Source Branch", mr.source_branch),
                 Column::builder()
                     .name("Description".to_string())
                     .value(mr.description)
