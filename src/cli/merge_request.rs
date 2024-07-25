@@ -129,7 +129,7 @@ struct CreateMergeRequest {
     #[clap(long)]
     pub amend: bool,
     /// Force push the current branch to the remote repository
-    #[clap(long)]
+    #[clap(long, short)]
     pub force: bool,
     /// Set up the merge request as draft
     #[clap(long, visible_alias = "wip")]
