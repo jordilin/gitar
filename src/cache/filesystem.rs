@@ -28,7 +28,7 @@ impl<C: ConfigProperties> FileCache<C> {
         FileCache { config }
     }
 
-    fn get_cache_file(&self, url: &str) -> String {
+    pub fn get_cache_file(&self, url: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(url);
         let hash = hasher.finalize();
@@ -80,7 +80,12 @@ impl<C: ConfigProperties> FileCache<C> {
         Ok(())
     }
 
-    fn expired(&self, key: &Resource, path: String) -> Result<bool> {
+    fn expired(
+        &self,
+        key: &Resource,
+        path: String,
+        cache_control: Option<CacheControl>,
+    ) -> Result<bool> {
         let cache_expiration = self
             .config
             .get_cache_expiration(key.api_operation.as_ref().unwrap())
@@ -91,7 +96,11 @@ impl<C: ConfigProperties> FileCache<C> {
                  <domain>.cache_api_{}_expiration has a valid time format.",
                 &key.api_operation.as_ref().unwrap()
             )))?;
-        expired(|| get_file_mtime_elapsed(path.as_str()), cache_expiration)
+        expired(
+            || get_file_mtime_elapsed(path.as_str()),
+            cache_expiration,
+            cache_control,
+        )
     }
 }
 
@@ -101,7 +110,13 @@ impl<C: ConfigProperties> Cache<Resource> for FileCache<C> {
         if let Ok(f) = File::open(&path) {
             let mut f = BufReader::new(f);
             let response = self.get_cache_data(&mut f)?;
-            if self.expired(key, path)? {
+
+            let cache_control = response
+                .headers
+                .as_ref()
+                .and_then(|h| parse_cache_control(h));
+
+            if self.expired(key, path, cache_control)? {
                 return Ok(CacheState::Stale(response));
             }
             Ok(CacheState::Fresh(response))
@@ -145,15 +160,64 @@ impl<C: ConfigProperties> Cache<Resource> for FileCache<C> {
     }
 }
 
+struct CacheControl {
+    max_age: Option<Seconds>,
+    no_cache: bool,
+    no_store: bool,
+}
+
+fn parse_cache_control(headers: &Headers) -> Option<CacheControl> {
+    headers.get("cache-control").and_then(|cc| {
+        let mut max_age = None;
+        let mut no_cache = false;
+        let mut no_store = false;
+
+        for directive in cc.split(',') {
+            let directive = directive.trim().to_lowercase();
+            if directive == "no-cache" {
+                no_cache = true;
+            } else if directive == "no-store" {
+                no_store = true;
+            } else if directive.starts_with("max-age=") {
+                max_age = directive[8..].parse().ok();
+            }
+        }
+
+        Some(CacheControl {
+            max_age,
+            no_cache,
+            no_store,
+        })
+    })
+}
+
 fn expired<F: Fn() -> Result<Seconds>>(
     get_file_mtime_elapsed: F,
     refresh_every: Seconds,
+    cache_control: Option<CacheControl>,
 ) -> Result<bool> {
     let elapsed = get_file_mtime_elapsed()?;
-    if elapsed >= refresh_every {
-        return Ok(true);
+
+    // Check user-defined expiration first
+    if elapsed < refresh_every {
+        return Ok(false);
     }
-    Ok(false)
+
+    // If user-defined expiration is reached, then consider cache-control
+    if let Some(cc) = cache_control {
+        if cc.no_store {
+            return Ok(true);
+        }
+        if cc.no_cache {
+            return Ok(true);
+        }
+        if let Some(max_age) = cc.max_age {
+            return Ok(elapsed >= max_age);
+        }
+    }
+
+    // If no cache-control or no relevant directives, it's expired
+    Ok(true)
 }
 
 fn get_file_mtime_elapsed(path: &str) -> Result<Seconds> {
@@ -227,25 +291,157 @@ mod tests {
 
     #[test]
     fn test_expired_cache_beyond_refresh_time() {
-        assert!(expired(|| mock_file_mtime_elapsed(500), Seconds::new(300)).unwrap())
+        assert!(expired(|| mock_file_mtime_elapsed(500), Seconds::new(300), None).unwrap())
     }
 
     #[test]
     fn test_expired_diff_now_and_cache_same_as_refresh() {
-        assert!(expired(|| mock_file_mtime_elapsed(300), Seconds::new(300)).unwrap())
+        assert!(expired(|| mock_file_mtime_elapsed(300), Seconds::new(300), None).unwrap())
     }
 
     #[test]
     fn test_not_expired_diff_now_and_cache_less_than_refresh() {
-        assert!(!expired(|| mock_file_mtime_elapsed(100), Seconds::new(1000)).unwrap())
+        assert!(!expired(|| mock_file_mtime_elapsed(100), Seconds::new(1000), None).unwrap())
     }
 
     #[test]
     fn test_expired_get_m_time_result_err() {
         assert!(expired(
             || Err(error::gen("Could not get file mtime")),
-            Seconds::new(1000)
+            Seconds::new(1000),
+            None
         )
         .is_err())
+    }
+
+    fn cc(max_age: Option<Seconds>, no_cache: bool, no_store: bool) -> Option<CacheControl> {
+        Some(CacheControl {
+            max_age,
+            no_cache,
+            no_store,
+        })
+    }
+
+    #[test]
+    fn test_cache_not_expired_according_to_user_cache_control_ignored() {
+        let user_refresh = Seconds::new(3600);
+
+        assert!(!expired(
+            || Ok(Seconds::new(3000)),
+            user_refresh,
+            cc(Some(Seconds::new(2000)), false, false)
+        )
+        .unwrap());
+    }
+
+    #[test]
+    fn test_cache_expired_according_to_user_checks_http_cache_control() {
+        let user_refresh = Seconds::new(3600);
+
+        assert!(!expired(
+            || Ok(Seconds::new(3601)),
+            user_refresh,
+            cc(Some(Seconds::new(4000)), false, false)
+        )
+        .unwrap());
+
+        assert!(expired(
+            || Ok(Seconds::new(4001)),
+            user_refresh,
+            cc(Some(Seconds::new(4000)), false, false)
+        )
+        .unwrap());
+    }
+
+    #[test]
+    fn test_cache_expired_according_to_user_no_cache_control_directive() {
+        let user_refresh = Seconds::new(3600);
+
+        assert!(expired(
+            || Ok(Seconds::new(3601)),
+            user_refresh,
+            cc(None, true, false)
+        )
+        .unwrap());
+    }
+
+    #[test]
+    fn test_cache_expired_according_to_user_no_store_directive() {
+        let user_refresh = Seconds::new(3600);
+
+        assert!(expired(
+            || Ok(Seconds::new(3601)),
+            user_refresh,
+            cc(None, false, true)
+        )
+        .unwrap());
+    }
+
+    #[test]
+    fn test_cache_expired_according_to_user_no_cache_control_whatsoever() {
+        let user_refresh = Seconds::new(3600);
+        assert!(expired(|| Ok(Seconds::new(3601)), user_refresh, None).unwrap());
+    }
+
+    #[test]
+    fn test_user_expires_cache_but_http_cache_control_not_expired() {
+        let user_refresh = Seconds::new(3600);
+
+        assert!(!expired(
+            || Ok(Seconds::new(5000)),
+            user_refresh,
+            cc(Some(Seconds::new(6000)), false, false)
+        )
+        .unwrap());
+    }
+
+    #[test]
+    fn test_cache_expired_both_user_and_cache_control() {
+        let user_refresh = Seconds::new(3600);
+
+        assert!(expired(
+            || Ok(Seconds::new(7000)),
+            user_refresh,
+            cc(Some(Seconds::new(6000)), false, false)
+        )
+        .unwrap());
+    }
+
+    #[test]
+    fn test_parse_cache_control() {
+        let mut headers = Headers::new();
+
+        let test_table = vec![
+            (
+                "max-age=3600, no-cache, no-store",
+                Some(Seconds::new(3600)),
+                true,
+                true,
+            ),
+            (
+                "max-age=3600, no-cache",
+                Some(Seconds::new(3600)),
+                true,
+                false,
+            ),
+            (
+                "max-age=3600, no-store",
+                Some(Seconds::new(3600)),
+                false,
+                true,
+            ),
+            ("no-cache, no-store", None, true, true),
+            ("no-cache", None, true, false),
+            ("no-store", None, false, true),
+            ("max-age=0", Some(Seconds::new(0)), false, false),
+        ];
+
+        for (header, max_age, no_cache, no_store) in test_table {
+            headers.set("cache-control".to_string(), header.to_string());
+            let cc = parse_cache_control(&headers).unwrap();
+            assert_eq!(cc.max_age, max_age);
+            assert_eq!(cc.no_cache, no_cache);
+            assert_eq!(cc.no_store, no_store);
+        }
     }
 }

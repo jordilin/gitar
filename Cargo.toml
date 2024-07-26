@@ -46,6 +46,7 @@ rand = "0.8.5"
 # disable basic-cookies from httpmock - not needed
 httpmock = { version = "0.7.0", default-features = false }
 tempfile = "3.10.1"
+filetime = "0.2"
 
 [[bin]]
 name = "gr"
