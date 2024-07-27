@@ -1,3 +1,8 @@
+if [ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then
+    echo "Not in main branch"
+    exit 1
+fi
+
 version=$(git for-each-ref --sort=creatordate --format '%(refname)' refs/tags | tail -n 1 | awk -F'/' '{print $3}')
 IFS='.' read -r -a version_parts <<<"${version:1}"
 
