@@ -76,7 +76,7 @@ pub struct Response {
     pub body: String,
     /// Optional headers. Mostly used by HTTP downstream HTTP responses
     #[builder(setter(into, strip_option), default)]
-    pub(crate) headers: Option<Headers>,
+    pub headers: Option<Headers>,
     #[builder(default = "parse_link_headers")]
     link_header_processor: fn(&str) -> PageHeader,
 }

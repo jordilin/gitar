@@ -101,7 +101,7 @@ know in advance the rate of change. Project information such as its members,
 don't get added or removed on a daily basis, so we can cache that information
 for a long time. On the other hand, the status of a pipeline, releases, merge
 requests change more often. The number of pages to retrieve per API can also be
-adjusted.
+adjusted. Please see section [caching](./caching.md) for more information.
 
 API types:
 

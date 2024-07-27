@@ -10,6 +10,7 @@ use chrono::{DateTime, Local};
 use std;
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, AddAssign, Deref, Div, Sub};
+use std::str::FromStr;
 use std::time::Duration;
 
 enum Time {
@@ -74,6 +75,20 @@ pub struct Seconds(u64);
 impl Seconds {
     pub fn new(seconds: u64) -> Self {
         Seconds(seconds)
+    }
+}
+
+impl FromStr for Seconds {
+    type Err = GRError;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.parse::<u64>() {
+            Ok(seconds) => Ok(Seconds(seconds)),
+            Err(err) => Err(GRError::TimeConversionError(format!(
+                "Could not convert {} to time format: {}",
+                s, err,
+            ))),
+        }
     }
 }
 

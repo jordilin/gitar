@@ -17,7 +17,8 @@ pub trait ConfigProperties {
         ""
     }
     fn get_cache_expiration(&self, _api_operation: &ApiOperation) -> &str {
-        ""
+        // Defaults to regular HTTP cache expiration mechanisms.
+        "0s"
     }
     fn get_max_pages(&self, _api_operation: &ApiOperation) -> u32 {
         REST_API_MAX_PAGES
@@ -34,6 +35,7 @@ pub struct Config {
     cache_location: String,
     preferred_assignee_username: String,
     merge_request_description_signature: String,
+    // TODO, should be <ApiOperation, Seconds>
     cache_expirations: HashMap<ApiOperation, String>,
     max_pages: HashMap<ApiOperation, u32>,
     rate_limit_remaining_threshold: u32,
@@ -155,49 +157,49 @@ impl Config {
             ApiOperation::MergeRequest,
             domain_config_data
                 .get("cache_api_merge_request_expiration")
-                .unwrap_or(&"".to_string())
+                .unwrap_or(&"0s".to_string())
                 .to_string(),
         );
         cache_expirations.insert(
             ApiOperation::Pipeline,
             domain_config_data
                 .get("cache_api_pipeline_expiration")
-                .unwrap_or(&"".to_string())
+                .unwrap_or(&"0s".to_string())
                 .to_string(),
         );
         cache_expirations.insert(
             ApiOperation::Project,
             domain_config_data
                 .get("cache_api_project_expiration")
-                .unwrap_or(&"".to_string())
+                .unwrap_or(&"0s".to_string())
                 .to_string(),
         );
         cache_expirations.insert(
             ApiOperation::ContainerRegistry,
             domain_config_data
                 .get("cache_api_container_registry_expiration")
-                .unwrap_or(&"".to_string())
+                .unwrap_or(&"0s".to_string())
                 .to_string(),
         );
         cache_expirations.insert(
             ApiOperation::Release,
             domain_config_data
                 .get("cache_api_release_expiration")
-                .unwrap_or(&"".to_string())
+                .unwrap_or(&"0s".to_string())
                 .to_string(),
         );
         cache_expirations.insert(
             ApiOperation::SinglePage,
             domain_config_data
                 .get("cache_api_single_page_expiration")
-                .unwrap_or(&"".to_string())
+                .unwrap_or(&"0s".to_string())
                 .to_string(),
         );
         cache_expirations.insert(
             ApiOperation::Gist,
             domain_config_data
                 .get("cache_api_gist_expiration")
-                .unwrap_or(&"".to_string())
+                .unwrap_or(&"0s".to_string())
                 .to_string(),
         );
         cache_expirations
@@ -441,7 +443,10 @@ mod test {
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(Config::new(reader, domain).unwrap());
-        assert_eq!("", config.get_cache_expiration(&ApiOperation::MergeRequest));
+        assert_eq!(
+            "0s",
+            config.get_cache_expiration(&ApiOperation::MergeRequest)
+        );
     }
 
     #[test]
