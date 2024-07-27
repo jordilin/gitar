@@ -26,7 +26,7 @@ Use cases:
 ## Evaluation order of cache duration
 
 1. Look for the API type specific cache duration (determined by the user)
-2. If not found or configured to be "0<time_unit>", then inspect the
+2. If not found or configured to be "0<time_unit>", then inspect the HTTP
 cache-control header and its directives to determine the cache state.
 
 All in all, the user is in full control for how long the cache should be kept for
