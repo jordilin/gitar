@@ -111,10 +111,7 @@ impl<C: ConfigProperties> Cache<Resource> for FileCache<C> {
             let mut f = BufReader::new(f);
             let response = self.get_cache_data(&mut f)?;
 
-            let cache_control = response
-                .headers
-                .as_ref()
-                .and_then(|h| parse_cache_control(h));
+            let cache_control = response.headers.as_ref().and_then(parse_cache_control);
 
             if self.expired(key, path, cache_control)? {
                 return Ok(CacheState::Stale(response));
@@ -167,7 +164,7 @@ struct CacheControl {
 }
 
 fn parse_cache_control(headers: &Headers) -> Option<CacheControl> {
-    headers.get("cache-control").and_then(|cc| {
+    headers.get("cache-control").map(|cc| {
         let mut max_age = None;
         let mut no_cache = false;
         let mut no_store = false;
@@ -178,16 +175,16 @@ fn parse_cache_control(headers: &Headers) -> Option<CacheControl> {
                 no_cache = true;
             } else if directive == "no-store" {
                 no_store = true;
-            } else if directive.starts_with("max-age=") {
-                max_age = directive[8..].parse().ok();
+            } else if let Some(exp) = directive.strip_prefix("max-age=") {
+                max_age = exp.parse().ok();
             }
         }
 
-        Some(CacheControl {
+        CacheControl {
             max_age,
             no_cache,
             no_store,
-        })
+        }
     })
 }
 
