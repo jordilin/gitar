@@ -18,7 +18,7 @@ use std::{
     sync::Arc,
 };
 
-use super::common;
+use super::common::{self, get_user};
 
 #[derive(Builder, Clone)]
 pub struct MergeRequestCliArgs {
@@ -224,9 +224,7 @@ pub fn execute(
             let mr_body = get_repo_project_info(cmds)?;
             open(mr_remote, config, mr_body, &cli_args)
         }
-        MergeRequestOptions::List(cli_args) => {
-            list_merge_requests(domain, path, config, cli_args, None)
-        }
+        MergeRequestOptions::List(cli_args) => list_merge_requests(domain, path, config, cli_args),
         MergeRequestOptions::Merge { id } => {
             let remote = remote::get_mr(domain, path, config, false)?;
             merge(remote, id)
@@ -299,24 +297,69 @@ pub fn get_reader_file_cli(file_path: &str) -> Result<Box<dyn BufRead + Send + S
     }
 }
 
+fn get_filter_user(
+    user: &Option<MergeRequestUser>,
+    domain: &str,
+    path: &str,
+    config: &Arc<Config>,
+    list_args: &ListRemoteCliArgs,
+) -> Result<Option<Member>> {
+    let member = match user {
+        Some(MergeRequestUser::Me) => Some(get_user(domain, path, config, list_args)?),
+        // TODO filter by specific username, not necessarily the
+        // authenticated user.
+        _ => None,
+    };
+    Ok(member)
+}
+
 pub fn list_merge_requests(
     domain: String,
     path: String,
     config: Arc<Config>,
     cli_args: MergeRequestListCliArgs,
-    assignee_id: Option<i64>,
 ) -> Result<()> {
+    // Author, assignee and reviewer are mutually exclusive filters checked on
+    // cli's flags. While we do sequential calls to retrieve them it is a very
+    // fast operation. Only one ends up calling the remote to retrieve it's id.
+    let author = get_filter_user(
+        &cli_args.author,
+        &domain,
+        &path,
+        &config,
+        &cli_args.list_args,
+    )?;
+
+    let assignee = get_filter_user(
+        &cli_args.assignee,
+        &domain,
+        &path,
+        &config,
+        &cli_args.list_args,
+    )?;
+
+    let reviewer = get_filter_user(
+        &cli_args.reviewer,
+        &domain,
+        &path,
+        &config,
+        &cli_args.list_args,
+    )?;
+
     let remote = remote::get_mr(
         domain,
         path,
         config,
         cli_args.list_args.get_args.refresh_cache,
     )?;
+
     let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
     let body_args = MergeRequestListBodyArgs::builder()
         .list_args(from_to_args)
         .state(cli_args.state)
-        .assignee_id(assignee_id)
+        .assignee(assignee)
+        .author(author)
+        .reviewer(reviewer)
         .build()?;
     if cli_args.list_args.num_pages {
         return common::num_merge_request_pages(remote, body_args, std::io::stdout());
@@ -833,7 +876,7 @@ mod tests {
         let body_args = MergeRequestListBodyArgs::builder()
             .list_args(None)
             .state(MergeRequestState::Opened)
-            .assignee_id(None)
+            .assignee(None)
             .build()
             .unwrap();
         let cli_args = MergeRequestListCliArgs::new(
@@ -855,7 +898,7 @@ mod tests {
         let body_args = MergeRequestListBodyArgs::builder()
             .list_args(None)
             .state(MergeRequestState::Opened)
-            .assignee_id(None)
+            .assignee(None)
             .build()
             .unwrap();
         let cli_args = MergeRequestListCliArgs::new(
@@ -873,7 +916,7 @@ mod tests {
         let body_args = MergeRequestListBodyArgs::builder()
             .list_args(None)
             .state(MergeRequestState::Opened)
-            .assignee_id(None)
+            .assignee(None)
             .build()
             .unwrap();
         let cli_args = MergeRequestListCliArgs::new(
@@ -903,7 +946,7 @@ mod tests {
         let body_args = MergeRequestListBodyArgs::builder()
             .list_args(None)
             .state(MergeRequestState::Opened)
-            .assignee_id(None)
+            .assignee(None)
             .build()
             .unwrap();
         let cli_args = MergeRequestListCliArgs::new(
