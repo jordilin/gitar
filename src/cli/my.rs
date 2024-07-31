@@ -1,7 +1,9 @@
 use clap::Parser;
 
 use crate::cmds::{
-    gist::GistListCliArgs, merge_request::MergeRequestListCliArgs, project::ProjectListCliArgs,
+    gist::GistListCliArgs,
+    merge_request::{MergeRequestListCliArgs, MergeRequestUser},
+    project::ProjectListCliArgs,
 };
 
 use super::{common::ListArgs, merge_request::ListMergeRequest, project::ListProject};
@@ -14,14 +16,32 @@ pub struct MyCommand {
 
 #[derive(Parser)]
 enum MySubcommand {
-    #[clap(about = "Lists your assigned merge requests", name = "mr")]
-    MergeRequest(ListMergeRequest),
+    #[clap(
+        about = "Lists the merge requests where you are the author, assignee or the reviewer",
+        name = "mr"
+    )]
+    MergeRequest(ListMyMergeRequest),
     #[clap(about = "Lists your projects", name = "pj")]
     Project(ListProject),
     #[clap(about = "Lists your starred projects", name = "st")]
     Star(ListStar),
     #[clap(about = "Lists your gists", name = "gs")]
     Gist(ListGist),
+}
+
+#[derive(Parser)]
+struct ListMyMergeRequest {
+    /// Filter merge requests where you are the assignee
+    #[clap(long, group = "merge_request")]
+    assignee: bool,
+    /// Filter merge requests where you are the author. Default if none provided
+    #[clap(long, group = "merge_request", default_value_t = true)]
+    author: bool,
+    /// Filter merge requests where you are the reviewer
+    #[clap(long, group = "merge_request")]
+    reviewer: bool,
+    #[clap(flatten)]
+    list_merge_request: ListMergeRequest,
 }
 
 pub enum MyOptions {
@@ -41,12 +61,30 @@ impl From<MyCommand> for MyOptions {
     }
 }
 
-impl From<ListMergeRequest> for MyOptions {
-    fn from(options: ListMergeRequest) -> Self {
-        MyOptions::MergeRequest(MergeRequestListCliArgs::new(
-            options.state.into(),
-            options.list_args.into(),
-        ))
+impl From<ListMyMergeRequest> for MyOptions {
+    fn from(options: ListMyMergeRequest) -> Self {
+        MyOptions::MergeRequest(
+            MergeRequestListCliArgs::builder()
+                .state(options.list_merge_request.state.into())
+                .list_args(options.list_merge_request.list_args.into())
+                .assignee(if options.assignee {
+                    Some(MergeRequestUser::Me)
+                } else {
+                    None
+                })
+                .author(if options.author {
+                    Some(MergeRequestUser::Me)
+                } else {
+                    None
+                })
+                .reviewer(if options.reviewer {
+                    Some(MergeRequestUser::Me)
+                } else {
+                    None
+                })
+                .build()
+                .unwrap(),
+        )
     }
 }
 
@@ -111,7 +149,11 @@ mod tests {
             Command::My(MyCommand {
                 subcommand: MySubcommand::MergeRequest(options),
             }) => {
-                assert_eq!(options.state, MergeRequestStateStateCli::Opened);
+                assert_eq!(
+                    options.list_merge_request.state,
+                    MergeRequestStateStateCli::Opened
+                );
+                assert!(options.author);
                 options
             }
             _ => panic!("Expected MyCommand"),
@@ -120,6 +162,85 @@ mod tests {
         match options {
             MyOptions::MergeRequest(options) => {
                 assert_eq!(options.state, MergeRequestState::Opened);
+                assert_eq!(options.author, Some(MergeRequestUser::Me));
+            }
+            _ => panic!("Expected MyOptions::MergeRequest"),
+        }
+    }
+
+    #[test]
+    fn test_my_merge_request_cli_args_reviewer() {
+        let args = Args::parse_from(vec!["gr", "my", "mr", "opened", "--reviewer"]);
+        let my_command = match args.command {
+            Command::My(MyCommand {
+                subcommand: MySubcommand::MergeRequest(options),
+            }) => {
+                assert_eq!(
+                    options.list_merge_request.state,
+                    MergeRequestStateStateCli::Opened
+                );
+                assert!(options.reviewer);
+                options
+            }
+            _ => panic!("Expected MyCommand"),
+        };
+        let options: MyOptions = my_command.into();
+        match options {
+            MyOptions::MergeRequest(options) => {
+                assert_eq!(options.state, MergeRequestState::Opened);
+                assert_eq!(options.reviewer, Some(MergeRequestUser::Me));
+            }
+            _ => panic!("Expected MyOptions::MergeRequest"),
+        }
+    }
+
+    #[test]
+    fn test_my_merge_request_cli_args_author_default() {
+        let args = Args::parse_from(vec!["gr", "my", "mr", "opened", "--author"]);
+        let my_command = match args.command {
+            Command::My(MyCommand {
+                subcommand: MySubcommand::MergeRequest(options),
+            }) => {
+                assert_eq!(
+                    options.list_merge_request.state,
+                    MergeRequestStateStateCli::Opened
+                );
+                assert!(options.author);
+                options
+            }
+            _ => panic!("Expected MyCommand"),
+        };
+        let options: MyOptions = my_command.into();
+        match options {
+            MyOptions::MergeRequest(options) => {
+                assert_eq!(options.state, MergeRequestState::Opened);
+                assert_eq!(options.author, Some(MergeRequestUser::Me));
+            }
+            _ => panic!("Expected MyOptions::MergeRequest"),
+        }
+    }
+
+    #[test]
+    fn test_my_merge_request_cli_args_assignee() {
+        let args = Args::parse_from(vec!["gr", "my", "mr", "opened", "--assignee"]);
+        let my_command = match args.command {
+            Command::My(MyCommand {
+                subcommand: MySubcommand::MergeRequest(options),
+            }) => {
+                assert_eq!(
+                    options.list_merge_request.state,
+                    MergeRequestStateStateCli::Opened
+                );
+                assert!(options.assignee);
+                options
+            }
+            _ => panic!("Expected MyCommand"),
+        };
+        let options: MyOptions = my_command.into();
+        match options {
+            MyOptions::MergeRequest(options) => {
+                assert_eq!(options.state, MergeRequestState::Opened);
+                assert_eq!(options.assignee, Some(MergeRequestUser::Me));
             }
             _ => panic!("Expected MyOptions::MergeRequest"),
         }

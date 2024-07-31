@@ -49,9 +49,26 @@ impl MergeRequestCliArgs {
     }
 }
 
+/// Enum for filtering merge requests by user
+/// Me: current authenticated user
+/// Other: another username, provided by cli flags.
+#[derive(Clone, Debug, PartialEq)]
+pub enum MergeRequestUser {
+    Me,
+    Other(String),
+}
+
+#[derive(Builder)]
 pub struct MergeRequestListCliArgs {
     pub state: MergeRequestState,
     pub list_args: ListRemoteCliArgs,
+    // Filtering options. Make use of the builder pattern.
+    #[builder(default)]
+    pub assignee: Option<MergeRequestUser>,
+    #[builder(default)]
+    pub author: Option<MergeRequestUser>,
+    #[builder(default)]
+    pub reviewer: Option<MergeRequestUser>,
 }
 
 impl MergeRequestListCliArgs {
@@ -59,7 +76,13 @@ impl MergeRequestListCliArgs {
         MergeRequestListCliArgs {
             state,
             list_args: args,
+            assignee: None,
+            author: None,
+            reviewer: None,
         }
+    }
+    pub fn builder() -> MergeRequestListCliArgsBuilder {
+        MergeRequestListCliArgsBuilder::default()
     }
 }
 
