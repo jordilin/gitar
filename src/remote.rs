@@ -273,7 +273,12 @@ impl MergeRequestBodyArgs {
 pub struct MergeRequestListBodyArgs {
     pub state: MergeRequestState,
     pub list_args: Option<ListBodyArgs>,
-    pub assignee_id: Option<i64>,
+    #[builder(default)]
+    pub assignee: Option<Member>,
+    #[builder(default)]
+    pub author: Option<Member>,
+    #[builder(default)]
+    pub reviewer: Option<Member>,
 }
 
 impl MergeRequestListBodyArgs {

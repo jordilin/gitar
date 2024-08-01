@@ -1,8 +1,9 @@
-use crate::display;
-use crate::remote::MergeRequestListBodyArgs;
+use crate::config::Config;
+use crate::remote::{Member, MergeRequestListBodyArgs};
 /// Common functions and macros that are used by multiple commands
 use crate::Result;
 use crate::{api_traits::MergeRequest, remote::ListRemoteCliArgs};
+use crate::{display, remote};
 use std::fmt::Display;
 use std::io::Write;
 use std::sync::Arc;
@@ -239,3 +240,19 @@ list_resource!(
 );
 
 list_resource!(list_trending, TrendingProjectURL, String, TrendingCliArgs);
+
+pub fn get_user(
+    domain: &str,
+    path: &str,
+    config: &Arc<Config>,
+    cli_args: &ListRemoteCliArgs,
+) -> Result<Member> {
+    let remote = remote::get_auth_user(
+        domain.to_string(),
+        path.to_string(),
+        config.clone(),
+        cli_args.get_args.refresh_cache,
+    )?;
+    let user = remote.get()?;
+    Ok(user)
+}

@@ -1,15 +1,10 @@
 use std::{io::Write, sync::Arc};
 
-use crate::{
-    api_traits::RemoteProject,
-    cli::my::MyOptions,
-    config::Config,
-    remote::{self, ListRemoteCliArgs, Member},
-    Result,
-};
+use crate::{api_traits::RemoteProject, cli::my::MyOptions, config::Config, remote, Result};
 
 use super::{
-    common, gist, merge_request,
+    common::{self, get_user},
+    gist, merge_request,
     project::{ProjectListBodyArgs, ProjectListCliArgs},
 };
 
@@ -21,8 +16,7 @@ pub fn execute(
 ) -> Result<()> {
     match options {
         MyOptions::MergeRequest(cli_args) => {
-            let user = get_user(&domain, &path, &config, &cli_args.list_args)?;
-            merge_request::list_merge_requests(domain, path, config, cli_args, Some(user.id))
+            merge_request::list_merge_requests(domain, path, config, cli_args)
         }
         MyOptions::Project(cli_args) => {
             let user = get_user(&domain, &path, &config, &cli_args.list_args)?;
@@ -68,22 +62,6 @@ pub fn execute(
     }
 }
 
-fn get_user(
-    domain: &str,
-    path: &str,
-    config: &Arc<Config>,
-    cli_args: &ListRemoteCliArgs,
-) -> Result<Member> {
-    let remote = remote::get_auth_user(
-        domain.to_string(),
-        path.to_string(),
-        config.clone(),
-        cli_args.get_args.refresh_cache,
-    )?;
-    let user = remote.get()?;
-    Ok(user)
-}
-
 fn list_user_projects<W: Write>(
     remote: Arc<dyn RemoteProject>,
     body_args: ProjectListBodyArgs,
@@ -95,6 +73,8 @@ fn list_user_projects<W: Write>(
 
 #[cfg(test)]
 mod tests {
+    use remote::Member;
+
     use crate::cmds::project::ProjectListCliArgs;
 
     use self::remote::{ListRemoteCliArgs, Project};

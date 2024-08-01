@@ -200,10 +200,20 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
 
 impl<R> Gitlab<R> {
     fn list_merge_request_url(&self, args: &MergeRequestListBodyArgs, num_pages: bool) -> String {
-        let mut url = if let Some(assignee_id) = args.assignee_id {
+        let mut url = if let Some(assignee) = &args.assignee {
             format!(
                 "{}?state={}&assignee_id={}",
-                self.merge_requests_url, args.state, assignee_id
+                self.merge_requests_url, args.state, assignee.id
+            )
+        } else if let Some(reviewer) = &args.reviewer {
+            format!(
+                "{}?state={}&reviewer_id={}",
+                self.merge_requests_url, args.state, reviewer.id
+            )
+        } else if let Some(author) = &args.author {
+            format!(
+                "{}?state={}&author_id={}",
+                self.merge_requests_url, args.state, author.id
             )
         } else {
             format!(
@@ -375,7 +385,7 @@ impl From<GitlabMergeRequestCommentFields> for Comment {
 #[cfg(test)]
 mod test {
 
-    use crate::remote::{ListBodyArgs, MergeRequestState};
+    use crate::remote::{ListBodyArgs, Member, MergeRequestState};
     use crate::setup_client;
     use crate::test::utils::{
         default_gitlab, get_contract, BasePath, ClientType, ContractType, Domain, ResponseContracts,
@@ -397,7 +407,7 @@ mod test {
                     .build()
                     .unwrap(),
             ))
-            .assignee_id(None)
+            .assignee(None)
             .build()
             .unwrap();
         gitlab.list(args).unwrap();
@@ -414,12 +424,67 @@ mod test {
         let args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
-            .assignee_id(Some(1234))
+            .assignee(Some(
+                Member::builder()
+                    .name("tom".to_string())
+                    .username("tsawyer".to_string())
+                    .id(1234)
+                    .build()
+                    .unwrap(),
+            ))
             .build()
             .unwrap();
         gitlab.list(args).unwrap();
         assert_eq!(
             "https://gitlab.com/api/v4/merge_requests?state=opened&assignee_id=1234",
+            *client.url(),
+        );
+    }
+
+    #[test]
+    fn test_list_all_merge_requests_auth_user_is_reviewer() {
+        let contract = ResponseContracts::new(ContractType::Gitlab).add_body(200, Some("[]"), None);
+        let (client, gitlab) = setup_client!(contract, default_gitlab(), dyn MergeRequest);
+        let args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(None)
+            .reviewer(Some(
+                Member::builder()
+                    .name("tom".to_string())
+                    .username("tsawyer".to_string())
+                    .id(123)
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
+        gitlab.list(args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/merge_requests?state=opened&reviewer_id=123",
+            *client.url(),
+        );
+    }
+
+    #[test]
+    fn test_list_all_merge_requests_auth_user_is_the_author() {
+        let contract = ResponseContracts::new(ContractType::Gitlab).add_body(200, Some("[]"), None);
+        let (client, gitlab) = setup_client!(contract, default_gitlab(), dyn MergeRequest);
+        let args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(None)
+            .author(Some(
+                Member::builder()
+                    .name("tom".to_string())
+                    .username("tsawyer".to_string())
+                    .id(192)
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
+        gitlab.list(args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/merge_requests?state=opened&author_id=192",
             *client.url(),
         );
     }
@@ -523,7 +588,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
-            .assignee_id(None)
+            .assignee(None)
             .build()
             .unwrap();
         assert_eq!(Some(2), gitlab.num_pages(body_args).unwrap());
@@ -547,7 +612,14 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
-            .assignee_id(Some(1234))
+            .assignee(Some(
+                Member::builder()
+                    .name("tom".to_string())
+                    .username("tsawyer".to_string())
+                    .id(1234)
+                    .build()
+                    .unwrap(),
+            ))
             .build()
             .unwrap();
         assert_eq!(Some(2), gitlab.num_pages(body_args).unwrap());
@@ -565,7 +637,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
-            .assignee_id(None)
+            .assignee(None)
             .build()
             .unwrap();
         assert_eq!(Some(1), gitlab.num_pages(body_args).unwrap());
@@ -579,7 +651,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
-            .assignee_id(None)
+            .assignee(None)
             .build()
             .unwrap();
         assert!(gitlab.num_pages(body_args).is_err());
@@ -599,7 +671,7 @@ mod test {
         let body_args = MergeRequestListBodyArgs::builder()
             .state(MergeRequestState::Opened)
             .list_args(None)
-            .assignee_id(None)
+            .assignee(None)
             .build()
             .unwrap();
         assert_eq!(None, gitlab.num_pages(body_args).unwrap());
