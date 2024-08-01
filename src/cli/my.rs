@@ -31,13 +31,14 @@ enum MySubcommand {
 
 #[derive(Parser)]
 struct ListMyMergeRequest {
-    /// Filter merge requests where you are the assignee
+    /// Filter merge requests where you are the assignee. Gitlab and Github.
     #[clap(long, group = "merge_request")]
     assignee: bool,
-    /// Filter merge requests where you are the author. Default if none provided
-    #[clap(long, group = "merge_request", default_value_t = true)]
+    /// Filter merge requests where you are the author. Default if none
+    /// provided. Gitlab and Github.
+    #[clap(long, group = "merge_request")]
     author: bool,
-    /// Filter merge requests where you are the reviewer
+    /// Filter merge requests where you are the reviewer. Gitlab only.
     #[clap(long, group = "merge_request")]
     reviewer: bool,
     #[clap(flatten)]
@@ -72,11 +73,14 @@ impl From<ListMyMergeRequest> for MyOptions {
                 } else {
                     None
                 })
-                .author(if options.author {
-                    Some(MergeRequestUser::Me)
-                } else {
-                    None
-                })
+                // Author is the default if none is provided.
+                .author(
+                    if options.author || (!options.assignee && !options.reviewer) {
+                        Some(MergeRequestUser::Me)
+                    } else {
+                        None
+                    },
+                )
                 .reviewer(if options.reviewer {
                     Some(MergeRequestUser::Me)
                 } else {
@@ -153,7 +157,6 @@ mod tests {
                     options.list_merge_request.state,
                     MergeRequestStateStateCli::Opened
                 );
-                assert!(options.author);
                 options
             }
             _ => panic!("Expected MyCommand"),
@@ -195,7 +198,7 @@ mod tests {
     }
 
     #[test]
-    fn test_my_merge_request_cli_args_author_default() {
+    fn test_my_merge_request_cli_args_author() {
         let args = Args::parse_from(vec!["gr", "my", "mr", "opened", "--author"]);
         let my_command = match args.command {
             Command::My(MyCommand {

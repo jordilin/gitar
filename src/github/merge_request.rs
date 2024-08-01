@@ -26,7 +26,15 @@ impl<R> Github<R> {
             MergeRequestState::Closed | MergeRequestState::Merged => "closed".to_string(),
         };
         if args.assignee.is_some() {
-            return format!("{}/issues?state={}", self.rest_api_basepath, state);
+            return format!(
+                "{}/issues?state={}&filter=assigned",
+                self.rest_api_basepath, state
+            );
+        } else if args.author.is_some() {
+            return format!(
+                "{}/issues?state={}&filter=created",
+                self.rest_api_basepath, state
+            );
         }
         format!(
             "{}/repos/{}/pulls?state={}",
@@ -212,7 +220,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             None,
             ApiOperation::MergeRequest,
         );
-        if args.assignee.is_some() {
+        if args.assignee.is_some() || args.author.is_some() {
             // Pull requests for the current authenticated user.
             // Filter those reponses that have pull_request not empty See ref:
             // https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28#list-issues-assigned-to-the-authenticated-user
@@ -725,7 +733,7 @@ mod test {
     }
 
     #[test]
-    fn test_get_pull_requests_for_auth_user() {
+    fn test_get_pull_requests_for_auth_user_is_assignee() {
         let contracts = ResponseContracts::new(ContractType::Github).add_contract(
             200,
             "list_issues_user.json",
@@ -746,7 +754,43 @@ mod test {
             .build()
             .unwrap();
         let merge_requests = github.list(args).unwrap();
-        assert_eq!("https://api.github.com/issues?state=open", *client.url());
+        assert_eq!(
+            "https://api.github.com/issues?state=open&filter=assigned",
+            *client.url()
+        );
+        assert!(merge_requests.len() == 1);
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_get_pull_requests_for_auth_user_is_author() {
+        let contracts = ResponseContracts::new(ContractType::Github).add_contract(
+            200,
+            "list_issues_user.json",
+            None,
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn MergeRequest);
+        let args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(None)
+            .author(Some(
+                Member::builder()
+                    .name("tom".to_string())
+                    .username("tsawyer".to_string())
+                    .id(12345)
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
+        let merge_requests = github.list(args).unwrap();
+        assert_eq!(
+            "https://api.github.com/issues?state=open&filter=created",
+            *client.url()
+        );
         assert!(merge_requests.len() == 1);
         assert_eq!(
             Some(ApiOperation::MergeRequest),
