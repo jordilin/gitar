@@ -149,7 +149,7 @@ mod test {
             }) => {
                 assert_eq!(options.repo_id, 123);
                 assert_eq!(options.tag, "v0.0.1");
-                assert!(options.get_args.refresh);
+                assert!(options.get_args.cache_args.refresh);
                 assert!(options.get_args.format_args.no_headers);
                 options
             }
