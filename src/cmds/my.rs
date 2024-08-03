@@ -24,7 +24,7 @@ pub fn execute(
                 domain,
                 path,
                 config,
-                cli_args.list_args.get_args.refresh_cache,
+                Some(&cli_args.list_args.get_args.cache_args),
             )?;
             let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
             let body_args = ProjectListBodyArgs::builder()
@@ -45,7 +45,7 @@ pub fn execute(
                 domain,
                 path,
                 config,
-                cli_args.list_args.get_args.refresh_cache,
+                Some(&cli_args.list_args.get_args.cache_args),
             )?;
             if cli_args.list_args.num_pages {
                 return common::num_user_gists(remote, std::io::stdout());

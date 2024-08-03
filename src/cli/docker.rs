@@ -161,7 +161,7 @@ mod test {
             DockerOptions::Get(args) => {
                 assert_eq!(args.repo_id, 123);
                 assert_eq!(args.tag, "v0.0.1");
-                assert!(args.get_args.refresh_cache);
+                assert!(args.get_args.cache_args.refresh);
                 assert!(args.get_args.no_headers);
             }
             _ => panic!("Expected DockerOptions::Get"),

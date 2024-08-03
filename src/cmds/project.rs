@@ -62,7 +62,7 @@ pub fn execute(
     match options {
         ProjectOptions::Info(cli_args) => {
             let remote =
-                remote::get_project(domain, path, config, cli_args.get_args.refresh_cache)?;
+                remote::get_project(domain, path, config, Some(&cli_args.get_args.cache_args))?;
             project_info(remote, std::io::stdout(), cli_args)
         }
     }

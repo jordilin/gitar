@@ -251,7 +251,7 @@ pub fn get_user(
         domain.to_string(),
         path.to_string(),
         config.clone(),
-        cli_args.get_args.refresh_cache,
+        Some(&cli_args.get_args.cache_args),
     )?;
     let user = remote.get()?;
     Ok(user)

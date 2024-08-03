@@ -132,8 +132,12 @@ pub fn execute(
 ) -> Result<()> {
     match options {
         ReleaseOptions::List(cli_args) => {
-            let remote =
-                crate::remote::get_deploy(domain, path, config, cli_args.get_args.refresh_cache)?;
+            let remote = crate::remote::get_deploy(
+                domain,
+                path,
+                config,
+                Some(&cli_args.get_args.cache_args),
+            )?;
             if cli_args.num_pages {
                 return num_release_pages(remote, std::io::stdout());
             }
@@ -152,7 +156,7 @@ pub fn execute(
                     domain,
                     path,
                     config,
-                    cli_args.list_args.get_args.refresh_cache,
+                    Some(&cli_args.list_args.get_args.cache_args),
                 )?;
 
                 let list_args = remote::validate_from_to_page(&cli_args.list_args)?;

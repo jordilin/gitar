@@ -329,9 +329,7 @@ pub struct GetRemoteCliArgs {
     #[builder(default)]
     pub format: Format,
     #[builder(default)]
-    pub refresh_cache: bool,
-    #[builder(default)]
-    pub no_cache: bool,
+    pub cache_args: CacheCliArgs,
     #[builder(default)]
     pub display_optional: bool,
     #[builder(default)]
@@ -343,6 +341,20 @@ pub struct GetRemoteCliArgs {
 impl GetRemoteCliArgs {
     pub fn builder() -> GetRemoteCliArgsBuilder {
         GetRemoteCliArgsBuilder::default()
+    }
+}
+
+#[derive(Builder, Clone, Default)]
+pub struct CacheCliArgs {
+    #[builder(default)]
+    pub refresh: bool,
+    #[builder(default)]
+    pub no_cache: bool,
+}
+
+impl CacheCliArgs {
+    pub fn builder() -> CacheCliArgsBuilder {
+        CacheCliArgsBuilder::default()
     }
 }
 
@@ -607,8 +619,9 @@ macro_rules! get {
             domain: String,
             path: String,
             config: Arc<Config>,
-            refresh_cache: bool,
+            cache_args: Option<&CacheCliArgs>,
         ) -> Result<Arc<dyn $trait_name + Send + Sync + 'static>> {
+            let refresh_cache = cache_args.map_or(false, |args| args.refresh);
             let runner = Arc::new(http::Client::new(
                 FileCache::new(config.clone()),
                 config.clone(),

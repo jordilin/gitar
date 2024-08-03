@@ -4,7 +4,7 @@ use clap::{Parser, ValueEnum};
 
 use crate::{
     display::Format,
-    remote::{GetRemoteCliArgs, ListRemoteCliArgs, ListSortMode},
+    remote::{CacheCliArgs, GetRemoteCliArgs, ListRemoteCliArgs, ListSortMode},
     time::Milliseconds,
 };
 
@@ -163,10 +163,19 @@ impl From<GetArgs> for GetRemoteCliArgs {
             .no_headers(args.format_args.no_headers)
             .format(args.format_args.format.into())
             .display_optional(args.format_args.more_output)
-            .refresh_cache(args.cache_args.refresh)
-            .no_cache(args.cache_args.no_cache)
+            .cache_args(args.cache_args.into())
             .backoff_max_retries(args.retry_args.max_retries)
             .backoff_retry_after(args.retry_args.retry_after)
+            .build()
+            .unwrap()
+    }
+}
+
+impl From<CacheArgs> for CacheCliArgs {
+    fn from(args: CacheArgs) -> Self {
+        CacheCliArgs::builder()
+            .refresh(args.refresh)
+            .no_cache(args.no_cache)
             .build()
             .unwrap()
     }

@@ -49,7 +49,7 @@ pub fn execute(cli_args: TrendingCliArgs, config: Arc<Config>, domain: &str) -> 
         // Github.com which is just a query against HTML page.
         "".to_string(),
         config,
-        cli_args.get_args.refresh_cache,
+        Some(&cli_args.get_args.cache_args),
     )?;
     get_urls(remote, cli_args, &mut std::io::stdout())
 }

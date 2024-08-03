@@ -10,7 +10,7 @@ use crate::{
     remote::MergeRequestState,
 };
 
-use super::common::{validate_project_repo_path, GetArgs, ListArgs};
+use super::common::{validate_project_repo_path, CacheArgs, GetArgs, ListArgs};
 
 #[derive(Parser)]
 pub struct MergeRequestCommand {
@@ -113,9 +113,6 @@ struct CreateMergeRequest {
     /// branch. If targetting another repository, target branch is required.
     #[clap(long)]
     pub target_branch: Option<String>,
-    /// Refresh the cache
-    #[clap(long, short)]
-    pub refresh: bool,
     /// Automatically open the browser after creating the merge request
     #[clap(long, short)]
     pub browse: bool,
@@ -134,6 +131,8 @@ struct CreateMergeRequest {
     /// Set up the merge request as draft
     #[clap(long, visible_alias = "wip")]
     pub draft: bool,
+    #[clap(flatten)]
+    pub cache_args: CacheArgs,
 }
 
 #[derive(ValueEnum, Clone, PartialEq, Debug)]
@@ -259,7 +258,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .fetch(options.fetch)
                 .rebase(options.rebase)
                 .auto(options.auto)
-                .refresh_cache(options.refresh)
+                .cache_args(options.cache_args.into())
                 .open_browser(options.browse)
                 .accept_summary(options.yes)
                 .commit(options.commit)
