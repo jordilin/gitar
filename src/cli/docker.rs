@@ -149,7 +149,7 @@ mod test {
             }) => {
                 assert_eq!(options.repo_id, 123);
                 assert_eq!(options.tag, "v0.0.1");
-                assert!(options.get_args.refresh);
+                assert!(options.get_args.cache_args.refresh);
                 assert!(options.get_args.format_args.no_headers);
                 options
             }
@@ -161,7 +161,7 @@ mod test {
             DockerOptions::Get(args) => {
                 assert_eq!(args.repo_id, 123);
                 assert_eq!(args.tag, "v0.0.1");
-                assert!(args.get_args.refresh_cache);
+                assert!(args.get_args.cache_args.refresh);
                 assert!(args.get_args.no_headers);
             }
             _ => panic!("Expected DockerOptions::Get"),

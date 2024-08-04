@@ -7,7 +7,7 @@ use crate::error::{AddContext, GRError};
 use crate::git::Repo;
 use crate::io::{CmdInfo, Response, TaskRunner};
 use crate::remote::{
-    GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs, Member, MergeRequestBodyArgs,
+    CacheCliArgs, GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs, Member, MergeRequestBodyArgs,
     MergeRequestListBodyArgs, MergeRequestState, Project,
 };
 use crate::shell::BlockingCommand;
@@ -34,7 +34,7 @@ pub struct MergeRequestCliArgs {
     #[builder(default)]
     pub rebase: Option<String>,
     pub auto: bool,
-    pub refresh_cache: bool,
+    pub cache_args: CacheCliArgs,
     pub open_browser: bool,
     pub accept_summary: bool,
     pub commit: Option<String>,
@@ -197,10 +197,10 @@ pub fn execute(
                 domain.clone(),
                 path.clone(),
                 config.clone(),
-                cli_args.refresh_cache,
+                Some(&cli_args.cache_args),
             )?;
             let project_remote =
-                remote::get_project(domain, path, config.clone(), cli_args.refresh_cache)?;
+                remote::get_project(domain, path, config.clone(), Some(&cli_args.cache_args))?;
             if let Some(commit_message) = &cli_args.commit {
                 git::add(&BlockingCommand)?;
                 git::commit(&BlockingCommand, commit_message)?;
@@ -226,19 +226,19 @@ pub fn execute(
         }
         MergeRequestOptions::List(cli_args) => list_merge_requests(domain, path, config, cli_args),
         MergeRequestOptions::Merge { id } => {
-            let remote = remote::get_mr(domain, path, config, false)?;
+            let remote = remote::get_mr(domain, path, config, None)?;
             merge(remote, id)
         }
         MergeRequestOptions::Checkout { id } => {
-            let remote = remote::get_mr(domain, path, config, false)?;
+            let remote = remote::get_mr(domain, path, config, None)?;
             checkout(remote, id)
         }
         MergeRequestOptions::Close { id } => {
-            let remote = remote::get_mr(domain, path, config, false)?;
+            let remote = remote::get_mr(domain, path, config, None)?;
             close(remote, id)
         }
         MergeRequestOptions::CreateComment(cli_args) => {
-            let remote = remote::get_comment_mr(domain, path, config, false)?;
+            let remote = remote::get_comment_mr(domain, path, config, None)?;
             if let Some(comment_file) = &cli_args.comment_from_file {
                 let reader = get_reader_file_cli(comment_file)?;
                 create_comment(remote, cli_args, Some(reader))
@@ -251,7 +251,7 @@ pub fn execute(
                 domain,
                 path,
                 config,
-                cli_args.list_args.get_args.refresh_cache,
+                Some(&cli_args.list_args.get_args.cache_args),
             )?;
             let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
             let body_args = CommentMergeRequestListBodyArgs::builder()
@@ -275,11 +275,11 @@ pub fn execute(
             list_comments(remote, body_args, cli_args, std::io::stdout())
         }
         MergeRequestOptions::Get(cli_args) => {
-            let remote = remote::get_mr(domain, path, config, cli_args.get_args.refresh_cache)?;
+            let remote = remote::get_mr(domain, path, config, Some(&cli_args.get_args.cache_args))?;
             get_merge_request_details(remote, cli_args, std::io::stdout())
         }
         MergeRequestOptions::Approve { id } => {
-            let remote = remote::get_mr(domain, path, config, false)?;
+            let remote = remote::get_mr(domain, path, config, None)?;
             approve(remote, id, std::io::stdout())
         }
     }
@@ -350,7 +350,7 @@ pub fn list_merge_requests(
         domain,
         path,
         config,
-        cli_args.list_args.get_args.refresh_cache,
+        Some(&cli_args.list_args.get_args.cache_args),
     )?;
 
     let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
@@ -1158,7 +1158,7 @@ mod tests {
             .description_from_file(None)
             .target_branch(Some("target-branch".to_string()))
             .auto(false)
-            .refresh_cache(false)
+            .cache_args(CacheCliArgs::default())
             .open_browser(false)
             .accept_summary(false)
             .commit(Some("commit".to_string()))
@@ -1196,7 +1196,7 @@ mod tests {
             .description_from_file(None)
             .target_branch(Some("target-branch".to_string()))
             .auto(false)
-            .refresh_cache(false)
+            .cache_args(CacheCliArgs::default())
             .open_browser(false)
             .accept_summary(false)
             .commit(None)
@@ -1234,7 +1234,7 @@ mod tests {
             .description_from_file(Some("description_file.txt".to_string()))
             .target_branch(Some("target-branch".to_string()))
             .auto(false)
-            .refresh_cache(false)
+            .cache_args(CacheCliArgs::default())
             .open_browser(false)
             .accept_summary(false)
             .commit(None)
@@ -1405,7 +1405,7 @@ mod tests {
             .target_branch(Some("target-branch".to_string()))
             .fetch(Some("origin".to_string()))
             .auto(false)
-            .refresh_cache(false)
+            .cache_args(CacheCliArgs::default())
             .open_browser(false)
             .accept_summary(false)
             .commit(Some("commit".to_string()))

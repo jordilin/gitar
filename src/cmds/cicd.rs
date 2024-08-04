@@ -412,13 +412,13 @@ pub fn execute(
 ) -> Result<()> {
     match options {
         PipelineOptions::Lint(args) => {
-            let remote = remote::get_cicd(domain, path, config, false)?;
+            let remote = remote::get_cicd(domain, path, config, None)?;
             let file = std::fs::File::open(args.path)?;
             let body = read_ci_file(file)?;
             lint_ci_file(remote, &body, false, std::io::stdout())
         }
         PipelineOptions::MergedCi => {
-            let remote = remote::get_cicd(domain, path, config, false)?;
+            let remote = remote::get_cicd(domain, path, config, None)?;
             let file = std::fs::File::open(".gitlab-ci.yml")?;
             let body = read_ci_file(file)?;
             lint_ci_file(remote, &body, true, std::io::stdout())
@@ -432,7 +432,8 @@ pub fn execute(
             Ok(())
         }
         PipelineOptions::List(cli_args) => {
-            let remote = remote::get_cicd(domain, path, config, cli_args.get_args.refresh_cache)?;
+            let remote =
+                remote::get_cicd(domain, path, config, Some(&cli_args.get_args.cache_args))?;
             if cli_args.num_pages {
                 return num_cicd_pages(remote, std::io::stdout());
             } else if cli_args.num_resources {
@@ -450,7 +451,7 @@ pub fn execute(
                     domain,
                     path,
                     config,
-                    cli_args.list_args.get_args.refresh_cache,
+                    Some(&cli_args.list_args.get_args.cache_args),
                 )?;
                 let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
                 let body_args = JobListBodyArgs::builder().list_args(from_to_args).build()?;
@@ -469,7 +470,7 @@ pub fn execute(
                     domain,
                     path,
                     config,
-                    cli_args.list_args.get_args.refresh_cache,
+                    Some(&cli_args.list_args.get_args.cache_args),
                 )?;
                 let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
                 let tags = cli_args.tags.clone();
@@ -488,12 +489,16 @@ pub fn execute(
                 list_runners(remote, body_args, cli_args, std::io::stdout())
             }
             RunnerOptions::Get(cli_args) => {
-                let remote =
-                    remote::get_cicd_runner(domain, path, config, cli_args.get_args.refresh_cache)?;
+                let remote = remote::get_cicd_runner(
+                    domain,
+                    path,
+                    config,
+                    Some(&cli_args.get_args.cache_args),
+                )?;
                 get_runner_details(remote, cli_args, std::io::stdout())
             }
             RunnerOptions::Create(cli_args) => {
-                let remote = remote::get_cicd_runner(domain, path, config, false)?;
+                let remote = remote::get_cicd_runner(domain, path, config, None)?;
                 create_runner(remote, cli_args, std::io::stdout())
             }
         },

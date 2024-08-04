@@ -4,7 +4,7 @@ use clap::{Parser, ValueEnum};
 
 use crate::{
     display::Format,
-    remote::{GetRemoteCliArgs, ListRemoteCliArgs, ListSortMode},
+    remote::{CacheCliArgs, GetRemoteCliArgs, ListRemoteCliArgs, ListSortMode},
     time::Milliseconds,
 };
 
@@ -56,11 +56,21 @@ pub struct ListArgs {
 pub struct GetArgs {
     #[clap(flatten)]
     pub format_args: FormatArgs,
-    /// Refresh the cache
-    #[clap(long, short, help_heading = "Cache options")]
-    pub refresh: bool,
+    #[clap(flatten)]
+    pub cache_args: CacheArgs,
     #[clap(flatten)]
     pub retry_args: RetryArgs,
+}
+
+#[derive(Clone, Parser)]
+#[clap(next_help_heading = "Cache options")]
+pub struct CacheArgs {
+    /// Refresh the cache
+    #[clap(long, short, group = "cache")]
+    pub refresh: bool,
+    /// Disable caching data on disk
+    #[clap(long, group = "cache")]
+    pub no_cache: bool,
 }
 
 #[derive(Clone, Parser)]
@@ -153,9 +163,19 @@ impl From<GetArgs> for GetRemoteCliArgs {
             .no_headers(args.format_args.no_headers)
             .format(args.format_args.format.into())
             .display_optional(args.format_args.more_output)
-            .refresh_cache(args.refresh)
+            .cache_args(args.cache_args.into())
             .backoff_max_retries(args.retry_args.max_retries)
             .backoff_retry_after(args.retry_args.retry_after)
+            .build()
+            .unwrap()
+    }
+}
+
+impl From<CacheArgs> for CacheCliArgs {
+    fn from(args: CacheArgs) -> Self {
+        CacheCliArgs::builder()
+            .refresh(args.refresh)
+            .no_cache(args.no_cache)
             .build()
             .unwrap()
     }

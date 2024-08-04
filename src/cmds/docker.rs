@@ -158,12 +158,12 @@ pub fn execute(
                 domain,
                 path,
                 config,
-                cli_args.list_args.get_args.refresh_cache,
+                Some(&cli_args.list_args.get_args.cache_args),
             )?;
             validate_and_list(remote, cli_args, std::io::stdout())
         }
         DockerOptions::Get(cli_args) => {
-            let remote = get_registry(domain, path, config, cli_args.get_args.refresh_cache)?;
+            let remote = get_registry(domain, path, config, Some(&cli_args.get_args.cache_args))?;
             get_image_metadata(remote, cli_args, std::io::stdout())
         }
     }
@@ -234,6 +234,8 @@ fn get_num_resources<W: Write>(
 
 #[cfg(test)]
 mod tests {
+    use remote::CacheCliArgs;
+
     use crate::error;
 
     use super::*;
@@ -327,7 +329,7 @@ mod tests {
                 ListRemoteCliArgs::builder()
                     .get_args(
                         GetRemoteCliArgs::builder()
-                            .refresh_cache(false)
+                            .cache_args(CacheCliArgs::default())
                             .build()
                             .unwrap(),
                     )
@@ -356,7 +358,7 @@ mod tests {
                 ListRemoteCliArgs::builder()
                     .get_args(
                         GetRemoteCliArgs::builder()
-                            .refresh_cache(false)
+                            .cache_args(CacheCliArgs::default())
                             .build()
                             .unwrap(),
                     )
@@ -385,7 +387,7 @@ mod tests {
                 ListRemoteCliArgs::builder()
                     .get_args(
                         GetRemoteCliArgs::builder()
-                            .refresh_cache(false)
+                            .cache_args(CacheCliArgs::default())
                             .build()
                             .unwrap(),
                     )
@@ -411,7 +413,7 @@ mod tests {
                 ListRemoteCliArgs::builder()
                     .get_args(
                         GetRemoteCliArgs::builder()
-                            .refresh_cache(false)
+                            .cache_args(CacheCliArgs::default())
                             .build()
                             .unwrap(),
                     )
@@ -437,7 +439,7 @@ mod tests {
                 ListRemoteCliArgs::builder()
                     .get_args(
                         GetRemoteCliArgs::builder()
-                            .refresh_cache(false)
+                            .cache_args(CacheCliArgs::default())
                             .no_headers(true)
                             .build()
                             .unwrap(),
@@ -466,7 +468,7 @@ mod tests {
                 ListRemoteCliArgs::builder()
                     .get_args(
                         GetRemoteCliArgs::builder()
-                            .refresh_cache(false)
+                            .cache_args(CacheCliArgs::default())
                             .no_headers(true)
                             .build()
                             .unwrap(),
@@ -500,7 +502,7 @@ mod tests {
                 ListRemoteCliArgs::builder()
                     .get_args(
                         GetRemoteCliArgs::builder()
-                            .refresh_cache(false)
+                            .cache_args(CacheCliArgs::default())
                             .no_headers(true)
                             .build()
                             .unwrap(),
@@ -535,7 +537,7 @@ mod tests {
                 ListRemoteCliArgs::builder()
                     .get_args(
                         GetRemoteCliArgs::builder()
-                            .refresh_cache(false)
+                            .cache_args(CacheCliArgs::default())
                             .no_headers(true)
                             .build()
                             .unwrap(),
@@ -576,7 +578,7 @@ mod tests {
             .repo_id(1)
             .get_args(
                 GetRemoteCliArgs::builder()
-                    .refresh_cache(false)
+                    .cache_args(CacheCliArgs::default())
                     .no_headers(true)
                     .build()
                     .unwrap(),

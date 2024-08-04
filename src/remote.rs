@@ -6,13 +6,13 @@ use crate::api_traits::{
     Cicd, CicdJob, CicdRunner, CodeGist, CommentMergeRequest, ContainerRegistry, Deploy,
     DeployAsset, MergeRequest, RemoteProject, Timestamp, TrendingProjectURL, UserInfo,
 };
-use crate::cache::filesystem::FileCache;
+use crate::cache::{filesystem::FileCache, nocache::NoCache};
 use crate::config::Config;
 use crate::display::{Column, DisplayBody, Format};
 use crate::error::GRError;
 use crate::github::Github;
 use crate::gitlab::Gitlab;
-use crate::io::{CmdInfo, Response, TaskRunner};
+use crate::io::{CmdInfo, HttpRunner, Response, TaskRunner};
 use crate::time::Milliseconds;
 use crate::{cli, error, http};
 use crate::{git, Result};
@@ -329,7 +329,7 @@ pub struct GetRemoteCliArgs {
     #[builder(default)]
     pub format: Format,
     #[builder(default)]
-    pub refresh_cache: bool,
+    pub cache_args: CacheCliArgs,
     #[builder(default)]
     pub display_optional: bool,
     #[builder(default)]
@@ -341,6 +341,20 @@ pub struct GetRemoteCliArgs {
 impl GetRemoteCliArgs {
     pub fn builder() -> GetRemoteCliArgsBuilder {
         GetRemoteCliArgsBuilder::default()
+    }
+}
+
+#[derive(Builder, Clone, Default)]
+pub struct CacheCliArgs {
+    #[builder(default)]
+    pub refresh: bool,
+    #[builder(default)]
+    pub no_cache: bool,
+}
+
+impl CacheCliArgs {
+    pub fn builder() -> CacheCliArgsBuilder {
+        CacheCliArgsBuilder::default()
     }
 }
 
@@ -601,29 +615,47 @@ pub enum ListSortMode {
 
 macro_rules! get {
     ($func_name:ident, $trait_name:ident) => {
-        pub fn $func_name(
-            domain: String,
-            path: String,
-            config: Arc<Config>,
-            refresh_cache: bool,
-        ) -> Result<Arc<dyn $trait_name + Send + Sync + 'static>> {
-            let runner = Arc::new(http::Client::new(
-                FileCache::new(config.clone()),
-                config.clone(),
-                refresh_cache,
-            ));
+        paste::paste! {
+            pub fn $func_name(
+                domain: String,
+                path: String,
+                config: Arc<Config>,
+                cache_args: Option<&CacheCliArgs>,
+            ) -> Result<Arc<dyn $trait_name + Send + Sync + 'static>> {
+                let refresh_cache = cache_args.map_or(false, |args| args.refresh);
+                let no_cache = cache_args.map_or(false, |args| args.no_cache);
 
-            let github_domain_regex = regex::Regex::new(r"^github").unwrap();
-            let gitlab_domain_regex = regex::Regex::new(r"^gitlab").unwrap();
-            let remote: Arc<dyn $trait_name + Send + Sync + 'static> =
-                if github_domain_regex.is_match(&domain) {
-                    Arc::new(Github::new(config, &domain, &path, runner))
-                } else if gitlab_domain_regex.is_match(&domain) {
-                    Arc::new(Gitlab::new(config, &domain, &path, runner))
+                if no_cache {
+                    let runner = Arc::new(http::Client::new(NoCache, config.clone(), refresh_cache));
+                    [<create_remote_ $func_name>](domain, path, config, runner)
                 } else {
-                    return Err(error::gen(format!("Unsupported domain: {}", &domain)));
-                };
-            Ok(remote)
+                    let file_cache = FileCache::new(config.clone());
+                    let runner = Arc::new(http::Client::new(file_cache, config.clone(), refresh_cache));
+                    [<create_remote_ $func_name>](domain, path, config, runner)
+                }
+            }
+
+            fn [<create_remote_ $func_name>]<R>(
+                domain: String,
+                path: String,
+                config: Arc<Config>,
+                runner: Arc<R>,
+            ) -> Result<Arc<dyn $trait_name + Send + Sync + 'static>>
+            where
+                R: HttpRunner<Response = Response> + Send + Sync + 'static,
+            {
+                let github_domain_regex = regex::Regex::new(r"^github").unwrap();
+                let gitlab_domain_regex = regex::Regex::new(r"^gitlab").unwrap();
+                let remote: Arc<dyn $trait_name + Send + Sync + 'static> =
+                    if github_domain_regex.is_match(&domain) {
+                        Arc::new(Github::new(config, &domain, &path, runner))
+                    } else if gitlab_domain_regex.is_match(&domain) {
+                        Arc::new(Gitlab::new(config, &domain, &path, runner))
+                    } else {
+                        return Err(error::gen(format!("Unsupported domain: {}", &domain)));
+                    };
+                Ok(remote)
+            }
         }
     };
 }
