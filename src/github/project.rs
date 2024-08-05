@@ -1,13 +1,13 @@
 use crate::{
     api_traits::{ApiOperation, RemoteProject},
     cli::browse::BrowseOptions,
-    cmds::project::ProjectListBodyArgs,
+    cmds::project::{Member, Project, ProjectListBodyArgs},
     error::GRError,
     http::Method::GET,
     io::{CmdInfo, HttpRunner, Response},
     remote::{
         query::{self, github_list_members},
-        Member, Project, URLQueryParamBuilder,
+        URLQueryParamBuilder,
     },
 };
 

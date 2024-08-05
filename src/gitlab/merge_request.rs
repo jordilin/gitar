@@ -385,7 +385,8 @@ impl From<GitlabMergeRequestCommentFields> for Comment {
 #[cfg(test)]
 mod test {
 
-    use crate::remote::{ListBodyArgs, Member, MergeRequestState};
+    use crate::cmds::project::Member;
+    use crate::remote::{ListBodyArgs, MergeRequestState};
     use crate::setup_client;
     use crate::test::utils::{
         default_gitlab, get_contract, BasePath, ClientType, ContractType, Domain, ResponseContracts,

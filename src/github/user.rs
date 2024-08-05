@@ -1,7 +1,8 @@
 use super::Github;
 use crate::api_traits::{ApiOperation, UserInfo};
+use crate::cmds::project::Member;
 use crate::io::{HttpRunner, Response};
-use crate::remote::{query, Member};
+use crate::remote::query;
 use crate::{http, Result};
 
 impl<R: HttpRunner<Response = Response>> UserInfo for Github<R> {

@@ -11,14 +11,12 @@ use crate::{
         docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
         gist::{Gist, GistListBodyArgs},
         merge_request::{Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs},
-        project::ProjectListBodyArgs,
+        project::{Member, Project, ProjectListBodyArgs},
         release::{Release, ReleaseAssetListBodyArgs, ReleaseAssetMetadata, ReleaseBodyArgs},
         trending::TrendingProject,
     },
     io::CmdInfo,
-    remote::{
-        Member, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, Project,
-    },
+    remote::{MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse},
     Result,
 };
 

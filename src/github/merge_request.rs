@@ -491,8 +491,9 @@ impl From<GithubMergeRequestCommentFields> for Comment {
 mod test {
 
     use crate::{
+        cmds::project::Member,
         http::{self, Headers},
-        remote::{ListBodyArgs, Member, MergeRequestState},
+        remote::{ListBodyArgs, MergeRequestState},
         setup_client,
         test::utils::{
             default_github, get_contract, BasePath, ClientType, ContractType, Domain,

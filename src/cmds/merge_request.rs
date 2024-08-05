@@ -7,8 +7,8 @@ use crate::error::{AddContext, GRError};
 use crate::git::Repo;
 use crate::io::{CmdInfo, Response, TaskRunner};
 use crate::remote::{
-    CacheCliArgs, GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs, Member, MergeRequestBodyArgs,
-    MergeRequestListBodyArgs, MergeRequestState, Project,
+    CacheCliArgs, GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs, MergeRequestBodyArgs,
+    MergeRequestListBodyArgs, MergeRequestState,
 };
 use crate::shell::BlockingCommand;
 use crate::{dialog, display, exec, git, remote, Cmd, Result};
@@ -19,6 +19,7 @@ use std::{
 };
 
 use super::common::{self, get_user};
+use super::project::{Member, Project};
 
 #[derive(Builder, Clone)]
 pub struct MergeRequestCliArgs {

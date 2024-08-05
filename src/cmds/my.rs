@@ -73,11 +73,10 @@ fn list_user_projects<W: Write>(
 
 #[cfg(test)]
 mod tests {
-    use remote::Member;
 
-    use crate::cmds::project::ProjectListCliArgs;
+    use crate::cmds::project::{Member, Project, ProjectListCliArgs};
 
-    use self::remote::{ListRemoteCliArgs, Project};
+    use self::remote::ListRemoteCliArgs;
 
     use super::*;
 

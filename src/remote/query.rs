@@ -11,6 +11,7 @@ use crate::{
         docker::{ImageMetadata, RegistryRepository, RepositoryTag},
         gist::Gist,
         merge_request::Comment,
+        project::{Member, Project},
         release::{Release, ReleaseAssetMetadata},
     },
     display, error,
@@ -43,7 +44,7 @@ use crate::{
     Result,
 };
 
-use super::{Member, MergeRequestResponse, Project};
+use super::MergeRequestResponse;
 
 fn get_page_header<R: HttpRunner<Response = Response>>(
     runner: &Arc<R>,

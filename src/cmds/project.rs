@@ -1,16 +1,124 @@
-use crate::api_traits::RemoteProject;
+use crate::api_traits::{RemoteProject, Timestamp};
 use crate::cli::project::ProjectOptions;
 use crate::config::Config;
-use crate::display;
+use crate::display::{self, Column, DisplayBody};
 use crate::error;
 use crate::io::CmdInfo;
-use crate::remote::ListBodyArgs;
-use crate::remote::ListRemoteCliArgs;
-use crate::remote::Member;
-use crate::remote::{self, GetRemoteCliArgs};
+use crate::remote::{self, GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs};
 use crate::Result;
 use std::io::Write;
 use std::sync::Arc;
+
+#[derive(Builder, Clone, Debug, Default, PartialEq)]
+pub struct Project {
+    pub id: i64,
+    default_branch: String,
+    #[builder(default)]
+    members: Vec<Member>,
+    html_url: String,
+    created_at: String,
+    description: String,
+    // Field not available in Gitlab. Set to empty string.
+    #[builder(default)]
+    language: String,
+}
+
+impl Project {
+    pub fn builder() -> ProjectBuilder {
+        ProjectBuilder::default()
+    }
+
+    pub fn new(id: i64, default_branch: &str) -> Self {
+        Project {
+            id,
+            default_branch: default_branch.to_string(),
+            members: Vec::new(),
+            html_url: String::new(),
+            created_at: String::new(),
+            description: String::new(),
+            language: String::new(),
+        }
+    }
+
+    pub fn with_html_url(mut self, html_url: &str) -> Self {
+        self.html_url = html_url.to_string();
+        self
+    }
+
+    // TODO - builder pattern
+    pub fn with_created_at(mut self, created_at: &str) -> Self {
+        self.created_at = created_at.to_string();
+        self
+    }
+
+    pub fn default_branch(&self) -> &str {
+        &self.default_branch
+    }
+}
+
+impl From<Project> for DisplayBody {
+    fn from(p: Project) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("ID", p.id.to_string()),
+                Column::new("Default Branch", p.default_branch),
+                Column::new("URL", p.html_url),
+                Column::new("Created at", p.created_at),
+                Column::builder()
+                    .name("Description".to_string())
+                    .value(p.description)
+                    .optional(true)
+                    .build()
+                    .unwrap(),
+                Column::builder()
+                    .name("Language".to_string())
+                    .value(p.language)
+                    .optional(true)
+                    .build()
+                    .unwrap(),
+            ],
+        }
+    }
+}
+
+impl Timestamp for Project {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
+    }
+}
+
+#[derive(Builder, Clone, Debug, PartialEq, Default)]
+pub struct Member {
+    pub id: i64,
+    pub name: String,
+    pub username: String,
+    #[builder(default)]
+    pub created_at: String,
+}
+
+impl Member {
+    pub fn builder() -> MemberBuilder {
+        MemberBuilder::default()
+    }
+}
+
+impl Timestamp for Member {
+    fn created_at(&self) -> String {
+        self.created_at.clone()
+    }
+}
+
+impl From<Member> for DisplayBody {
+    fn from(m: Member) -> DisplayBody {
+        DisplayBody {
+            columns: vec![
+                Column::new("ID", m.id.to_string()),
+                Column::new("Name", m.name),
+                Column::new("Username", m.username),
+            ],
+        }
+    }
+}
 
 #[derive(Builder)]
 pub struct ProjectListCliArgs {
@@ -91,7 +199,7 @@ mod test {
     use std::cell::RefCell;
 
     use super::*;
-    use crate::{cli::browse::BrowseOptions, remote::Project};
+    use crate::cli::browse::BrowseOptions;
 
     #[derive(Builder)]
     struct ProjectDataProvider {
