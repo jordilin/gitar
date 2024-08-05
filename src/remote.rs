@@ -4,12 +4,11 @@ use std::path::Path;
 
 use crate::api_traits::{
     Cicd, CicdJob, CicdRunner, CodeGist, CommentMergeRequest, ContainerRegistry, Deploy,
-    DeployAsset, MergeRequest, RemoteProject, Timestamp, TrendingProjectURL, UserInfo,
+    DeployAsset, MergeRequest, RemoteProject, TrendingProjectURL, UserInfo,
 };
 use crate::cache::{filesystem::FileCache, nocache::NoCache};
-use crate::cmds::project::Member;
 use crate::config::Config;
-use crate::display::{Column, DisplayBody, Format};
+use crate::display::Format;
 use crate::error::GRError;
 use crate::github::Github;
 use crate::gitlab::Gitlab;
@@ -17,165 +16,9 @@ use crate::io::{CmdInfo, HttpRunner, Response, TaskRunner};
 use crate::time::Milliseconds;
 use crate::{cli, error, http};
 use crate::{git, Result};
-use std::convert::TryFrom;
 use std::sync::Arc;
 
 pub mod query;
-
-#[derive(Builder, Clone, Debug, Default)]
-#[builder(default)]
-pub struct MergeRequestResponse {
-    pub id: i64,
-    pub web_url: String,
-    pub author: String,
-    pub updated_at: String,
-    pub source_branch: String,
-    pub sha: String,
-    pub created_at: String,
-    pub title: String,
-    // For Github to filter pull requests from issues.
-    pub pull_request: String,
-    // Optional fields to display for get and list operations
-    pub description: String,
-    pub merged_at: String,
-    pub pipeline_id: Option<i64>,
-    pub pipeline_url: Option<String>,
-}
-
-impl MergeRequestResponse {
-    pub fn builder() -> MergeRequestResponseBuilder {
-        MergeRequestResponseBuilder::default()
-    }
-}
-
-impl From<MergeRequestResponse> for DisplayBody {
-    fn from(mr: MergeRequestResponse) -> DisplayBody {
-        DisplayBody {
-            columns: vec![
-                Column::new("ID", mr.id.to_string()),
-                Column::new("Title", mr.title),
-                Column::new("Source Branch", mr.source_branch),
-                Column::builder()
-                    .name("SHA".to_string())
-                    .value(mr.sha)
-                    .optional(true)
-                    .build()
-                    .unwrap(),
-                Column::builder()
-                    .name("Description".to_string())
-                    .value(mr.description)
-                    .optional(true)
-                    .build()
-                    .unwrap(),
-                Column::new("Author", mr.author),
-                Column::new("URL", mr.web_url),
-                Column::new("Updated at", mr.updated_at),
-                Column::builder()
-                    .name("Merged at".to_string())
-                    .value(mr.merged_at)
-                    .optional(true)
-                    .build()
-                    .unwrap(),
-                Column::builder()
-                    .name("Pipeline ID".to_string())
-                    .value(mr.pipeline_id.map_or("".to_string(), |id| id.to_string()))
-                    .optional(true)
-                    .build()
-                    .unwrap(),
-                Column::builder()
-                    .name("Pipeline URL".to_string())
-                    .value(mr.pipeline_url.unwrap_or("".to_string()))
-                    .optional(true)
-                    .build()
-                    .unwrap(),
-            ],
-        }
-    }
-}
-
-impl Timestamp for MergeRequestResponse {
-    fn created_at(&self) -> String {
-        self.created_at.clone()
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum MergeRequestState {
-    Opened,
-    Closed,
-    Merged,
-}
-
-impl TryFrom<&str> for MergeRequestState {
-    type Error = String;
-
-    fn try_from(s: &str) -> std::result::Result<Self, Self::Error> {
-        match s {
-            "opened" => Ok(MergeRequestState::Opened),
-            "closed" => Ok(MergeRequestState::Closed),
-            "merged" => Ok(MergeRequestState::Merged),
-            _ => Err(format!("Invalid merge request state: {}", s)),
-        }
-    }
-}
-
-impl Display for MergeRequestState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            MergeRequestState::Opened => write!(f, "opened"),
-            MergeRequestState::Closed => write!(f, "closed"),
-            MergeRequestState::Merged => write!(f, "merged"),
-        }
-    }
-}
-
-#[derive(Builder)]
-pub struct MergeRequestBodyArgs {
-    #[builder(default)]
-    pub title: String,
-    #[builder(default)]
-    pub description: String,
-    #[builder(default)]
-    pub source_branch: String,
-    #[builder(default)]
-    pub target_repo: String,
-    #[builder(default)]
-    pub target_branch: String,
-    #[builder(default)]
-    pub assignee_id: String,
-    #[builder(default)]
-    pub username: String,
-    #[builder(default = "String::from(\"true\")")]
-    pub remove_source_branch: String,
-    #[builder(default)]
-    pub draft: bool,
-    #[builder(default)]
-    pub amend: bool,
-}
-
-impl MergeRequestBodyArgs {
-    pub fn builder() -> MergeRequestBodyArgsBuilder {
-        MergeRequestBodyArgsBuilder::default()
-    }
-}
-
-#[derive(Builder, Clone)]
-pub struct MergeRequestListBodyArgs {
-    pub state: MergeRequestState,
-    pub list_args: Option<ListBodyArgs>,
-    #[builder(default)]
-    pub assignee: Option<Member>,
-    #[builder(default)]
-    pub author: Option<Member>,
-    #[builder(default)]
-    pub reviewer: Option<Member>,
-}
-
-impl MergeRequestListBodyArgs {
-    pub fn builder() -> MergeRequestListBodyArgsBuilder {
-        MergeRequestListBodyArgsBuilder::default()
-    }
-}
 
 /// List cli args can be used across multiple APIs that support pagination.
 #[derive(Builder, Clone)]
@@ -675,44 +518,6 @@ mod test {
     use crate::test::utils::MockRunner;
 
     use super::*;
-
-    #[test]
-    fn test_merge_request_args_with_custom_title() {
-        let args = MergeRequestBodyArgs::builder()
-            .source_branch("source".to_string())
-            .target_branch("target".to_string())
-            .title("title".to_string())
-            .build()
-            .unwrap();
-
-        assert_eq!(args.source_branch, "source");
-        assert_eq!(args.target_branch, "target");
-        assert_eq!(args.title, "title");
-        assert_eq!(args.remove_source_branch, "true");
-        assert_eq!(args.description, "");
-    }
-
-    #[test]
-    fn test_merge_request_get_all_fields() {
-        let args = MergeRequestBodyArgs::builder()
-            .source_branch("source".to_string())
-            .target_branch("target".to_string())
-            .title("title".to_string())
-            .description("description".to_string())
-            .assignee_id("assignee_id".to_string())
-            .username("username".to_string())
-            .remove_source_branch("false".to_string())
-            .build()
-            .unwrap();
-
-        assert_eq!(args.source_branch, "source");
-        assert_eq!(args.target_branch, "target");
-        assert_eq!(args.title, "title");
-        assert_eq!(args.description, "description");
-        assert_eq!(args.assignee_id, "assignee_id");
-        assert_eq!(args.username, "username");
-        assert_eq!(args.remove_source_branch, "false");
-    }
 
     #[test]
     fn test_cli_from_to_pages_valid_range() {

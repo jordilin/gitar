@@ -2,12 +2,9 @@ use std::option::Option;
 
 use clap::{Parser, ValueEnum};
 
-use crate::{
-    cmds::merge_request::{
-        CommentMergeRequestCliArgs, CommentMergeRequestListCliArgs, MergeRequestCliArgs,
-        MergeRequestGetCliArgs, MergeRequestListCliArgs,
-    },
-    remote::MergeRequestState,
+use crate::cmds::merge_request::{
+    CommentMergeRequestCliArgs, CommentMergeRequestListCliArgs, MergeRequestCliArgs,
+    MergeRequestGetCliArgs, MergeRequestListCliArgs, MergeRequestState,
 };
 
 use super::common::{validate_project_repo_path, CacheArgs, GetArgs, ListArgs};

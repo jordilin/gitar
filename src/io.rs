@@ -1,9 +1,11 @@
 use crate::{
     api_defaults,
-    cmds::project::{Member, Project},
+    cmds::{
+        merge_request::MergeRequestResponse,
+        project::{Member, Project},
+    },
     http::{self, Headers, Request},
     log_info,
-    remote::MergeRequestResponse,
     time::{self, Milliseconds, Seconds},
     Result,
 };

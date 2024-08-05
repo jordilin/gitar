@@ -10,7 +10,7 @@ use crate::{
         cicd::{Job, LintResponse, Pipeline, Runner, RunnerMetadata, RunnerRegistrationResponse},
         docker::{ImageMetadata, RegistryRepository, RepositoryTag},
         gist::Gist,
-        merge_request::Comment,
+        merge_request::{Comment, MergeRequestResponse},
         project::{Member, Project},
         release::{Release, ReleaseAssetMetadata},
     },
@@ -43,8 +43,6 @@ use crate::{
     time::sort_filter_by_date,
     Result,
 };
-
-use super::MergeRequestResponse;
 
 fn get_page_header<R: HttpRunner<Response = Response>>(
     runner: &Arc<R>,

@@ -1,18 +1,18 @@
 use crate::api_traits::{ApiOperation, CommentMergeRequest, NumberDeltaErr, RemoteProject};
 use crate::cli::browse::BrowseOptions;
 use crate::cmds::merge_request::{
-    Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs,
+    Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs, MergeRequestBodyArgs,
+    MergeRequestListBodyArgs, MergeRequestResponse,
 };
 use crate::error::{self, GRError};
 use crate::http::Method::GET;
 use crate::http::{self, Body, Headers};
 use crate::io::CmdInfo;
-use crate::remote::{query, MergeRequestListBodyArgs};
+use crate::remote::query;
 use crate::Result;
 use crate::{
     api_traits::MergeRequest,
     io::{HttpRunner, Response},
-    remote::{MergeRequestBodyArgs, MergeRequestResponse},
 };
 
 use crate::json_loads;
@@ -385,8 +385,9 @@ impl From<GitlabMergeRequestCommentFields> for Comment {
 #[cfg(test)]
 mod test {
 
+    use crate::cmds::merge_request::MergeRequestState;
     use crate::cmds::project::Member;
-    use crate::remote::{ListBodyArgs, MergeRequestState};
+    use crate::remote::ListBodyArgs;
     use crate::setup_client;
     use crate::test::utils::{
         default_gitlab, get_contract, BasePath, ClientType, ContractType, Domain, ResponseContracts,
