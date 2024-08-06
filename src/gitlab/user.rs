@@ -1,8 +1,9 @@
 use crate::{
     api_traits::{ApiOperation, UserInfo},
+    cmds::project::Member,
     http,
     io::{HttpRunner, Response},
-    remote::{query, Member},
+    remote::query,
     Result,
 };
 

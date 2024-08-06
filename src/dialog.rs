@@ -8,10 +8,10 @@ use dialoguer::Editor;
 use dialoguer::FuzzySelect;
 use dialoguer::Input;
 
+use crate::cmds::merge_request::MergeRequestBodyArgs;
+use crate::cmds::project::Member;
 use crate::config::ConfigProperties;
 use crate::error;
-use crate::remote::Member;
-use crate::remote::MergeRequestBodyArgs;
 use crate::Result;
 
 pub struct MergeRequestUserInput {

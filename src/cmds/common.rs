@@ -1,6 +1,5 @@
-use crate::config::Config;
-use crate::remote::{Member, MergeRequestListBodyArgs};
 /// Common functions and macros that are used by multiple commands
+use crate::config::Config;
 use crate::Result;
 use crate::{api_traits::MergeRequest, remote::ListRemoteCliArgs};
 use crate::{display, remote};
@@ -15,8 +14,10 @@ use crate::api_traits::{
 
 use super::cicd::{JobListBodyArgs, JobListCliArgs, RunnerListBodyArgs, RunnerListCliArgs};
 use super::gist::{GistListBodyArgs, GistListCliArgs};
-use super::merge_request::{CommentMergeRequestListBodyArgs, CommentMergeRequestListCliArgs};
-use super::project::{ProjectListBodyArgs, ProjectListCliArgs};
+use super::merge_request::{
+    CommentMergeRequestListBodyArgs, CommentMergeRequestListCliArgs, MergeRequestListBodyArgs,
+};
+use super::project::{Member, ProjectListBodyArgs, ProjectListCliArgs};
 use super::release::{ReleaseAssetListBodyArgs, ReleaseAssetListCliArgs, ReleaseBodyArgs};
 use super::trending::TrendingCliArgs;
 use super::{cicd::PipelineBodyArgs, merge_request::MergeRequestListCliArgs};

@@ -143,7 +143,7 @@ mod tests {
     use super::*;
     use crate::{
         cli::{merge_request::MergeRequestStateStateCli, Args, Command},
-        remote::MergeRequestState,
+        cmds::merge_request::MergeRequestState,
     };
 
     #[test]

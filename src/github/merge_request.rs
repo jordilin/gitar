@@ -2,17 +2,17 @@ use super::Github;
 use crate::{
     api_traits::{ApiOperation, CommentMergeRequest, MergeRequest, NumberDeltaErr, RemoteProject},
     cli::browse::BrowseOptions,
-    cmds::merge_request::{Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs},
+    cmds::merge_request::{
+        Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs,
+        MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, MergeRequestState,
+    },
     http::{
         Body,
         Method::{GET, PATCH, POST, PUT},
     },
     io::{HttpRunner, Response},
     json_loads,
-    remote::{
-        query, MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse,
-        MergeRequestState,
-    },
+    remote::query,
 };
 
 use crate::{error, Result};
@@ -491,8 +491,9 @@ impl From<GithubMergeRequestCommentFields> for Comment {
 mod test {
 
     use crate::{
+        cmds::project::Member,
         http::{self, Headers},
-        remote::{ListBodyArgs, Member, MergeRequestState},
+        remote::ListBodyArgs,
         setup_client,
         test::utils::{
             default_github, get_contract, BasePath, ClientType, ContractType, Domain,

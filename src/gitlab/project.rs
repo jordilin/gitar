@@ -1,12 +1,12 @@
 use crate::api_traits::{ApiOperation, RemoteProject};
 use crate::cli::browse::BrowseOptions;
-use crate::cmds::project::ProjectListBodyArgs;
+use crate::cmds::project::{Member, Project, ProjectListBodyArgs};
 use crate::error::GRError;
 use crate::gitlab::encode_path;
 use crate::http::{self};
 use crate::io::{CmdInfo, HttpRunner, Response};
 use crate::remote::query::{self, gitlab_list_members};
-use crate::remote::{Member, Project, URLQueryParamBuilder};
+use crate::remote::URLQueryParamBuilder;
 use crate::Result;
 
 use super::Gitlab;
