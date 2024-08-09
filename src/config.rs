@@ -2,14 +2,14 @@
 
 use crate::api_defaults::{RATE_LIMIT_REMAINING_THRESHOLD, REST_API_MAX_PAGES};
 use crate::api_traits::ApiOperation;
-use crate::error;
+use crate::error::{self, GRError};
 use crate::Result;
 use std::sync::Arc;
 use std::{collections::HashMap, io::Read};
 
-pub trait ConfigProperties {
+pub trait ConfigProperties: Send + Sync {
     fn api_token(&self) -> &str;
-    fn cache_location(&self) -> &str;
+    fn cache_location(&self) -> Option<&str>;
     fn preferred_assignee_username(&self) -> &str {
         ""
     }
@@ -29,8 +29,41 @@ pub trait ConfigProperties {
     }
 }
 
-#[derive(Clone, Default)]
-pub struct Config {
+/// The NoConfig struct is used when no configuration is found and it can be
+/// used for CI/CD scenarios where no configuration is needed or for other
+/// one-off scenarios.
+pub struct NoConfig {
+    api_token: String,
+}
+
+impl NoConfig {
+    pub fn new(domain: &str) -> Result<Self> {
+        let api_token_res = env_token(domain);
+        let api_token = api_token_res.map_err(|_| {
+            GRError::PreconditionNotMet(
+                format!(
+                    "Configuration not found, so it is expected environment variable {} to be set.",
+                    format!("{}_API_TOKEN", domain.to_ascii_uppercase())
+                )
+                .into(),
+            )
+        })?;
+        Ok(NoConfig { api_token })
+    }
+}
+
+impl ConfigProperties for NoConfig {
+    fn api_token(&self) -> &str {
+        &self.api_token
+    }
+
+    fn cache_location(&self) -> Option<&str> {
+        None
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ConfigFile {
     api_token: String,
     cache_location: String,
     preferred_assignee_username: String,
@@ -41,10 +74,24 @@ pub struct Config {
     rate_limit_remaining_threshold: u32,
 }
 
-impl Config {
+fn env_token(domain: &str) -> Result<String> {
+    let domain_fields = domain.split('.').collect::<Vec<&str>>();
+    let env_domain = if domain_fields.len() == 1 {
+        // There's not top level domain, such as .com
+        domain
+    } else {
+        &domain_fields[0..domain_fields.len() - 1].join("_")
+    };
+    Ok(std::env::var(format!(
+        "{}_API_TOKEN",
+        env_domain.to_ascii_uppercase()
+    ))?)
+}
+
+impl ConfigFile {
     // TODO: make use of a BufReader instead
     pub fn new<T: Read>(reader: T, domain: &str) -> Result<Self> {
-        let config = Config::parse(reader, domain)?;
+        let config = ConfigFile::parse(reader, domain)?;
         let domain_config_data = config.get(domain).unwrap();
         // ENV VAR API token takes preference. For a given domain, we try to fetch
         // <DOMAIN>_API_TOKEN env var first, then we fallback to the config
@@ -53,23 +100,15 @@ impl Config {
         // to be set is GITLAB_<COMPANY>_API_TOKEN.
 
         // Remove top level domain, if any (e.g. gitlab.com -> gitlab)
-        let domain_fields = domain.split('.').collect::<Vec<&str>>();
-        let env_domain = if domain_fields.len() == 1 {
-            // There's not top level domain, such as .com
-            domain
-        } else {
-            &domain_fields[0..domain_fields.len() - 1].join("_")
-        };
-        let api_token = std::env::var(format!("{}_API_TOKEN", env_domain.to_ascii_uppercase()))
-            .or_else(|_| -> Result<String> {
-                let token_res = domain_config_data.get("api_token").ok_or_else(|| {
-                    error::gen(format!(
-                        "No api_token found for domain {} in config",
-                        domain
-                    ))
-                })?;
-                Ok(token_res.to_string())
+        let api_token = env_token(domain).or_else(|_| -> Result<String> {
+            let token_res = domain_config_data.get("api_token").ok_or_else(|| {
+                error::gen(format!(
+                    "No api_token found for domain {} in config",
+                    domain
+                ))
             })?;
+            Ok(token_res.to_string())
+        })?;
         let cache_location = domain_config_data.get("cache_location").ok_or_else(|| {
             error::gen(format!(
                 "No cache_location found for domain {} in config",
@@ -84,14 +123,14 @@ impl Config {
         let merge_request_description_signature = domain_config_data
             .get("merge_request_description_signature")
             .unwrap_or(&default_merge_request_description_signature);
-        let cache_expirations = Config::cache_expirations(domain_config_data);
-        let max_pages = Config::max_pages(domain_config_data);
+        let cache_expirations = ConfigFile::cache_expirations(domain_config_data);
+        let max_pages = ConfigFile::max_pages(domain_config_data);
         let rate_limit_remaining_threshold = domain_config_data
             .get("rate_limit_remaining_threshold")
             .and_then(|s| s.parse().ok())
             .unwrap_or(RATE_LIMIT_REMAINING_THRESHOLD);
 
-        Ok(Config {
+        Ok(ConfigFile {
             api_token: api_token.to_string(),
             cache_location: cache_location.to_string(),
             preferred_assignee_username: preferred_assignee_username.to_string(),
@@ -244,13 +283,13 @@ impl Config {
     }
 }
 
-impl ConfigProperties for Config {
+impl ConfigProperties for ConfigFile {
     fn api_token(&self) -> &str {
         &self.api_token
     }
 
-    fn cache_location(&self) -> &str {
-        &self.cache_location
+    fn cache_location(&self) -> Option<&str> {
+        Some(&self.cache_location)
     }
 
     fn preferred_assignee_username(&self) -> &str {
@@ -282,12 +321,12 @@ impl ConfigProperties for Config {
     }
 }
 
-impl ConfigProperties for Arc<Config> {
+impl ConfigProperties for Arc<ConfigFile> {
     fn api_token(&self) -> &str {
         self.as_ref().api_token()
     }
 
-    fn cache_location(&self) -> &str {
+    fn cache_location(&self) -> Option<&str> {
         self.as_ref().cache_location()
     }
 
@@ -326,7 +365,7 @@ mod test {
         "#;
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!("1234", config.api_token());
     }
 
@@ -342,7 +381,7 @@ mod test {
         "#;
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!("1234", config.api_token());
     }
 
@@ -353,7 +392,7 @@ mod test {
         gitlab.com.api_token_typo=1234"#;
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        assert!(Config::new(reader, domain).is_err());
+        assert!(ConfigFile::new(reader, domain).is_err());
     }
 
     #[test]
@@ -361,7 +400,7 @@ mod test {
         let config_data = "";
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        assert!(Config::new(reader, domain).is_err());
+        assert!(ConfigFile::new(reader, domain).is_err());
     }
 
     #[test]
@@ -369,7 +408,7 @@ mod test {
         let config_data = "gitlab_api_token===1234";
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        assert!(Config::new(reader, domain).is_err());
+        assert!(ConfigFile::new(reader, domain).is_err());
     }
 
     #[test]
@@ -380,7 +419,7 @@ mod test {
         github.com.preferred_assignee_username=jordilin"#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!("jordilin", config.preferred_assignee_username());
     }
 
@@ -393,7 +432,7 @@ mod test {
         github.com.merge_request_description_signature=- devops team :-)"#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(
             "- devops team :-)",
             config.merge_request_description_signature()
@@ -416,7 +455,7 @@ mod test {
         github.com.cache_api_gist_expiration=1d"#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(
             "2h",
             config.get_cache_expiration(&ApiOperation::MergeRequest)
@@ -442,7 +481,7 @@ mod test {
         "#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(
             "0s",
             config.get_cache_expiration(&ApiOperation::MergeRequest)
@@ -459,7 +498,7 @@ mod test {
         "#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(2, config.get_max_pages(&ApiOperation::MergeRequest));
     }
 
@@ -472,7 +511,7 @@ mod test {
         "#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(
             REST_API_MAX_PAGES,
             config.get_max_pages(&ApiOperation::MergeRequest)
@@ -489,7 +528,7 @@ mod test {
         "#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(4, config.get_max_pages(&ApiOperation::Pipeline));
     }
 
@@ -501,7 +540,7 @@ mod test {
         github.com.preferred_assignee_username=jordilin"#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(
             REST_API_MAX_PAGES,
             config.get_max_pages(&ApiOperation::Pipeline)
@@ -518,7 +557,7 @@ mod test {
         "#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(6, config.get_max_pages(&ApiOperation::Project));
     }
 
@@ -530,7 +569,7 @@ mod test {
         github.com.preferred_assignee_username=jordilin"#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(
             REST_API_MAX_PAGES,
             config.get_max_pages(&ApiOperation::Project)
@@ -546,7 +585,7 @@ mod test {
         "#;
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(15, config.rate_limit_remaining_threshold());
     }
 
@@ -559,7 +598,7 @@ mod test {
         "#;
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(15, config.get_max_pages(&ApiOperation::ContainerRegistry));
     }
 
@@ -572,7 +611,7 @@ mod test {
         "#;
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(15, config.get_max_pages(&ApiOperation::Release));
     }
 
@@ -585,9 +624,14 @@ mod test {
         "#;
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(15, config.get_max_pages(&ApiOperation::Gist));
     }
+
+    // NOTE: The following tests are setting temporary environment variables.
+    // Each test needs a different env var to be set and then removed. Even when
+    // being removed if another test uses the same env var name, it can fail as
+    // tests execute in parallel. So, it is important to use unique env var names.
 
     #[test]
     fn test_use_gitlab_com_api_token_envvar() {
@@ -598,8 +642,9 @@ mod test {
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
         std::env::set_var("GITLAB_API_TOKEN", "1234");
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!("1234", config.api_token());
+        std::env::remove_var("GITLAB_API_TOKEN");
     }
 
     #[test]
@@ -611,8 +656,9 @@ mod test {
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
         std::env::set_var("GITHUB_API_TOKEN", "4567");
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!("4567", config.api_token());
+        std::env::remove_var("GITHUB_API_TOKEN");
     }
 
     #[test]
@@ -624,8 +670,9 @@ mod test {
         let domain = "gitlab.company.com";
         let reader = std::io::Cursor::new(config_data);
         std::env::set_var("GITLAB_COMPANY_API_TOKEN", "1214");
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!("1214", config.api_token());
+        std::env::remove_var("GITLAB_COMPANY_API_TOKEN");
     }
 
     #[test]
@@ -637,7 +684,33 @@ mod test {
         let domain = "gitlabweb";
         let reader = std::io::Cursor::new(config_data);
         std::env::set_var("GITLABWEB_API_TOKEN", "1294");
-        let config = Arc::new(Config::new(reader, domain).unwrap());
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!("1294", config.api_token());
+        std::env::remove_var("GITLABWEB_API_TOKEN");
+    }
+
+    #[test]
+    fn test_no_config_requires_auth_env_token_and_no_cache() {
+        let domain = "gitlabwebnoconfig";
+        std::env::set_var("GITLABWEBNOCONFIG_API_TOKEN", "1294");
+        let config = NoConfig::new(domain).unwrap();
+        assert_eq!("1294", config.api_token());
+        assert_eq!(None, config.cache_location());
+        std::env::remove_var("GITLABWEBNOCONFIG_API_TOKEN");
+    }
+
+    #[test]
+    fn test_no_config_no_env_token_is_error() {
+        let domain = "gitlabwebnoenv";
+        let config_res = NoConfig::new(domain);
+        match config_res {
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::PreconditionNotMet(val)) => {
+                    assert_eq!("Configuration not found, so it is expected environment variable GITLABWEBNOENV_API_TOKEN to be set.", val)
+                }
+                _ => panic!("Expected error::GRError::PreconditionNotMet"),
+            },
+            _ => panic!("Expected error"),
+        }
     }
 }

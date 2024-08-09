@@ -3,7 +3,7 @@ use std::{io::Write, sync::Arc};
 use crate::{
     api_traits::{ContainerRegistry, Timestamp},
     cli::docker::DockerOptions,
-    config::Config,
+    config::ConfigProperties,
     display::{self, Column, DisplayBody},
     remote::{self, get_registry, GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs},
     Result,
@@ -148,7 +148,7 @@ impl From<ImageMetadata> for DisplayBody {
 
 pub fn execute(
     options: DockerOptions,
-    config: Arc<Config>,
+    config: Arc<dyn ConfigProperties>,
     domain: String,
     path: String,
 ) -> Result<()> {

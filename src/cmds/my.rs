@@ -1,6 +1,8 @@
 use std::{io::Write, sync::Arc};
 
-use crate::{api_traits::RemoteProject, cli::my::MyOptions, config::Config, remote, Result};
+use crate::{
+    api_traits::RemoteProject, cli::my::MyOptions, config::ConfigProperties, remote, Result,
+};
 
 use super::{
     common::{self, get_user},
@@ -10,7 +12,7 @@ use super::{
 
 pub fn execute(
     options: MyOptions,
-    config: Arc<Config>,
+    config: Arc<dyn ConfigProperties>,
     domain: String,
     path: String,
 ) -> Result<()> {

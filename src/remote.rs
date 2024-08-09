@@ -7,7 +7,7 @@ use crate::api_traits::{
     DeployAsset, MergeRequest, RemoteProject, TrendingProjectURL, UserInfo,
 };
 use crate::cache::{filesystem::FileCache, nocache::NoCache};
-use crate::config::Config;
+use crate::config::{ConfigFile, NoConfig};
 use crate::display::Format;
 use crate::error::GRError;
 use crate::github::Github;
@@ -346,18 +346,21 @@ pub enum ListSortMode {
     Desc,
 }
 
+use crate::config::ConfigProperties;
 macro_rules! get {
     ($func_name:ident, $trait_name:ident) => {
         paste::paste! {
             pub fn $func_name(
                 domain: String,
                 path: String,
-                config: Arc<Config>,
+                config: Arc<dyn ConfigProperties + Send + Sync + 'static>,
                 cache_args: Option<&CacheCliArgs>,
             ) -> Result<Arc<dyn $trait_name + Send + Sync + 'static>> {
                 let refresh_cache = cache_args.map_or(false, |args| args.refresh);
                 let no_cache = cache_args.map_or(false, |args| args.no_cache);
-
+                // Also if config.get_cache_location is "" then assume NoCache
+                // or better config.get_type, Virtual vs File. A VirtualConfig
+                // has no cache specification.
                 if no_cache {
                     let runner = Arc::new(http::Client::new(NoCache, config.clone(), refresh_cache));
                     [<create_remote_ $func_name>](domain, path, config, runner)
@@ -371,7 +374,7 @@ macro_rules! get {
             fn [<create_remote_ $func_name>]<R>(
                 domain: String,
                 path: String,
-                config: Arc<Config>,
+                config: Arc<dyn ConfigProperties>,
                 runner: Arc<R>,
             ) -> Result<Arc<dyn $trait_name + Send + Sync + 'static>>
             where
@@ -505,10 +508,17 @@ pub fn get_domain_path<R: TaskRunner<Response = Response>>(
     .into())
 }
 
-pub fn read_config(config_file: &Path, domain: &str) -> Result<Arc<Config>> {
-    let f = File::open(config_file)?;
-    let config = Config::new(f, domain)?;
-    Ok(Arc::new(config))
+pub fn read_config(config_file: &Path, domain: &str) -> Result<Arc<dyn ConfigProperties>> {
+    match File::open(config_file) {
+        Ok(f) => {
+            let config = ConfigFile::new(f, domain)?;
+            Ok(Arc::new(config))
+        }
+        Err(_) => {
+            let config = NoConfig::new(domain)?;
+            Ok(Arc::new(config))
+        }
+    }
 }
 
 #[cfg(test)]

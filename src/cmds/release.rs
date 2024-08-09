@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::api_traits::{Deploy, DeployAsset, Timestamp};
 use crate::cli::release::{ReleaseAssetOptions, ReleaseOptions};
 use crate::cmds::common::num_release_pages;
-use crate::config::Config;
+use crate::config::ConfigProperties;
 use crate::display::{Column, DisplayBody};
 use crate::remote::{self, ListBodyArgs, ListRemoteCliArgs};
 use crate::Result;
@@ -126,7 +126,7 @@ impl Timestamp for ReleaseAssetMetadata {
 
 pub fn execute(
     options: ReleaseOptions,
-    config: Arc<Config>,
+    config: Arc<dyn ConfigProperties>,
     domain: String,
     path: String,
 ) -> Result<()> {

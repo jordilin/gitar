@@ -1,6 +1,6 @@
 use crate::api_traits::{RemoteProject, Timestamp};
 use crate::cli::project::ProjectOptions;
-use crate::config::Config;
+use crate::config::ConfigProperties;
 use crate::display::{self, Column, DisplayBody};
 use crate::error;
 use crate::io::CmdInfo;
@@ -163,7 +163,7 @@ impl ProjectMetadataGetCliArgs {
 
 pub fn execute(
     options: ProjectOptions,
-    config: Arc<Config>,
+    config: Arc<dyn ConfigProperties>,
     domain: String,
     path: String,
 ) -> Result<()> {

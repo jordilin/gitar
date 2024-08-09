@@ -3,7 +3,7 @@ use yaml::load_yaml;
 
 use crate::api_traits::{Cicd, CicdJob, CicdRunner, Timestamp};
 use crate::cli::cicd::{JobOptions, PipelineOptions, RunnerOptions};
-use crate::config::Config;
+use crate::config::ConfigProperties;
 use crate::display::{Column, DisplayBody};
 use crate::remote::{GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs};
 use crate::{display, error, remote, Result};
@@ -406,7 +406,7 @@ impl JobListBodyArgs {
 
 pub fn execute(
     options: PipelineOptions,
-    config: Arc<Config>,
+    config: Arc<dyn ConfigProperties>,
     domain: String,
     path: String,
 ) -> Result<()> {

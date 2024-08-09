@@ -39,6 +39,8 @@ pub enum GRError {
     HttpTransportError(String),
     #[error("Mermaid parsing error: {0}")]
     MermaidParsingError(String),
+    #[error("Configuration not found")]
+    ConfigurationNotFound,
 }
 
 pub trait AddContext<T, E>: Context<T, E> {

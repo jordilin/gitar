@@ -1,5 +1,5 @@
-use std::fs;
 use std::path::PathBuf;
+use std::{fs, sync::Arc};
 use tempfile::TempDir;
 
 use gr::{
@@ -19,8 +19,8 @@ impl ConfigProperties for TestConfig {
         "test_token"
     }
 
-    fn cache_location(&self) -> &str {
-        self.cache_dir.to_str().unwrap()
+    fn cache_location(&self) -> Option<&str> {
+        Some(self.cache_dir.to_str().unwrap())
     }
 
     fn get_cache_expiration(&self, _: &ApiOperation) -> &str {
@@ -36,7 +36,7 @@ fn test_file_cache_fresh() {
         cache_dir: temp_dir.path().to_path_buf(),
     };
 
-    let file_cache = FileCache::new(config);
+    let file_cache = FileCache::new(Arc::new(config));
 
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 
@@ -85,7 +85,7 @@ fn test_file_cache_stale_user_expired_no_cache() {
         cache_dir: temp_dir.path().to_path_buf(),
     };
 
-    let file_cache = FileCache::new(config);
+    let file_cache = FileCache::new(Arc::new(config));
 
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 
@@ -131,7 +131,7 @@ fn test_file_cache_fresh_user_expired_but_under_max_age() {
         cache_dir: temp_dir.path().to_path_buf(),
     };
 
-    let file_cache = FileCache::new(config);
+    let file_cache = FileCache::new(Arc::new(config));
 
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 
@@ -180,7 +180,7 @@ fn test_cache_stale_both_user_expired_and_max_aged_expired() {
         cache_dir: temp_dir.path().to_path_buf(),
     };
 
-    let file_cache = FileCache::new(config);
+    let file_cache = FileCache::new(Arc::new(config));
 
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 
@@ -222,7 +222,7 @@ fn test_cache_update_refreshes_cache() {
         cache_dir: temp_dir.path().to_path_buf(),
     };
 
-    let file_cache = FileCache::new(config);
+    let file_cache = FileCache::new(Arc::new(config));
 
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 

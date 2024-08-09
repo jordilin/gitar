@@ -1,7 +1,7 @@
 use crate::api_traits::{CommentMergeRequest, MergeRequest, RemoteProject, Timestamp};
 use crate::cli::merge_request::MergeRequestOptions;
 use crate::cli::CliArgs;
-use crate::config::{Config, ConfigProperties};
+use crate::config::ConfigProperties;
 use crate::display::{Column, DisplayBody};
 use crate::error::{AddContext, GRError};
 use crate::git::Repo;
@@ -335,7 +335,7 @@ impl From<Comment> for DisplayBody {
 pub fn execute(
     options: MergeRequestOptions,
     global_args: CliArgs,
-    config: Arc<Config>,
+    config: Arc<dyn ConfigProperties>,
     domain: String,
     path: String,
 ) -> Result<()> {
@@ -455,7 +455,7 @@ fn get_filter_user(
     user: &Option<MergeRequestUser>,
     domain: &str,
     path: &str,
-    config: &Arc<Config>,
+    config: &Arc<dyn ConfigProperties>,
     list_args: &ListRemoteCliArgs,
 ) -> Result<Option<Member>> {
     let member = match user {
@@ -470,7 +470,7 @@ fn get_filter_user(
 pub fn list_merge_requests(
     domain: String,
     path: String,
-    config: Arc<Config>,
+    config: Arc<dyn ConfigProperties>,
     cli_args: MergeRequestListCliArgs,
 ) -> Result<()> {
     // Author, assignee and reviewer are mutually exclusive filters checked on
@@ -526,7 +526,7 @@ pub fn list_merge_requests(
 
 fn user_prompt_confirmation(
     mr_body: &MergeRequestBody,
-    config: Arc<impl ConfigProperties>,
+    config: Arc<dyn ConfigProperties>,
     description: String,
     target_branch: &String,
     cli_args: &MergeRequestCliArgs,
@@ -594,7 +594,7 @@ fn user_prompt_confirmation(
 /// Open a merge request.
 fn open(
     remote: Arc<dyn MergeRequest>,
-    config: Arc<impl ConfigProperties>,
+    config: Arc<dyn ConfigProperties>,
     mr_body: MergeRequestBody,
     cli_args: &MergeRequestCliArgs,
 ) -> Result<()> {

@@ -37,7 +37,7 @@ pub fn prompt_user_merge_request_info(
     default_title: &str,
     default_description: &str,
     members: &[Member],
-    config: Arc<impl ConfigProperties>,
+    config: Arc<dyn ConfigProperties>,
 ) -> Result<MergeRequestUserInput> {
     let (title, description) = prompt_user_title_description(default_title, default_description);
 

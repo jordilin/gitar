@@ -196,16 +196,16 @@ pub mod utils {
         fn api_token(&self) -> &str {
             "1234"
         }
-        fn cache_location(&self) -> &str {
-            ""
+        fn cache_location(&self) -> Option<&str> {
+            Some("")
         }
         fn get_max_pages(&self, _api_operation: &ApiOperation) -> u32 {
             self.max_pages
         }
     }
 
-    pub fn config() -> impl ConfigProperties {
-        ConfigMock::default()
+    pub fn config() -> Arc<dyn ConfigProperties> {
+        Arc::new(ConfigMock::default())
     }
 
     impl Default for ConfigMock {
@@ -220,8 +220,8 @@ pub mod utils {
         fn api_token(&self) -> &str {
             "1234"
         }
-        fn cache_location(&self) -> &str {
-            ""
+        fn cache_location(&self) -> Option<&str> {
+            Some("")
         }
         fn get_max_pages(&self, _api_operation: &ApiOperation) -> u32 {
             self.as_ref().max_pages
