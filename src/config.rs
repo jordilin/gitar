@@ -40,13 +40,10 @@ impl NoConfig {
     pub fn new(domain: &str) -> Result<Self> {
         let api_token_res = env_token(domain);
         let api_token = api_token_res.map_err(|_| {
-            GRError::PreconditionNotMet(
-                format!(
-                    "Configuration not found, so it is expected environment variable {} to be set.",
-                    format!("{}_API_TOKEN", domain.to_ascii_uppercase())
-                )
-                .into(),
-            )
+            GRError::PreconditionNotMet(format!(
+                "Configuration not found, so it is expected environment variable {}_API_TOKEN to be set.",
+                env_var(domain)
+            ))
         })?;
         Ok(NoConfig { api_token })
     }
@@ -75,6 +72,11 @@ pub struct ConfigFile {
 }
 
 fn env_token(domain: &str) -> Result<String> {
+    let env_domain = env_var(domain);
+    Ok(std::env::var(format!("{}_API_TOKEN", env_domain))?)
+}
+
+fn env_var(domain: &str) -> String {
     let domain_fields = domain.split('.').collect::<Vec<&str>>();
     let env_domain = if domain_fields.len() == 1 {
         // There's not top level domain, such as .com
@@ -82,10 +84,7 @@ fn env_token(domain: &str) -> Result<String> {
     } else {
         &domain_fields[0..domain_fields.len() - 1].join("_")
     };
-    Ok(std::env::var(format!(
-        "{}_API_TOKEN",
-        env_domain.to_ascii_uppercase()
-    ))?)
+    env_domain.to_ascii_uppercase()
 }
 
 impl ConfigFile {
@@ -701,7 +700,7 @@ mod test {
 
     #[test]
     fn test_no_config_no_env_token_is_error() {
-        let domain = "gitlabwebnoenv";
+        let domain = "gitlabwebnoenv.com";
         let config_res = NoConfig::new(domain);
         match config_res {
             Err(err) => match err.downcast_ref::<error::GRError>() {
