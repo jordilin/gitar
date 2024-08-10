@@ -358,10 +358,8 @@ macro_rules! get {
             ) -> Result<Arc<dyn $trait_name + Send + Sync + 'static>> {
                 let refresh_cache = cache_args.map_or(false, |args| args.refresh);
                 let no_cache = cache_args.map_or(false, |args| args.no_cache);
-                // Also if config.get_cache_location is "" then assume NoCache
-                // or better config.get_type, Virtual vs File. A VirtualConfig
-                // has no cache specification.
-                if no_cache {
+
+                if no_cache || config.cache_location().is_none() {
                     let runner = Arc::new(http::Client::new(NoCache, config.clone(), refresh_cache));
                     [<create_remote_ $func_name>](domain, path, config, runner)
                 } else {
