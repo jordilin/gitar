@@ -11,18 +11,15 @@ fn create_temp_config_file(content: &str) -> NamedTempFile {
 }
 
 #[test]
-fn test_no_config_auth_env_and_no_cache_flag_ok() {}
-
-#[test]
 fn test_read_config_valid() {
     let config_content = r#"
-    github.com.api_token=1234
-    github.com.cache_location=/tmp/cache
-    gitlab.com.api_token=5678
-    gitlab.com.cache_location=/tmp/cache2
+    github.test.com.api_token=1234
+    github.test.com.cache_location=/tmp/cache
+    gitlab.test.com.api_token=5678
+    gitlab.test.com.cache_location=/tmp/cache2
     "#;
     let temp_file = create_temp_config_file(config_content);
-    let result = read_config(temp_file.path(), "github.com");
+    let result = read_config(temp_file.path(), "github.test.com");
     assert!(result.is_ok());
     let config = result.unwrap();
     assert_eq!(config.api_token(), "1234");
@@ -31,7 +28,10 @@ fn test_read_config_valid() {
 
 #[test]
 fn test_read_config_file_not_found_and_no_token_env_var_is_error() {
-    let result = read_config(Path::new("/non/existent/path.txt"), "github.com");
+    let result = read_config(
+        Path::new("/non/existent/path.txt"),
+        "github.integrationtest.com",
+    );
     assert!(result.is_err());
 }
 
