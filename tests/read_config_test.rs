@@ -46,19 +46,21 @@ fn test_read_config_file_not_found_with_token_env_var_is_ok() {
 #[test]
 fn test_read_config_empty_file() {
     let temp_file = create_temp_config_file("");
-    let result = read_config(temp_file.path(), "github.com");
+    let result = read_config(temp_file.path(), "githubmo.com");
     assert!(result.is_err());
 }
 
 #[test]
 fn test_read_config_invalid_data() {
     let config_content = r#"
-    github.com.api_token=1234
-    github.com.cache_location
+    githubjd.com.api_token=1234
+    # Missing cache_location - This is still a valid config where key has no value
+    githubjd.com.cache_location
     "#;
     let temp_file = create_temp_config_file(config_content);
-    let result = read_config(temp_file.path(), "github.com");
-    assert!(result.is_err());
+    let config = read_config(temp_file.path(), "githubjd.com").unwrap();
+    assert_eq!(config.api_token(), "1234");
+    assert!(config.cache_location().is_none());
 }
 
 #[test]

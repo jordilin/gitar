@@ -62,7 +62,7 @@ impl ConfigProperties for NoConfig {
 #[derive(Clone, Debug, Default)]
 pub struct ConfigFile {
     api_token: String,
-    cache_location: String,
+    cache_location: Option<String>,
     preferred_assignee_username: String,
     merge_request_description_signature: String,
     // TODO, should be <ApiOperation, Seconds>
@@ -108,12 +108,7 @@ impl ConfigFile {
             })?;
             Ok(token_res.to_string())
         })?;
-        let cache_location = domain_config_data.get("cache_location").ok_or_else(|| {
-            error::gen(format!(
-                "No cache_location found for domain {} in config",
-                domain
-            ))
-        })?;
+        let cache_location = domain_config_data.get("cache_location").cloned();
         let default_assignee_username = "".to_string();
         let preferred_assignee_username = domain_config_data
             .get("preferred_assignee_username")
@@ -131,7 +126,7 @@ impl ConfigFile {
 
         Ok(ConfigFile {
             api_token: api_token.to_string(),
-            cache_location: cache_location.to_string(),
+            cache_location: cache_location,
             preferred_assignee_username: preferred_assignee_username.to_string(),
             merge_request_description_signature: merge_request_description_signature.to_string(),
             cache_expirations,
@@ -288,7 +283,7 @@ impl ConfigProperties for ConfigFile {
     }
 
     fn cache_location(&self) -> Option<&str> {
-        Some(&self.cache_location)
+        self.cache_location.as_deref()
     }
 
     fn preferred_assignee_username(&self) -> &str {
