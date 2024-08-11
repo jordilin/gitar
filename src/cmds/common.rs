@@ -1,5 +1,6 @@
 /// Common functions and macros that are used by multiple commands
 use crate::config::ConfigProperties;
+use crate::remote::CacheType;
 use crate::Result;
 use crate::{api_traits::MergeRequest, remote::ListRemoteCliArgs};
 use crate::{display, remote};
@@ -253,6 +254,7 @@ pub fn get_user(
         path.to_string(),
         config.clone(),
         Some(&cli_args.get_args.cache_args),
+        CacheType::File,
     )?;
     let user = remote.get()?;
     Ok(user)

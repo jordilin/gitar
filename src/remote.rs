@@ -346,6 +346,11 @@ pub enum ListSortMode {
     Desc,
 }
 
+pub enum CacheType {
+    File,
+    None,
+}
+
 use crate::config::ConfigProperties;
 macro_rules! get {
     ($func_name:ident, $trait_name:ident) => {
@@ -355,6 +360,7 @@ macro_rules! get {
                 path: String,
                 config: Arc<dyn ConfigProperties + Send + Sync + 'static>,
                 cache_args: Option<&CacheCliArgs>,
+                cache_type: CacheType,
             ) -> Result<Arc<dyn $trait_name + Send + Sync + 'static>> {
                 let refresh_cache = cache_args.map_or(false, |args| args.refresh);
                 let no_cache = cache_args.map_or(false, |args| args.no_cache);

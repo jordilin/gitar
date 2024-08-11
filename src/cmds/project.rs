@@ -4,7 +4,7 @@ use crate::config::ConfigProperties;
 use crate::display::{self, Column, DisplayBody};
 use crate::error;
 use crate::io::CmdInfo;
-use crate::remote::{self, GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs};
+use crate::remote::{self, CacheType, GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs};
 use crate::Result;
 use std::io::Write;
 use std::sync::Arc;
@@ -169,8 +169,13 @@ pub fn execute(
 ) -> Result<()> {
     match options {
         ProjectOptions::Info(cli_args) => {
-            let remote =
-                remote::get_project(domain, path, config, Some(&cli_args.get_args.cache_args))?;
+            let remote = remote::get_project(
+                domain,
+                path,
+                config,
+                Some(&cli_args.get_args.cache_args),
+                CacheType::File,
+            )?;
             project_info(remote, std::io::stdout(), cli_args)
         }
     }

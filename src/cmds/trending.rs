@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::api_traits::TrendingProjectURL;
 use crate::config::ConfigProperties;
 use crate::display::{Column, DisplayBody};
-use crate::remote::{self, GetRemoteCliArgs};
+use crate::remote::{self, CacheType, GetRemoteCliArgs};
 use crate::Result;
 
 use super::common;
@@ -54,6 +54,7 @@ pub fn execute(
         "".to_string(),
         config,
         Some(&cli_args.get_args.cache_args),
+        CacheType::File,
     )?;
     get_urls(remote, cli_args, &mut std::io::stdout())
 }

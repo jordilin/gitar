@@ -313,6 +313,7 @@ pub enum MergeRequestOptions {
     ListComment(CommentMergeRequestListCliArgs),
     Approve { id: i64 },
     Merge { id: i64 },
+    // TODO: Checkout is a read operation, so we should propagate MergeRequestGetCliArgs
     Checkout { id: i64 },
     Close { id: i64 },
 }

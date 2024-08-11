@@ -6,7 +6,7 @@ use crate::display::{Column, DisplayBody};
 use crate::error::{AddContext, GRError};
 use crate::git::Repo;
 use crate::io::{CmdInfo, Response, TaskRunner};
-use crate::remote::{CacheCliArgs, GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs};
+use crate::remote::{CacheCliArgs, CacheType, GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs};
 use crate::shell::BlockingCommand;
 use crate::{dialog, display, exec, git, remote, Cmd, Result};
 use std::fmt::{self, Display, Formatter};
@@ -352,9 +352,15 @@ pub fn execute(
                 path.clone(),
                 config.clone(),
                 Some(&cli_args.cache_args),
+                CacheType::File,
             )?;
-            let project_remote =
-                remote::get_project(domain, path, config.clone(), Some(&cli_args.cache_args))?;
+            let project_remote = remote::get_project(
+                domain,
+                path,
+                config.clone(),
+                Some(&cli_args.cache_args),
+                CacheType::File,
+            )?;
             if let Some(commit_message) = &cli_args.commit {
                 git::add(&BlockingCommand)?;
                 git::commit(&BlockingCommand, commit_message)?;
@@ -380,19 +386,20 @@ pub fn execute(
         }
         MergeRequestOptions::List(cli_args) => list_merge_requests(domain, path, config, cli_args),
         MergeRequestOptions::Merge { id } => {
-            let remote = remote::get_mr(domain, path, config, None)?;
+            let remote = remote::get_mr(domain, path, config, None, CacheType::None)?;
             merge(remote, id)
         }
         MergeRequestOptions::Checkout { id } => {
-            let remote = remote::get_mr(domain, path, config, None)?;
+            // TODO: It should propagate the cache cli args.
+            let remote = remote::get_mr(domain, path, config, None, CacheType::File)?;
             checkout(remote, id)
         }
         MergeRequestOptions::Close { id } => {
-            let remote = remote::get_mr(domain, path, config, None)?;
+            let remote = remote::get_mr(domain, path, config, None, CacheType::None)?;
             close(remote, id)
         }
         MergeRequestOptions::CreateComment(cli_args) => {
-            let remote = remote::get_comment_mr(domain, path, config, None)?;
+            let remote = remote::get_comment_mr(domain, path, config, None, CacheType::None)?;
             if let Some(comment_file) = &cli_args.comment_from_file {
                 let reader = get_reader_file_cli(comment_file)?;
                 create_comment(remote, cli_args, Some(reader))
@@ -406,6 +413,7 @@ pub fn execute(
                 path,
                 config,
                 Some(&cli_args.list_args.get_args.cache_args),
+                CacheType::File,
             )?;
             let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
             let body_args = CommentMergeRequestListBodyArgs::builder()
@@ -429,11 +437,17 @@ pub fn execute(
             list_comments(remote, body_args, cli_args, std::io::stdout())
         }
         MergeRequestOptions::Get(cli_args) => {
-            let remote = remote::get_mr(domain, path, config, Some(&cli_args.get_args.cache_args))?;
+            let remote = remote::get_mr(
+                domain,
+                path,
+                config,
+                Some(&cli_args.get_args.cache_args),
+                CacheType::File,
+            )?;
             get_merge_request_details(remote, cli_args, std::io::stdout())
         }
         MergeRequestOptions::Approve { id } => {
-            let remote = remote::get_mr(domain, path, config, None)?;
+            let remote = remote::get_mr(domain, path, config, None, CacheType::None)?;
             approve(remote, id, std::io::stdout())
         }
     }
@@ -505,6 +519,7 @@ pub fn list_merge_requests(
         path,
         config,
         Some(&cli_args.list_args.get_args.cache_args),
+        CacheType::File,
     )?;
 
     let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
