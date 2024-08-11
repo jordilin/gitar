@@ -357,12 +357,12 @@ mod test {
     #[test]
     fn test_get_api_token() {
         let config_data = r#"
-        gitlab.com.api_token=1234
-        github.com.api_token=4567
-        gitlab.com.cache_location=/home/user/.config/mr_cache
-        github.com.cache_location=/home/user/.config/mr_cache
+        gitlabab.com.api_token=1234
+        githubab.com.api_token=4567
+        gitlabab.com.cache_location=/home/user/.config/mr_cache
+        githubab.com.cache_location=/home/user/.config/mr_cache
         "#;
-        let domain = "gitlab.com";
+        let domain = "gitlabab.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!("1234", config.api_token());
@@ -373,12 +373,12 @@ mod test {
         let config_data = r#"
 
         # api token
-        gitlab.com.api_token=1234
-        github.com.api_token=4567
-        gitlab.com.cache_location=/home/user/.config/mr_cache
-        github.com.cache_location=/home/user/.config/mr_cache
+        gitlababc.com.api_token=1234
+        githubabc.com.api_token=4567
+        gitlababc.com.cache_location=/home/user/.config/mr_cache
+        githubabc.com.cache_location=/home/user/.config/mr_cache
         "#;
-        let domain = "gitlab.com";
+        let domain = "gitlababc.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!("1234", config.api_token());
@@ -388,8 +388,8 @@ mod test {
     fn test_no_api_token_is_err() {
         let config_data = r#"
         # api token
-        gitlab.com.api_token_typo=1234"#;
-        let domain = "gitlab.com";
+        gitlabde.com.api_token_typo=1234"#;
+        let domain = "gitlabde.com";
         let reader = std::io::Cursor::new(config_data);
         assert!(ConfigFile::new(reader, domain).is_err());
     }
@@ -397,15 +397,15 @@ mod test {
     #[test]
     fn test_config_no_data() {
         let config_data = "";
-        let domain = "gitlab.com";
+        let domain = "gitlabdef.com";
         let reader = std::io::Cursor::new(config_data);
         assert!(ConfigFile::new(reader, domain).is_err());
     }
 
     #[test]
     fn test_config_multiple_equals() {
-        let config_data = "gitlab_api_token===1234";
-        let domain = "gitlab.com";
+        let config_data = "gitlabfg_api_token===1234";
+        let domain = "gitlabfg.com";
         let reader = std::io::Cursor::new(config_data);
         assert!(ConfigFile::new(reader, domain).is_err());
     }
@@ -413,10 +413,10 @@ mod test {
     #[test]
     fn test_get_preferred_assignee_username() {
         let config_data = r#"
-        github.com.api_token=1234
-        github.com.cache_location=/home/user/.config/mr_cache
-        github.com.preferred_assignee_username=jordilin"#;
-        let domain = "github.com";
+        githubhe.com.api_token=1234
+        githubhe.com.cache_location=/home/user/.config/mr_cache
+        githubhe.com.preferred_assignee_username=jordilin"#;
+        let domain = "githubhe.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!("jordilin", config.preferred_assignee_username());
@@ -425,11 +425,11 @@ mod test {
     #[test]
     fn test_get_merge_request_description_signature() {
         let config_data = r#"
-        github.com.api_token=1234
-        github.com.cache_location=/home/user/.config/mr_cache
-        github.com.preferred_assignee_username=jordilin
-        github.com.merge_request_description_signature=- devops team :-)"#;
-        let domain = "github.com";
+        githuble.com.api_token=1234
+        githuble.com.cache_location=/home/user/.config/mr_cache
+        githuble.com.preferred_assignee_username=jordilin
+        githuble.com.merge_request_description_signature=- devops team :-)"#;
+        let domain = "githuble.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(
@@ -441,18 +441,18 @@ mod test {
     #[test]
     fn test_config_cache_api_expirations() {
         let config_data = r#"
-        github.com.api_token=1234
-        github.com.cache_location=/home/user/.config/mr_cache
-        github.com.preferred_assignee_username=jordilin
-        github.com.merge_request_description_signature=- devops team :-)
-        github.com.cache_api_merge_request_expiration=2h
-        github.com.cache_api_pipeline_expiration=1h
-        github.com.cache_api_project_expiration=3h
-        github.com.cache_api_container_registry_expiration=4h
-        github.com.cache_api_single_page_expiration=1d
-        github.com.cache_api_release_expiration=5h
-        github.com.cache_api_gist_expiration=1d"#;
-        let domain = "github.com";
+        githubza.com.api_token=1234
+        githubza.com.cache_location=/home/user/.config/mr_cache
+        githubza.com.preferred_assignee_username=jordilin
+        githubza.com.merge_request_description_signature=- devops team :-)
+        githubza.com.cache_api_merge_request_expiration=2h
+        githubza.com.cache_api_pipeline_expiration=1h
+        githubza.com.cache_api_project_expiration=3h
+        githubza.com.cache_api_container_registry_expiration=4h
+        githubza.com.cache_api_single_page_expiration=1d
+        githubza.com.cache_api_release_expiration=5h
+        githubza.com.cache_api_gist_expiration=1d"#;
+        let domain = "githubza.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(
@@ -473,12 +473,12 @@ mod test {
     #[test]
     fn test_config_cache_api_expiration_default() {
         let config_data = r#"
-        github.com.api_token=1234
-        github.com.cache_location=/home/user/.config/mr_cache
-        github.com.preferred_assignee_username=jordilin
-        github.com.merge_request_description_signature=- devops team :-)
+        githubme.com.api_token=1234
+        githubme.com.cache_location=/home/user/.config/mr_cache
+        githubme.com.preferred_assignee_username=jordilin
+        githubme.com.merge_request_description_signature=- devops team :-)
         "#;
-        let domain = "github.com";
+        let domain = "githubme.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(
@@ -490,12 +490,12 @@ mod test {
     #[test]
     fn test_config_max_pages_merge_requests() {
         let config_data = r#"
-        github.com.api_token=1234
-        github.com.cache_location=/home/user/.config/mr_cache
-        github.com.preferred_assignee_username=jordilin
-        github.com.max_pages_api_merge_request=2
+        githubpo.com.api_token=1234
+        githubpo.com.cache_location=/home/user/.config/mr_cache
+        githubpo.com.preferred_assignee_username=jordilin
+        githubpo.com.max_pages_api_merge_request=2
         "#;
-        let domain = "github.com";
+        let domain = "githubpo.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(2, config.get_max_pages(&ApiOperation::MergeRequest));
@@ -504,11 +504,11 @@ mod test {
     #[test]
     fn test_config_max_pages_default_merge_request() {
         let config_data = r#"
-        github.com.api_token=1234
-        github.com.cache_location=/home/user/.config/mr_cache
-        github.com.preferred_assignee_username=jordilin
+        github99.com.api_token=1234
+        github99.com.cache_location=/home/user/.config/mr_cache
+        github99.com.preferred_assignee_username=jordilin
         "#;
-        let domain = "github.com";
+        let domain = "github99.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(
@@ -520,12 +520,12 @@ mod test {
     #[test]
     fn test_config_max_pages_pipeline() {
         let config_data = r#"
-        github.com.api_token=1234
-        github.com.cache_location=/home/user/.config/mr_cache
-        github.com.preferred_assignee_username=jordilin
-        github.com.max_pages_api_pipeline=4
+        github00.com.api_token=1234
+        github00.com.cache_location=/home/user/.config/mr_cache
+        github00.com.preferred_assignee_username=jordilin
+        github00.com.max_pages_api_pipeline=4
         "#;
-        let domain = "github.com";
+        let domain = "github00.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(4, config.get_max_pages(&ApiOperation::Pipeline));
@@ -534,10 +534,10 @@ mod test {
     #[test]
     fn test_config_max_pages_default_pipeline() {
         let config_data = r#"
-        github.com.api_token=1234
-        github.com.cache_location=/home/user/.config/mr_cache
-        github.com.preferred_assignee_username=jordilin"#;
-        let domain = "github.com";
+        github.11.com.api_token=1234
+        github.11.com.cache_location=/home/user/.config/mr_cache
+        github.11.com.preferred_assignee_username=jordilin"#;
+        let domain = "github.11.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(
@@ -549,12 +549,12 @@ mod test {
     #[test]
     fn test_config_max_pages_project() {
         let config_data = r#"
-        github.com.api_token=1234
-        github.com.cache_location=/home/user/.config/mr_cache
-        github.com.preferred_assignee_username=jordilin
-        github.com.max_pages_api_project=6
+        github44.com.api_token=1234
+        github44.com.cache_location=/home/user/.config/mr_cache
+        github44.com.preferred_assignee_username=jordilin
+        github44.com.max_pages_api_project=6
         "#;
-        let domain = "github.com";
+        let domain = "github44.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(6, config.get_max_pages(&ApiOperation::Project));
@@ -563,10 +563,10 @@ mod test {
     #[test]
     fn test_config_max_pages_default_project() {
         let config_data = r#"
-        github.com.api_token=1234
-        github.com.cache_location=/home/user/.config/mr_cache
-        github.com.preferred_assignee_username=jordilin"#;
-        let domain = "github.com";
+        github23.com.api_token=1234
+        github23.com.cache_location=/home/user/.config/mr_cache
+        github23.com.preferred_assignee_username=jordilin"#;
+        let domain = "github23.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(
@@ -578,11 +578,11 @@ mod test {
     #[test]
     fn test_get_rate_limit_remaining_threshold() {
         let config_data = r#"
-        gitlab.com.api_token=1234
-        gitlab.com.cache_location=/home/user/.config/mr_cache
-        gitlab.com.rate_limit_remaining_threshold=15
+        gitlab66.com.api_token=1234
+        gitlab66.com.cache_location=/home/user/.config/mr_cache
+        gitlab66.com.rate_limit_remaining_threshold=15
         "#;
-        let domain = "gitlab.com";
+        let domain = "gitlab66.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(15, config.rate_limit_remaining_threshold());
@@ -591,11 +591,11 @@ mod test {
     #[test]
     fn test_get_max_pages_for_container_registry_operations() {
         let config_data = r#"
-        gitlab.com.api_token=1234
-        gitlab.com.cache_location=/home/user/.config/mr_cache
-        gitlab.com.max_pages_api_container_registry=15
+        gitlab77.com.api_token=1234
+        gitlab77.com.cache_location=/home/user/.config/mr_cache
+        gitlab77.com.max_pages_api_container_registry=15
         "#;
-        let domain = "gitlab.com";
+        let domain = "gitlab77.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(15, config.get_max_pages(&ApiOperation::ContainerRegistry));
@@ -604,11 +604,11 @@ mod test {
     #[test]
     fn test_get_max_pages_for_read_releases() {
         let config_data = r#"
-        gitlab.com.api_token=1234
-        gitlab.com.cache_location=/home/user/.config/mr_cache
-        gitlab.com.max_pages_api_release=15
+        gitlabed.com.api_token=1234
+        gitlabed.com.cache_location=/home/user/.config/mr_cache
+        gitlabed.com.max_pages_api_release=15
         "#;
-        let domain = "gitlab.com";
+        let domain = "gitlabed.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(15, config.get_max_pages(&ApiOperation::Release));
@@ -617,11 +617,11 @@ mod test {
     #[test]
     fn test_get_max_pages_for_gists() {
         let config_data = r#"
-        gitlab.com.api_token=1234
-        gitlab.com.cache_location=/home/user/.config/mr_cache
-        gitlab.com.max_pages_api_gist=15
+        gitlabty.com.api_token=1234
+        gitlabty.com.cache_location=/home/user/.config/mr_cache
+        gitlabty.com.max_pages_api_gist=15
         "#;
-        let domain = "gitlab.com";
+        let domain = "gitlabty.com";
         let reader = std::io::Cursor::new(config_data);
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!(15, config.get_max_pages(&ApiOperation::Gist));
@@ -635,43 +635,43 @@ mod test {
     #[test]
     fn test_use_gitlab_com_api_token_envvar() {
         let config_data = r#"
-        gitlab.com.cache_location=/home/user/.config/mr_cache
-        gitlab.com.rate_limit_remaining_threshold=15
+        gitlabfoo.com.cache_location=/home/user/.config/mr_cache
+        gitlabfoo.com.rate_limit_remaining_threshold=15
         "#;
-        let domain = "gitlab.com";
+        let domain = "gitlabfoo.com";
         let reader = std::io::Cursor::new(config_data);
-        std::env::set_var("GITLAB_API_TOKEN", "1234");
+        std::env::set_var("GITLABFOO_API_TOKEN", "1234");
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!("1234", config.api_token());
-        std::env::remove_var("GITLAB_API_TOKEN");
+        std::env::remove_var("GITLABFOO_API_TOKEN");
     }
 
     #[test]
     fn test_use_github_com_api_token_envvar() {
         let config_data = r#"
-        github.com.cache_location=/home/user/.config/mr_cache
-        github.com.rate_limit_remaining_threshold=15
+        githubabn.com.cache_location=/home/user/.config/mr_cache
+        githubabn.com.rate_limit_remaining_threshold=15
         "#;
-        let domain = "github.com";
+        let domain = "githubabn.com";
         let reader = std::io::Cursor::new(config_data);
-        std::env::set_var("GITHUB_API_TOKEN", "4567");
+        std::env::set_var("GITHUBABN_API_TOKEN", "4567");
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!("4567", config.api_token());
-        std::env::remove_var("GITHUB_API_TOKEN");
+        std::env::remove_var("GITHUBABN_API_TOKEN");
     }
 
     #[test]
     fn test_use_sub_domain_gitlab_token_env_var() {
         let config_data = r#"
-        gitlab.company.com.cache_location=/home/user/.config/mr_cache
-        gitlab.company.com.rate_limit_remaining_threshold=15
+        gitlabhj.company.com.cache_location=/home/user/.config/mr_cache
+        gitlabhj.company.com.rate_limit_remaining_threshold=15
         "#;
-        let domain = "gitlab.company.com";
+        let domain = "gitlabhj.company.com";
         let reader = std::io::Cursor::new(config_data);
-        std::env::set_var("GITLAB_COMPANY_API_TOKEN", "1214");
+        std::env::set_var("GITLABHJ_COMPANY_API_TOKEN", "1214");
         let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
         assert_eq!("1214", config.api_token());
-        std::env::remove_var("GITLAB_COMPANY_API_TOKEN");
+        std::env::remove_var("GITLABHJ_COMPANY_API_TOKEN");
     }
 
     #[test]
