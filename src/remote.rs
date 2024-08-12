@@ -370,6 +370,7 @@ macro_rules! get {
                     [<create_remote_ $func_name>](domain, path, config, runner)
                 } else {
                     let file_cache = FileCache::new(config.clone());
+                    file_cache.validate_cache_location()?;
                     let runner = Arc::new(http::Client::new(file_cache, config.clone(), refresh_cache));
                     [<create_remote_ $func_name>](domain, path, config, runner)
                 }

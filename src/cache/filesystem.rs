@@ -1,5 +1,6 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::path::Path;
 use std::sync::Arc;
 
 use flate2::bufread::GzDecoder;
@@ -27,6 +28,55 @@ pub struct FileCache {
 impl FileCache {
     pub fn new(config: Arc<dyn ConfigProperties>) -> Self {
         FileCache { config }
+    }
+
+    pub fn validate_cache_location(&self) -> Result<()> {
+        let cache_location = self
+            .config
+            .cache_location()
+            .ok_or_else(|| GRError::ConfigurationNotFound)?;
+
+        let path = Path::new(cache_location);
+
+        if !path.exists() {
+            return Err(GRError::CacheLocationDoesNotExist(format!(
+                "Cache directory does not exist: {}",
+                cache_location
+            ))
+            .into());
+        }
+
+        if !path.is_dir() {
+            return Err(GRError::CacheLocationIsNotADirectory(format!(
+                "Cache location is not a directory: {}",
+                cache_location
+            ))
+            .into());
+        }
+
+        // Check if we can write to the directory
+        let test_file_path = path.join(".write_test_cache_file");
+        match File::create(&test_file_path) {
+            Ok(_) => {
+                // Successfully created the file, now remove it
+                if let Err(e) = fs::remove_file(&test_file_path) {
+                    return Err(GRError::CacheLocationWriteTestFailed(format!(
+                        "Failed to remove cache test file {}: {}",
+                        test_file_path.to_string_lossy(),
+                        e
+                    ))
+                    .into());
+                }
+            }
+            Err(e) => {
+                return Err(GRError::CacheLocationIsNotWriteable(format!(
+                    "No write permission for cache directory {}: {}",
+                    cache_location, e
+                ))
+                .into());
+            }
+        }
+        Ok(())
     }
 
     pub fn get_cache_file(&self, url: &str) -> String {
