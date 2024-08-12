@@ -14,7 +14,7 @@ use crate::github::Github;
 use crate::gitlab::Gitlab;
 use crate::io::{CmdInfo, HttpRunner, Response, TaskRunner};
 use crate::time::Milliseconds;
-use crate::{cli, error, http};
+use crate::{cli, error, http, log_debug, log_info};
 use crate::{git, Result};
 use std::sync::Arc;
 
@@ -366,10 +366,16 @@ macro_rules! get {
                 let refresh_cache = cache_args.map_or(false, |args| args.refresh);
                 let no_cache_args = cache_args.map_or(false, |args| args.no_cache);
 
+                log_debug!("cache_type: {:?}", cache_type);
+                log_debug!("no_cache_args: {:?}", no_cache_args);
+                log_debug!("cache location: {:?}", config.cache_location());
+
                 if cache_type == CacheType::None || no_cache_args || config.cache_location().is_none() {
+                    log_info!("No cache used for {}", stringify!($func_name));
                     let runner = Arc::new(http::Client::new(NoCache, config.clone(), refresh_cache));
                     [<create_remote_ $func_name>](domain, path, config, runner)
                 } else {
+                    log_info!("File cache used for {}", stringify!($func_name));
                     let file_cache = FileCache::new(config.clone());
                     file_cache.validate_cache_location()?;
                     let runner = Arc::new(http::Client::new(file_cache, config.clone(), refresh_cache));
