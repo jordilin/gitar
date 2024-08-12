@@ -8,7 +8,7 @@ When I talk about an API call or number of pages, I'm referring to actual
 HTTP requests to the Github or Gitlab API. Hence, when I say an API call or one
 page of information, I'm referring to a single HTTP request.
 
-## Create a configuration file
+## Create a configuration file (Optional)
 
 In order to create a configuration file, you can run the following command. In
 this example we are setting the domain to `github.com`. It can be `gitlab.com`
@@ -23,6 +23,16 @@ directory with some defaults. The configuration follows a properties file format
 with key, value pairs. Once the file is created, open the api file to add your
 API token and the preferred assignee username you want to use in your pull
 requests (traditionally your own username).
+
+### No configuration file
+
+Potential use cases: CI/CD pipelines, automation scripts, one-off runs.
+
+If no configuration file is provided, then gitar expects an authentication token
+environment variable to be set. Check the [API token](#api-token) section for
+more information.
+
+No configuration means that there won't be any caching for read operations either.
 
 ## API token
 
