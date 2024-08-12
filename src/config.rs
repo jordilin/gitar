@@ -126,7 +126,7 @@ impl ConfigFile {
 
         Ok(ConfigFile {
             api_token: api_token.to_string(),
-            cache_location: cache_location,
+            cache_location,
             preferred_assignee_username: preferred_assignee_username.to_string(),
             merge_request_description_signature: merge_request_description_signature.to_string(),
             cache_expirations,

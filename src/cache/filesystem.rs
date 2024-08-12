@@ -34,7 +34,7 @@ impl FileCache {
         let cache_location = self
             .config
             .cache_location()
-            .ok_or_else(|| GRError::ConfigurationNotFound)?;
+            .ok_or(GRError::ConfigurationNotFound)?;
 
         let path = Path::new(cache_location);
 
