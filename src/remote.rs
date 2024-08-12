@@ -346,6 +346,7 @@ pub enum ListSortMode {
     Desc,
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum CacheType {
     File,
     None,
@@ -363,9 +364,9 @@ macro_rules! get {
                 cache_type: CacheType,
             ) -> Result<Arc<dyn $trait_name + Send + Sync + 'static>> {
                 let refresh_cache = cache_args.map_or(false, |args| args.refresh);
-                let no_cache = cache_args.map_or(false, |args| args.no_cache);
+                let no_cache_args = cache_args.map_or(false, |args| args.no_cache);
 
-                if no_cache || config.cache_location().is_none() {
+                if cache_type == CacheType::None || no_cache_args || config.cache_location().is_none() {
                     let runner = Arc::new(http::Client::new(NoCache, config.clone(), refresh_cache));
                     [<create_remote_ $func_name>](domain, path, config, runner)
                 } else {
