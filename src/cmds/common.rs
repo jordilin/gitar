@@ -1,5 +1,6 @@
 /// Common functions and macros that are used by multiple commands
-use crate::config::Config;
+use crate::config::ConfigProperties;
+use crate::remote::CacheType;
 use crate::Result;
 use crate::{api_traits::MergeRequest, remote::ListRemoteCliArgs};
 use crate::{display, remote};
@@ -245,7 +246,7 @@ list_resource!(list_trending, TrendingProjectURL, String, TrendingCliArgs);
 pub fn get_user(
     domain: &str,
     path: &str,
-    config: &Arc<Config>,
+    config: &Arc<dyn ConfigProperties>,
     cli_args: &ListRemoteCliArgs,
 ) -> Result<Member> {
     let remote = remote::get_auth_user(
@@ -253,6 +254,7 @@ pub fn get_user(
         path.to_string(),
         config.clone(),
         Some(&cli_args.get_args.cache_args),
+        CacheType::File,
     )?;
     let user = remote.get()?;
     Ok(user)

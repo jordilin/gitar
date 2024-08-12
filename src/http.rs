@@ -13,17 +13,17 @@ use std::iter::Iterator;
 use std::sync::{Arc, Mutex};
 use ureq::Error;
 
-pub struct Client<C, D> {
+pub struct Client<C> {
     cache: C,
-    config: D,
+    config: Arc<dyn ConfigProperties>,
     refresh_cache: bool,
     time_to_ratelimit_reset: Mutex<Seconds>,
     remaining_requests: Mutex<u32>,
 }
 
 // TODO: provide builder pattern for Client.
-impl<C, D: ConfigProperties> Client<C, D> {
-    pub fn new(cache: C, config: D, refresh_cache: bool) -> Self {
+impl<C> Client<C> {
+    pub fn new(cache: C, config: Arc<dyn ConfigProperties>, refresh_cache: bool) -> Self {
         let remaining_requests = Mutex::new(api_defaults::DEFAULT_NUMBER_REQUESTS_MINUTE);
         let time_to_ratelimit_reset = Mutex::new(now_epoch_seconds() + Seconds::new(60));
         Client {
@@ -85,7 +85,7 @@ impl<C, D: ConfigProperties> Client<C, D> {
     }
 }
 
-impl<C, D: ConfigProperties> Client<C, D> {
+impl<C> Client<C> {
     fn handle_rate_limit(&self, response: &Response) -> Result<()> {
         if let Some(headers) = response.get_ratelimit_headers() {
             if headers.remaining <= self.config.rate_limit_remaining_threshold() {
@@ -110,7 +110,7 @@ impl<C, D: ConfigProperties> Client<C, D> {
 }
 
 fn default_rate_limit_handler(
-    config: &impl ConfigProperties,
+    config: &Arc<dyn ConfigProperties>,
     time_to_ratelimit_reset: &Mutex<Seconds>,
     remaining_requests: &Mutex<u32>,
     now_epoch_seconds: fn() -> Seconds,
@@ -299,7 +299,7 @@ pub enum Method {
     PATCH,
 }
 
-impl<C: Cache<Resource>, D: ConfigProperties> HttpRunner for Client<C, D> {
+impl<C: Cache<Resource>> HttpRunner for Client<C> {
     type Response = Response;
 
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response> {
@@ -542,7 +542,7 @@ mod test {
 
     #[test]
     fn test_client_get_api_max_pages() {
-        let config = ConfigMock::new(1);
+        let config = Arc::new(ConfigMock::new(1));
         let runner = Client::new(cache::NoCache, config, false);
         let cmd: Request<()> =
             Request::new("http://localhost", Method::GET).with_api_operation(ApiOperation::Project);
@@ -591,7 +591,7 @@ mod test {
             .headers(headers)
             .build()
             .unwrap();
-        let client = Client::new(cache::NoCache, ConfigMock::new(1), false);
+        let client = Client::new(cache::NoCache, Arc::new(ConfigMock::new(1)), false);
         assert!(client.handle_rate_limit(&response).is_err());
     }
 
@@ -604,7 +604,7 @@ mod test {
             .headers(headers)
             .build()
             .unwrap();
-        let client = Client::new(cache::NoCache, ConfigMock::new(1), false);
+        let client = Client::new(cache::NoCache, Arc::new(ConfigMock::new(1)), false);
         assert!(client.handle_rate_limit(&response).is_ok());
     }
 
@@ -619,7 +619,7 @@ mod test {
         // 10 seconds before we reset counter to 80 (api_defaults)
         let time_to_ratelimit_reset = Arc::new(Mutex::new(Seconds::new(10)));
         let now = || -> Seconds { epoch_seconds_now_mock(1) };
-        let config = Arc::new(ConfigMock::new(1));
+        let config: Arc<dyn ConfigProperties> = Arc::new(ConfigMock::new(1));
 
         // counter will never get reset - all requests will fail
         let mut threads = Vec::new();
@@ -649,7 +649,7 @@ mod test {
         let time_to_ratelimit_reset = Arc::new(Mutex::new(Seconds::new(1)));
         // now > time_to_ratelimit_reset - counter will be reset to 80
         let now = || -> Seconds { epoch_seconds_now_mock(2) };
-        let config = Arc::new(ConfigMock::new(1));
+        let config: Arc<dyn ConfigProperties> = Arc::new(ConfigMock::new(1));
 
         let mut threads = Vec::new();
         // 70 parallel requests - remaining 11.

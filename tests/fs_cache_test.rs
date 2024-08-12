@@ -1,5 +1,6 @@
-use std::fs;
+use gr::error::GRError;
 use std::path::PathBuf;
+use std::{fs, sync::Arc};
 use tempfile::TempDir;
 
 use gr::{
@@ -19,8 +20,8 @@ impl ConfigProperties for TestConfig {
         "test_token"
     }
 
-    fn cache_location(&self) -> &str {
-        self.cache_dir.to_str().unwrap()
+    fn cache_location(&self) -> Option<&str> {
+        Some(self.cache_dir.to_str().unwrap())
     }
 
     fn get_cache_expiration(&self, _: &ApiOperation) -> &str {
@@ -36,7 +37,7 @@ fn test_file_cache_fresh() {
         cache_dir: temp_dir.path().to_path_buf(),
     };
 
-    let file_cache = FileCache::new(config);
+    let file_cache = FileCache::new(Arc::new(config));
 
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 
@@ -85,7 +86,7 @@ fn test_file_cache_stale_user_expired_no_cache() {
         cache_dir: temp_dir.path().to_path_buf(),
     };
 
-    let file_cache = FileCache::new(config);
+    let file_cache = FileCache::new(Arc::new(config));
 
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 
@@ -131,7 +132,7 @@ fn test_file_cache_fresh_user_expired_but_under_max_age() {
         cache_dir: temp_dir.path().to_path_buf(),
     };
 
-    let file_cache = FileCache::new(config);
+    let file_cache = FileCache::new(Arc::new(config));
 
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 
@@ -180,7 +181,7 @@ fn test_cache_stale_both_user_expired_and_max_aged_expired() {
         cache_dir: temp_dir.path().to_path_buf(),
     };
 
-    let file_cache = FileCache::new(config);
+    let file_cache = FileCache::new(Arc::new(config));
 
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 
@@ -222,7 +223,7 @@ fn test_cache_update_refreshes_cache() {
         cache_dir: temp_dir.path().to_path_buf(),
     };
 
-    let file_cache = FileCache::new(config);
+    let file_cache = FileCache::new(Arc::new(config));
 
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 
@@ -259,5 +260,107 @@ fn test_cache_update_refreshes_cache() {
             assert_eq!(cached_response.body, "Test response body");
         }
         _ => panic!("Expected a fresh cache state"),
+    }
+}
+
+#[test]
+fn test_validate_cache_location_success() {
+    let temp_dir = TempDir::new().unwrap();
+    let config = TestConfig {
+        cache_dir: temp_dir.path().to_path_buf(),
+    };
+
+    let file_cache = FileCache::new(Arc::new(config));
+    assert!(file_cache.validate_cache_location().is_ok());
+}
+
+#[test]
+fn test_validate_cache_location_not_found() {
+    let config = TestConfig {
+        cache_dir: PathBuf::from("/non/existent/directory"),
+    };
+
+    let file_cache = FileCache::new(Arc::new(config));
+    let err = file_cache.validate_cache_location().unwrap_err();
+    match err.downcast_ref::<GRError>() {
+        Some(GRError::CacheLocationDoesNotExist(msg)) => {
+            assert!(msg.contains("/non/existent/directory"));
+        }
+        _ => panic!("Expected CacheLocationDoesNotExist error"),
+    }
+}
+
+#[test]
+fn test_validate_cache_location_not_a_directory() {
+    let temp_dir = TempDir::new().unwrap();
+    let temp_file = temp_dir.path().join("not_a_directory");
+    fs::write(&temp_file, "").unwrap();
+
+    let config = TestConfig {
+        cache_dir: temp_file.clone(),
+    };
+
+    let file_cache = FileCache::new(Arc::new(config));
+    let err = file_cache.validate_cache_location().unwrap_err();
+    match err.downcast_ref::<GRError>() {
+        Some(GRError::CacheLocationIsNotADirectory(msg)) => {
+            assert!(msg.contains(temp_file.to_string_lossy().as_ref()));
+        }
+        _ => panic!("Expected CacheLocationIsNotADirectory error"),
+    }
+}
+
+#[test]
+fn test_validate_cache_location_not_writable() {
+    let temp_dir = TempDir::new().unwrap();
+    let cache_dir = temp_dir.path().to_path_buf();
+
+    // Make the directory read-only
+    let mut perms = fs::metadata(&cache_dir).unwrap().permissions();
+    perms.set_readonly(true);
+    fs::set_permissions(&cache_dir, perms).unwrap();
+
+    let config = TestConfig {
+        cache_dir: cache_dir.clone(),
+    };
+
+    let file_cache = FileCache::new(Arc::new(config));
+    let err = file_cache.validate_cache_location().unwrap_err();
+    match err.downcast_ref::<GRError>() {
+        Some(GRError::CacheLocationIsNotWriteable(msg)) => {
+            assert!(msg.contains(cache_dir.to_string_lossy().as_ref()));
+        }
+        _ => panic!("Expected CacheLocationIsNotWriteable error"),
+    }
+
+    // Restore permissions for cleanup
+    let mut perms = fs::metadata(&cache_dir).unwrap().permissions();
+    perms.set_readonly(false);
+    fs::set_permissions(&cache_dir, perms).unwrap();
+}
+
+#[test]
+fn test_validate_cache_location_config_not_found() {
+    struct NoConfig;
+
+    impl ConfigProperties for NoConfig {
+        fn api_token(&self) -> &str {
+            "test_token"
+        }
+
+        fn cache_location(&self) -> Option<&str> {
+            None
+        }
+
+        fn get_cache_expiration(&self, _: &ApiOperation) -> &str {
+            "3600s"
+        }
+    }
+
+    let file_cache = FileCache::new(Arc::new(NoConfig));
+    let err = file_cache.validate_cache_location().unwrap_err();
+    match err.downcast_ref::<GRError>() {
+        Some(GRError::ConfigurationNotFound) => {}
+        _ => panic!("Expected ConfigurationNotFound error"),
     }
 }

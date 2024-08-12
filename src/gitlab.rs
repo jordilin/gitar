@@ -27,7 +27,12 @@ pub struct Gitlab<R> {
 }
 
 impl<R> Gitlab<R> {
-    pub fn new(config: impl ConfigProperties, domain: &str, path: &str, runner: Arc<R>) -> Self {
+    pub fn new(
+        config: Arc<dyn ConfigProperties>,
+        domain: &str,
+        path: &str,
+        runner: Arc<R>,
+    ) -> Self {
         let api_token = config.api_token().to_string();
         let domain = domain.to_string();
         let encoded_path = encode_path(path);

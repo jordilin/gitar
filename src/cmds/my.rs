@@ -1,6 +1,12 @@
 use std::{io::Write, sync::Arc};
 
-use crate::{api_traits::RemoteProject, cli::my::MyOptions, config::Config, remote, Result};
+use crate::{
+    api_traits::RemoteProject,
+    cli::my::MyOptions,
+    config::ConfigProperties,
+    remote::{self, CacheType},
+    Result,
+};
 
 use super::{
     common::{self, get_user},
@@ -10,7 +16,7 @@ use super::{
 
 pub fn execute(
     options: MyOptions,
-    config: Arc<Config>,
+    config: Arc<dyn ConfigProperties>,
     domain: String,
     path: String,
 ) -> Result<()> {
@@ -25,6 +31,7 @@ pub fn execute(
                 path,
                 config,
                 Some(&cli_args.list_args.get_args.cache_args),
+                CacheType::File,
             )?;
             let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
             let body_args = ProjectListBodyArgs::builder()
@@ -46,6 +53,7 @@ pub fn execute(
                 path,
                 config,
                 Some(&cli_args.list_args.get_args.cache_args),
+                CacheType::File,
             )?;
             if cli_args.list_args.num_pages {
                 return common::num_user_gists(remote, std::io::stdout());

@@ -4,9 +4,9 @@ use std::sync::Arc;
 use crate::api_traits::{Deploy, DeployAsset, Timestamp};
 use crate::cli::release::{ReleaseAssetOptions, ReleaseOptions};
 use crate::cmds::common::num_release_pages;
-use crate::config::Config;
+use crate::config::ConfigProperties;
 use crate::display::{Column, DisplayBody};
-use crate::remote::{self, ListBodyArgs, ListRemoteCliArgs};
+use crate::remote::{self, CacheType, ListBodyArgs, ListRemoteCliArgs};
 use crate::Result;
 
 use super::common::{
@@ -126,7 +126,7 @@ impl Timestamp for ReleaseAssetMetadata {
 
 pub fn execute(
     options: ReleaseOptions,
-    config: Arc<Config>,
+    config: Arc<dyn ConfigProperties>,
     domain: String,
     path: String,
 ) -> Result<()> {
@@ -137,6 +137,7 @@ pub fn execute(
                 path,
                 config,
                 Some(&cli_args.get_args.cache_args),
+                CacheType::File,
             )?;
             if cli_args.num_pages {
                 return num_release_pages(remote, std::io::stdout());
@@ -157,6 +158,7 @@ pub fn execute(
                     path,
                     config,
                     Some(&cli_args.list_args.get_args.cache_args),
+                    CacheType::File,
                 )?;
 
                 let list_args = remote::validate_from_to_page(&cli_args.list_args)?;

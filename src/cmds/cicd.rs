@@ -3,9 +3,9 @@ use yaml::load_yaml;
 
 use crate::api_traits::{Cicd, CicdJob, CicdRunner, Timestamp};
 use crate::cli::cicd::{JobOptions, PipelineOptions, RunnerOptions};
-use crate::config::Config;
+use crate::config::ConfigProperties;
 use crate::display::{Column, DisplayBody};
-use crate::remote::{GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs};
+use crate::remote::{CacheType, GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs};
 use crate::{display, error, remote, Result};
 use std::fmt::Display;
 use std::io::{Read, Write};
@@ -406,19 +406,21 @@ impl JobListBodyArgs {
 
 pub fn execute(
     options: PipelineOptions,
-    config: Arc<Config>,
+    config: Arc<dyn ConfigProperties>,
     domain: String,
     path: String,
 ) -> Result<()> {
     match options {
         PipelineOptions::Lint(args) => {
-            let remote = remote::get_cicd(domain, path, config, None)?;
+            // TODO - should propagage cache args
+            let remote = remote::get_cicd(domain, path, config, None, CacheType::File)?;
             let file = std::fs::File::open(args.path)?;
             let body = read_ci_file(file)?;
             lint_ci_file(remote, &body, false, std::io::stdout())
         }
         PipelineOptions::MergedCi => {
-            let remote = remote::get_cicd(domain, path, config, None)?;
+            // TODO - should propagage cache args
+            let remote = remote::get_cicd(domain, path, config, None, CacheType::File)?;
             let file = std::fs::File::open(".gitlab-ci.yml")?;
             let body = read_ci_file(file)?;
             lint_ci_file(remote, &body, true, std::io::stdout())
@@ -432,8 +434,13 @@ pub fn execute(
             Ok(())
         }
         PipelineOptions::List(cli_args) => {
-            let remote =
-                remote::get_cicd(domain, path, config, Some(&cli_args.get_args.cache_args))?;
+            let remote = remote::get_cicd(
+                domain,
+                path,
+                config,
+                Some(&cli_args.get_args.cache_args),
+                CacheType::File,
+            )?;
             if cli_args.num_pages {
                 return num_cicd_pages(remote, std::io::stdout());
             } else if cli_args.num_resources {
@@ -452,6 +459,7 @@ pub fn execute(
                     path,
                     config,
                     Some(&cli_args.list_args.get_args.cache_args),
+                    CacheType::File,
                 )?;
                 let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
                 let body_args = JobListBodyArgs::builder().list_args(from_to_args).build()?;
@@ -471,6 +479,7 @@ pub fn execute(
                     path,
                     config,
                     Some(&cli_args.list_args.get_args.cache_args),
+                    CacheType::File,
                 )?;
                 let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
                 let tags = cli_args.tags.clone();
@@ -494,11 +503,12 @@ pub fn execute(
                     path,
                     config,
                     Some(&cli_args.get_args.cache_args),
+                    CacheType::File,
                 )?;
                 get_runner_details(remote, cli_args, std::io::stdout())
             }
             RunnerOptions::Create(cli_args) => {
-                let remote = remote::get_cicd_runner(domain, path, config, None)?;
+                let remote = remote::get_cicd_runner(domain, path, config, None, CacheType::None)?;
                 create_runner(remote, cli_args, std::io::stdout())
             }
         },

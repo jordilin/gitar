@@ -3,9 +3,9 @@ use std::{io::Write, sync::Arc};
 use crate::{
     api_traits::{ContainerRegistry, Timestamp},
     cli::docker::DockerOptions,
-    config::Config,
+    config::ConfigProperties,
     display::{self, Column, DisplayBody},
-    remote::{self, get_registry, GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs},
+    remote::{self, get_registry, CacheType, GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs},
     Result,
 };
 
@@ -148,7 +148,7 @@ impl From<ImageMetadata> for DisplayBody {
 
 pub fn execute(
     options: DockerOptions,
-    config: Arc<Config>,
+    config: Arc<dyn ConfigProperties>,
     domain: String,
     path: String,
 ) -> Result<()> {
@@ -159,11 +159,18 @@ pub fn execute(
                 path,
                 config,
                 Some(&cli_args.list_args.get_args.cache_args),
+                CacheType::File,
             )?;
             validate_and_list(remote, cli_args, std::io::stdout())
         }
         DockerOptions::Get(cli_args) => {
-            let remote = get_registry(domain, path, config, Some(&cli_args.get_args.cache_args))?;
+            let remote = get_registry(
+                domain,
+                path,
+                config,
+                Some(&cli_args.get_args.cache_args),
+                CacheType::File,
+            )?;
             get_image_metadata(remote, cli_args, std::io::stdout())
         }
     }

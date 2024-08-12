@@ -1,5 +1,7 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::path::Path;
+use std::sync::Arc;
 
 use flate2::bufread::GzDecoder;
 use sha2::{Digest, Sha256};
@@ -19,20 +21,69 @@ use crate::Result;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 
-pub struct FileCache<C> {
-    config: C,
+pub struct FileCache {
+    config: Arc<dyn ConfigProperties>,
 }
 
-impl<C: ConfigProperties> FileCache<C> {
-    pub fn new(config: C) -> Self {
+impl FileCache {
+    pub fn new(config: Arc<dyn ConfigProperties>) -> Self {
         FileCache { config }
+    }
+
+    pub fn validate_cache_location(&self) -> Result<()> {
+        let cache_location = self
+            .config
+            .cache_location()
+            .ok_or(GRError::ConfigurationNotFound)?;
+
+        let path = Path::new(cache_location);
+
+        if !path.exists() {
+            return Err(GRError::CacheLocationDoesNotExist(format!(
+                "Cache directory does not exist: {}",
+                cache_location
+            ))
+            .into());
+        }
+
+        if !path.is_dir() {
+            return Err(GRError::CacheLocationIsNotADirectory(format!(
+                "Cache location is not a directory: {}",
+                cache_location
+            ))
+            .into());
+        }
+
+        // Check if we can write to the directory
+        let test_file_path = path.join(".write_test_cache_file");
+        match File::create(&test_file_path) {
+            Ok(_) => {
+                // Successfully created the file, now remove it
+                if let Err(e) = fs::remove_file(&test_file_path) {
+                    return Err(GRError::CacheLocationWriteTestFailed(format!(
+                        "Failed to remove cache test file {}: {}",
+                        test_file_path.to_string_lossy(),
+                        e
+                    ))
+                    .into());
+                }
+            }
+            Err(e) => {
+                return Err(GRError::CacheLocationIsNotWriteable(format!(
+                    "No write permission for cache directory {}: {}",
+                    cache_location, e
+                ))
+                .into());
+            }
+        }
+        Ok(())
     }
 
     pub fn get_cache_file(&self, url: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(url);
         let hash = hasher.finalize();
-        let cache_location = self.config.cache_location();
+        let cache_location = self.config.cache_location().unwrap();
         let location = cache_location.strip_suffix('/').unwrap_or(cache_location);
         format!("{}/{:x}", location, hash)
     }
@@ -104,7 +155,7 @@ impl<C: ConfigProperties> FileCache<C> {
     }
 }
 
-impl<C: ConfigProperties> Cache<Resource> for FileCache<C> {
+impl Cache<Resource> for FileCache {
     fn get(&self, key: &Resource) -> Result<CacheState> {
         let path = self.get_cache_file(&key.url);
         if let Ok(f) = File::open(&path) {
@@ -240,17 +291,17 @@ mod tests {
         fn api_token(&self) -> &str {
             "1234"
         }
-        fn cache_location(&self) -> &str {
+        fn cache_location(&self) -> Option<&str> {
             // TODO test with suffix /
             // should probably be sanitized on the Config struct itself.
-            "/home/user/.cache"
+            Some("/home/user/.cache")
         }
     }
 
     #[test]
     fn test_get_cache_file() {
         let config = ConfigMock::new();
-        let file_cache = FileCache::new(config);
+        let file_cache = FileCache::new(Arc::new(config));
         let url = "https://gitlab.org/api/v4/projects/jordilin%2Fmr";
         let cache_file = file_cache.get_cache_file(url);
         assert_eq!(
@@ -268,7 +319,7 @@ mod tests {
         let mut enc = GzEncoder::new(Vec::new(), Compression::default());
         enc.write_all(cached_data.as_bytes()).unwrap();
         let reader = std::io::Cursor::new(enc.finish().unwrap());
-        let fc = FileCache::new(ConfigMock::new());
+        let fc = FileCache::new(Arc::new(ConfigMock::new()));
         let response = fc.get_cache_data(reader).unwrap();
 
         assert_eq!(200, response.status);

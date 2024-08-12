@@ -7,14 +7,14 @@ use crate::api_traits::{
     DeployAsset, MergeRequest, RemoteProject, TrendingProjectURL, UserInfo,
 };
 use crate::cache::{filesystem::FileCache, nocache::NoCache};
-use crate::config::Config;
+use crate::config::{ConfigFile, NoConfig};
 use crate::display::Format;
 use crate::error::GRError;
 use crate::github::Github;
 use crate::gitlab::Gitlab;
 use crate::io::{CmdInfo, HttpRunner, Response, TaskRunner};
 use crate::time::Milliseconds;
-use crate::{cli, error, http};
+use crate::{cli, error, http, log_debug, log_info};
 use crate::{git, Result};
 use std::sync::Arc;
 
@@ -346,23 +346,38 @@ pub enum ListSortMode {
     Desc,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum CacheType {
+    File,
+    None,
+}
+
+use crate::config::ConfigProperties;
 macro_rules! get {
     ($func_name:ident, $trait_name:ident) => {
         paste::paste! {
             pub fn $func_name(
                 domain: String,
                 path: String,
-                config: Arc<Config>,
+                config: Arc<dyn ConfigProperties + Send + Sync + 'static>,
                 cache_args: Option<&CacheCliArgs>,
+                cache_type: CacheType,
             ) -> Result<Arc<dyn $trait_name + Send + Sync + 'static>> {
                 let refresh_cache = cache_args.map_or(false, |args| args.refresh);
-                let no_cache = cache_args.map_or(false, |args| args.no_cache);
+                let no_cache_args = cache_args.map_or(false, |args| args.no_cache);
 
-                if no_cache {
+                log_debug!("cache_type: {:?}", cache_type);
+                log_debug!("no_cache_args: {:?}", no_cache_args);
+                log_debug!("cache location: {:?}", config.cache_location());
+
+                if cache_type == CacheType::None || no_cache_args || config.cache_location().is_none() {
+                    log_info!("No cache used for {}", stringify!($func_name));
                     let runner = Arc::new(http::Client::new(NoCache, config.clone(), refresh_cache));
                     [<create_remote_ $func_name>](domain, path, config, runner)
                 } else {
+                    log_info!("File cache used for {}", stringify!($func_name));
                     let file_cache = FileCache::new(config.clone());
+                    file_cache.validate_cache_location()?;
                     let runner = Arc::new(http::Client::new(file_cache, config.clone(), refresh_cache));
                     [<create_remote_ $func_name>](domain, path, config, runner)
                 }
@@ -371,7 +386,7 @@ macro_rules! get {
             fn [<create_remote_ $func_name>]<R>(
                 domain: String,
                 path: String,
-                config: Arc<Config>,
+                config: Arc<dyn ConfigProperties>,
                 runner: Arc<R>,
             ) -> Result<Arc<dyn $trait_name + Send + Sync + 'static>>
             where
@@ -505,10 +520,17 @@ pub fn get_domain_path<R: TaskRunner<Response = Response>>(
     .into())
 }
 
-pub fn read_config(config_file: &Path, domain: &str) -> Result<Arc<Config>> {
-    let f = File::open(config_file)?;
-    let config = Config::new(f, domain)?;
-    Ok(Arc::new(config))
+pub fn read_config(config_file: &Path, domain: &str) -> Result<Arc<dyn ConfigProperties>> {
+    match File::open(config_file) {
+        Ok(f) => {
+            let config = ConfigFile::new(f, domain)?;
+            Ok(Arc::new(config))
+        }
+        Err(_) => {
+            let config = NoConfig::new(domain)?;
+            Ok(Arc::new(config))
+        }
+    }
 }
 
 #[cfg(test)]

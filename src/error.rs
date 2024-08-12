@@ -39,6 +39,16 @@ pub enum GRError {
     HttpTransportError(String),
     #[error("Mermaid parsing error: {0}")]
     MermaidParsingError(String),
+    #[error("Configuration not found")]
+    ConfigurationNotFound,
+    #[error("Cache location does not exist: {0}")]
+    CacheLocationDoesNotExist(String),
+    #[error("Cache location is not a directory: {0}")]
+    CacheLocationIsNotADirectory(String),
+    #[error("Cache location is not writeable: {0}")]
+    CacheLocationIsNotWriteable(String),
+    #[error("Cache location write test failed: {0}")]
+    CacheLocationWriteTestFailed(String),
 }
 
 pub trait AddContext<T, E>: Context<T, E> {

@@ -21,7 +21,12 @@ pub struct Github<R> {
 }
 
 impl<R> Github<R> {
-    pub fn new(config: impl ConfigProperties, domain: &str, path: &str, runner: Arc<R>) -> Self {
+    pub fn new(
+        config: Arc<dyn ConfigProperties>,
+        domain: &str,
+        path: &str,
+        runner: Arc<R>,
+    ) -> Self {
         let api_token = config.api_token().to_string();
         let domain = domain.to_string();
         let rest_api_basepath = format!("https://api.{}", domain);

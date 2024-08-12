@@ -1,14 +1,15 @@
 use crate::cli::cache::CacheOptions;
-use crate::config::{Config, ConfigProperties};
+use crate::config::ConfigProperties;
+use crate::error::GRError;
 use crate::Result;
 use std::fmt;
 use std::sync::Arc;
 
-pub fn execute(options: CacheOptions, config: Arc<Config>) -> Result<()> {
+pub fn execute(options: CacheOptions, config: Arc<dyn ConfigProperties>) -> Result<()> {
     match options {
         CacheOptions::Info => {
             let size = get_cache_directory_size(&config)?;
-            println!("Location: {}", config.cache_location());
+            println!("Location: {}", config.cache_location().unwrap_or("Not set"));
             println!("Size: {}", BytesToHumanReadable::from(size));
         }
     }
@@ -38,15 +39,17 @@ impl fmt::Display for BytesToHumanReadable {
     }
 }
 
-fn get_cache_directory_size<D: ConfigProperties>(config: &D) -> Result<u64> {
-    let path = config.cache_location();
-    let mut size = 0;
-    for entry in std::fs::read_dir(path)? {
-        let entry = entry?;
-        let metadata = entry.metadata()?;
-        size += metadata.len();
+fn get_cache_directory_size(config: &Arc<dyn ConfigProperties>) -> Result<u64> {
+    if let Some(path) = config.cache_location() {
+        let mut size = 0;
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?;
+            let metadata = entry.metadata()?;
+            size += metadata.len();
+        }
+        return Ok(size);
     }
-    Ok(size)
+    Err(GRError::ConfigurationNotFound.into())
 }
 
 #[cfg(test)]
@@ -85,8 +88,8 @@ mod test {
     }
 
     impl ConfigProperties for ConfigMock {
-        fn cache_location(&self) -> &str {
-            &self.tmp_dir
+        fn cache_location(&self) -> Option<&str> {
+            Some(&self.tmp_dir)
         }
 
         fn api_token(&self) -> &str {
@@ -100,7 +103,8 @@ mod test {
         let file_path = dir.path().join("test_file");
         let mut file = File::create(&file_path).unwrap();
         file.write_all(&[0; 10]).unwrap();
-        let size = get_cache_directory_size(&ConfigMock::new(&dir)).unwrap();
+        let config: Arc<dyn ConfigProperties> = Arc::new(ConfigMock::new(&dir));
+        let size = get_cache_directory_size(&config).unwrap();
         assert_eq!(size, 10);
     }
 }

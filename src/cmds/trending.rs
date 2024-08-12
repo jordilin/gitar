@@ -2,9 +2,9 @@ use std::io::Write;
 use std::sync::Arc;
 
 use crate::api_traits::TrendingProjectURL;
-use crate::config::Config;
+use crate::config::ConfigProperties;
 use crate::display::{Column, DisplayBody};
-use crate::remote::{self, GetRemoteCliArgs};
+use crate::remote::{self, CacheType, GetRemoteCliArgs};
 use crate::Result;
 
 use super::common;
@@ -42,7 +42,11 @@ impl From<TrendingProject> for DisplayBody {
     }
 }
 
-pub fn execute(cli_args: TrendingCliArgs, config: Arc<Config>, domain: &str) -> Result<()> {
+pub fn execute(
+    cli_args: TrendingCliArgs,
+    config: Arc<dyn ConfigProperties>,
+    domain: &str,
+) -> Result<()> {
     let remote = remote::get_trending(
         domain.to_string(),
         // does not matter in this command. Implementing it for
@@ -50,6 +54,7 @@ pub fn execute(cli_args: TrendingCliArgs, config: Arc<Config>, domain: &str) -> 
         "".to_string(),
         config,
         Some(&cli_args.get_args.cache_args),
+        CacheType::File,
     )?;
     get_urls(remote, cli_args, &mut std::io::stdout())
 }
