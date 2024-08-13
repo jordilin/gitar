@@ -220,6 +220,9 @@ impl<R> Gitlab<R> {
                 if let Some(created_after) = &list_args.created_after {
                     url.add_param("created_after", created_after);
                 }
+                if let Some(created_before) = &list_args.created_before {
+                    url.add_param("created_before", created_before);
+                }
             }
         };
         if num_pages {
@@ -437,6 +440,51 @@ mod test {
         gitlab.list(args).unwrap();
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&created_after=2021-01-01T00:00:00Z",
+            *client.url(),
+        );
+    }
+
+    #[test]
+    fn test_list_merge_request_created_before() {
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_body(200, Some("[]"), None);
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
+        let args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(Some(
+                ListBodyArgs::builder()
+                    .created_before(Some("2021-01-02T01:01:00Z".to_string()))
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
+        gitlab.list(args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&created_before=2021-01-02T01:01:00Z",
+            *client.url(),
+        );
+    }
+
+    #[test]
+    fn test_list_merge_request_created_after_and_before() {
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_body(200, Some("[]"), None);
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
+        let args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(Some(
+                ListBodyArgs::builder()
+                    .created_after(Some("2021-01-01T00:00:00Z".to_string()))
+                    .created_before(Some("2021-01-02T01:01:00Z".to_string()))
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
+        gitlab.list(args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&created_after=2021-01-01T00:00:00Z&created_before=2021-01-02T01:01:00Z",
             *client.url(),
         );
     }
