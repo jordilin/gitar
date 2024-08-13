@@ -8,7 +8,7 @@ use crate::error::{self, GRError};
 use crate::http::Method::GET;
 use crate::http::{self, Body, Headers};
 use crate::io::CmdInfo;
-use crate::remote::query;
+use crate::remote::{query, URLQueryParamBuilder};
 use crate::Result;
 use crate::{
     api_traits::MergeRequest,
@@ -200,32 +200,32 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
 
 impl<R> Gitlab<R> {
     fn list_merge_request_url(&self, args: &MergeRequestListBodyArgs, num_pages: bool) -> String {
-        let mut url = if let Some(assignee) = &args.assignee {
-            format!(
-                "{}?state={}&assignee_id={}",
-                self.merge_requests_url, args.state, assignee.id
-            )
+        let mut url = URLQueryParamBuilder::new(&self.merge_requests_url);
+        url.add_param("state", &args.state.to_string());
+        // Queries all merge requests across the Gitlab remote filtered by the
+        // following user roles.
+        if let Some(assignee) = &args.assignee {
+            url.add_param("assignee_id", &assignee.id.to_string());
         } else if let Some(reviewer) = &args.reviewer {
-            format!(
-                "{}?state={}&reviewer_id={}",
-                self.merge_requests_url, args.state, reviewer.id
-            )
+            url.add_param("reviewer_id", &reviewer.id.to_string());
         } else if let Some(author) = &args.author {
-            format!(
-                "{}?state={}&author_id={}",
-                self.merge_requests_url, args.state, author.id
-            )
+            url.add_param("author_id", &author.id.to_string());
         } else {
-            format!(
-                "{}/merge_requests?state={}",
-                self.rest_api_basepath(),
-                args.state
-            )
+            // Project based merge requests
+            let base_url = format!("{}/merge_requests", self.rest_api_basepath());
+            url = URLQueryParamBuilder::new(&base_url);
+            url.add_param("state", &args.state.to_string());
+            if args.list_args.is_some() {
+                let list_args = args.list_args.as_ref().unwrap();
+                if let Some(created_after) = &list_args.created_after {
+                    url.add_param("created_after", created_after);
+                }
+            }
         };
         if num_pages {
-            url.push_str("&page=1");
+            url.add_param("page", "1");
         }
-        url
+        url.build()
     }
 
     fn resource_comments_metadata_url(&self, args: CommentMergeRequestListBodyArgs) -> String {
@@ -415,6 +415,28 @@ mod test {
         gitlab.list(args).unwrap();
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&page=2",
+            *client.url(),
+        );
+    }
+
+    #[test]
+    fn test_list_merge_request_created_after() {
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_body(200, Some("[]"), None);
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
+        let args = MergeRequestListBodyArgs::builder()
+            .state(MergeRequestState::Opened)
+            .list_args(Some(
+                ListBodyArgs::builder()
+                    .created_after(Some("2021-01-01T00:00:00Z".to_string()))
+                    .build()
+                    .unwrap(),
+            ))
+            .build()
+            .unwrap();
+        gitlab.list(args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests?state=opened&created_after=2021-01-01T00:00:00Z",
             *client.url(),
         );
     }
