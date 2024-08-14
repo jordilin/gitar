@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use crate::cmds::project::ProjectMetadataGetCliArgs;
+use crate::cmds::project::{ProjectListCliArgs, ProjectMetadataGetCliArgs};
 
 use super::common::{validate_project_repo_path, GetArgs, ListArgs};
 
@@ -14,6 +14,8 @@ pub struct ProjectCommand {
 enum ProjectSubcommand {
     #[clap(about = "Gather project information metadata")]
     Info(ProjectInfo),
+    #[clap(about = "List project/repository tags")]
+    Tags(ListProject),
 }
 
 #[derive(Parser)]
@@ -38,6 +40,7 @@ impl From<ProjectCommand> for ProjectOptions {
     fn from(options: ProjectCommand) -> Self {
         match options.subcommand {
             ProjectSubcommand::Info(options) => options.into(),
+            ProjectSubcommand::Tags(options) => options.into(),
         }
     }
 }
@@ -55,8 +58,21 @@ impl From<ProjectInfo> for ProjectOptions {
     }
 }
 
+impl From<ListProject> for ProjectOptions {
+    fn from(options: ListProject) -> Self {
+        ProjectOptions::Tags(
+            ProjectListCliArgs::builder()
+                .list_args(options.list_args.into())
+                .tags(true)
+                .build()
+                .unwrap(),
+        )
+    }
+}
+
 pub enum ProjectOptions {
     Info(ProjectMetadataGetCliArgs),
+    Tags(ProjectListCliArgs),
 }
 
 #[cfg(test)]
@@ -82,6 +98,26 @@ mod test {
             ProjectOptions::Info(options) => {
                 assert_eq!(options.id, Some(1));
             }
+            _ => panic!("Expected ProjectOptions::Info"),
+        }
+    }
+
+    #[test]
+    fn test_project_cli_list_tags() {
+        let args = Args::parse_from(vec!["gr", "pj", "tags"]);
+        let list_project = match args.command {
+            Command::Project(ProjectCommand {
+                subcommand: ProjectSubcommand::Tags(options),
+            }) => options,
+            _ => panic!("Expected ProjectCommand::Info"),
+        };
+        let options: ProjectOptions = list_project.into();
+        match options {
+            ProjectOptions::Tags(cli_args) => {
+                assert!(cli_args.tags);
+                assert!(!cli_args.stars);
+            }
+            _ => panic!("Expected ProjectOptions::Info"),
         }
     }
 }

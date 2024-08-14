@@ -125,6 +125,8 @@ pub struct ProjectListCliArgs {
     pub list_args: ListRemoteCliArgs,
     #[builder(default)]
     pub stars: bool,
+    #[builder(default)]
+    pub tags: bool,
 }
 
 impl ProjectListCliArgs {
@@ -178,6 +180,7 @@ pub fn execute(
             )?;
             project_info(remote, std::io::stdout(), cli_args)
         }
+        _ => todo!(),
     }
 }
 
