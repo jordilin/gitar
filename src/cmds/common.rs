@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use crate::api_traits::{
     Cicd, CicdJob, CicdRunner, CodeGist, CommentMergeRequest, Deploy, DeployAsset, RemoteProject,
-    TrendingProjectURL,
+    RemoteTag, TrendingProjectURL,
 };
 
 use super::cicd::{JobListBodyArgs, JobListCliArgs, RunnerListBodyArgs, RunnerListCliArgs};
@@ -118,6 +118,10 @@ query_pages!(
 );
 query_pages!(num_project_pages, RemoteProject, ProjectListBodyArgs);
 query_num_resources!(num_project_resources, RemoteProject, ProjectListBodyArgs);
+
+query_pages!(num_tag_pages, RemoteTag, ProjectListBodyArgs);
+query_num_resources!(num_tag_resources, RemoteTag, ProjectListBodyArgs);
+
 query_pages!(
     num_comment_merge_request_pages,
     CommentMergeRequest,
@@ -155,11 +159,13 @@ macro_rules! list_resource {
             cli_args: $cli_args,
             mut writer: W,
         ) -> Result<()> {
-            let objs = list_remote_objs!(remote, body_args, cli_args.list_args, writer);
+            let objs =
+                list_remote_objs!(remote, body_args, cli_args.list_args, writer, $trait_name);
             display::print(&mut writer, objs, cli_args.list_args.get_args)?;
             Ok(())
         }
     };
+
     ($func_name:ident, $trait_name:ident, $body_args:ident, $cli_args:ident) => {
         pub fn $func_name<W: Write>(
             remote: Arc<dyn $trait_name>,
@@ -167,7 +173,7 @@ macro_rules! list_resource {
             cli_args: $cli_args,
             mut writer: W,
         ) -> Result<()> {
-            let objs = list_remote_objs!(remote, body_args, cli_args, writer);
+            let objs = list_remote_objs!(remote, body_args, cli_args, writer, $trait_name);
             display::print(&mut writer, objs, cli_args.get_args)?;
             Ok(())
         }
@@ -176,8 +182,8 @@ macro_rules! list_resource {
 
 #[macro_export]
 macro_rules! list_remote_objs {
-    ($remote:expr, $body_args:expr, $cli_args:expr, $writer:expr) => {{
-        let objs = $remote.list($body_args)?;
+    ($remote:expr, $body_args:expr, $cli_args:expr, $writer:expr, $trait_name:ident) => {{
+        let objs = $trait_name::list(&*$remote, $body_args)?;
         if $cli_args.flush {
             return Ok(());
         }
@@ -220,6 +226,14 @@ list_resource!(
 list_resource!(
     list_user_projects,
     RemoteProject,
+    ProjectListBodyArgs,
+    ProjectListCliArgs,
+    true
+);
+
+list_resource!(
+    list_project_tags,
+    RemoteTag,
     ProjectListBodyArgs,
     ProjectListCliArgs,
     true

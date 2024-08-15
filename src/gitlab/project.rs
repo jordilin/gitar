@@ -1,6 +1,6 @@
-use crate::api_traits::{ApiOperation, RemoteProject};
+use crate::api_traits::{ApiOperation, RemoteProject, RemoteTag};
 use crate::cli::browse::BrowseOptions;
-use crate::cmds::project::{Member, Project, ProjectListBodyArgs};
+use crate::cmds::project::{Member, Project, ProjectListBodyArgs, Tag};
 use crate::error::GRError;
 use crate::gitlab::encode_path;
 use crate::http::{self};
@@ -90,6 +90,12 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
     ) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
         let url = self.list_project_url(&args, true);
         query::num_resources(&self.runner, &url, self.headers(), ApiOperation::Project)
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> RemoteTag for Gitlab<R> {
+    fn list(&self, _args: ProjectListBodyArgs) -> Result<Vec<Tag>> {
+        todo!()
     }
 }
 

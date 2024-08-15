@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::api_traits::{
     Cicd, CicdJob, CicdRunner, CodeGist, CommentMergeRequest, ContainerRegistry, Deploy,
-    DeployAsset, MergeRequest, RemoteProject, TrendingProjectURL, UserInfo,
+    DeployAsset, MergeRequest, RemoteProject, RemoteTag, TrendingProjectURL, UserInfo,
 };
 use crate::cache::{filesystem::FileCache, nocache::NoCache};
 use crate::config::{ConfigFile, NoConfig};
@@ -411,6 +411,7 @@ macro_rules! get {
 get!(get_mr, MergeRequest);
 get!(get_cicd, Cicd);
 get!(get_project, RemoteProject);
+get!(get_tag, RemoteTag);
 get!(get_registry, ContainerRegistry);
 get!(get_deploy, Deploy);
 get!(get_deploy_asset, DeployAsset);

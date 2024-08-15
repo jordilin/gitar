@@ -14,7 +14,7 @@ use crate::{
             Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs,
             MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse,
         },
-        project::{Member, Project, ProjectListBodyArgs},
+        project::{Member, Project, ProjectListBodyArgs, Tag},
         release::{Release, ReleaseAssetListBodyArgs, ReleaseAssetMetadata, ReleaseBodyArgs},
         trending::TrendingProject,
     },
@@ -47,6 +47,10 @@ pub trait RemoteProject {
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Project>>;
     fn num_pages(&self, args: ProjectListBodyArgs) -> Result<Option<u32>>;
     fn num_resources(&self, args: ProjectListBodyArgs) -> Result<Option<NumberDeltaErr>>;
+}
+
+pub trait RemoteTag: RemoteProject {
+    fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Tag>>;
 }
 
 pub trait Cicd {

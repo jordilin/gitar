@@ -1,7 +1,7 @@
 use crate::{
-    api_traits::{ApiOperation, RemoteProject},
+    api_traits::{ApiOperation, RemoteProject, RemoteTag},
     cli::browse::BrowseOptions,
-    cmds::project::{Member, Project, ProjectListBodyArgs},
+    cmds::project::{Member, Project, ProjectListBodyArgs, Tag},
     error::GRError,
     http::Method::GET,
     io::{CmdInfo, HttpRunner, Response},
@@ -108,6 +108,12 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             self.request_headers(),
             ApiOperation::Project,
         )
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> RemoteTag for Github<R> {
+    fn list(&self, _args: ProjectListBodyArgs) -> Result<Vec<Tag>> {
+        todo!()
     }
 }
 

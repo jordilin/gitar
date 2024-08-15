@@ -98,7 +98,7 @@ impl ConfigFile {
         // GITLAB_API_TOKEN. If the domain is gitlab.<company>.com, the env var
         // to be set is GITLAB_<COMPANY>_API_TOKEN.
 
-        // Remove top level domain, if any (e.g. gitlab.com -> gitlab)
+        // TODO: inject env_token as a function so we can control it in tests
         let api_token = env_token(domain).or_else(|_| -> Result<String> {
             let token_res = domain_config_data.get("api_token").ok_or_else(|| {
                 error::gen(format!(
