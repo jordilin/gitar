@@ -178,6 +178,7 @@ pub enum ApiOperation {
     SinglePage,
     // Gists
     Gist,
+    RepositoryTag,
 }
 
 impl Display for ApiOperation {
@@ -190,6 +191,7 @@ impl Display for ApiOperation {
             ApiOperation::Release => write!(f, "release"),
             ApiOperation::SinglePage => write!(f, "single_page"),
             ApiOperation::Gist => write!(f, "gist"),
+            ApiOperation::RepositoryTag => write!(f, "repository_tag"),
         }
     }
 }
