@@ -32,7 +32,7 @@ use crate::{
             GitlabImageMetadataFields, GitlabRegistryRepositoryFields, GitlabRepositoryTagFields,
         },
         merge_request::{GitlabMergeRequestCommentFields, GitlabMergeRequestFields},
-        project::{GitlabMemberFields, GitlabProjectFields},
+        project::{GitlabMemberFields, GitlabProjectFields, GitlabProjectTagFields},
         release::GitlabReleaseFields,
         user::GitlabUserFields,
     },
@@ -368,6 +368,7 @@ paged!(
 paged!(github_list_user_gists, GithubGistFields, Gist);
 
 paged!(github_list_repo_tags, GithubRepositoryTagFields, Tag);
+paged!(gitlab_list_project_tags, GitlabProjectTagFields, Tag);
 
 // Single HTTP requests
 

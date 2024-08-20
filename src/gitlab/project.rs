@@ -94,25 +94,63 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
 }
 
 impl<R: HttpRunner<Response = Response>> RemoteTag for Gitlab<R> {
-    fn list(&self, _args: ProjectListBodyArgs) -> Result<Vec<Tag>> {
-        todo!()
+    // https://docs.gitlab.com/ee/api/tags.html
+    fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Tag>> {
+        let url = format!("{}/repository/tags", self.projects_base_url);
+        let tags = query::gitlab_list_project_tags(
+            &self.runner,
+            &url,
+            args.from_to_page,
+            self.headers(),
+            None,
+            ApiOperation::RepositoryTag,
+        )?;
+        Ok(tags)
     }
 }
 
 impl<R> Gitlab<R> {
     fn list_project_url(&self, args: &ProjectListBodyArgs, num_pages: bool) -> String {
-        let user = args.user.as_ref().unwrap().clone();
-        let url = if args.stars {
-            format!("{}/{}/starred_projects", self.base_users_url, user.id)
+        let mut url = if args.tags {
+            URLQueryParamBuilder::new(&format!("{}/repository/tags", self.projects_base_url))
         } else {
-            format!("{}/{}/projects", self.base_users_url, user.id)
+            let user = args.user.as_ref().unwrap().clone();
+            if args.stars {
+                URLQueryParamBuilder::new(&format!(
+                    "{}/{}/starred_projects",
+                    self.base_users_url, user.id
+                ))
+            } else {
+                URLQueryParamBuilder::new(&format!("{}/{}/projects", self.base_users_url, user.id))
+            }
         };
         if num_pages {
-            return URLQueryParamBuilder::new(&url)
-                .add_param("page", "1")
-                .build();
+            return url.add_param("page", "1").build();
         }
-        url
+        url.build()
+    }
+}
+
+pub struct GitlabProjectTagFields {
+    tag: Tag,
+}
+
+impl From<&serde_json::Value> for GitlabProjectTagFields {
+    fn from(data: &serde_json::Value) -> Self {
+        GitlabProjectTagFields {
+            tag: Tag::builder()
+                .name(data["name"].as_str().unwrap().to_string())
+                .sha(data["commit"]["id"].as_str().unwrap().to_string())
+                .created_at(data["created_at"].as_str().unwrap().to_string())
+                .build()
+                .unwrap(),
+        }
+    }
+}
+
+impl From<GitlabProjectTagFields> for Tag {
+    fn from(fields: GitlabProjectTagFields) -> Self {
+        fields.tag
     }
 }
 
@@ -409,6 +447,52 @@ mod test {
         assert_eq!(
             "https://gitlab.com/jordilin/gitlapi/-/pipelines/9527070386",
             url
+        );
+    }
+
+    #[test]
+    fn test_list_tags() {
+        let contracts =
+            ResponseContracts::new(ContractType::Gitlab).add_contract(200, "list_tags.json", None);
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn RemoteTag);
+        let body_args = ProjectListBodyArgs::builder()
+            .user(None)
+            .from_to_page(None)
+            .tags(true)
+            .build()
+            .unwrap();
+        RemoteTag::list(&*gitlab, body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/repository/tags",
+            *client.url()
+        );
+        assert_eq!(
+            ApiOperation::RepositoryTag,
+            *client.api_operation.borrow().as_ref().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_get_project_tags_num_pages() {
+        let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/repository/tags?page=2&per_page=20>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/repository/tags?page=2&per_page=20>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn RemoteTag);
+        let body_args = ProjectListBodyArgs::builder()
+            .user(None)
+            .from_to_page(None)
+            .tags(true)
+            .build()
+            .unwrap();
+        gitlab.num_pages(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/repository/tags?page=1",
+            *client.url()
         );
     }
 }
