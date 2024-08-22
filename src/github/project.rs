@@ -1,7 +1,7 @@
 use crate::{
-    api_traits::{ApiOperation, RemoteProject},
+    api_traits::{ApiOperation, RemoteProject, RemoteTag},
     cli::browse::BrowseOptions,
-    cmds::project::{Member, Project, ProjectListBodyArgs},
+    cmds::project::{Member, Project, ProjectListBodyArgs, Tag},
     error::GRError,
     http::Method::GET,
     io::{CmdInfo, HttpRunner, Response},
@@ -111,22 +111,69 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
     }
 }
 
+impl<R: HttpRunner<Response = Response>> RemoteTag for Github<R> {
+    // https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-repository-tags
+    fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Tag>> {
+        let url = self.list_project_url(&args, false);
+        let tags = query::github_list_repo_tags(
+            &self.runner,
+            &url,
+            args.from_to_page,
+            self.request_headers(),
+            None,
+            ApiOperation::RepositoryTag,
+        )?;
+        Ok(tags)
+    }
+}
+
+pub struct GithubRepositoryTagFields {
+    tags: Tag,
+}
+
+impl From<&serde_json::Value> for GithubRepositoryTagFields {
+    fn from(tag_data: &serde_json::Value) -> Self {
+        GithubRepositoryTagFields {
+            tags: Tag::builder()
+                .name(tag_data["name"].as_str().unwrap().to_string())
+                .sha(tag_data["commit"]["sha"].as_str().unwrap().to_string())
+                // Github response does not provide a created_at field, so set
+                // it up to UNIX epoch.
+                .created_at("1970-01-01T00:00:00Z".to_string())
+                .build()
+                .unwrap(),
+        }
+    }
+}
+
+impl From<GithubRepositoryTagFields> for Tag {
+    fn from(fields: GithubRepositoryTagFields) -> Self {
+        fields.tags
+    }
+}
+
 impl<R> Github<R> {
     fn list_project_url(&self, args: &ProjectListBodyArgs, num_pages: bool) -> String {
-        let url = if args.stars {
-            format!("{}/user/starred", self.rest_api_basepath)
+        let mut url = if args.tags {
+            URLQueryParamBuilder::new(&format!(
+                "{}/repos/{}/tags",
+                self.rest_api_basepath, self.path
+            ))
+        } else if args.stars {
+            URLQueryParamBuilder::new(&format!("{}/user/starred", self.rest_api_basepath))
         } else {
             let username = args.user.as_ref().unwrap().clone().username;
             // TODO - not needed - just /user/repos would do
             // See: https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-repositories-for-the-authenticated-user
-            format!("{}/users/{}/repos", self.rest_api_basepath, username)
+            URLQueryParamBuilder::new(&format!(
+                "{}/users/{}/repos",
+                self.rest_api_basepath, username
+            ))
         };
         if num_pages {
-            return URLQueryParamBuilder::new(&url)
-                .add_param("page", "1")
-                .build();
+            return url.add_param("page", "1").build();
         }
-        url
+        url.build()
     }
 }
 
@@ -360,6 +407,53 @@ mod test {
         assert_eq!(
             "https://github.com/jordilin/githapi/actions/runs/9527070386",
             url
+        );
+    }
+
+    #[test]
+    fn test_list_project_tags() {
+        let contracts =
+            ResponseContracts::new(ContractType::Github).add_contract(200, "list_tags.json", None);
+        let (client, github) = setup_client!(contracts, default_github(), dyn RemoteTag);
+        let body_args = ProjectListBodyArgs::builder()
+            .user(None)
+            .from_to_page(None)
+            .tags(true)
+            .build()
+            .unwrap();
+        let tags = RemoteTag::list(&*github, body_args).unwrap();
+        assert_eq!(1, tags.len());
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/tags",
+            *client.url()
+        );
+        assert_eq!(
+            Some(ApiOperation::RepositoryTag),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_get_project_tags_num_pages() {
+        let link_header = "<https://api.github.com/repos/jordilin/githapi/tags?page=2>; rel=\"next\", <https://api.github.com/repos/jordilin/githapi/tags?page=2>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
+        let contracts = ResponseContracts::new(ContractType::Github).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn RemoteTag);
+        let body_args = ProjectListBodyArgs::builder()
+            .user(None)
+            .from_to_page(None)
+            .tags(true)
+            .build()
+            .unwrap();
+        github.num_pages(body_args).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/tags?page=1",
+            *client.url()
         );
     }
 }

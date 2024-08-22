@@ -11,7 +11,7 @@ use crate::{
         docker::{ImageMetadata, RegistryRepository, RepositoryTag},
         gist::Gist,
         merge_request::{Comment, MergeRequestResponse},
-        project::{Member, Project},
+        project::{Member, Project, Tag},
         release::{Release, ReleaseAssetMetadata},
     },
     display, error,
@@ -19,7 +19,7 @@ use crate::{
         cicd::GithubPipelineFields,
         gist::GithubGistFields,
         merge_request::{GithubMergeRequestCommentFields, GithubMergeRequestFields},
-        project::{GithubMemberFields, GithubProjectFields},
+        project::{GithubMemberFields, GithubProjectFields, GithubRepositoryTagFields},
         release::{GithubReleaseAssetFields, GithubReleaseFields},
         user::GithubUserFields,
     },
@@ -32,7 +32,7 @@ use crate::{
             GitlabImageMetadataFields, GitlabRegistryRepositoryFields, GitlabRepositoryTagFields,
         },
         merge_request::{GitlabMergeRequestCommentFields, GitlabMergeRequestFields},
-        project::{GitlabMemberFields, GitlabProjectFields},
+        project::{GitlabMemberFields, GitlabProjectFields, GitlabProjectTagFields},
         release::GitlabReleaseFields,
         user::GitlabUserFields,
     },
@@ -366,6 +366,9 @@ paged!(
 );
 
 paged!(github_list_user_gists, GithubGistFields, Gist);
+
+paged!(github_list_repo_tags, GithubRepositoryTagFields, Tag);
+paged!(gitlab_list_project_tags, GitlabProjectTagFields, Tag);
 
 // Single HTTP requests
 

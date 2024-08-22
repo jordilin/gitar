@@ -98,7 +98,7 @@ impl ConfigFile {
         // GITLAB_API_TOKEN. If the domain is gitlab.<company>.com, the env var
         // to be set is GITLAB_<COMPANY>_API_TOKEN.
 
-        // Remove top level domain, if any (e.g. gitlab.com -> gitlab)
+        // TODO: inject env_token as a function so we can control it in tests
         let api_token = env_token(domain).or_else(|_| -> Result<String> {
             let token_res = domain_config_data.get("api_token").ok_or_else(|| {
                 error::gen(format!(
@@ -179,6 +179,13 @@ impl ConfigFile {
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(REST_API_MAX_PAGES),
         );
+        max_pages.insert(
+            ApiOperation::RepositoryTag,
+            domain_config_data
+                .get("max_pages_api_repository_tags")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(REST_API_MAX_PAGES),
+        );
         max_pages
     }
 
@@ -232,6 +239,13 @@ impl ConfigFile {
             ApiOperation::Gist,
             domain_config_data
                 .get("cache_api_gist_expiration")
+                .unwrap_or(&"0s".to_string())
+                .to_string(),
+        );
+        cache_expirations.insert(
+            ApiOperation::RepositoryTag,
+            domain_config_data
+                .get("cache_api_repository_tags_expiration")
                 .unwrap_or(&"0s".to_string())
                 .to_string(),
         );
@@ -706,5 +720,72 @@ mod test {
             },
             _ => panic!("Expected error"),
         }
+    }
+
+    #[test]
+    fn test_config_cache_api_expiration_for_repository_tags() {
+        let config_data = r#"
+        githubzab.com.api_token=1234
+        githubzab.com.cache_location=/home/user/.config/mr_cache
+        githubzab.com.preferred_assignee_username=jordilin
+        githubzab.com.merge_request_description_signature=- devops team :-)
+        githubzab.com.cache_api_repository_tags_expiration=2h
+        "#;
+        let domain = "githubzab.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
+        assert_eq!(
+            "2h",
+            config.get_cache_expiration(&ApiOperation::RepositoryTag)
+        );
+    }
+
+    #[test]
+    fn test_cache_expiration_for_repository_tags_is_zero_if_not_provided() {
+        let config_data = r#"
+        githubzab.com.api_token=1234
+        githubzab.com.cache_location=/home/user/.config/mr_cache
+        githubzab.com.preferred_assignee_username=jordilin
+        githubzab.com.merge_request_description_signature=- devops team :-)
+        "#;
+        let domain = "githubzab.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
+        assert_eq!(
+            "0s",
+            config.get_cache_expiration(&ApiOperation::RepositoryTag)
+        );
+    }
+
+    #[test]
+    fn test_get_max_pages_for_repository_tags() {
+        let config_data = r#"
+        githubzab.com.api_token=1234
+        githubzab.com.cache_location=/home/user/.config/mr_cache
+        githubzab.com.preferred_assignee_username=jordilin
+        githubzab.com.merge_request_description_signature=- devops team :-)
+        githubzab.com.max_pages_api_repository_tags=15
+        "#;
+        let domain = "githubzab.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
+        assert_eq!(15, config.get_max_pages(&ApiOperation::RepositoryTag));
+    }
+
+    #[test]
+    fn test_get_max_pages_repository_tags_default_if_none_provided() {
+        let config_data = r#"
+        githubzab.com.api_token=1234
+        githubzab.com.cache_location=/home/user/.config/mr_cache
+        githubzab.com.preferred_assignee_username=jordilin
+        githubzab.com.merge_request_description_signature=- devops team :-)
+        "#;
+        let domain = "githubzab.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Arc::new(ConfigFile::new(reader, domain).unwrap());
+        assert_eq!(
+            REST_API_MAX_PAGES,
+            config.get_max_pages(&ApiOperation::RepositoryTag)
+        );
     }
 }
