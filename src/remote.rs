@@ -7,7 +7,7 @@ use crate::api_traits::{
     DeployAsset, MergeRequest, RemoteProject, RemoteTag, TrendingProjectURL, UserInfo,
 };
 use crate::cache::{filesystem::FileCache, nocache::NoCache};
-use crate::config::{ConfigFile, NoConfig};
+use crate::config::{env_token, ConfigFile, NoConfig};
 use crate::display::Format;
 use crate::error::GRError;
 use crate::github::Github;
@@ -524,11 +524,11 @@ pub fn get_domain_path<R: TaskRunner<Response = Response>>(
 pub fn read_config(config_file: &Path, domain: &str) -> Result<Arc<dyn ConfigProperties>> {
     match File::open(config_file) {
         Ok(f) => {
-            let config = ConfigFile::new(f, domain)?;
+            let config = ConfigFile::new(f, domain, env_token)?;
             Ok(Arc::new(config))
         }
         Err(_) => {
-            let config = NoConfig::new(domain)?;
+            let config = NoConfig::new(domain, env_token)?;
             Ok(Arc::new(config))
         }
     }

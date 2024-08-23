@@ -107,6 +107,11 @@ impl<R: HttpRunner<Response = Response>> RemoteTag for Gitlab<R> {
         )?;
         Ok(tags)
     }
+    // NOTE: For num_resources and num_pages, the ApiOperation::Project from the
+    // RemoteProject trait is being used, but those operations involve a single
+    // HEAD request, which is not cached and does not require pagination. So,
+    // technically speaking is not required. Might be a TODO to change/add an
+    // ApiOperation to reflect this.
 }
 
 impl<R> Gitlab<R> {
