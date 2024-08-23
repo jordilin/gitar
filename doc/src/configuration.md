@@ -120,6 +120,7 @@ API types:
 - Pipeline
 - Release
 - Container registry
+- Repository tags
 
 ### Maximum pages to retrieve per API type
 
@@ -151,6 +152,10 @@ a per API basis.
   information about container registry images in the current project. This is
   supported in Gitlab only. This takes place in list operations in the `dk`
   subcommand.
+
+- `<domain>.max_pages_api_repository_tags=<number>` This API type is used to
+  retrieve information about tags in a repository. This takes place when listing
+  repository tags using the `gr pj tags` subcommand.
 
 ### Local cache duration for each API type
 
@@ -202,6 +207,9 @@ Cache duration for each API type is as follows:
 - `<domain>.cache_api_single_page_expiration=<number><time-unit>` This API type
   is used to retrieve information about single page calls. For example, trending
   repositories in github.com. A value of `1d` is recommended for this API type.
+
+- `<domain>.cache_api_repository_tags_expiration=<number><time-unit>` This API
+  type is used to retrieve information about tags in a repository.
 
 >**Note**: Local cache can be automatically expired and refreshed by issuing the
 `-r` flag when running the `gr` command.
