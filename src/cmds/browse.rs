@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
 use crate::cli::browse::BrowseOptions;
-use crate::config::ConfigFile;
+use crate::config::ConfigProperties;
 use crate::remote;
 use crate::remote::CacheType;
 use crate::Result;
 
 pub fn execute(
     options: BrowseOptions,
-    config: Arc<ConfigFile>,
+    config: Arc<dyn ConfigProperties>,
     domain: String,
     path: String,
 ) -> Result<()> {
