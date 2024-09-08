@@ -1,4 +1,6 @@
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
+
+use serde::Deserialize;
 
 use crate::{
     cli::browse::BrowseOptions,
@@ -192,6 +194,34 @@ impl Display for ApiOperation {
             ApiOperation::SinglePage => write!(f, "single_page"),
             ApiOperation::Gist => write!(f, "gist"),
             ApiOperation::RepositoryTag => write!(f, "repository_tag"),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for ApiOperation {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        ApiOperation::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+
+impl FromStr for ApiOperation {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<ApiOperation, std::string::String> {
+        match s.to_lowercase().as_str() {
+            "merge_request" => Ok(ApiOperation::MergeRequest),
+            "pipeline" => Ok(ApiOperation::Pipeline),
+            "project" => Ok(ApiOperation::Project),
+            "container_registry" => Ok(ApiOperation::ContainerRegistry),
+            "release" => Ok(ApiOperation::Release),
+            "single_page" => Ok(ApiOperation::SinglePage),
+            "gist" => Ok(ApiOperation::Gist),
+            "repository_tag" => Ok(ApiOperation::RepositoryTag),
+            _ => Err(format!("Unknown ApiOperation: {}", s)),
         }
     }
 }

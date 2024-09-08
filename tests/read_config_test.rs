@@ -13,10 +13,9 @@ fn create_temp_config_file(content: &str) -> NamedTempFile {
 #[test]
 fn test_read_config_valid() {
     let config_content = r#"
-    github.test.com.api_token=1234
-    github.test.com.cache_location=/tmp/cache
-    gitlab.test.com.api_token=5678
-    gitlab.test.com.cache_location=/tmp/cache2
+    [github_test_com]
+    api_token="1234"
+    cache_location="/tmp/cache"
     "#;
     let temp_file = create_temp_config_file(config_content);
     let result = read_config(temp_file.path(), "github.test.com");
@@ -58,9 +57,7 @@ fn test_read_config_invalid_data() {
     github.com.cache_location
     "#;
     let temp_file = create_temp_config_file(config_content);
-    let config = read_config(temp_file.path(), "github.com").unwrap();
-    assert_eq!(config.api_token(), "1234");
-    assert!(config.cache_location().is_none());
+    assert!(read_config(temp_file.path(), "github.com").is_err());
 }
 
 #[test]

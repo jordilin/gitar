@@ -56,7 +56,7 @@ fn handle_cli_options(
         }
         CliOptions::Browse(options) => {
             // Use default config for browsing - does not require auth.
-            let config = Arc::new(gr::config::ConfigFile::default());
+            let config = Arc::new(gr::config::DomainConfig::default());
             let requirements = vec![
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
@@ -137,7 +137,7 @@ fn handle_cli_options(
         }
         CliOptions::Manual => browse::execute(
             BrowseOptions::Manual,
-            Arc::new(gr::config::ConfigFile::default()),
+            Arc::new(gr::config::DomainConfig::default()),
             "".to_string(),
             "".to_string(),
         ),

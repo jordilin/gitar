@@ -16,3 +16,5 @@ pub const DEFAULT_NUMBER_REQUESTS_MINUTE: u32 = 80;
 // Default number of results per page for --num-resources. Gitlab 20, Github 30
 // As this is an approximation, we will use 30 if per_page is not provided.
 pub const DEFAULT_PER_PAGE: u32 = 30;
+
+pub const EXPIRE_IMMEDIATELY: &'static str = "0s";
