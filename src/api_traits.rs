@@ -226,6 +226,42 @@ impl FromStr for ApiOperation {
     }
 }
 
+pub struct ApiOperationIterator {
+    current: Option<ApiOperation>,
+}
+
+impl ApiOperationIterator {
+    fn new() -> Self {
+        ApiOperationIterator { current: None }
+    }
+}
+
+impl Iterator for ApiOperationIterator {
+    type Item = ApiOperation;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next = match self.current {
+            None => Some(ApiOperation::MergeRequest),
+            Some(ApiOperation::MergeRequest) => Some(ApiOperation::Pipeline),
+            Some(ApiOperation::Pipeline) => Some(ApiOperation::Project),
+            Some(ApiOperation::Project) => Some(ApiOperation::ContainerRegistry),
+            Some(ApiOperation::ContainerRegistry) => Some(ApiOperation::Release),
+            Some(ApiOperation::Release) => Some(ApiOperation::SinglePage),
+            Some(ApiOperation::SinglePage) => Some(ApiOperation::Gist),
+            Some(ApiOperation::Gist) => Some(ApiOperation::RepositoryTag),
+            Some(ApiOperation::RepositoryTag) => None,
+        };
+        self.current = next.clone();
+        next
+    }
+}
+
+impl ApiOperation {
+    pub fn iter() -> ApiOperationIterator {
+        ApiOperationIterator::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -253,5 +289,13 @@ mod tests {
     fn test_num_less_than_delta_begins_at_one_up_to_delta() {
         let delta_err = NumberDeltaErr::new(25, 30);
         assert_eq!("(1, 30)", delta_err.to_string());
+    }
+
+    #[test]
+    fn test_api_operation_iterator() {
+        let operations: Vec<ApiOperation> = ApiOperation::iter().collect();
+        assert_eq!(operations.len(), 8);
+        assert_eq!(operations[0], ApiOperation::MergeRequest);
+        assert_eq!(operations[7], ApiOperation::RepositoryTag);
     }
 }

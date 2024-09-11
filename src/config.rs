@@ -304,6 +304,31 @@ mod test {
     }
 
     #[test]
+    fn test_config_defaults() {
+        let config_data = r#"
+        [github_com]
+        api_token="1234"
+        cache_location="/home/user/.config/mr_cache"
+        preferred_assignee_username="jordilin"
+        merge_request_description_signature="- devops team :-)"
+        "#;
+        let domain = "github.com";
+        let reader = std::io::Cursor::new(config_data);
+        let config = Arc::new(ConfigFile::new(reader, domain, no_env).unwrap());
+        for api_operation in ApiOperation::iter() {
+            assert_eq!(REST_API_MAX_PAGES, config.get_max_pages(&api_operation));
+            assert_eq!(
+                EXPIRE_IMMEDIATELY,
+                config.get_cache_expiration(&api_operation)
+            );
+        }
+        assert_eq!(
+            RATE_LIMIT_REMAINING_THRESHOLD,
+            config.rate_limit_remaining_threshold()
+        );
+    }
+
+    #[test]
     fn test_no_api_token_is_err() {
         let config_data = r#"
         [gitlab_com]
@@ -319,24 +344,6 @@ mod test {
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
         assert!(ConfigFile::new(reader, domain, no_env).is_err());
-    }
-
-    #[test]
-    fn test_config_cache_api_expiration_default() {
-        let config_data = r#"
-        [github_com]
-        api_token="1234"
-        cache_location="/home/user/.config/mr_cache"
-        preferred_assignee_username="jordilin"
-        merge_request_description_signature="- devops team :-)"
-        "#;
-        let domain = "github.com";
-        let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(ConfigFile::new(reader, domain, no_env).unwrap());
-        assert_eq!(
-            "0s",
-            config.get_cache_expiration(&ApiOperation::MergeRequest)
-        );
     }
 
     fn env(_: &str) -> Result<String> {
