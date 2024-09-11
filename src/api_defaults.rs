@@ -17,4 +17,4 @@ pub const DEFAULT_NUMBER_REQUESTS_MINUTE: u32 = 80;
 // As this is an approximation, we will use 30 if per_page is not provided.
 pub const DEFAULT_PER_PAGE: u32 = 30;
 
-pub const EXPIRE_IMMEDIATELY: &'static str = "0s";
+pub const EXPIRE_IMMEDIATELY: &str = "0s";

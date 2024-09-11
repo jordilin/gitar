@@ -521,10 +521,14 @@ pub fn get_domain_path<R: TaskRunner<Response = Response>>(
     .into())
 }
 
-pub fn read_config(config_file: &Path, domain: &str) -> Result<Arc<dyn ConfigProperties>> {
+pub fn read_config(
+    config_file: &Path,
+    domain: &str,
+    project_path: &str,
+) -> Result<Arc<dyn ConfigProperties>> {
     match File::open(config_file) {
         Ok(f) => {
-            let config = ConfigFile::new(f, domain, env_token)?;
+            let config = ConfigFile::new(f, domain, project_path, env_token)?;
             Ok(Arc::new(config))
         }
         Err(_) => {

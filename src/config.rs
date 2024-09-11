@@ -72,6 +72,12 @@ struct MaxPagesApi {
     settings: HashMap<ApiOperation, u32>,
 }
 
+#[derive(Deserialize, Clone, Debug)]
+struct ProjectConfig {
+    preferred_assignee_username: Option<String>,
+    merge_request_description_signature: Option<String>,
+}
+
 #[derive(Deserialize, Clone, Debug, Default)]
 pub struct DomainConfig {
     api_token: Option<String>,
@@ -81,12 +87,21 @@ pub struct DomainConfig {
     rate_limit_remaining_threshold: Option<u32>,
     cache_expirations: Option<ApiSettings>,
     max_pages_api: Option<MaxPagesApi>,
+    #[serde(flatten)]
+    projects: HashMap<String, ProjectConfig>,
 }
 
 #[derive(Deserialize, Clone, Debug, Default)]
-pub struct ConfigFile {
+pub struct ConfigFileInner {
     #[serde(flatten)]
     domains: HashMap<String, DomainConfig>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ConfigFile {
+    inner: ConfigFileInner,
+    domain: String,
+    project_path: String,
 }
 
 pub fn env_token(domain: &str) -> Result<String> {
@@ -107,14 +122,23 @@ fn env_var(domain: &str) -> String {
 
 impl ConfigFile {
     // TODO: make use of a BufReader instead
+    /// Reads the configuration file and returns a ConfigFile struct that holds
+    /// the configuration data for a given domain and project path.
+    /// domain can be a top level domain such as gitlab.com or a subdomain such
+    /// as gitlab.company.com.
+    /// The project path is the path of the project in the remote after the domain.
+    /// Ex: gitlab.com/jordilin/gitar -> /jordilin/gitar
+    /// This is to allow for overriding project specific configurations such as
+    /// reviewers, assignees, etc.
     pub fn new<T: Read, FE: Fn(&str) -> Result<String>>(
         mut reader: T,
         domain: &str,
+        project_path: &str,
         env: FE,
-    ) -> Result<DomainConfig> {
+    ) -> Result<ConfigFile> {
         let mut config_data = String::new();
         reader.read_to_string(&mut config_data)?;
-        let mut config: ConfigFile = toml::from_str(&config_data)?;
+        let mut config: ConfigFileInner = toml::from_str(&config_data)?;
 
         // ENV VAR API token takes preference. For a given domain, we try to fetch
         // <DOMAIN>_API_TOKEN env var first, then we fallback to the config
@@ -143,7 +167,11 @@ impl ConfigFile {
             // ~/.config/gitar/gitlab.company.com
             // hence avoiding multiple domain configurations in one single file
             // and avoiding domain config retrieval by domain key.
-            Ok(domain_config.clone())
+            Ok(ConfigFile {
+                inner: config,
+                domain: domain_key,
+                project_path: project_path.to_string(),
+            })
         } else {
             return Err(error::gen(format!(
                 "No config data found for domain {}",
@@ -153,52 +181,88 @@ impl ConfigFile {
     }
 }
 
-impl ConfigProperties for DomainConfig {
+impl ConfigProperties for ConfigFile {
     fn api_token(&self) -> &str {
-        &self.api_token.as_deref().unwrap_or_default()
+        self.inner.domains[&self.domain]
+            .api_token
+            .as_deref()
+            .unwrap_or_default()
     }
 
     fn cache_location(&self) -> Option<&str> {
-        self.cache_location.as_deref()
+        self.inner.domains[&self.domain].cache_location.as_deref()
     }
 
     fn preferred_assignee_username(&self) -> &str {
-        &self
-            .preferred_assignee_username
-            .as_deref()
-            .unwrap_or_default()
+        let domain_config = &self.inner.domains[&self.domain];
+        domain_config
+            .projects
+            .get(&self.project_path)
+            .and_then(|project_config| project_config.preferred_assignee_username.as_deref())
+            .unwrap_or_else(|| {
+                domain_config
+                    .preferred_assignee_username
+                    .as_deref()
+                    .unwrap_or_default()
+            })
     }
 
     fn merge_request_description_signature(&self) -> &str {
-        &self
-            .merge_request_description_signature
-            .as_deref()
-            .unwrap_or_default()
+        let domain_config = &self.inner.domains[&self.domain];
+        domain_config
+            .projects
+            .get(&self.project_path)
+            .and_then(|project_config| {
+                project_config
+                    .merge_request_description_signature
+                    .as_deref()
+            })
+            .unwrap_or_else(|| {
+                domain_config
+                    .merge_request_description_signature
+                    .as_deref()
+                    .unwrap_or_default()
+            })
     }
 
     fn get_cache_expiration(&self, api_operation: &ApiOperation) -> &str {
-        self.cache_expirations
-            .as_ref()
-            .and_then(|cache_expirations| cache_expirations.settings.get(api_operation))
+        self.inner
+            .domains
+            .get(&self.domain)
+            .and_then(|domain_config| {
+                domain_config
+                    .cache_expirations
+                    .as_ref()
+                    .and_then(|cache_expirations| cache_expirations.settings.get(api_operation))
+            })
             .map(|s| s.as_str())
             .unwrap_or_else(|| EXPIRE_IMMEDIATELY)
     }
 
     fn get_max_pages(&self, api_operation: &ApiOperation) -> u32 {
-        self.max_pages_api
-            .as_ref()
-            .and_then(|max_pages| max_pages.settings.get(api_operation))
-            .map(|s| *s)
+        self.inner
+            .domains
+            .get(&self.domain)
+            .and_then(|domain_config| {
+                domain_config
+                    .max_pages_api
+                    .as_ref()
+                    .and_then(|max_pages| max_pages.settings.get(api_operation))
+            })
+            .copied()
             .unwrap_or(REST_API_MAX_PAGES)
     }
 
     fn rate_limit_remaining_threshold(&self) -> u32 {
-        self.rate_limit_remaining_threshold
+        self.inner
+            .domains
+            .get(&self.domain)
+            .and_then(|domain_config| domain_config.rate_limit_remaining_threshold)
             .unwrap_or(RATE_LIMIT_REMAINING_THRESHOLD)
     }
 }
 
-impl ConfigProperties for Arc<DomainConfig> {
+impl ConfigProperties for Arc<ConfigFile> {
     fn api_token(&self) -> &str {
         self.as_ref().api_token()
     }
@@ -267,7 +331,8 @@ mod test {
         "#;
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(ConfigFile::new(reader, domain, no_env).unwrap());
+        let project_path = "/jordilin/gitar";
+        let config = Arc::new(ConfigFile::new(reader, domain, project_path, no_env).unwrap());
         assert_eq!("1234", config.api_token());
         assert_eq!(
             "/home/user/.config/mr_cache",
@@ -314,7 +379,8 @@ mod test {
         "#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(ConfigFile::new(reader, domain, no_env).unwrap());
+        let project_path = "/jordilin/gitar";
+        let config = Arc::new(ConfigFile::new(reader, domain, project_path, no_env).unwrap());
         for api_operation in ApiOperation::iter() {
             assert_eq!(REST_API_MAX_PAGES, config.get_max_pages(&api_operation));
             assert_eq!(
@@ -329,13 +395,40 @@ mod test {
     }
 
     #[test]
+    fn test_config_with_overridden_project_specific_settings() {
+        let config_data = r#"
+        [gitlab_com]
+        api_token = '1234'
+        cache_location = "/home/user/.config/mr_cache"
+        preferred_assignee_username = 'jordilin'
+        merge_request_description_signature = "- devops team :-)"
+        rate_limit_remaining_threshold=15
+
+        # Project specific settings for /datateam/projecta
+        [gitlab_com.datateam_projecta]
+        preferred_assignee_username = 'jdoe'
+        merge_request_description_signature = '- data team projecta :-)'"#;
+
+        let domain = "gitlab.com";
+        let reader = std::io::Cursor::new(config_data);
+        let project_path = "datateam_projecta";
+        let config = Arc::new(ConfigFile::new(reader, domain, project_path, no_env).unwrap());
+        assert_eq!("jdoe", config.preferred_assignee_username());
+        assert_eq!(
+            "- data team projecta :-)",
+            config.merge_request_description_signature()
+        );
+    }
+
+    #[test]
     fn test_no_api_token_is_err() {
         let config_data = r#"
         [gitlab_com]
         api_token_typo=1234"#;
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        assert!(ConfigFile::new(reader, domain, no_env).is_err());
+        let project_path = "/jordilin/gitar";
+        assert!(ConfigFile::new(reader, domain, project_path, no_env).is_err());
     }
 
     #[test]
@@ -343,7 +436,8 @@ mod test {
         let config_data = "";
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        assert!(ConfigFile::new(reader, domain, no_env).is_err());
+        let project_path = "/jordilin/gitar";
+        assert!(ConfigFile::new(reader, domain, project_path, no_env).is_err());
     }
 
     fn env(_: &str) -> Result<String> {
@@ -359,7 +453,8 @@ mod test {
         "#;
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(ConfigFile::new(reader, domain, env).unwrap());
+        let project_path = "/jordilin/gitar";
+        let config = Arc::new(ConfigFile::new(reader, domain, project_path, env).unwrap());
         assert_eq!("1234", config.api_token());
     }
 
@@ -372,7 +467,8 @@ mod test {
         "#;
         let domain = "gitlab.company.com";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(ConfigFile::new(reader, domain, env).unwrap());
+        let project_path = "/jordilin/gitar";
+        let config = Arc::new(ConfigFile::new(reader, domain, project_path, env).unwrap());
         assert_eq!("1234", config.api_token());
     }
 
@@ -385,7 +481,8 @@ mod test {
         "#;
         let domain = "gitlabweb";
         let reader = std::io::Cursor::new(config_data);
-        let config = Arc::new(ConfigFile::new(reader, domain, env).unwrap());
+        let project_path = "/jordilin/gitar";
+        let config = Arc::new(ConfigFile::new(reader, domain, project_path, env).unwrap());
         assert_eq!("1234", config.api_token());
     }
 
