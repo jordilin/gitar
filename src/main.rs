@@ -51,7 +51,7 @@ fn handle_cli_options(
             ];
             let (domain, path) =
                 remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            let config = remote::read_config(&config_file, &domain)?;
+            let config = remote::read_config(&config_file, &domain, &path)?;
             merge_request::execute(options, cli_args, config, domain, path)
         }
         CliOptions::Browse(options) => {
@@ -72,7 +72,7 @@ fn handle_cli_options(
             ];
             let (domain, path) =
                 remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            let config = remote::read_config(&config_file, &domain)?;
+            let config = remote::read_config(&config_file, &domain, &path)?;
             cicd::execute(options, config, domain, path)
         }
         CliOptions::Project(options) => {
@@ -82,7 +82,7 @@ fn handle_cli_options(
             ];
             let (domain, path) =
                 remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            let config = remote::read_config(&config_file, &domain)?;
+            let config = remote::read_config(&config_file, &domain, &path)?;
             project::execute(options, config, domain, path)
         }
         CliOptions::Docker(options) => {
@@ -92,7 +92,7 @@ fn handle_cli_options(
             ];
             let (domain, path) =
                 remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            let config = remote::read_config(&config_file, &domain)?;
+            let config = remote::read_config(&config_file, &domain, &path)?;
             docker::execute(options, config, domain, path)
         }
         CliOptions::Release(options) => {
@@ -102,7 +102,7 @@ fn handle_cli_options(
             ];
             let (domain, path) =
                 remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            let config = remote::read_config(&config_file, &domain)?;
+            let config = remote::read_config(&config_file, &domain, &path)?;
             cmds::release::execute(options, config, domain, path)
         }
         CliOptions::My(options) => {
@@ -112,7 +112,7 @@ fn handle_cli_options(
             ];
             let (domain, path) =
                 remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            let config = remote::read_config(&config_file, &domain)?;
+            let config = remote::read_config(&config_file, &domain, &path)?;
             cmds::my::execute(options, config, domain, path)
         }
         CliOptions::Trending(options) => match options {
@@ -120,7 +120,7 @@ fn handle_cli_options(
                 // Trending repos is for github.com - Allow for `gr tr
                 // <language>` everywhere in the shell.
                 let domain = "github.com";
-                let config = remote::read_config(&config_file, domain)?;
+                let config = remote::read_config(&config_file, domain, "")?;
                 cmds::trending::execute(args, config, domain)
             }
         },
@@ -131,8 +131,9 @@ fn handle_cli_options(
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let (domain, _) = remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            let config = remote::read_config(&config_file, &domain)?;
+            let (domain, path) =
+                remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
+            let config = remote::read_config(&config_file, &domain, &path)?;
             cmds::cache::execute(options, config)
         }
         CliOptions::Manual => browse::execute(
