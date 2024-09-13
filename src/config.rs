@@ -149,12 +149,11 @@ impl ConfigFile {
         let domain_key = domain.replace('.', "_");
         if let Some(domain_config) = config.domains.get_mut(&domain_key) {
             if domain_config.api_token.is_none() {
-                domain_config.api_token = Some(env(domain).or_else(|_| -> Result<String> {
-                    Err(error::gen(format!(
-                        "No api_token found for domain {} in config or environment variable {}",
-                        domain,
-                        env_var(domain)
-                    )))
+                domain_config.api_token = Some(env(domain).map_err(|_| {
+                    GRError::PreconditionNotMet(format!(
+                        "No api_token found for domain {} in config or environment variable",
+                        domain
+                    ))
                 })?);
             }
             // NOTE: This has a penalty of cloning internal contents but config
@@ -173,10 +172,10 @@ impl ConfigFile {
                 project_path: project_path.to_string(),
             })
         } else {
-            return Err(error::gen(format!(
+            Err(error::gen(format!(
                 "No config data found for domain {}",
                 domain
-            )));
+            )))
         }
     }
 }
