@@ -56,6 +56,11 @@ your path.
 Or you can build from source. Building from source requires the latest stable
 release of Rust.
 
+>**NOTE:** If you decide to build from source at this moment, please be aware
+that the `main` branch breaks backward compatibility with the current
+configuration. It uses **TOML**. Please see unit tests for examples in the
+`src/config.rs` file.
+
 ```bash
 cargo build --release
 ./target/release/gr --help
