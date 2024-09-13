@@ -182,46 +182,57 @@ impl ConfigFile {
 
 impl ConfigProperties for ConfigFile {
     fn api_token(&self) -> &str {
-        self.inner.domains[&self.domain]
-            .api_token
-            .as_deref()
-            .unwrap_or_default()
+        if let Some(domain) = self.inner.domains.get(&self.domain) {
+            domain.api_token.as_deref().unwrap_or_default()
+        } else {
+            ""
+        }
     }
 
     fn cache_location(&self) -> Option<&str> {
-        self.inner.domains[&self.domain].cache_location.as_deref()
+        if let Some(domain) = self.inner.domains.get(&self.domain) {
+            domain.cache_location.as_deref()
+        } else {
+            None
+        }
     }
 
     fn preferred_assignee_username(&self) -> &str {
-        let domain_config = &self.inner.domains[&self.domain];
-        domain_config
-            .projects
-            .get(&self.project_path)
-            .and_then(|project_config| project_config.preferred_assignee_username.as_deref())
-            .unwrap_or_else(|| {
-                domain_config
-                    .preferred_assignee_username
-                    .as_deref()
-                    .unwrap_or_default()
-            })
+        if let Some(domain_config) = &self.inner.domains.get(&self.domain) {
+            domain_config
+                .projects
+                .get(&self.project_path)
+                .and_then(|project_config| project_config.preferred_assignee_username.as_deref())
+                .unwrap_or_else(|| {
+                    domain_config
+                        .preferred_assignee_username
+                        .as_deref()
+                        .unwrap_or_default()
+                })
+        } else {
+            ""
+        }
     }
 
     fn merge_request_description_signature(&self) -> &str {
-        let domain_config = &self.inner.domains[&self.domain];
-        domain_config
-            .projects
-            .get(&self.project_path)
-            .and_then(|project_config| {
-                project_config
-                    .merge_request_description_signature
-                    .as_deref()
-            })
-            .unwrap_or_else(|| {
-                domain_config
-                    .merge_request_description_signature
-                    .as_deref()
-                    .unwrap_or_default()
-            })
+        if let Some(domain_config) = self.inner.domains.get(&self.domain) {
+            domain_config
+                .projects
+                .get(&self.project_path)
+                .and_then(|project_config| {
+                    project_config
+                        .merge_request_description_signature
+                        .as_deref()
+                })
+                .unwrap_or_else(|| {
+                    domain_config
+                        .merge_request_description_signature
+                        .as_deref()
+                        .unwrap_or_default()
+                })
+        } else {
+            ""
+        }
     }
 
     fn get_cache_expiration(&self, api_operation: &ApiOperation) -> &str {
@@ -506,5 +517,19 @@ mod test {
             },
             _ => panic!("Expected error"),
         }
+    }
+
+    #[test]
+    fn test_default_config_file() {
+        // This is the case when browsing and no configuration is needed.
+        let config = ConfigFile::default();
+        assert_eq!("", config.api_token());
+        assert_eq!(None, config.cache_location());
+        assert_eq!(
+            RATE_LIMIT_REMAINING_THRESHOLD,
+            config.rate_limit_remaining_threshold()
+        );
+        assert_eq!("", config.preferred_assignee_username());
+        assert_eq!("", config.merge_request_description_signature());
     }
 }
