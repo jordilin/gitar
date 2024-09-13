@@ -156,16 +156,6 @@ impl ConfigFile {
                     ))
                 })?);
             }
-            // NOTE: This has a penalty of cloning internal contents but config
-            // is small and this is a one-time operation. Another design option,
-            // would be to split configurations for each domain in different
-            // files.
-            // Ex:
-            // ~/.config/gitar/gitlab.com
-            // ~/.config/gitar/github.com
-            // ~/.config/gitar/gitlab.company.com
-            // hence avoiding multiple domain configurations in one single file
-            // and avoiding domain config retrieval by domain key.
             Ok(ConfigFile {
                 inner: config,
                 domain: domain_key,
