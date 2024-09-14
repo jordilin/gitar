@@ -308,6 +308,7 @@ mod test {
         cache_location = "/home/user/.config/mr_cache"
         preferred_assignee_username = 'jordilin'
         rate_limit_remaining_threshold=15
+        merge_request_description_signature = "- devops team :-)"
 
         [gitlab_com.max_pages_api]
         merge_request = 2
@@ -339,6 +340,10 @@ mod test {
             config.cache_location().unwrap()
         );
         assert_eq!(15, config.rate_limit_remaining_threshold());
+        assert_eq!(
+            "- devops team :-)",
+            config.merge_request_description_signature()
+        );
         assert_eq!("jordilin", config.preferred_assignee_username());
         assert_eq!(2, config.get_max_pages(&ApiOperation::MergeRequest));
         assert_eq!(3, config.get_max_pages(&ApiOperation::Pipeline));
@@ -372,10 +377,7 @@ mod test {
     fn test_config_defaults() {
         let config_data = r#"
         [github_com]
-        api_token="1234"
-        cache_location="/home/user/.config/mr_cache"
-        preferred_assignee_username="jordilin"
-        merge_request_description_signature="- devops team :-)"
+        api_token = '1234'
         "#;
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
@@ -392,6 +394,9 @@ mod test {
             RATE_LIMIT_REMAINING_THRESHOLD,
             config.rate_limit_remaining_threshold()
         );
+        assert_eq!(None, config.cache_location());
+        assert_eq!("", config.preferred_assignee_username());
+        assert_eq!("", config.merge_request_description_signature());
     }
 
     #[test]
@@ -448,8 +453,6 @@ mod test {
     fn test_use_gitlab_com_api_token_envvar() {
         let config_data = r#"
         [gitlab_com]
-        cache_location="/home/user/.config/mr_cache"
-        rate_limit_remaining_threshold=15
         "#;
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
@@ -462,8 +465,6 @@ mod test {
     fn test_use_sub_domain_gitlab_token_env_var() {
         let config_data = r#"
         [gitlab_company_com]
-        cache_location="/home/user/.config/mr_cache"
-        rate_limit_remaining_threshold=15
         "#;
         let domain = "gitlab.company.com";
         let reader = std::io::Cursor::new(config_data);
@@ -476,8 +477,6 @@ mod test {
     fn test_domain_without_top_level_domain_token_envvar() {
         let config_data = r#"
         [gitlabweb]
-        cache_location="/home/user/.config/mr_cache"
-        rate_limit_remaining_threshold=15
         "#;
         let domain = "gitlabweb";
         let reader = std::io::Cursor::new(config_data);
