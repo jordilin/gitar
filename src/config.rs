@@ -73,17 +73,33 @@ struct MaxPagesApi {
 }
 
 #[derive(Deserialize, Clone, Debug)]
+#[serde(untagged)]
+enum UserInfo {
+    /// Github remote. Github REST API requires username only when using the
+    /// REST API.
+    UsernameOnly(String),
+    /// Gitlab remotes. Gitlab REST API requires user ID. This configuration
+    /// allows us to map username with user ID, so we can identify which ID is
+    /// associated to which user.
+    UsernameID { username: String, id: u64 },
+}
+
+#[derive(Deserialize, Clone, Debug, Default)]
+struct MergeRequestConfig {
+    preferred_assignee_username: Option<UserInfo>,
+    description_signature: Option<String>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
 struct ProjectConfig {
-    preferred_assignee_username: Option<String>,
-    merge_request_description_signature: Option<String>,
+    merge_requests: Option<MergeRequestConfig>,
 }
 
 #[derive(Deserialize, Clone, Debug, Default)]
 pub struct DomainConfig {
     api_token: Option<String>,
     cache_location: Option<String>,
-    preferred_assignee_username: Option<String>,
-    merge_request_description_signature: Option<String>,
+    merge_requests: Option<MergeRequestConfig>,
     rate_limit_remaining_threshold: Option<u32>,
     cache_expirations: Option<ApiSettings>,
     max_pages_api: Option<MaxPagesApi>,
@@ -192,11 +208,37 @@ impl ConfigProperties for ConfigFile {
             domain_config
                 .projects
                 .get(&self.project_path)
-                .and_then(|project_config| project_config.preferred_assignee_username.as_deref())
+                .and_then(|project_config| {
+                    project_config
+                        .merge_requests
+                        .as_ref()
+                        .and_then(|merge_request_config| {
+                            merge_request_config
+                                .preferred_assignee_username
+                                .as_ref()
+                                .and_then(|user_info| match user_info {
+                                    UserInfo::UsernameOnly(username) => Some(username.as_str()),
+                                    UserInfo::UsernameID { username, .. } => {
+                                        Some(username.as_str())
+                                    }
+                                })
+                        })
+                })
                 .unwrap_or_else(|| {
                     domain_config
-                        .preferred_assignee_username
-                        .as_deref()
+                        .merge_requests
+                        .as_ref()
+                        .and_then(|merge_request_config| {
+                            merge_request_config
+                                .preferred_assignee_username
+                                .as_ref()
+                                .and_then(|user_info| match user_info {
+                                    UserInfo::UsernameOnly(username) => Some(username.as_str()),
+                                    UserInfo::UsernameID { username, .. } => {
+                                        Some(username.as_str())
+                                    }
+                                })
+                        })
                         .unwrap_or_default()
                 })
         } else {
@@ -205,19 +247,25 @@ impl ConfigProperties for ConfigFile {
     }
 
     fn merge_request_description_signature(&self) -> &str {
-        if let Some(domain_config) = self.inner.domains.get(&self.domain) {
+        if let Some(domain_config) = &self.inner.domains.get(&self.domain) {
             domain_config
                 .projects
                 .get(&self.project_path)
                 .and_then(|project_config| {
                     project_config
-                        .merge_request_description_signature
-                        .as_deref()
+                        .merge_requests
+                        .as_ref()
+                        .and_then(|merge_request_config| {
+                            merge_request_config.description_signature.as_deref()
+                        })
                 })
                 .unwrap_or_else(|| {
                     domain_config
-                        .merge_request_description_signature
-                        .as_deref()
+                        .merge_requests
+                        .as_ref()
+                        .and_then(|merge_request_config| {
+                            merge_request_config.description_signature.as_deref()
+                        })
                         .unwrap_or_default()
                 })
         } else {
@@ -306,9 +354,11 @@ mod test {
         [gitlab_com]
         api_token = '1234'
         cache_location = "/home/user/.config/mr_cache"
-        preferred_assignee_username = 'jordilin'
         rate_limit_remaining_threshold=15
-        merge_request_description_signature = "- devops team :-)"
+
+        [gitlab_com.merge_requests]
+        preferred_assignee_username = "jordilin"
+        description_signature = "- devops team :-)"
 
         [gitlab_com.max_pages_api]
         merge_request = 2
@@ -405,14 +455,16 @@ mod test {
         [gitlab_com]
         api_token = '1234'
         cache_location = "/home/user/.config/mr_cache"
-        preferred_assignee_username = 'jordilin'
-        merge_request_description_signature = "- devops team :-)"
         rate_limit_remaining_threshold=15
 
+        [gitlab_com.merge_requests]
+        preferred_assignee_username = "jordilin"
+        description_signature = "- devops team :-)"
+
         # Project specific settings for /datateam/projecta
-        [gitlab_com.datateam_projecta]
+        [gitlab_com.datateam_projecta.merge_requests]
         preferred_assignee_username = 'jdoe'
-        merge_request_description_signature = '- data team projecta :-)'"#;
+        description_signature = '- data team projecta :-)'"#;
 
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
