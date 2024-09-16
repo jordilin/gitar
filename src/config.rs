@@ -15,12 +15,19 @@ pub trait ConfigProperties: Send + Sync {
     fn preferred_assignee_username(&self) -> &str {
         ""
     }
+
     fn assignees(&self) -> Option<Vec<Member>> {
         None
     }
+
+    fn reviewers(&self) -> Option<Vec<Member>> {
+        None
+    }
+
     fn merge_request_description_signature(&self) -> &str {
         ""
     }
+
     fn get_cache_expiration(&self, _api_operation: &ApiOperation) -> &str {
         // Defaults to regular HTTP cache expiration mechanisms.
         "0s"
@@ -76,6 +83,12 @@ struct MaxPagesApi {
     settings: HashMap<ApiOperation, u32>,
 }
 
+#[derive(Debug, PartialEq)]
+enum MemberType {
+    Assignees,
+    Reviewers,
+}
+
 #[derive(Deserialize, Clone, Debug)]
 #[serde(untagged)]
 enum UserInfo {
@@ -92,6 +105,7 @@ enum UserInfo {
 struct MergeRequestConfig {
     preferred_assignee_username: Option<UserInfo>,
     assignees: Option<Vec<UserInfo>>,
+    reviewers: Option<Vec<UserInfo>>,
     description_signature: Option<String>,
 }
 
@@ -189,6 +203,60 @@ impl ConfigFile {
             )))
         }
     }
+
+    fn get_members_from_config(&self, member_type: MemberType) -> Option<Vec<Member>> {
+        if let Some(domain_config) = &self.inner.domains.get(&self.domain) {
+            domain_config
+                .projects
+                .get(&self.project_path)
+                .and_then(|project_config| {
+                    project_config
+                        .merge_requests
+                        .as_ref()
+                        .and_then(|merge_request_config| {
+                            self.get_members(merge_request_config, &member_type)
+                        })
+                })
+                .or_else(|| {
+                    domain_config
+                        .merge_requests
+                        .as_ref()
+                        .and_then(|merge_request_config| {
+                            self.get_members(merge_request_config, &member_type)
+                        })
+                })
+        } else {
+            None
+        }
+    }
+
+    fn get_members(
+        &self,
+        merge_request_config: &MergeRequestConfig,
+        member_type: &MemberType,
+    ) -> Option<Vec<Member>> {
+        let members = match member_type {
+            MemberType::Assignees => &merge_request_config.assignees,
+            MemberType::Reviewers => &merge_request_config.reviewers,
+        };
+
+        members.as_ref().map(|users| {
+            users
+                .iter()
+                .map(|user_info| match user_info {
+                    UserInfo::UsernameOnly(username) => Member::builder()
+                        .username(username.clone())
+                        .build()
+                        .unwrap(),
+                    UserInfo::UsernameID { username, id } => Member::builder()
+                        .username(username.clone())
+                        .id(*id as i64)
+                        .build()
+                        .unwrap(),
+                })
+                .collect()
+        })
+    }
 }
 
 impl ConfigProperties for ConfigFile {
@@ -252,59 +320,11 @@ impl ConfigProperties for ConfigFile {
     }
 
     fn assignees(&self) -> Option<Vec<Member>> {
-        if let Some(domain_config) = &self.inner.domains.get(&self.domain) {
-            domain_config
-                .projects
-                .get(&self.project_path)
-                .and_then(|project_config| {
-                    project_config
-                        .merge_requests
-                        .as_ref()
-                        .and_then(|merge_request_config| {
-                            merge_request_config.assignees.as_ref().map(|assignees| {
-                                assignees
-                                    .iter()
-                                    .map(|user_info| match user_info {
-                                        UserInfo::UsernameOnly(username) => Member::builder()
-                                            .username(username.clone())
-                                            .build()
-                                            .unwrap(),
-                                        UserInfo::UsernameID { username, id } => Member::builder()
-                                            .username(username.clone())
-                                            .id(*id as i64)
-                                            .build()
-                                            .unwrap(),
-                                    })
-                                    .collect()
-                            })
-                        })
-                })
-                .or_else(|| {
-                    domain_config
-                        .merge_requests
-                        .as_ref()
-                        .and_then(|merge_request_config| {
-                            merge_request_config.assignees.as_ref().map(|assignees| {
-                                assignees
-                                    .iter()
-                                    .map(|user_info| match user_info {
-                                        UserInfo::UsernameOnly(username) => Member::builder()
-                                            .username(username.clone())
-                                            .build()
-                                            .unwrap(),
-                                        UserInfo::UsernameID { username, id } => Member::builder()
-                                            .username(username.clone())
-                                            .id(*id as i64)
-                                            .build()
-                                            .unwrap(),
-                                    })
-                                    .collect()
-                            })
-                        })
-                })
-        } else {
-            None
-        }
+        self.get_members_from_config(MemberType::Assignees)
+    }
+
+    fn reviewers(&self) -> Option<Vec<Member>> {
+        self.get_members_from_config(MemberType::Reviewers)
     }
 
     fn merge_request_description_signature(&self) -> &str {
@@ -403,6 +423,10 @@ impl ConfigProperties for Arc<ConfigFile> {
     fn assignees(&self) -> Option<Vec<Member>> {
         self.as_ref().assignees()
     }
+
+    fn reviewers(&self) -> Option<Vec<Member>> {
+        self.as_ref().reviewers()
+    }
 }
 
 #[cfg(test)]
@@ -427,6 +451,9 @@ mod test {
         assignees = [
             { username = 'jdoe', id = 1231 },
             { username = 'jane', id = 1232 }
+        ]
+        reviewers = [
+            { username = 'jordilin', id = 1235 }
         ]
 
         [gitlab_com.max_pages_api]
@@ -496,6 +523,10 @@ mod test {
         assert_eq!(1231, assignees[0].id);
         assert_eq!("jane", assignees[1].username);
         assert_eq!(1232, assignees[1].id);
+        let reviewers = config.reviewers().unwrap();
+        assert_eq!(1, reviewers.len());
+        assert_eq!("jordilin", reviewers[0].username);
+        assert_eq!(1235, reviewers[0].id);
     }
 
     #[test]
@@ -538,12 +569,16 @@ mod test {
         assignees = [
             { username = 'jdoe', id = 1231 }
         ]
+        reviewers = [
+            { username = 'jordilin', id = 1235 }
+        ]
 
         # Project specific settings for /datateam/projecta
         [gitlab_com.datateam_projecta.merge_requests]
         preferred_assignee_username = 'jdoe'
         description_signature = '- data team projecta :-)'
-        assignees = [ { username = 'jane', id = 1234 } ]"#;
+        assignees = [ { username = 'jane', id = 1234 } ]
+        reviewers = [ { username = 'john', id = 1236 } ]"#;
 
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
@@ -558,6 +593,10 @@ mod test {
         assert_eq!(1, assignees.len());
         assert_eq!("jane", assignees[0].username);
         assert_eq!(1234, assignees[0].id);
+        let reviewers = config.reviewers().unwrap();
+        assert_eq!(1, reviewers.len());
+        assert_eq!("john", reviewers[0].username);
+        assert_eq!(1236, reviewers[0].id);
     }
 
     #[test]
