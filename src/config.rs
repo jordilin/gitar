@@ -2,6 +2,7 @@
 
 use crate::api_defaults::{EXPIRE_IMMEDIATELY, RATE_LIMIT_REMAINING_THRESHOLD, REST_API_MAX_PAGES};
 use crate::api_traits::ApiOperation;
+use crate::cmds::project::Member;
 use crate::error::{self, GRError};
 use crate::Result;
 use serde::Deserialize;
@@ -13,6 +14,9 @@ pub trait ConfigProperties: Send + Sync {
     fn cache_location(&self) -> Option<&str>;
     fn preferred_assignee_username(&self) -> &str {
         ""
+    }
+    fn assignees(&self) -> Option<Vec<Member>> {
+        None
     }
     fn merge_request_description_signature(&self) -> &str {
         ""
@@ -87,6 +91,7 @@ enum UserInfo {
 #[derive(Deserialize, Clone, Debug, Default)]
 struct MergeRequestConfig {
     preferred_assignee_username: Option<UserInfo>,
+    assignees: Option<Vec<UserInfo>>,
     description_signature: Option<String>,
 }
 
@@ -246,6 +251,62 @@ impl ConfigProperties for ConfigFile {
         }
     }
 
+    fn assignees(&self) -> Option<Vec<Member>> {
+        if let Some(domain_config) = &self.inner.domains.get(&self.domain) {
+            domain_config
+                .projects
+                .get(&self.project_path)
+                .and_then(|project_config| {
+                    project_config
+                        .merge_requests
+                        .as_ref()
+                        .and_then(|merge_request_config| {
+                            merge_request_config.assignees.as_ref().map(|assignees| {
+                                assignees
+                                    .iter()
+                                    .map(|user_info| match user_info {
+                                        UserInfo::UsernameOnly(username) => Member::builder()
+                                            .username(username.clone())
+                                            .build()
+                                            .unwrap(),
+                                        UserInfo::UsernameID { username, id } => Member::builder()
+                                            .username(username.clone())
+                                            .id(*id as i64)
+                                            .build()
+                                            .unwrap(),
+                                    })
+                                    .collect()
+                            })
+                        })
+                })
+                .or_else(|| {
+                    domain_config
+                        .merge_requests
+                        .as_ref()
+                        .and_then(|merge_request_config| {
+                            merge_request_config.assignees.as_ref().map(|assignees| {
+                                assignees
+                                    .iter()
+                                    .map(|user_info| match user_info {
+                                        UserInfo::UsernameOnly(username) => Member::builder()
+                                            .username(username.clone())
+                                            .build()
+                                            .unwrap(),
+                                        UserInfo::UsernameID { username, id } => Member::builder()
+                                            .username(username.clone())
+                                            .id(*id as i64)
+                                            .build()
+                                            .unwrap(),
+                                    })
+                                    .collect()
+                            })
+                        })
+                })
+        } else {
+            None
+        }
+    }
+
     fn merge_request_description_signature(&self) -> &str {
         if let Some(domain_config) = &self.inner.domains.get(&self.domain) {
             domain_config
@@ -338,6 +399,10 @@ impl ConfigProperties for Arc<ConfigFile> {
     fn rate_limit_remaining_threshold(&self) -> u32 {
         self.as_ref().rate_limit_remaining_threshold()
     }
+
+    fn assignees(&self) -> Option<Vec<Member>> {
+        self.as_ref().assignees()
+    }
 }
 
 #[cfg(test)]
@@ -359,6 +424,10 @@ mod test {
         [gitlab_com.merge_requests]
         preferred_assignee_username = "jordilin"
         description_signature = "- devops team :-)"
+        assignees = [
+            { username = 'jdoe', id = 1231 },
+            { username = 'jane', id = 1232 }
+        ]
 
         [gitlab_com.max_pages_api]
         merge_request = 2
@@ -421,6 +490,12 @@ mod test {
             "0s",
             config.get_cache_expiration(&ApiOperation::RepositoryTag)
         );
+        let assignees = config.assignees().unwrap();
+        assert_eq!(2, assignees.len());
+        assert_eq!("jdoe", assignees[0].username);
+        assert_eq!(1231, assignees[0].id);
+        assert_eq!("jane", assignees[1].username);
+        assert_eq!(1232, assignees[1].id);
     }
 
     #[test]
@@ -460,11 +535,15 @@ mod test {
         [gitlab_com.merge_requests]
         preferred_assignee_username = "jordilin"
         description_signature = "- devops team :-)"
+        assignees = [
+            { username = 'jdoe', id = 1231 }
+        ]
 
         # Project specific settings for /datateam/projecta
         [gitlab_com.datateam_projecta.merge_requests]
         preferred_assignee_username = 'jdoe'
-        description_signature = '- data team projecta :-)'"#;
+        description_signature = '- data team projecta :-)'
+        assignees = [ { username = 'jane', id = 1234 } ]"#;
 
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
@@ -475,6 +554,33 @@ mod test {
             "- data team projecta :-)",
             config.merge_request_description_signature()
         );
+        let assignees = config.assignees().unwrap();
+        assert_eq!(1, assignees.len());
+        assert_eq!("jane", assignees[0].username);
+        assert_eq!(1234, assignees[0].id);
+    }
+
+    #[test]
+    fn test_config_preferred_assignee_username_with_id() {
+        let config_data = r#"
+        [gitlab_com]
+        api_token = '1234'
+        cache_location = "/home/user/.config/mr_cache"
+        rate_limit_remaining_threshold=15
+
+        [gitlab_com.merge_requests]
+        preferred_assignee_username = { username = 'jdoe', id = 1231 }
+
+        # Project specific settings for /datateam/projecta
+        [gitlab_com.datateam_projecta.merge_requests]
+        preferred_assignee_username = { username = 'jordilin', id = 1234 }
+        "#;
+
+        let domain = "gitlab.com";
+        let reader = std::io::Cursor::new(config_data);
+        let project_path = "datateam_projecta";
+        let config = Arc::new(ConfigFile::new(reader, domain, project_path, no_env).unwrap());
+        assert_eq!("jordilin", config.preferred_assignee_username());
     }
 
     #[test]
