@@ -91,6 +91,7 @@ impl Timestamp for Project {
 
 #[derive(Builder, Clone, Debug, PartialEq, Default)]
 pub struct Member {
+    #[builder(default)]
     pub id: i64,
     #[builder(default)]
     pub name: String,

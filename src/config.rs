@@ -12,8 +12,8 @@ use std::{collections::HashMap, io::Read};
 pub trait ConfigProperties: Send + Sync {
     fn api_token(&self) -> &str;
     fn cache_location(&self) -> Option<&str>;
-    fn preferred_assignee_username(&self) -> &str {
-        ""
+    fn preferred_assignee_username(&self) -> Option<Member> {
+        None
     }
 
     fn assignees(&self) -> Option<Vec<Member>> {
@@ -276,7 +276,7 @@ impl ConfigProperties for ConfigFile {
         }
     }
 
-    fn preferred_assignee_username(&self) -> &str {
+    fn preferred_assignee_username(&self) -> Option<Member> {
         if let Some(domain_config) = &self.inner.domains.get(&self.domain) {
             domain_config
                 .projects
@@ -289,15 +289,20 @@ impl ConfigProperties for ConfigFile {
                             merge_request_config
                                 .preferred_assignee_username
                                 .as_ref()
-                                .and_then(|user_info| match user_info {
-                                    UserInfo::UsernameOnly(username) => Some(username.as_str()),
-                                    UserInfo::UsernameID { username, .. } => {
-                                        Some(username.as_str())
-                                    }
+                                .map(|user_info| match user_info {
+                                    UserInfo::UsernameOnly(username) => Member::builder()
+                                        .username(username.clone())
+                                        .build()
+                                        .unwrap(),
+                                    UserInfo::UsernameID { username, id } => Member::builder()
+                                        .username(username.clone())
+                                        .id(*id as i64)
+                                        .build()
+                                        .unwrap(),
                                 })
                         })
                 })
-                .unwrap_or_else(|| {
+                .or_else(|| {
                     domain_config
                         .merge_requests
                         .as_ref()
@@ -305,17 +310,21 @@ impl ConfigProperties for ConfigFile {
                             merge_request_config
                                 .preferred_assignee_username
                                 .as_ref()
-                                .and_then(|user_info| match user_info {
-                                    UserInfo::UsernameOnly(username) => Some(username.as_str()),
-                                    UserInfo::UsernameID { username, .. } => {
-                                        Some(username.as_str())
-                                    }
+                                .map(|user_info| match user_info {
+                                    UserInfo::UsernameOnly(username) => Member::builder()
+                                        .username(username.clone())
+                                        .build()
+                                        .unwrap(),
+                                    UserInfo::UsernameID { username, id } => Member::builder()
+                                        .username(username.clone())
+                                        .id(*id as i64)
+                                        .build()
+                                        .unwrap(),
                                 })
                         })
-                        .unwrap_or_default()
                 })
         } else {
-            ""
+            None
         }
     }
 
@@ -400,7 +409,7 @@ impl ConfigProperties for Arc<ConfigFile> {
         self.as_ref().cache_location()
     }
 
-    fn preferred_assignee_username(&self) -> &str {
+    fn preferred_assignee_username(&self) -> Option<Member> {
         self.as_ref().preferred_assignee_username()
     }
 
@@ -490,7 +499,8 @@ mod test {
             "- devops team :-)",
             config.merge_request_description_signature()
         );
-        assert_eq!("jordilin", config.preferred_assignee_username());
+        let preferred_assignee_user = config.preferred_assignee_username().unwrap();
+        assert_eq!("jordilin", preferred_assignee_user.username);
         assert_eq!(2, config.get_max_pages(&ApiOperation::MergeRequest));
         assert_eq!(3, config.get_max_pages(&ApiOperation::Pipeline));
         assert_eq!(4, config.get_max_pages(&ApiOperation::Project));
@@ -551,7 +561,7 @@ mod test {
             config.rate_limit_remaining_threshold()
         );
         assert_eq!(None, config.cache_location());
-        assert_eq!("", config.preferred_assignee_username());
+        assert_eq!(None, config.preferred_assignee_username());
         assert_eq!("", config.merge_request_description_signature());
     }
 
@@ -584,7 +594,8 @@ mod test {
         let reader = std::io::Cursor::new(config_data);
         let project_path = "datateam_projecta";
         let config = Arc::new(ConfigFile::new(reader, domain, project_path, no_env).unwrap());
-        assert_eq!("jdoe", config.preferred_assignee_username());
+        let preferred_assignee_user = config.preferred_assignee_username().unwrap();
+        assert_eq!("jdoe", preferred_assignee_user.username);
         assert_eq!(
             "- data team projecta :-)",
             config.merge_request_description_signature()
@@ -619,7 +630,8 @@ mod test {
         let reader = std::io::Cursor::new(config_data);
         let project_path = "datateam_projecta";
         let config = Arc::new(ConfigFile::new(reader, domain, project_path, no_env).unwrap());
-        assert_eq!("jordilin", config.preferred_assignee_username());
+        let preferred_assignee_user = config.preferred_assignee_username().unwrap();
+        assert_eq!("jordilin", preferred_assignee_user.username);
     }
 
     #[test]
@@ -715,7 +727,7 @@ mod test {
             RATE_LIMIT_REMAINING_THRESHOLD,
             config.rate_limit_remaining_threshold()
         );
-        assert_eq!("", config.preferred_assignee_username());
+        assert_eq!(None, config.preferred_assignee_username());
         assert_eq!("", config.merge_request_description_signature());
     }
 }

@@ -369,6 +369,7 @@ pub fn execute(
                 let reader = get_reader_file_cli(description_file)?;
                 cmds(
                     project_remote,
+                    config.clone(),
                     &cli_args,
                     Arc::new(BlockingCommand),
                     Some(reader),
@@ -376,6 +377,7 @@ pub fn execute(
             } else {
                 cmds(
                     project_remote,
+                    config.clone(),
                     &cli_args,
                     Arc::new(BlockingCommand),
                     None::<Cursor<&str>>,
@@ -571,17 +573,10 @@ fn user_prompt_confirmation(
             .build()?);
     }
     let user_input = if cli_args.auto {
-        let preferred_assignee_members = mr_body
-            .members
-            .iter()
-            .filter(|member| member.username == config.preferred_assignee_username())
-            .collect::<Vec<&Member>>();
-        if preferred_assignee_members.len() != 1 {
-            return Err(GRError::PreconditionNotMet(
-                "Cannot get preferred assignee user id".to_string(),
-            )
-            .into());
-        }
+        let preferred_assignee_members =
+            vec![config.preferred_assignee_username().ok_or_else(|| {
+                GRError::PreconditionNotMet("Cannot get preferred assignee username".to_string())
+            })?];
         dialog::MergeRequestUserInput::new(
             &title,
             &description,
@@ -589,7 +584,7 @@ fn user_prompt_confirmation(
             &preferred_assignee_members[0].username,
         )
     } else {
-        dialog::prompt_user_merge_request_info(&title, &description, &mr_body.members, config)?
+        dialog::prompt_user_merge_request_info(&title, &description, &mr_body.members)?
     };
 
     Ok(MergeRequestBodyArgs::builder()
@@ -659,13 +654,29 @@ fn open(
 /// Required commands to build a Project and a Repository
 fn cmds<R: BufRead + Send + Sync + 'static>(
     remote: Arc<dyn RemoteProject + Send + Sync + 'static>,
+    config: Arc<dyn ConfigProperties>,
     cli_args: &MergeRequestCliArgs,
     task_runner: Arc<impl TaskRunner<Response = Response> + Send + Sync + 'static>,
     reader: Option<R>,
 ) -> Vec<Cmd<CmdInfo>> {
     let remote_cl = remote.clone();
     let remote_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data(None, None) };
-    let remote_members_cmd = move || -> Result<CmdInfo> { remote.get_project_members() };
+    let assignees_cmd = move || -> Result<CmdInfo> {
+        let assignees = config.assignees();
+        if assignees.is_some() {
+            let mut assignees = assignees.unwrap();
+            assignees.insert(
+                0,
+                config.preferred_assignee_username().ok_or_else(|| {
+                    GRError::PreconditionNotMet(
+                        "Cannot get preferred assignee username".to_string(),
+                    )
+                })?,
+            );
+            return Ok(CmdInfo::Members(assignees));
+        }
+        Ok(CmdInfo::Members(vec![]))
+    };
     let status_runner = task_runner.clone();
     let git_status_cmd = || -> Result<CmdInfo> { git::status(status_runner) };
     let title = cli_args.title.clone();
@@ -714,7 +725,7 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
     ];
     // Only gather project members if we are not targeting a different repo
     if cli_args.target_repo.is_none() {
-        cmds.push(Box::new(remote_members_cmd));
+        cmds.push(Box::new(assignees_cmd));
     }
     if cli_args.fetch.is_some() {
         let fetch_runner = task_runner.clone();
@@ -885,7 +896,7 @@ mod tests {
 
     use crate::{
         api_traits::CommentMergeRequest, cli::browse::BrowseOptions,
-        cmds::project::ProjectListBodyArgs, error,
+        cmds::project::ProjectListBodyArgs, error, test::utils::config,
     };
 
     use super::*;
@@ -1378,7 +1389,8 @@ mod tests {
         let responses = gen_cmd_responses();
 
         let task_runner = Arc::new(MockShellRunner::new(responses));
-        let cmds = cmds(remote, &cli_args, task_runner, None::<Cursor<&str>>);
+        let config = config();
+        let cmds = cmds(remote, config, &cli_args, task_runner, None::<Cursor<&str>>);
         assert_eq!(cmds.len(), 6);
         let cmds = cmds
             .into_iter()
@@ -1415,9 +1427,11 @@ mod tests {
 
         let responses = gen_cmd_responses();
 
+        let config = config();
+
         let task_runner = Arc::new(MockShellRunner::new(responses));
 
-        let cmds = cmds(remote, &cli_args, task_runner, None::<Cursor<&str>>);
+        let cmds = cmds(remote, config, &cli_args, task_runner, None::<Cursor<&str>>);
         let results = cmds
             .into_iter()
             .map(|cmd| cmd())
@@ -1457,7 +1471,8 @@ mod tests {
 
         let description_contents = "This merge requests adds a new feature\n";
         let reader = Cursor::new(description_contents);
-        let cmds = cmds(remote, &cli_args, task_runner, Some(reader));
+        let config = config();
+        let cmds = cmds(remote, config, &cli_args, task_runner, Some(reader));
         let results = cmds
             .into_iter()
             .map(|cmd| cmd())
@@ -1625,7 +1640,8 @@ mod tests {
         let responses = gen_cmd_responses();
 
         let task_runner = Arc::new(MockShellRunner::new(responses));
-        let cmds = cmds(remote, &cli_args, task_runner, None::<Cursor<&str>>);
+        let config = config();
+        let cmds = cmds(remote, config, &cli_args, task_runner, None::<Cursor<&str>>);
         assert_eq!(cmds.len(), 7);
         let cmds = cmds
             .into_iter()

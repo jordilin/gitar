@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use console::style;
 
 use dialoguer::theme::ColorfulTheme;
@@ -10,7 +8,6 @@ use dialoguer::Input;
 
 use crate::cmds::merge_request::MergeRequestBodyArgs;
 use crate::cmds::project::Member;
-use crate::config::ConfigProperties;
 use crate::error;
 use crate::Result;
 
@@ -37,32 +34,13 @@ pub fn prompt_user_merge_request_info(
     default_title: &str,
     default_description: &str,
     members: &[Member],
-    config: Arc<dyn ConfigProperties>,
 ) -> Result<MergeRequestUserInput> {
     let (title, description) = prompt_user_title_description(default_title, default_description);
 
-    let mut usernames = members
+    let usernames = members
         .iter()
-        .map(|member| &member.username)
-        .collect::<Vec<&String>>();
-
-    // Set the configuration preferred assignee username at the top of the
-    // list. This way, we will just quickly enter (accept) the default value
-    // without having to type to fuzzy search the one we want.
-
-    let preferred_assignee_username = config.preferred_assignee_username();
-    let preferred_assignee_username_index = {
-        || -> usize {
-            for (index, member) in usernames.iter().enumerate() {
-                if *member == preferred_assignee_username {
-                    return index;
-                }
-            }
-            0
-        }
-    }();
-    let preferred_member = usernames.remove(preferred_assignee_username_index);
-    usernames.insert(0, preferred_member);
+        .map(|member| member.username.as_str())
+        .collect::<Vec<&str>>();
 
     let assignee_selection_id = FuzzySelect::with_theme(&ColorfulTheme::default())
         .with_prompt("Assignee:")
@@ -72,16 +50,10 @@ pub fn prompt_user_merge_request_info(
         .unwrap();
 
     let assignee_members_index = if assignee_selection_id != 0 {
-        // Inserted in 0 the preferred one. All shifted by 1 in usernames
-        // vec, so we need to shift back the index for members.
-        if assignee_selection_id <= preferred_assignee_username_index {
-            assignee_selection_id - 1
-        } else {
-            assignee_selection_id
-        }
+        assignee_selection_id
     } else {
         // The preferred one has been selected
-        preferred_assignee_username_index
+        0
     };
 
     Ok(MergeRequestUserInput::new(
