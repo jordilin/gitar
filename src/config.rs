@@ -16,7 +16,7 @@ pub trait ConfigProperties: Send + Sync {
         None
     }
 
-    fn assignees(&self) -> Option<Vec<Member>> {
+    fn merge_request_members(&self) -> Option<Vec<Member>> {
         None
     }
 
@@ -104,7 +104,7 @@ enum UserInfo {
 #[derive(Deserialize, Clone, Debug, Default)]
 struct MergeRequestConfig {
     preferred_assignee_username: Option<UserInfo>,
-    assignees: Option<Vec<UserInfo>>,
+    members: Option<Vec<UserInfo>>,
     reviewers: Option<Vec<UserInfo>>,
     description_signature: Option<String>,
 }
@@ -236,7 +236,7 @@ impl ConfigFile {
         member_type: &MemberType,
     ) -> Option<Vec<Member>> {
         let members = match member_type {
-            MemberType::Assignees => &merge_request_config.assignees,
+            MemberType::Assignees => &merge_request_config.members,
             MemberType::Reviewers => &merge_request_config.reviewers,
         };
 
@@ -328,7 +328,7 @@ impl ConfigProperties for ConfigFile {
         }
     }
 
-    fn assignees(&self) -> Option<Vec<Member>> {
+    fn merge_request_members(&self) -> Option<Vec<Member>> {
         self.get_members_from_config(MemberType::Assignees)
     }
 
@@ -429,8 +429,8 @@ impl ConfigProperties for Arc<ConfigFile> {
         self.as_ref().rate_limit_remaining_threshold()
     }
 
-    fn assignees(&self) -> Option<Vec<Member>> {
-        self.as_ref().assignees()
+    fn merge_request_members(&self) -> Option<Vec<Member>> {
+        self.as_ref().merge_request_members()
     }
 
     fn reviewers(&self) -> Option<Vec<Member>> {
@@ -457,7 +457,7 @@ mod test {
         [gitlab_com.merge_requests]
         preferred_assignee_username = "jordilin"
         description_signature = "- devops team :-)"
-        assignees = [
+        members = [
             { username = 'jdoe', id = 1231 },
             { username = 'jane', id = 1232 }
         ]
@@ -527,7 +527,7 @@ mod test {
             "0s",
             config.get_cache_expiration(&ApiOperation::RepositoryTag)
         );
-        let assignees = config.assignees().unwrap();
+        let assignees = config.merge_request_members().unwrap();
         assert_eq!(2, assignees.len());
         assert_eq!("jdoe", assignees[0].username);
         assert_eq!(1231, assignees[0].id);
@@ -576,7 +576,7 @@ mod test {
         [gitlab_com.merge_requests]
         preferred_assignee_username = "jordilin"
         description_signature = "- devops team :-)"
-        assignees = [
+        members = [
             { username = 'jdoe', id = 1231 }
         ]
         reviewers = [
@@ -587,7 +587,7 @@ mod test {
         [gitlab_com.datateam_projecta.merge_requests]
         preferred_assignee_username = 'jdoe'
         description_signature = '- data team projecta :-)'
-        assignees = [ { username = 'jane', id = 1234 } ]
+        members = [ { username = 'jane', id = 1234 } ]
         reviewers = [ { username = 'john', id = 1236 } ]"#;
 
         let domain = "gitlab.com";
@@ -600,10 +600,10 @@ mod test {
             "- data team projecta :-)",
             config.merge_request_description_signature()
         );
-        let assignees = config.assignees().unwrap();
-        assert_eq!(1, assignees.len());
-        assert_eq!("jane", assignees[0].username);
-        assert_eq!(1234, assignees[0].id);
+        let members = config.merge_request_members().unwrap();
+        assert_eq!(1, members.len());
+        assert_eq!("jane", members[0].username);
+        assert_eq!(1234, members[0].id);
         let reviewers = config.reviewers().unwrap();
         assert_eq!(1, reviewers.len());
         assert_eq!("john", reviewers[0].username);

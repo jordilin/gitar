@@ -662,7 +662,7 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
     let remote_cl = remote.clone();
     let remote_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data(None, None) };
     let assignees_cmd = move || -> Result<CmdInfo> {
-        let assignees = config.assignees();
+        let assignees = config.merge_request_members();
         if assignees.is_some() {
             let mut assignees = assignees.unwrap();
             assignees.insert(
