@@ -20,10 +20,6 @@ pub trait ConfigProperties: Send + Sync {
         None
     }
 
-    fn reviewers(&self) -> Option<Vec<Member>> {
-        None
-    }
-
     fn merge_request_description_signature(&self) -> &str {
         ""
     }
@@ -83,12 +79,6 @@ struct MaxPagesApi {
     settings: HashMap<ApiOperation, u32>,
 }
 
-#[derive(Debug, PartialEq)]
-enum MemberType {
-    Assignees,
-    Reviewers,
-}
-
 #[derive(Deserialize, Clone, Debug)]
 #[serde(untagged)]
 enum UserInfo {
@@ -105,7 +95,6 @@ enum UserInfo {
 struct MergeRequestConfig {
     preferred_assignee_username: Option<UserInfo>,
     members: Option<Vec<UserInfo>>,
-    reviewers: Option<Vec<UserInfo>>,
     description_signature: Option<String>,
 }
 
@@ -204,7 +193,7 @@ impl ConfigFile {
         }
     }
 
-    fn get_members_from_config(&self, member_type: MemberType) -> Option<Vec<Member>> {
+    fn get_members_from_config(&self) -> Option<Vec<Member>> {
         if let Some(domain_config) = &self.inner.domains.get(&self.domain) {
             domain_config
                 .projects
@@ -213,34 +202,21 @@ impl ConfigFile {
                     project_config
                         .merge_requests
                         .as_ref()
-                        .and_then(|merge_request_config| {
-                            self.get_members(merge_request_config, &member_type)
-                        })
+                        .and_then(|merge_request_config| self.get_members(merge_request_config))
                 })
                 .or_else(|| {
                     domain_config
                         .merge_requests
                         .as_ref()
-                        .and_then(|merge_request_config| {
-                            self.get_members(merge_request_config, &member_type)
-                        })
+                        .and_then(|merge_request_config| self.get_members(merge_request_config))
                 })
         } else {
             None
         }
     }
 
-    fn get_members(
-        &self,
-        merge_request_config: &MergeRequestConfig,
-        member_type: &MemberType,
-    ) -> Option<Vec<Member>> {
-        let members = match member_type {
-            MemberType::Assignees => &merge_request_config.members,
-            MemberType::Reviewers => &merge_request_config.reviewers,
-        };
-
-        members.as_ref().map(|users| {
+    fn get_members(&self, merge_request_config: &MergeRequestConfig) -> Option<Vec<Member>> {
+        merge_request_config.members.as_ref().map(|users| {
             users
                 .iter()
                 .map(|user_info| match user_info {
@@ -329,11 +305,7 @@ impl ConfigProperties for ConfigFile {
     }
 
     fn merge_request_members(&self) -> Option<Vec<Member>> {
-        self.get_members_from_config(MemberType::Assignees)
-    }
-
-    fn reviewers(&self) -> Option<Vec<Member>> {
-        self.get_members_from_config(MemberType::Reviewers)
+        self.get_members_from_config()
     }
 
     fn merge_request_description_signature(&self) -> &str {
@@ -432,10 +404,6 @@ impl ConfigProperties for Arc<ConfigFile> {
     fn merge_request_members(&self) -> Option<Vec<Member>> {
         self.as_ref().merge_request_members()
     }
-
-    fn reviewers(&self) -> Option<Vec<Member>> {
-        self.as_ref().reviewers()
-    }
 }
 
 #[cfg(test)]
@@ -460,9 +428,6 @@ mod test {
         members = [
             { username = 'jdoe', id = 1231 },
             { username = 'jane', id = 1232 }
-        ]
-        reviewers = [
-            { username = 'jordilin', id = 1235 }
         ]
 
         [gitlab_com.max_pages_api]
@@ -527,16 +492,12 @@ mod test {
             "0s",
             config.get_cache_expiration(&ApiOperation::RepositoryTag)
         );
-        let assignees = config.merge_request_members().unwrap();
-        assert_eq!(2, assignees.len());
-        assert_eq!("jdoe", assignees[0].username);
-        assert_eq!(1231, assignees[0].id);
-        assert_eq!("jane", assignees[1].username);
-        assert_eq!(1232, assignees[1].id);
-        let reviewers = config.reviewers().unwrap();
-        assert_eq!(1, reviewers.len());
-        assert_eq!("jordilin", reviewers[0].username);
-        assert_eq!(1235, reviewers[0].id);
+        let members = config.merge_request_members().unwrap();
+        assert_eq!(2, members.len());
+        assert_eq!("jdoe", members[0].username);
+        assert_eq!(1231, members[0].id);
+        assert_eq!("jane", members[1].username);
+        assert_eq!(1232, members[1].id);
     }
 
     #[test]
@@ -579,16 +540,12 @@ mod test {
         members = [
             { username = 'jdoe', id = 1231 }
         ]
-        reviewers = [
-            { username = 'jordilin', id = 1235 }
-        ]
 
         # Project specific settings for /datateam/projecta
         [gitlab_com.datateam_projecta.merge_requests]
         preferred_assignee_username = 'jdoe'
         description_signature = '- data team projecta :-)'
-        members = [ { username = 'jane', id = 1234 } ]
-        reviewers = [ { username = 'john', id = 1236 } ]"#;
+        members = [ { username = 'jane', id = 1234 } ]"#;
 
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
@@ -604,10 +561,6 @@ mod test {
         assert_eq!(1, members.len());
         assert_eq!("jane", members[0].username);
         assert_eq!(1234, members[0].id);
-        let reviewers = config.reviewers().unwrap();
-        assert_eq!(1, reviewers.len());
-        assert_eq!("john", reviewers[0].username);
-        assert_eq!(1236, reviewers[0].id);
     }
 
     #[test]
