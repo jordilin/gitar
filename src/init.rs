@@ -34,11 +34,10 @@ merge_request_description_signature=""
 # Array of usernames if the remote is Github
 # Array of hashmaps username => user ID if the remote is Gitlab
 # Ex:
-# reviewers = ["user1", "user2"]
-# reviewers = [{"username": "user1", "id": "1234"}, {"username": "user2", "id": "5678"}]
+# members = ["user1", "user2"]
+# members = [{"username": "user1", "id": "1234"}, {"username": "user2", "id": "5678"}]
 
-reviewers = []
-assignees = []
+members = []
 
 [<DOMAIN>.cache_expirations]
 
