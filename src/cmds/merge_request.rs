@@ -141,6 +141,8 @@ pub struct MergeRequestBodyArgs {
     #[builder(default)]
     pub assignee_id: String,
     #[builder(default)]
+    pub assignee: Member,
+    #[builder(default)]
     pub username: String,
     #[builder(default = "String::from(\"true\")")]
     pub remove_source_branch: String,
@@ -576,12 +578,12 @@ fn user_prompt_confirmation(
         let preferred_assignee_members = vec![config
             .preferred_assignee_username()
             .unwrap_or(Member::default())];
-        dialog::MergeRequestUserInput::new(
-            &title,
-            &description,
-            preferred_assignee_members[0].id,
-            &preferred_assignee_members[0].username,
-        )
+        dialog::MergeRequestUserInput::builder()
+            .title(title)
+            .description(description)
+            .assignee(preferred_assignee_members[0].clone())
+            .build()
+            .unwrap()
     } else {
         dialog::prompt_user_merge_request_info(&title, &description, &mr_body.members)?
     };
@@ -593,6 +595,7 @@ fn user_prompt_confirmation(
         .target_branch(target_branch.to_string())
         .assignee_id(user_input.user_id.to_string())
         .username(user_input.username)
+        .assignee(user_input.assignee)
         // TODO make this configurable
         .remove_source_branch("true".to_string())
         .draft(cli_args.draft)

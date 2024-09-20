@@ -11,20 +11,31 @@ use crate::cmds::project::Member;
 use crate::error;
 use crate::Result;
 
+#[derive(Builder)]
 pub struct MergeRequestUserInput {
     pub title: String,
     pub description: String,
     pub user_id: i64,
     pub username: String,
+    pub assignee: Member,
 }
 
 impl MergeRequestUserInput {
+    pub fn builder() -> MergeRequestUserInputBuilder {
+        MergeRequestUserInputBuilder::default()
+    }
+
     pub fn new(title: &str, description: &str, user_id: i64, username: &str) -> Self {
         MergeRequestUserInput {
             title: title.to_string(),
             description: description.to_string(),
             user_id,
             username: username.to_string(),
+            assignee: Member::builder()
+                .id(user_id)
+                .username(username.to_string())
+                .build()
+                .unwrap(),
         }
     }
 }
@@ -56,12 +67,12 @@ pub fn prompt_user_merge_request_info(
         0
     };
 
-    Ok(MergeRequestUserInput::new(
-        &title,
-        &description,
-        members[assignee_members_index].id,
-        &members[assignee_members_index].username,
-    ))
+    Ok(MergeRequestUserInput::builder()
+        .title(title)
+        .description(description)
+        .assignee(members[assignee_members_index].clone())
+        .build()
+        .unwrap())
 }
 
 pub fn prompt_user_title_description(
