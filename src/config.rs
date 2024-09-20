@@ -2,7 +2,7 @@
 
 use crate::api_defaults::{EXPIRE_IMMEDIATELY, RATE_LIMIT_REMAINING_THRESHOLD, REST_API_MAX_PAGES};
 use crate::api_traits::ApiOperation;
-use crate::cmds::project::Member;
+use crate::cmds::project::{Member, MrMemberType};
 use crate::error::{self, GRError};
 use crate::Result;
 use serde::Deserialize;
@@ -222,11 +222,13 @@ impl ConfigFile {
                 .map(|user_info| match user_info {
                     UserInfo::UsernameOnly(username) => Member::builder()
                         .username(username.clone())
+                        .mr_member_type(MrMemberType::Filled)
                         .build()
                         .unwrap(),
                     UserInfo::UsernameID { username, id } => Member::builder()
                         .username(username.clone())
                         .id(*id as i64)
+                        .mr_member_type(MrMemberType::Filled)
                         .build()
                         .unwrap(),
                 })
@@ -408,6 +410,8 @@ impl ConfigProperties for Arc<ConfigFile> {
 
 #[cfg(test)]
 mod test {
+    use crate::cmds::project::MrMemberType;
+
     use super::*;
 
     fn no_env(_: &str) -> Result<String> {
@@ -496,6 +500,7 @@ mod test {
         assert_eq!(2, members.len());
         assert_eq!("jdoe", members[0].username);
         assert_eq!(1231, members[0].id);
+        assert_eq!(MrMemberType::Filled, members[0].mr_member_type);
         assert_eq!("jane", members[1].username);
         assert_eq!(1232, members[1].id);
     }

@@ -573,10 +573,9 @@ fn user_prompt_confirmation(
             .build()?);
     }
     let user_input = if cli_args.auto {
-        let preferred_assignee_members =
-            vec![config.preferred_assignee_username().ok_or_else(|| {
-                GRError::PreconditionNotMet("Cannot get preferred assignee username".to_string())
-            })?];
+        let preferred_assignee_members = vec![config
+            .preferred_assignee_username()
+            .unwrap_or(Member::default())];
         dialog::MergeRequestUserInput::new(
             &title,
             &description,
@@ -665,14 +664,14 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
         let assignees = config.merge_request_members();
         if assignees.is_some() {
             let mut assignees = assignees.unwrap();
-            assignees.insert(
-                0,
-                config.preferred_assignee_username().ok_or_else(|| {
-                    GRError::PreconditionNotMet(
-                        "Cannot get preferred assignee username".to_string(),
-                    )
-                })?,
-            );
+            let default_assignee = config.preferred_assignee_username();
+            if default_assignee.is_some() {
+                assignees.insert(0, default_assignee.unwrap());
+                // Allow client to unselect the default assignee
+                assignees.insert(1, Member::default());
+            } else {
+                assignees.insert(0, Member::default());
+            }
             return Ok(CmdInfo::Members(assignees));
         }
         Ok(CmdInfo::Members(vec![]))

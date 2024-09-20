@@ -89,15 +89,27 @@ impl Timestamp for Project {
     }
 }
 
+/// MrMemberType is a merge request user type. The client might leave the
+/// assignee or reviewer empty.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub enum MrMemberType {
+    Filled,
+    #[default]
+    Empty,
+}
+
 #[derive(Builder, Clone, Debug, PartialEq, Default)]
 pub struct Member {
     #[builder(default)]
     pub id: i64,
     #[builder(default)]
     pub name: String,
+    #[builder(default)]
     pub username: String,
     #[builder(default)]
     pub created_at: String,
+    #[builder(default)]
+    pub mr_member_type: MrMemberType,
 }
 
 impl Member {
