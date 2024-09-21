@@ -570,9 +570,7 @@ fn user_prompt_confirmation(
             .build()?);
     }
     let user_input = if cli_args.auto {
-        let preferred_assignee_members = vec![config
-            .preferred_assignee_username()
-            .unwrap_or(Member::default())];
+        let preferred_assignee_members = [config.preferred_assignee_username().unwrap_or_default()];
         dialog::MergeRequestUserInput::builder()
             .title(title)
             .description(description)
@@ -661,8 +659,8 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
         if assignees.is_some() {
             let mut assignees = assignees.unwrap();
             let default_assignee = config.preferred_assignee_username();
-            if default_assignee.is_some() {
-                assignees.insert(0, default_assignee.unwrap());
+            if let Some(assignee) = default_assignee {
+                assignees.insert(0, assignee);
                 // Allow client to unselect the default assignee
                 assignees.insert(1, Member::default());
             } else {
