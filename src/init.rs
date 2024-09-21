@@ -29,7 +29,7 @@ rate_limit_remaining_threshold=10
 [<DOMAIN>.merge_requests]
 
 preferred_assignee_username="<VALUE>"
-merge_request_description_signature=""
+description_signature=""
 
 # Array of usernames if the remote is Github
 # Array of hashmaps username => user ID if the remote is Gitlab
