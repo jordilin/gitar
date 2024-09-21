@@ -17,6 +17,7 @@ use crate::error::AddContext;
 use crate::io::CmdInfo;
 use crate::io::Response;
 use crate::io::TaskRunner;
+use crate::remote::RemoteURL;
 use crate::Result;
 
 /// Gather the status of the local git repository.
@@ -107,20 +108,20 @@ fn handle_git_remote_url(response: &Response) -> Result<CmdInfo> {
             let domain: Vec<&str> = fields[0].split('@').collect();
             if domain.len() == 2 {
                 let remote_path_partial: Vec<&str> = fields[1].split(".git").collect();
-                return Ok(CmdInfo::RemoteUrl {
-                    domain: domain[1].to_string(),
-                    path: remote_path_partial[0].to_string(),
-                });
+                return Ok(CmdInfo::RemoteUrl(RemoteURL::new(
+                    domain[1].to_string(),
+                    remote_path_partial[0].to_string(),
+                )));
             }
             // https://github.com/jordilin/gitar.git
             let remote_path_partial = fields[1].split('/').skip(2).collect::<Vec<&str>>();
             let host = remote_path_partial[0];
             let project = remote_path_partial[2].split(".git").collect::<Vec<&str>>();
             let project_path = format!("{}/{}", remote_path_partial[1], project[0]);
-            Ok(CmdInfo::RemoteUrl {
-                domain: host.to_string(),
-                path: project_path,
-            })
+            Ok(CmdInfo::RemoteUrl(RemoteURL::new(
+                host.to_string(),
+                project_path,
+            )))
         }
         // ssh://git@gitlab-web:2000/jordilin/gitar.git
         3 => {
@@ -131,10 +132,10 @@ fn handle_git_remote_url(response: &Response) -> Result<CmdInfo> {
                 .strip_suffix(".git")
                 .unwrap() // TODO handle this?
                 .to_string();
-            Ok(CmdInfo::RemoteUrl {
-                domain: domain[1].to_string(),
-                path: remote_path,
-            })
+            Ok(CmdInfo::RemoteUrl(RemoteURL::new(
+                domain[1].to_string(),
+                remote_path,
+            )))
         }
         _ => {
             let trace = format!("git configuration error: {}", response.body);
@@ -368,9 +369,10 @@ mod tests {
         let runner = MockRunner::new(vec![response]);
         let cmdinfo = remote_url(&runner).unwrap();
         match cmdinfo {
-            CmdInfo::RemoteUrl { domain, path } => {
-                assert_eq!("github.com", domain);
-                assert_eq!("jordilin/mr", path);
+            CmdInfo::RemoteUrl(url) => {
+                assert_eq!("github.com", url.domain());
+                assert_eq!("jordilin/mr", url.path());
+                assert_eq!("jordilin_mr", url.config_encoded_project_path());
             }
             _ => panic!("Failed to parse remote url"),
         }
@@ -385,9 +387,10 @@ mod tests {
         let runner = MockRunner::new(vec![response]);
         let cmdinfo = remote_url(&runner).unwrap();
         match cmdinfo {
-            CmdInfo::RemoteUrl { domain, path } => {
-                assert_eq!("github.com", domain);
-                assert_eq!("jordilin/gitar", path);
+            CmdInfo::RemoteUrl(url) => {
+                assert_eq!("github.com", url.domain());
+                assert_eq!("jordilin/gitar", url.path());
+                assert_eq!("jordilin_gitar", url.config_encoded_project_path());
             }
             _ => panic!("Failed to parse remote url"),
         }
@@ -402,9 +405,13 @@ mod tests {
         let runner = MockRunner::new(vec![response]);
         let cmdinfo = remote_url(&runner).unwrap();
         match cmdinfo {
-            CmdInfo::RemoteUrl { domain, path } => {
-                assert_eq!("gitlab-web", domain);
-                assert_eq!("testgroup/testsubproject", path);
+            CmdInfo::RemoteUrl(url) => {
+                assert_eq!("gitlab-web", url.domain());
+                assert_eq!("testgroup/testsubproject", url.path());
+                assert_eq!(
+                    "testgroup_testsubproject",
+                    url.config_encoded_project_path()
+                );
             }
             _ => panic!("Failed to parse remote url"),
         }

@@ -5,7 +5,7 @@ use gr::{
     cli::{browse::BrowseOptions, parse_cli, trending::TrendingOptions, CliOptions},
     cmds::{self, browse, cicd, docker, merge_request, project},
     init,
-    remote::{self, CliDomainRequirements},
+    remote::{self, CliDomainRequirements, RemoteURL},
     shell::BlockingCommand,
     Result,
 };
@@ -49,10 +49,15 @@ fn handle_cli_options(
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let (domain, path) =
-                remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            let config = remote::read_config(&config_file, &domain, &path)?;
-            merge_request::execute(options, cli_args, config, domain, path)
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let config = remote::read_config(&config_file, &url)?;
+            merge_request::execute(
+                options,
+                cli_args,
+                config,
+                url.domain().to_string(),
+                url.path().to_string(),
+            )
         }
         CliOptions::Browse(options) => {
             // Use default config for browsing - does not require auth.
@@ -61,66 +66,91 @@ fn handle_cli_options(
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let (domain, path) =
-                remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            browse::execute(options, config, domain, path)
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            browse::execute(
+                options,
+                config,
+                url.domain().to_string(),
+                url.path().to_string(),
+            )
         }
         CliOptions::Pipeline(options) => {
             let requirements = vec![
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let (domain, path) =
-                remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            let config = remote::read_config(&config_file, &domain, &path)?;
-            cicd::execute(options, config, domain, path)
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let config = remote::read_config(&config_file, &url)?;
+            cicd::execute(
+                options,
+                config,
+                url.domain().to_string(),
+                url.path().to_string(),
+            )
         }
         CliOptions::Project(options) => {
             let requirements = vec![
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let (domain, path) =
-                remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            let config = remote::read_config(&config_file, &domain, &path)?;
-            project::execute(options, config, domain, path)
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let config = remote::read_config(&config_file, &url)?;
+            project::execute(
+                options,
+                config,
+                url.domain().to_string(),
+                url.path().to_string(),
+            )
         }
         CliOptions::Docker(options) => {
             let requirements = vec![
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let (domain, path) =
-                remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            let config = remote::read_config(&config_file, &domain, &path)?;
-            docker::execute(options, config, domain, path)
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let config = remote::read_config(&config_file, &url)?;
+            docker::execute(
+                options,
+                config,
+                url.domain().to_string(),
+                url.path().to_string(),
+            )
         }
         CliOptions::Release(options) => {
             let requirements = vec![
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let (domain, path) =
-                remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            let config = remote::read_config(&config_file, &domain, &path)?;
-            cmds::release::execute(options, config, domain, path)
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let config = remote::read_config(&config_file, &url)?;
+            cmds::release::execute(
+                options,
+                config,
+                url.domain().to_string(),
+                url.path().to_string(),
+            )
         }
         CliOptions::My(options) => {
             let requirements = vec![
                 CliDomainRequirements::DomainArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let (domain, path) =
-                remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            let config = remote::read_config(&config_file, &domain, &path)?;
-            cmds::my::execute(options, config, domain, path)
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let config = remote::read_config(&config_file, &url)?;
+            cmds::my::execute(
+                options,
+                config,
+                url.domain().to_string(),
+                url.path().to_string(),
+            )
         }
         CliOptions::Trending(options) => match options {
             TrendingOptions::Get(args) => {
                 // Trending repos is for github.com - Allow for `gr tr
                 // <language>` everywhere in the shell.
                 let domain = "github.com";
-                let config = remote::read_config(&config_file, domain, "")?;
+                let url = RemoteURL::new(domain.to_string(), "".to_string());
+                let config = remote::read_config(&config_file, &url)?;
                 cmds::trending::execute(args, config, domain)
             }
         },
@@ -131,9 +161,8 @@ fn handle_cli_options(
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let (domain, path) =
-                remote::get_domain_path(&cli_args, &requirements, &BlockingCommand)?;
-            let config = remote::read_config(&config_file, &domain, &path)?;
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let config = remote::read_config(&config_file, &url)?;
             cmds::cache::execute(options, config)
         }
         CliOptions::Manual => browse::execute(

@@ -1,4 +1,4 @@
-use gr::remote::read_config;
+use gr::remote::{read_config, RemoteURL};
 use std::io::Write;
 use std::path::Path;
 use tempfile::NamedTempFile;
@@ -18,8 +18,9 @@ fn test_read_config_valid() {
     cache_location="/tmp/cache"
     "#;
     let temp_file = create_temp_config_file(config_content);
-    let project_path = "/jordilin/gitar";
-    let result = read_config(temp_file.path(), "github.test.com", project_path);
+    let project_path = "/jordilin/gitar".to_string();
+    let url = RemoteURL::new("github.test.com".to_string(), project_path);
+    let result = read_config(temp_file.path(), &url);
     assert!(result.is_ok());
     let config = result.unwrap();
     assert_eq!(config.api_token(), "1234");
@@ -28,24 +29,18 @@ fn test_read_config_valid() {
 
 #[test]
 fn test_read_config_file_not_found_and_no_token_env_var_is_error() {
-    let project_path = "/jordilin/gitar";
-    let result = read_config(
-        Path::new("/non/existent/path.txt"),
-        "github.integrationtest.com",
-        project_path,
-    );
+    let project_path = "/jordilin/gitar".to_string();
+    let url = RemoteURL::new("github.integrationtest.com".to_string(), project_path);
+    let result = read_config(Path::new("/non/existent/path.txt"), &url);
     assert!(result.is_err());
 }
 
 #[test]
 fn test_read_config_file_not_found_with_token_env_var_is_ok() {
     std::env::set_var("INTEGRATIONTEST_API_TOKEN", "123");
-    let project_path = "/jordilin/gitar";
-    let config_res = read_config(
-        Path::new("/non/existent/path.txt"),
-        "integrationtest.com",
-        project_path,
-    );
+    let project_path = "/jordilin/gitar".to_string();
+    let url = RemoteURL::new("integrationtest.com".to_string(), project_path);
+    let config_res = read_config(Path::new("/non/existent/path.txt"), &url);
     assert!(config_res.is_ok());
     std::env::remove_var("INTEGRATIONTEST_API_TOKEN");
 }
@@ -53,8 +48,9 @@ fn test_read_config_file_not_found_with_token_env_var_is_ok() {
 #[test]
 fn test_read_config_empty_file() {
     let temp_file = create_temp_config_file("");
-    let project_path = "/jordilin/gitar";
-    let result = read_config(temp_file.path(), "github.com", project_path);
+    let project_path = "/jordilin/gitar".to_string();
+    let url = RemoteURL::new("github.com".to_string(), project_path);
+    let result = read_config(temp_file.path(), &url);
     assert!(result.is_err());
 }
 
@@ -65,9 +61,10 @@ fn test_read_config_invalid_data() {
     # Missing cache_location - This is still a valid config where key has no value
     github.com.cache_location
     "#;
-    let project_path = "/jordilin/gitar";
+    let project_path = "/jordilin/gitar".to_string();
     let temp_file = create_temp_config_file(config_content);
-    assert!(read_config(temp_file.path(), "github.com", project_path).is_err());
+    let url = RemoteURL::new("github.com".to_string(), project_path);
+    assert!(read_config(temp_file.path(), &url).is_err());
 }
 
 #[test]
@@ -76,8 +73,9 @@ fn test_read_config_unknown_domain() {
     github.com.api_token=1234
     github.com.cache_location=/tmp/cache
     "#;
-    let project_path = "/jordilin/gitar";
+    let project_path = "/jordilin/gitar".to_string();
     let temp_file = create_temp_config_file(config_content);
-    let result = read_config(temp_file.path(), "gitlab.com", project_path);
+    let url = RemoteURL::new("gitlab.com".to_string(), project_path);
+    let result = read_config(temp_file.path(), &url);
     assert!(result.is_err());
 }

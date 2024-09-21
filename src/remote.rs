@@ -439,6 +439,7 @@ pub enum CliDomainRequirements {
     RepoArgs,
 }
 
+#[derive(Clone, Debug)]
 pub struct RemoteURL {
     /// Domain of the project. Ex github.com
     domain: String,
@@ -478,10 +479,10 @@ impl CliDomainRequirements {
         &self,
         cli_args: &cli::CliArgs,
         runner: &R,
-    ) -> Result<(String, String)> {
+    ) -> Result<RemoteURL> {
         match self {
             CliDomainRequirements::CdInLocalRepo => match git::remote_url(runner) {
-                Ok(CmdInfo::RemoteUrl { domain, path }) => Ok((domain, path)),
+                Ok(CmdInfo::RemoteUrl(url)) => Ok(url),
                 Err(err) => Err(GRError::GitRemoteUrlNotFound(format!("{}", err)).into()),
                 _ => Err(GRError::ApplicationError(
                     "Could not get remote url during startup. \
@@ -493,7 +494,7 @@ impl CliDomainRequirements {
             },
             CliDomainRequirements::DomainArgs => {
                 if cli_args.domain.is_some() {
-                    Ok((
+                    Ok(RemoteURL::new(
                         cli_args.domain.as_ref().unwrap().to_string(),
                         "".to_string(),
                     ))
@@ -503,7 +504,8 @@ impl CliDomainRequirements {
             }
             CliDomainRequirements::RepoArgs => {
                 if cli_args.repo.is_some() {
-                    Ok(extract_domain_path(cli_args.repo.as_ref().unwrap()))
+                    let (domain, path) = extract_domain_path(cli_args.repo.as_ref().unwrap());
+                    Ok(RemoteURL::new(domain, path))
                 } else {
                     Err(GRError::RepoExpected("Missing repository information".to_string()).into())
                 }
@@ -522,15 +524,15 @@ impl Display for CliDomainRequirements {
     }
 }
 
-pub fn get_domain_path<R: TaskRunner<Response = Response>>(
+pub fn url<R: TaskRunner<Response = Response>>(
     cli_args: &cli::CliArgs,
     requirements: &[CliDomainRequirements],
     runner: &R,
-) -> Result<(String, String)> {
+) -> Result<RemoteURL> {
     let mut errors = Vec::new();
     for requirement in requirements {
         match requirement.check(cli_args, runner) {
-            Ok((d, p)) => return Ok((d, p)),
+            Ok(url) => return Ok(url),
             Err(err) => {
                 errors.push(err);
             }
@@ -555,18 +557,19 @@ pub fn get_domain_path<R: TaskRunner<Response = Response>>(
     .into())
 }
 
-pub fn read_config(
-    config_file: &Path,
-    domain: &str,
-    project_path: &str,
-) -> Result<Arc<dyn ConfigProperties>> {
+pub fn read_config(config_file: &Path, url: &RemoteURL) -> Result<Arc<dyn ConfigProperties>> {
     match File::open(config_file) {
         Ok(f) => {
-            let config = ConfigFile::new(f, domain, project_path, env_token)?;
+            let config = ConfigFile::new(
+                f,
+                url.domain(),
+                url.config_encoded_project_path(),
+                env_token,
+            )?;
             Ok(Arc::new(config))
         }
         Err(_) => {
-            let config = NoConfig::new(domain, env_token)?;
+            let config = NoConfig::new(url.domain(), env_token)?;
             Ok(Arc::new(config))
         }
     }
@@ -946,9 +949,9 @@ mod test {
             .unwrap();
         let runner = MockRunner::new(vec![response]);
         let requirements = vec![CliDomainRequirements::CdInLocalRepo];
-        let (domain, path) = get_domain_path(&cli_args, &requirements, &runner).unwrap();
-        assert_eq!("github.com", domain);
-        assert_eq!("jordilin/gitar", path);
+        let url = url(&cli_args, &requirements, &runner).unwrap();
+        assert_eq!("github.com", url.domain());
+        assert_eq!("jordilin/gitar", url.path());
     }
 
     #[test]
@@ -957,7 +960,7 @@ mod test {
         let response = Response::builder().body("".to_string()).build().unwrap();
         let runner = MockRunner::new(vec![response]);
         let requirements = vec![CliDomainRequirements::CdInLocalRepo];
-        let result = get_domain_path(&cli_args, &requirements, &runner);
+        let result = url(&cli_args, &requirements, &runner);
         match result {
             Err(err) => match err.downcast_ref::<error::GRError>() {
                 Some(error::GRError::PreconditionNotMet(_)) => (),
@@ -975,10 +978,10 @@ mod test {
             CliDomainRequirements::RepoArgs,
         ];
         let response = Response::builder().body("".to_string()).build().unwrap();
-        let (domain, path) =
-            get_domain_path(&cli_args, &requirements, &MockRunner::new(vec![response])).unwrap();
-        assert_eq!("github.com", domain);
-        assert_eq!("jordilin/gitar", path);
+        let url = url(&cli_args, &requirements, &MockRunner::new(vec![response])).unwrap();
+        assert_eq!("github.com", url.domain());
+        assert_eq!("jordilin/gitar", url.path());
+        assert_eq!("jordilin_gitar", url.config_encoded_project_path());
     }
 
     #[test]
@@ -989,10 +992,9 @@ mod test {
             CliDomainRequirements::DomainArgs,
         ];
         let response = Response::builder().body("".to_string()).build().unwrap();
-        let (domain, path) =
-            get_domain_path(&cli_args, &requirements, &MockRunner::new(vec![response])).unwrap();
-        assert_eq!("github.com", domain);
-        assert_eq!("", path);
+        let url = url(&cli_args, &requirements, &MockRunner::new(vec![response])).unwrap();
+        assert_eq!("github.com", url.domain());
+        assert_eq!("", url.path());
     }
 
     #[test]
