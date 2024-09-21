@@ -6,6 +6,7 @@ use crate::{
     },
     http::{self, Headers, Request},
     log_info,
+    remote::RemoteURL,
     time::{self, Milliseconds, Seconds},
     Result,
 };
@@ -57,7 +58,7 @@ pub trait HttpRunner {
 #[derive(Clone, Debug)]
 pub enum CmdInfo {
     StatusModified(bool),
-    RemoteUrl { domain: String, path: String },
+    RemoteUrl(RemoteURL),
     Branch(String),
     CommitSummary(String),
     CommitMessage(String),

@@ -2,9 +2,13 @@ use super::Github;
 use crate::{
     api_traits::{ApiOperation, CommentMergeRequest, MergeRequest, NumberDeltaErr, RemoteProject},
     cli::browse::BrowseOptions,
-    cmds::merge_request::{
-        Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs,
-        MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse, MergeRequestState,
+    cmds::{
+        merge_request::{
+            Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs,
+            MergeRequestBodyArgs, MergeRequestListBodyArgs, MergeRequestResponse,
+            MergeRequestState,
+        },
+        project::MrMemberType,
     },
     http::{
         Body,
@@ -101,7 +105,11 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                     201 => {
                         let body = response.body;
                         // If target repo is provided bypass user assignation
-                        if !target_repo.is_empty() {
+                        // Do the same when assignee is not provided
+
+                        if !target_repo.is_empty()
+                            || args.assignee.mr_member_type == MrMemberType::Empty
+                        {
                             let json_value = json_loads(&body)?;
                             return Ok(MergeRequestResponse::from(GithubMergeRequestFields::from(
                                 &json_value,
@@ -124,7 +132,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                             self.rest_api_basepath, self.path, id
                         );
                         let mut body = Body::new();
-                        let assignees = vec![args.username.as_str()];
+                        let assignees = vec![args.assignee.username.as_str()];
                         body.add("assignees", &assignees);
                         query::github_merge_request::<_, &Vec<&str>>(
                             &self.runner,
@@ -491,7 +499,7 @@ impl From<GithubMergeRequestCommentFields> for Comment {
 mod test {
 
     use crate::{
-        cmds::project::Member,
+        cmds::project::{Member, MrMemberType},
         http::{self, Headers},
         remote::ListBodyArgs,
         setup_client,
@@ -509,7 +517,17 @@ mod test {
             .add_contract(200, "merge_request.json", None)
             .add_contract(201, "merge_request.json", None);
         let (client, github) = setup_client!(responses, default_github(), dyn MergeRequest);
-        let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
+        let assignee = Member::builder()
+            .name("tom".to_string())
+            .username("tsawyer".to_string())
+            .mr_member_type(MrMemberType::Filled)
+            .id(1234)
+            .build()
+            .unwrap();
+        let mr_args = MergeRequestBodyArgs::builder()
+            .assignee(assignee)
+            .build()
+            .unwrap();
         assert!(github.open(mr_args).is_ok());
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/issues/23",
@@ -548,6 +566,32 @@ mod test {
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
         );
+    }
+
+    #[test]
+    fn test_open_merge_request_with_no_assignee() {
+        let responses = ResponseContracts::new(ContractType::Github)
+            .add_contract(200, "merge_request.json", None)
+            .add_contract(201, "merge_request.json", None);
+        let (client, github) = setup_client!(responses, default_github(), dyn MergeRequest);
+        let assignee = Member::default();
+        let mr_args = MergeRequestBodyArgs::builder()
+            .assignee(assignee)
+            .build()
+            .unwrap();
+        assert!(github.open(mr_args).is_ok());
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/pulls",
+            *client.url(),
+        );
+        let actual_method = client.http_method.borrow();
+        assert_eq!(http::Method::POST, actual_method[0]);
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+        let actual_body = client.request_body.borrow();
+        assert!(!actual_body.contains("assignees"));
     }
 
     #[test]

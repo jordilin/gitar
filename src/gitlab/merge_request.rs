@@ -4,6 +4,7 @@ use crate::cmds::merge_request::{
     Comment, CommentMergeRequestBodyArgs, CommentMergeRequestListBodyArgs, MergeRequestBodyArgs,
     MergeRequestListBodyArgs, MergeRequestResponse,
 };
+use crate::cmds::project::MrMemberType;
 use crate::error::{self, GRError};
 use crate::http::Method::GET;
 use crate::http::{self, Body, Headers};
@@ -25,7 +26,12 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         body.add("source_branch", args.source_branch);
         body.add("target_branch", args.target_branch);
         body.add("title", args.title);
-        body.add("assignee_id", args.assignee_id);
+        match args.assignee.mr_member_type {
+            MrMemberType::Filled => {
+                body.add("assignee_id", args.assignee.id.to_string());
+            }
+            MrMemberType::Empty => {}
+        }
         body.add("description", args.description);
         body.add("remove_source_branch", args.remove_source_branch);
         // if target repo provided, add target_project_id in the payload
@@ -493,7 +499,17 @@ mod test {
 
     #[test]
     fn test_open_merge_request() {
-        let mr_args = MergeRequestBodyArgs::builder().build().unwrap();
+        let assignee = Member::builder()
+            .name("tom".to_string())
+            .username("tsawyer".to_string())
+            .mr_member_type(MrMemberType::Filled)
+            .id(1234)
+            .build()
+            .unwrap();
+        let mr_args = MergeRequestBodyArgs::builder()
+            .assignee(assignee)
+            .build()
+            .unwrap();
         let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
             201,
             "merge_request.json",
@@ -511,6 +527,36 @@ mod test {
             Some(ApiOperation::MergeRequest),
             *client.api_operation.borrow()
         );
+        let actual_body = client.request_body.borrow();
+        assert!(actual_body.contains("assignee_id"));
+    }
+
+    #[test]
+    fn test_open_merge_request_with_no_assignee() {
+        let assignee = Member::default();
+        let mr_args = MergeRequestBodyArgs::builder()
+            .assignee(assignee)
+            .build()
+            .unwrap();
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            201,
+            "merge_request.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn MergeRequest);
+        assert!(gitlab.open(mr_args).is_ok());
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/merge_requests",
+            *client.url(),
+        );
+        let mut actual_method = client.http_method.borrow_mut();
+        assert_eq!(http::Method::POST, actual_method.pop().unwrap());
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+        let actual_body = client.request_body.borrow();
+        assert!(!actual_body.contains("assignee_id"));
     }
 
     #[test]

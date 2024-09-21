@@ -18,14 +18,26 @@ const CONFIG_TEMPLATE: &str = r#"
 
 api_token="<VALUE>"
 cache_location=".cache/gitar"
-preferred_assignee_username="<VALUE>"
-merge_request_description_signature=""
+
 
 # Rate limit remaining threshold. Threshold by which the tool will stop
 # processing requests. Defaults to 10 if not provided. The remote has a counter
 # that decreases with each request. When we reach this threshold we stop for safety.
 # When it reaches 0 the remote will throw errors.
 rate_limit_remaining_threshold=10
+
+[<DOMAIN>.merge_requests]
+
+preferred_assignee_username="<VALUE>"
+description_signature=""
+
+# Array of usernames if the remote is Github
+# Array of hashmaps username => user ID if the remote is Gitlab
+# Ex:
+# members = ["user1", "user2"]
+# members = [{"username": "user1", "id": "1234"}, {"username": "user2", "id": "5678"}]
+
+members = []
 
 [<DOMAIN>.cache_expirations]
 

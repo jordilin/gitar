@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use console::style;
 
 use dialoguer::theme::ColorfulTheme;
@@ -10,24 +8,30 @@ use dialoguer::Input;
 
 use crate::cmds::merge_request::MergeRequestBodyArgs;
 use crate::cmds::project::Member;
-use crate::config::ConfigProperties;
 use crate::error;
 use crate::Result;
 
+#[derive(Builder)]
 pub struct MergeRequestUserInput {
     pub title: String,
     pub description: String,
-    pub user_id: i64,
-    pub username: String,
+    pub assignee: Member,
 }
 
 impl MergeRequestUserInput {
+    pub fn builder() -> MergeRequestUserInputBuilder {
+        MergeRequestUserInputBuilder::default()
+    }
+
     pub fn new(title: &str, description: &str, user_id: i64, username: &str) -> Self {
         MergeRequestUserInput {
             title: title.to_string(),
             description: description.to_string(),
-            user_id,
-            username: username.to_string(),
+            assignee: Member::builder()
+                .id(user_id)
+                .username(username.to_string())
+                .build()
+                .unwrap(),
         }
     }
 }
@@ -37,32 +41,13 @@ pub fn prompt_user_merge_request_info(
     default_title: &str,
     default_description: &str,
     members: &[Member],
-    config: Arc<dyn ConfigProperties>,
 ) -> Result<MergeRequestUserInput> {
     let (title, description) = prompt_user_title_description(default_title, default_description);
 
-    let mut usernames = members
+    let usernames = members
         .iter()
-        .map(|member| &member.username)
-        .collect::<Vec<&String>>();
-
-    // Set the configuration preferred assignee username at the top of the
-    // list. This way, we will just quickly enter (accept) the default value
-    // without having to type to fuzzy search the one we want.
-
-    let preferred_assignee_username = config.preferred_assignee_username();
-    let preferred_assignee_username_index = {
-        || -> usize {
-            for (index, member) in usernames.iter().enumerate() {
-                if *member == preferred_assignee_username {
-                    return index;
-                }
-            }
-            0
-        }
-    }();
-    let preferred_member = usernames.remove(preferred_assignee_username_index);
-    usernames.insert(0, preferred_member);
+        .map(|member| member.username.as_str())
+        .collect::<Vec<&str>>();
 
     let assignee_selection_id = FuzzySelect::with_theme(&ColorfulTheme::default())
         .with_prompt("Assignee:")
@@ -72,24 +57,18 @@ pub fn prompt_user_merge_request_info(
         .unwrap();
 
     let assignee_members_index = if assignee_selection_id != 0 {
-        // Inserted in 0 the preferred one. All shifted by 1 in usernames
-        // vec, so we need to shift back the index for members.
-        if assignee_selection_id <= preferred_assignee_username_index {
-            assignee_selection_id - 1
-        } else {
-            assignee_selection_id
-        }
+        assignee_selection_id
     } else {
         // The preferred one has been selected
-        preferred_assignee_username_index
+        0
     };
 
-    Ok(MergeRequestUserInput::new(
-        &title,
-        &description,
-        members[assignee_members_index].id,
-        &members[assignee_members_index].username,
-    ))
+    Ok(MergeRequestUserInput::builder()
+        .title(title)
+        .description(description)
+        .assignee(members[assignee_members_index].clone())
+        .build()
+        .unwrap())
 }
 
 pub fn prompt_user_title_description(
@@ -164,7 +143,7 @@ pub fn show_summary_merge_request(
         Style::Bold,
     );
     show_input("Target branch", &args.target_branch, false, Style::Bold);
-    show_input("Assignee", &args.username, false, Style::Bold);
+    show_input("Assignee", &args.assignee.username, false, Style::Bold);
     show_input("Title", &args.title, false, Style::Bold);
     if !args.description.is_empty() {
         show_input("Description:", &args.description, true, Style::Bold);
