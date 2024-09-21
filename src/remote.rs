@@ -560,12 +560,7 @@ pub fn url<R: TaskRunner<Response = Response>>(
 pub fn read_config(config_file: &Path, url: &RemoteURL) -> Result<Arc<dyn ConfigProperties>> {
     match File::open(config_file) {
         Ok(f) => {
-            let config = ConfigFile::new(
-                f,
-                url.domain(),
-                url.config_encoded_project_path(),
-                env_token,
-            )?;
+            let config = ConfigFile::new(f, url, env_token)?;
             Ok(Arc::new(config))
         }
         Err(_) => {

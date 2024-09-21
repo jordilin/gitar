@@ -4,6 +4,7 @@ use crate::api_defaults::{EXPIRE_IMMEDIATELY, RATE_LIMIT_REMAINING_THRESHOLD, RE
 use crate::api_traits::ApiOperation;
 use crate::cmds::project::{Member, MrMemberType};
 use crate::error::{self, GRError};
+use crate::remote::RemoteURL;
 use crate::Result;
 use serde::Deserialize;
 use std::sync::Arc;
@@ -156,21 +157,21 @@ impl ConfigFile {
     /// reviewers, assignees, etc.
     pub fn new<T: Read, FE: Fn(&str) -> Result<String>>(
         mut reader: T,
-        domain: &str,
-        project_path: &str,
+        url: &RemoteURL,
         env: FE,
     ) -> Result<ConfigFile> {
         let mut config_data = String::new();
         reader.read_to_string(&mut config_data)?;
         let mut config: ConfigFileInner = toml::from_str(&config_data)?;
-
+        let project_path = url.config_encoded_project_path();
+        let domain = url.domain();
         // ENV VAR API token takes preference. For a given domain, we try to fetch
         // <DOMAIN>_API_TOKEN env var first, then we fallback to the config
         // file. Given a domain such as gitlab.com, the env var to be set is
         // GITLAB_API_TOKEN. If the domain is gitlab.<company>.com, the env var
         // to be set is GITLAB_<COMPANY>_API_TOKEN.
 
-        let domain_key = domain.replace('.', "_");
+        let domain_key = url.domain().replace('.', "_");
         if let Some(domain_config) = config.domains.get_mut(&domain_key) {
             if domain_config.api_token.is_none() {
                 domain_config.api_token = Some(env(domain).map_err(|_| {
@@ -457,7 +458,8 @@ mod test {
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
         let project_path = "/jordilin/gitar";
-        let config = Arc::new(ConfigFile::new(reader, domain, project_path, no_env).unwrap());
+        let url = RemoteURL::new(domain.to_string(), project_path.to_string());
+        let config = Arc::new(ConfigFile::new(reader, &url, no_env).unwrap());
         assert_eq!("1234", config.api_token());
         assert_eq!(
             "/home/user/.config/mr_cache",
@@ -514,7 +516,8 @@ mod test {
         let domain = "github.com";
         let reader = std::io::Cursor::new(config_data);
         let project_path = "/jordilin/gitar";
-        let config = Arc::new(ConfigFile::new(reader, domain, project_path, no_env).unwrap());
+        let url = RemoteURL::new(domain.to_string(), project_path.to_string());
+        let config = Arc::new(ConfigFile::new(reader, &url, no_env).unwrap());
         for api_operation in ApiOperation::iter() {
             assert_eq!(REST_API_MAX_PAGES, config.get_max_pages(&api_operation));
             assert_eq!(
@@ -555,7 +558,8 @@ mod test {
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
         let project_path = "datateam_projecta";
-        let config = Arc::new(ConfigFile::new(reader, domain, project_path, no_env).unwrap());
+        let url = RemoteURL::new(domain.to_string(), project_path.to_string());
+        let config = Arc::new(ConfigFile::new(reader, &url, no_env).unwrap());
         let preferred_assignee_user = config.preferred_assignee_username().unwrap();
         assert_eq!("jdoe", preferred_assignee_user.username);
         assert_eq!(
@@ -587,7 +591,8 @@ mod test {
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
         let project_path = "datateam_projecta";
-        let config = Arc::new(ConfigFile::new(reader, domain, project_path, no_env).unwrap());
+        let url = RemoteURL::new(domain.to_string(), project_path.to_string());
+        let config = Arc::new(ConfigFile::new(reader, &url, no_env).unwrap());
         let preferred_assignee_user = config.preferred_assignee_username().unwrap();
         assert_eq!("jordilin", preferred_assignee_user.username);
     }
@@ -600,7 +605,8 @@ mod test {
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
         let project_path = "/jordilin/gitar";
-        assert!(ConfigFile::new(reader, domain, project_path, no_env).is_err());
+        let url = RemoteURL::new(domain.to_string(), project_path.to_string());
+        assert!(ConfigFile::new(reader, &url, no_env).is_err());
     }
 
     #[test]
@@ -609,7 +615,8 @@ mod test {
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
         let project_path = "/jordilin/gitar";
-        assert!(ConfigFile::new(reader, domain, project_path, no_env).is_err());
+        let url = RemoteURL::new(domain.to_string(), project_path.to_string());
+        assert!(ConfigFile::new(reader, &url, no_env).is_err());
     }
 
     fn env(_: &str) -> Result<String> {
@@ -624,7 +631,8 @@ mod test {
         let domain = "gitlab.com";
         let reader = std::io::Cursor::new(config_data);
         let project_path = "/jordilin/gitar";
-        let config = Arc::new(ConfigFile::new(reader, domain, project_path, env).unwrap());
+        let url = RemoteURL::new(domain.to_string(), project_path.to_string());
+        let config = Arc::new(ConfigFile::new(reader, &url, env).unwrap());
         assert_eq!("1234", config.api_token());
     }
 
@@ -636,7 +644,8 @@ mod test {
         let domain = "gitlab.company.com";
         let reader = std::io::Cursor::new(config_data);
         let project_path = "/jordilin/gitar";
-        let config = Arc::new(ConfigFile::new(reader, domain, project_path, env).unwrap());
+        let url = RemoteURL::new(domain.to_string(), project_path.to_string());
+        let config = Arc::new(ConfigFile::new(reader, &url, env).unwrap());
         assert_eq!("1234", config.api_token());
     }
 
@@ -648,7 +657,8 @@ mod test {
         let domain = "gitlabweb";
         let reader = std::io::Cursor::new(config_data);
         let project_path = "/jordilin/gitar";
-        let config = Arc::new(ConfigFile::new(reader, domain, project_path, env).unwrap());
+        let url = RemoteURL::new(domain.to_string(), project_path.to_string());
+        let config = Arc::new(ConfigFile::new(reader, &url, env).unwrap());
         assert_eq!("1234", config.api_token());
     }
 
