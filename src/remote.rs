@@ -439,6 +439,40 @@ pub enum CliDomainRequirements {
     RepoArgs,
 }
 
+pub struct RemoteURL {
+    /// Domain of the project. Ex github.com
+    domain: String,
+    /// Path to the project. Ex jordilin/gitar
+    path: String,
+    /// Config encoded project path. Ex jordilin_gitar
+    /// This is used as a key in TOML configuration in order to retrieve project
+    /// specific configuration that overrides its domain specific one.
+    config_encoded_project_path: String,
+}
+
+impl RemoteURL {
+    pub fn new(domain: String, path: String) -> Self {
+        let config_encoded_project_path = path.replace("/", "_");
+        RemoteURL {
+            domain,
+            path,
+            config_encoded_project_path,
+        }
+    }
+
+    pub fn domain(&self) -> &str {
+        &self.domain
+    }
+
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    pub fn config_encoded_project_path(&self) -> &str {
+        &self.config_encoded_project_path
+    }
+}
+
 impl CliDomainRequirements {
     pub fn check<R: TaskRunner<Response = Response>>(
         &self,
@@ -959,5 +993,30 @@ mod test {
             get_domain_path(&cli_args, &requirements, &MockRunner::new(vec![response])).unwrap();
         assert_eq!("github.com", domain);
         assert_eq!("", path);
+    }
+
+    #[test]
+    fn test_remote_url() {
+        let remote_url = RemoteURL::new("github.com".to_string(), "jordilin/gitar".to_string());
+        assert_eq!("github.com", remote_url.domain());
+        assert_eq!("jordilin/gitar", remote_url.path());
+    }
+
+    #[test]
+    fn test_get_config_encoded_project_path() {
+        let remote_url = RemoteURL::new("github.com".to_string(), "jordilin/gitar".to_string());
+        assert_eq!("jordilin_gitar", remote_url.config_encoded_project_path());
+    }
+
+    #[test]
+    fn test_get_config_encoded_project_path_multiple_groups() {
+        let remote_url = RemoteURL::new(
+            "gitlab.com".to_string(),
+            "team/subgroup/project".to_string(),
+        );
+        assert_eq!(
+            "team_subgroup_project",
+            remote_url.config_encoded_project_path()
+        );
     }
 }
