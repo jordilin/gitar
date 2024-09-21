@@ -139,11 +139,7 @@ pub struct MergeRequestBodyArgs {
     #[builder(default)]
     pub target_branch: String,
     #[builder(default)]
-    pub assignee_id: String,
-    #[builder(default)]
     pub assignee: Member,
-    #[builder(default)]
-    pub username: String,
     #[builder(default = "String::from(\"true\")")]
     pub remove_source_branch: String,
     #[builder(default)]
@@ -567,8 +563,7 @@ fn user_prompt_confirmation(
             .source_branch(mr_body.repo.current_branch().to_string())
             .target_branch(target_branch.to_string())
             .target_repo(cli_args.target_repo.as_ref().unwrap().clone())
-            .assignee_id("".to_string())
-            .username("".to_string())
+            .assignee(Member::default())
             .remove_source_branch("true".to_string())
             .amend(cli_args.amend)
             .draft(cli_args.draft)
@@ -593,8 +588,6 @@ fn user_prompt_confirmation(
         .description(user_input.description)
         .source_branch(mr_body.repo.current_branch().to_string())
         .target_branch(target_branch.to_string())
-        .assignee_id(user_input.user_id.to_string())
-        .username(user_input.username)
         .assignee(user_input.assignee)
         // TODO make this configurable
         .remove_source_branch("true".to_string())
@@ -921,13 +914,17 @@ mod tests {
 
     #[test]
     fn test_merge_request_get_all_fields() {
+        let assignee = Member::builder()
+            .id(1)
+            .username("username".to_string())
+            .build()
+            .unwrap();
         let args = MergeRequestBodyArgs::builder()
             .source_branch("source".to_string())
             .target_branch("target".to_string())
             .title("title".to_string())
             .description("description".to_string())
-            .assignee_id("assignee_id".to_string())
-            .username("username".to_string())
+            .assignee(assignee)
             .remove_source_branch("false".to_string())
             .build()
             .unwrap();
@@ -936,8 +933,8 @@ mod tests {
         assert_eq!(args.target_branch, "target");
         assert_eq!(args.title, "title");
         assert_eq!(args.description, "description");
-        assert_eq!(args.assignee_id, "assignee_id");
-        assert_eq!(args.username, "username");
+        assert_eq!(args.assignee.id, 1);
+        assert_eq!(args.assignee.username, "username");
         assert_eq!(args.remove_source_branch, "false");
     }
 
