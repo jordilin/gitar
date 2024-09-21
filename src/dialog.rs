@@ -15,8 +15,6 @@ use crate::Result;
 pub struct MergeRequestUserInput {
     pub title: String,
     pub description: String,
-    pub user_id: i64,
-    pub username: String,
     pub assignee: Member,
 }
 
@@ -29,8 +27,6 @@ impl MergeRequestUserInput {
         MergeRequestUserInput {
             title: title.to_string(),
             description: description.to_string(),
-            user_id,
-            username: username.to_string(),
             assignee: Member::builder()
                 .id(user_id)
                 .username(username.to_string())
