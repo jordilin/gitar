@@ -449,15 +449,18 @@ pub struct RemoteURL {
     /// This is used as a key in TOML configuration in order to retrieve project
     /// specific configuration that overrides its domain specific one.
     config_encoded_project_path: String,
+    config_encoded_domain: String,
 }
 
 impl RemoteURL {
     pub fn new(domain: String, path: String) -> Self {
         let config_encoded_project_path = path.replace("/", "_");
+        let config_encoded_domain = domain.replace(".", "_");
         RemoteURL {
             domain,
             path,
             config_encoded_project_path,
+            config_encoded_domain,
         }
     }
 
@@ -471,6 +474,10 @@ impl RemoteURL {
 
     pub fn config_encoded_project_path(&self) -> &str {
         &self.config_encoded_project_path
+    }
+
+    pub fn config_encoded_domain(&self) -> &str {
+        &self.config_encoded_domain
     }
 }
 
@@ -1015,5 +1022,11 @@ mod test {
             "team_subgroup_project",
             remote_url.config_encoded_project_path()
         );
+    }
+
+    #[test]
+    fn test_get_config_encoded_domain() {
+        let remote_url = RemoteURL::new("github.com".to_string(), "jordilin/gitar".to_string());
+        assert_eq!("github_com", remote_url.config_encoded_domain());
     }
 }
