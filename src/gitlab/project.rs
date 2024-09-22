@@ -115,8 +115,17 @@ impl<R: HttpRunner<Response = Response>> RemoteTag for Gitlab<R> {
 }
 
 impl<R: HttpRunner<Response = Response>> ProjectMember for Gitlab<R> {
-    fn list(&self, _args: ProjectListBodyArgs) -> Result<Vec<Member>> {
-        unimplemented!()
+    fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Member>> {
+        let url = format!("{}/members/all", self.rest_api_basepath());
+        let members = gitlab_list_members(
+            &self.runner,
+            &url,
+            args.from_to_page,
+            self.headers(),
+            None,
+            ApiOperation::Project,
+        )?;
+        Ok(members)
     }
 }
 
@@ -124,6 +133,8 @@ impl<R> Gitlab<R> {
     fn list_project_url(&self, args: &ProjectListBodyArgs, num_pages: bool) -> String {
         let mut url = if args.tags {
             URLQueryParamBuilder::new(&format!("{}/repository/tags", self.projects_base_url))
+        } else if args.members {
+            URLQueryParamBuilder::new(&format!("{}/members/all", self.projects_base_url))
         } else {
             let user = args.user.as_ref().unwrap().clone();
             if args.stars {
@@ -503,6 +514,77 @@ mod test {
         gitlab.num_pages(body_args).unwrap();
         assert_eq!(
             "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/repository/tags?page=1",
+            *client.url()
+        );
+    }
+
+    #[test]
+    fn test_list_project_members() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "project_members.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn ProjectMember);
+        let args = ProjectListBodyArgs::builder()
+            .members(true)
+            .user(None)
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        let members = ProjectMember::list(&*gitlab, args).unwrap();
+        assert_eq!(2, members.len());
+        assert_eq!("test_user_0", members[0].username);
+        assert_eq!("test_user_1", members[1].username);
+        assert_eq!("1234", client.headers().get("PRIVATE-TOKEN").unwrap());
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/members/all",
+            *client.url(),
+        );
+        assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_list_project_members_num_pages() {
+        let link_header = "<https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/members/all?page=2&per_page=20>; rel=\"next\", <https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/members/all?page=2&per_page=20>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "project_members.json",
+            Some(headers),
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn ProjectMember);
+        let body_args = ProjectListBodyArgs::builder()
+            .members(true)
+            .user(None)
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        gitlab.num_pages(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/members/all?page=1",
+            *client.url()
+        );
+    }
+
+    #[test]
+    fn test_list_project_members_num_resources() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            200,
+            "project_members.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn RemoteProject);
+        let body_args = ProjectListBodyArgs::builder()
+            .members(true)
+            .user(None)
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        gitlab.num_resources(body_args).unwrap();
+        assert_eq!(
+            "https://gitlab.com/api/v4/projects/jordilin%2Fgitlapi/members/all?page=1",
             *client.url()
         );
     }
