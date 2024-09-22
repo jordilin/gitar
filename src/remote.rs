@@ -4,7 +4,8 @@ use std::path::Path;
 
 use crate::api_traits::{
     Cicd, CicdJob, CicdRunner, CodeGist, CommentMergeRequest, ContainerRegistry, Deploy,
-    DeployAsset, MergeRequest, RemoteProject, RemoteTag, TrendingProjectURL, UserInfo,
+    DeployAsset, MergeRequest, ProjectMember, RemoteProject, RemoteTag, TrendingProjectURL,
+    UserInfo,
 };
 use crate::cache::{filesystem::FileCache, nocache::NoCache};
 use crate::config::{env_token, ConfigFile, NoConfig};
@@ -412,6 +413,7 @@ get!(get_mr, MergeRequest);
 get!(get_cicd, Cicd);
 get!(get_project, RemoteProject);
 get!(get_tag, RemoteTag);
+get!(get_project_member, ProjectMember);
 get!(get_registry, ContainerRegistry);
 get!(get_deploy, Deploy);
 get!(get_deploy_asset, DeployAsset);

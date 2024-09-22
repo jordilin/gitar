@@ -1,4 +1,4 @@
-use crate::api_traits::{ApiOperation, RemoteProject, RemoteTag};
+use crate::api_traits::{ApiOperation, ProjectMember, RemoteProject, RemoteTag};
 use crate::cli::browse::BrowseOptions;
 use crate::cmds::project::{Member, Project, ProjectListBodyArgs, Tag};
 use crate::error::GRError;
@@ -112,6 +112,12 @@ impl<R: HttpRunner<Response = Response>> RemoteTag for Gitlab<R> {
     // HEAD request, which is not cached and does not require pagination. So,
     // technically speaking is not required. Might be a TODO to change/add an
     // ApiOperation to reflect this.
+}
+
+impl<R: HttpRunner<Response = Response>> ProjectMember for Gitlab<R> {
+    fn list(&self, _args: ProjectListBodyArgs) -> Result<Vec<Member>> {
+        unimplemented!()
+    }
 }
 
 impl<R> Gitlab<R> {

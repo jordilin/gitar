@@ -1,4 +1,4 @@
-use crate::api_traits::{RemoteProject, RemoteTag, Timestamp};
+use crate::api_traits::{ProjectMember, RemoteProject, RemoteTag, Timestamp};
 use crate::cli::project::ProjectOptions;
 use crate::config::ConfigProperties;
 use crate::display::{self, Column, DisplayBody};
@@ -161,6 +161,8 @@ pub struct ProjectListBodyArgs {
     pub stars: bool,
     #[builder(default)]
     pub tags: bool,
+    #[builder(default)]
+    pub members: bool,
 }
 
 impl ProjectListBodyArgs {
@@ -236,8 +238,27 @@ pub fn execute(
             )?;
             project_info(remote, std::io::stdout(), cli_args)
         }
-        ProjectOptions::Members(_) => {
-            todo!()
+        ProjectOptions::Members(cli_args) => {
+            let remote = remote::get_project_member(
+                domain,
+                path,
+                config,
+                Some(&cli_args.list_args.get_args.cache_args),
+                CacheType::File,
+            )?;
+            let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
+            let body_args = ProjectListBodyArgs::builder()
+                .members(true)
+                .from_to_page(from_to_args)
+                .user(None)
+                .build()?;
+            if cli_args.list_args.num_pages {
+                return common::num_project_member_pages(remote, body_args, std::io::stdout());
+            }
+            if cli_args.list_args.num_resources {
+                return common::num_project_member_pages(remote, body_args, std::io::stdout());
+            }
+            list_project_members(remote, body_args, cli_args, std::io::stdout())
         }
         ProjectOptions::Tags(cli_args) => {
             let remote = remote::get_tag(
@@ -247,7 +268,6 @@ pub fn execute(
                 Some(&cli_args.list_args.get_args.cache_args),
                 CacheType::File,
             )?;
-
             let from_to_args = remote::validate_from_to_page(&cli_args.list_args)?;
             let body_args = ProjectListBodyArgs::builder()
                 .tags(true)
@@ -289,6 +309,15 @@ fn list_project_tags<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     common::list_project_tags(remote, body_args, cli_args, &mut writer)
+}
+
+fn list_project_members<W: Write>(
+    remote: Arc<dyn ProjectMember>,
+    body_args: ProjectListBodyArgs,
+    cli_args: ProjectListCliArgs,
+    mut writer: W,
+) -> Result<()> {
+    common::list_project_members(remote, body_args, cli_args, &mut writer)
 }
 
 #[cfg(test)]
@@ -367,6 +396,17 @@ mod test {
                 .build()
                 .unwrap();
             Ok(vec![tag])
+        }
+    }
+
+    impl ProjectMember for ProjectDataProvider {
+        fn list(&self, _args: ProjectListBodyArgs) -> Result<Vec<Member>> {
+            Ok(vec![Member::builder()
+                .id(1)
+                .name("Tom".to_string())
+                .username("Sawyer".to_string())
+                .build()
+                .unwrap()])
         }
     }
 
@@ -504,6 +544,34 @@ mod test {
         list_project_tags(remote, body_args, cli_args, &mut writer).unwrap();
         assert_eq!(
             "Name|SHA|Created at\nv1.0.0|123456|2021-01-01\n",
+            String::from_utf8(writer).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_display_all_columns_project_members() {
+        let remote = ProjectDataProvider::builder().build().unwrap();
+        let remote = Arc::new(remote);
+        let mut writer = Vec::new();
+        let body_args = ProjectListBodyArgs::builder()
+            .members(true)
+            .from_to_page(None)
+            .user(None)
+            .build()
+            .unwrap();
+        let cli_args = ProjectListCliArgs::builder()
+            .members(true)
+            .list_args(
+                ListRemoteCliArgs::builder()
+                    .get_args(GetRemoteCliArgs::builder().build().unwrap())
+                    .build()
+                    .unwrap(),
+            )
+            .build()
+            .unwrap();
+        list_project_members(remote, body_args, cli_args, &mut writer).unwrap();
+        assert_eq!(
+            "ID|Name|Username\n1|Tom|Sawyer\n",
             String::from_utf8(writer).unwrap()
         );
     }

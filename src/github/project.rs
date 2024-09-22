@@ -1,5 +1,5 @@
 use crate::{
-    api_traits::{ApiOperation, RemoteProject, RemoteTag},
+    api_traits::{ApiOperation, ProjectMember, RemoteProject, RemoteTag},
     cli::browse::BrowseOptions,
     cmds::project::{Member, Project, ProjectListBodyArgs, Tag},
     error::GRError,
@@ -124,6 +124,12 @@ impl<R: HttpRunner<Response = Response>> RemoteTag for Github<R> {
             ApiOperation::RepositoryTag,
         )?;
         Ok(tags)
+    }
+}
+
+impl<R: HttpRunner<Response = Response>> ProjectMember for Github<R> {
+    fn list(&self, _args: ProjectListBodyArgs) -> Result<Vec<Member>> {
+        unimplemented!()
     }
 }
 
