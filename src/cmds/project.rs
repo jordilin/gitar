@@ -143,6 +143,8 @@ pub struct ProjectListCliArgs {
     pub stars: bool,
     #[builder(default)]
     pub tags: bool,
+    #[builder(default)]
+    pub members: bool,
 }
 
 impl ProjectListCliArgs {
@@ -233,6 +235,9 @@ pub fn execute(
                 CacheType::File,
             )?;
             project_info(remote, std::io::stdout(), cli_args)
+        }
+        ProjectOptions::Members(_) => {
+            todo!()
         }
         ProjectOptions::Tags(cli_args) => {
             let remote = remote::get_tag(
