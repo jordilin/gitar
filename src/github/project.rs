@@ -1,5 +1,5 @@
 use crate::{
-    api_traits::{ApiOperation, RemoteProject, RemoteTag},
+    api_traits::{ApiOperation, ProjectMember, RemoteProject, RemoteTag},
     cli::browse::BrowseOptions,
     cmds::project::{Member, Project, ProjectListBodyArgs, Tag},
     error::GRError,
@@ -127,6 +127,24 @@ impl<R: HttpRunner<Response = Response>> RemoteTag for Github<R> {
     }
 }
 
+impl<R: HttpRunner<Response = Response>> ProjectMember for Github<R> {
+    fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Member>> {
+        let url = &format!(
+            "{}/repos/{}/contributors",
+            self.rest_api_basepath, self.path
+        );
+        let members = github_list_members(
+            &self.runner,
+            url,
+            args.from_to_page,
+            self.request_headers(),
+            None,
+            ApiOperation::Project,
+        )?;
+        Ok(members)
+    }
+}
+
 pub struct GithubRepositoryTagFields {
     tags: Tag,
 }
@@ -157,6 +175,11 @@ impl<R> Github<R> {
         let mut url = if args.tags {
             URLQueryParamBuilder::new(&format!(
                 "{}/repos/{}/tags",
+                self.rest_api_basepath, self.path
+            ))
+        } else if args.members {
+            URLQueryParamBuilder::new(&format!(
+                "{}/repos/{}/contributors",
                 self.rest_api_basepath, self.path
             ))
         } else if args.stars {
@@ -453,6 +476,79 @@ mod test {
         github.num_pages(body_args).unwrap();
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/tags?page=1",
+            *client.url()
+        );
+    }
+
+    #[test]
+    fn test_list_project_members() {
+        let contracts = ResponseContracts::new(ContractType::Github).add_contract(
+            200,
+            "project_members.json",
+            None,
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn ProjectMember);
+        let args = ProjectListBodyArgs::builder()
+            .members(true)
+            .user(None)
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        let members = ProjectMember::list(&*github, args).unwrap();
+        assert_eq!(1, members.len());
+        assert_eq!("octocat", members[0].username);
+        assert_eq!(
+            "bearer 1234",
+            client.headers().get("Authorization").unwrap()
+        );
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/contributors",
+            *client.url()
+        );
+        assert_eq!(Some(ApiOperation::Project), *client.api_operation.borrow());
+    }
+
+    #[test]
+    fn test_project_members_num_pages() {
+        let link_header = "<https://api.github.com/repos/jordilin/githapi/contributors?page=2>; rel=\"next\", <https://api.github.com/repos/jordilin/githapi/contributors?page=2>; rel=\"last\"";
+        let mut headers = Headers::new();
+        headers.set("link", link_header);
+        let contracts = ResponseContracts::new(ContractType::Github).add_body::<String>(
+            200,
+            None,
+            Some(headers),
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn ProjectMember);
+        let args = ProjectListBodyArgs::builder()
+            .members(true)
+            .user(None)
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        github.num_pages(args).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/contributors?page=1",
+            *client.url()
+        );
+    }
+
+    #[test]
+    fn test_get_project_members_num_resources() {
+        let contracts = ResponseContracts::new(ContractType::Github).add_contract(
+            200,
+            "project_members.json",
+            None,
+        );
+        let (client, github) = setup_client!(contracts, default_github(), dyn ProjectMember);
+        let args = ProjectListBodyArgs::builder()
+            .members(true)
+            .user(None)
+            .from_to_page(None)
+            .build()
+            .unwrap();
+        github.num_resources(args).unwrap();
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/contributors?page=1",
             *client.url()
         );
     }

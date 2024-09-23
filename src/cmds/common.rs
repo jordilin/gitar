@@ -9,8 +9,8 @@ use std::io::Write;
 use std::sync::Arc;
 
 use crate::api_traits::{
-    Cicd, CicdJob, CicdRunner, CodeGist, CommentMergeRequest, Deploy, DeployAsset, RemoteProject,
-    RemoteTag, TrendingProjectURL,
+    Cicd, CicdJob, CicdRunner, CodeGist, CommentMergeRequest, Deploy, DeployAsset, ProjectMember,
+    RemoteProject, RemoteTag, TrendingProjectURL,
 };
 
 use super::cicd::{JobListBodyArgs, JobListCliArgs, RunnerListBodyArgs, RunnerListCliArgs};
@@ -121,6 +121,13 @@ query_num_resources!(num_project_resources, RemoteProject, ProjectListBodyArgs);
 
 query_pages!(num_tag_pages, RemoteTag, ProjectListBodyArgs);
 query_num_resources!(num_tag_resources, RemoteTag, ProjectListBodyArgs);
+
+query_pages!(num_project_member_pages, ProjectMember, ProjectListBodyArgs);
+query_num_resources!(
+    num_project_member_resources,
+    ProjectMember,
+    ProjectListBodyArgs
+);
 
 query_pages!(
     num_comment_merge_request_pages,
@@ -234,6 +241,14 @@ list_resource!(
 list_resource!(
     list_project_tags,
     RemoteTag,
+    ProjectListBodyArgs,
+    ProjectListCliArgs,
+    true
+);
+
+list_resource!(
+    list_project_members,
+    ProjectMember,
     ProjectListBodyArgs,
     ProjectListCliArgs,
     true

@@ -55,6 +55,10 @@ pub trait RemoteTag: RemoteProject {
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Tag>>;
 }
 
+pub trait ProjectMember: RemoteProject {
+    fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Member>>;
+}
+
 pub trait Cicd {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>>;
     fn get_pipeline(&self, id: i64) -> Result<Pipeline>;
