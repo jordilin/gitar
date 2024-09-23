@@ -11,6 +11,7 @@ pub mod project;
 pub mod release;
 pub mod star;
 pub mod trending;
+pub mod user;
 
 use self::browse::BrowseCommand;
 use self::browse::BrowseOptions;
@@ -30,6 +31,8 @@ use cache::CacheCommand;
 use cache::CacheOptions;
 use clap::ArgAction;
 use merge_request::{MergeRequestCommand, MergeRequestOptions};
+use user::UserCommand;
+use user::UserOptions;
 
 use std::option::Option;
 
@@ -91,6 +94,8 @@ enum Command {
     My(MyCommand),
     #[clap(name = "tr", about = "Trending repositories. Github.com only.")]
     Trending(TrendingCommand),
+    #[clap(name = "us", about = "User operations")]
+    User(UserCommand),
     /// Interactively execute gitar amplifier commands using gitar. gr-in-gr
     #[clap(name = "amps")]
     Amps(AmpsCommand),
@@ -122,6 +127,7 @@ pub fn parse_cli() -> OptionArgs {
         Command::Cache(sub_matches) => Some(CliOptions::Cache(sub_matches.into())),
         Command::Manual => Some(CliOptions::Manual),
         Command::Amps(sub_matches) => Some(CliOptions::Amps(sub_matches.into())),
+        Command::User(sub_matches) => Some(CliOptions::User(sub_matches.into())),
     };
     OptionArgs::new(
         options,
@@ -142,6 +148,7 @@ pub enum CliOptions {
     Cache(CacheOptions),
     Manual,
     Amps(AmpsOptions),
+    User(UserOptions),
 }
 
 #[derive(Clone)]

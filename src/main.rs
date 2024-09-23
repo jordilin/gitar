@@ -172,5 +172,8 @@ fn handle_cli_options(
             "".to_string(),
         ),
         CliOptions::Amps(options) => cmds::amps::execute(options, config_file),
+        CliOptions::User(_) => {
+            unimplemented!()
+        }
     }
 }
