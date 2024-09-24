@@ -1,0 +1,11 @@
+[
+    {
+        "id": 12345,
+        "username": "tomsawyer",
+        "name": "Tom Sawyer",
+        "state": "active",
+        "locked": false,
+        "avatar_url": "https://secure.gravatar.com/avatar/",
+        "web_url": "https://gitlab.com/"
+    }
+]

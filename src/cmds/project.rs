@@ -106,7 +106,7 @@ pub struct Member {
     pub name: String,
     #[builder(default)]
     pub username: String,
-    #[builder(default)]
+    #[builder(default = "String::from(\"1970-01-01T00:00:00Z\")")]
     pub created_at: String,
     #[builder(default)]
     pub mr_member_type: MrMemberType,

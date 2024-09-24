@@ -370,6 +370,8 @@ paged!(github_list_user_gists, GithubGistFields, Gist);
 paged!(github_list_repo_tags, GithubRepositoryTagFields, Tag);
 paged!(gitlab_list_project_tags, GitlabProjectTagFields, Tag);
 
+paged!(gitlab_user_by_username, GitlabUserFields, Member);
+
 // Single HTTP requests
 
 send!(gitlab_project_data, GitlabProjectFields, Project);

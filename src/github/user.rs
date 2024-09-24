@@ -1,6 +1,7 @@
 use super::Github;
 use crate::api_traits::{ApiOperation, UserInfo};
 use crate::cmds::project::Member;
+use crate::cmds::user::UserCliArgs;
 use crate::io::{HttpRunner, Response};
 use crate::remote::query;
 use crate::{http, Result};
@@ -19,7 +20,7 @@ impl<R: HttpRunner<Response = Response>> UserInfo for Github<R> {
         Ok(user)
     }
 
-    fn get(&self, _username: &str) -> Result<Member> {
+    fn get(&self, _args: &UserCliArgs) -> Result<Member> {
         todo!()
     }
 }

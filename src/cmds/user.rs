@@ -36,18 +36,18 @@ pub fn execute(
                 Some(&args.get_args.cache_args),
                 CacheType::File,
             )?;
-            get_merge_request_details(remote, args, std::io::stdout())
+            get_merge_request_details(remote, &args, std::io::stdout())
         }
     }
 }
 
 pub fn get_merge_request_details<W: Write>(
     remote: Arc<dyn UserInfo>,
-    args: UserCliArgs,
+    args: &UserCliArgs,
     mut writer: W,
 ) -> Result<()> {
-    let response = remote.get(&args.username)?;
-    display::print(&mut writer, vec![response], args.get_args)?;
+    let response = remote.get(&args)?;
+    display::print(&mut writer, vec![response], args.get_args.clone())?;
     Ok(())
 }
 
@@ -70,7 +70,7 @@ mod tests {
             Ok(Member::builder().build().unwrap())
         }
 
-        fn get(&self, _username: &str) -> Result<Member> {
+        fn get(&self, _args: &UserCliArgs) -> Result<Member> {
             Ok(Member::builder()
                 .username("tomsawyer".to_string())
                 .id(1)
@@ -88,7 +88,7 @@ mod tests {
             .build()
             .unwrap();
         let mut writer = Vec::new();
-        get_merge_request_details(Arc::new(remote), args, &mut writer).unwrap();
+        get_merge_request_details(Arc::new(remote), &args, &mut writer).unwrap();
         assert_eq!(
             "ID|Name|Username\n1||tomsawyer\n",
             String::from_utf8(writer).unwrap()

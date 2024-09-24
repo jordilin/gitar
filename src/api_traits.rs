@@ -19,6 +19,7 @@ use crate::{
         project::{Member, Project, ProjectListBodyArgs, Tag},
         release::{Release, ReleaseAssetListBodyArgs, ReleaseAssetMetadata, ReleaseBodyArgs},
         trending::TrendingProject,
+        user::UserCliArgs,
     },
     io::CmdInfo,
     Result,
@@ -98,7 +99,7 @@ pub trait DeployAsset {
 pub trait UserInfo {
     /// Get the user's information from the remote API.
     fn get_auth_user(&self) -> Result<Member>;
-    fn get(&self, username: &str) -> Result<Member>;
+    fn get(&self, args: &UserCliArgs) -> Result<Member>;
 }
 
 pub trait CodeGist {
