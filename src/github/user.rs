@@ -6,7 +6,7 @@ use crate::remote::query;
 use crate::{http, Result};
 
 impl<R: HttpRunner<Response = Response>> UserInfo for Github<R> {
-    fn get(&self) -> Result<Member> {
+    fn get_auth_user(&self) -> Result<Member> {
         let url = format!("{}/user", self.rest_api_basepath);
         let user = query::github_auth_user::<_, ()>(
             &self.runner,
@@ -17,6 +17,10 @@ impl<R: HttpRunner<Response = Response>> UserInfo for Github<R> {
             ApiOperation::Project,
         )?;
         Ok(user)
+    }
+
+    fn get(&self, _username: &str) -> Result<Member> {
+        todo!()
     }
 }
 
@@ -66,7 +70,7 @@ mod test {
             None,
         );
         let (client, github) = setup_client!(contracts, default_github(), dyn UserInfo);
-        let user = github.get().unwrap();
+        let user = github.get_auth_user().unwrap();
 
         assert_eq!(123456, user.id);
         assert_eq!("jdoe", user.username);

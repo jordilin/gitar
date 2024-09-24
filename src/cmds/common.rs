@@ -285,6 +285,6 @@ pub fn get_user(
         Some(&cli_args.get_args.cache_args),
         CacheType::File,
     )?;
-    let user = remote.get()?;
+    let user = remote.get_auth_user()?;
     Ok(user)
 }

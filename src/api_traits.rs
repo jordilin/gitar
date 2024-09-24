@@ -97,7 +97,8 @@ pub trait DeployAsset {
 
 pub trait UserInfo {
     /// Get the user's information from the remote API.
-    fn get(&self) -> Result<Member>;
+    fn get_auth_user(&self) -> Result<Member>;
+    fn get(&self, username: &str) -> Result<Member>;
 }
 
 pub trait CodeGist {

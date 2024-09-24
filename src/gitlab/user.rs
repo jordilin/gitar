@@ -10,7 +10,7 @@ use crate::{
 use super::Gitlab;
 
 impl<R: HttpRunner<Response = Response>> UserInfo for Gitlab<R> {
-    fn get(&self) -> Result<Member> {
+    fn get_auth_user(&self) -> Result<Member> {
         let user = query::gitlab_auth_user::<_, ()>(
             &self.runner,
             &self.base_current_user_url,
@@ -20,6 +20,10 @@ impl<R: HttpRunner<Response = Response>> UserInfo for Gitlab<R> {
             ApiOperation::Project,
         )?;
         Ok(user)
+    }
+
+    fn get(&self, _username: &str) -> Result<Member> {
+        todo!()
     }
 }
 
@@ -68,7 +72,7 @@ mod test {
             None,
         );
         let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn UserInfo);
-        let user = gitlab.get().unwrap();
+        let user = gitlab.get_auth_user().unwrap();
         assert_eq!(123456, user.id);
         assert_eq!("jordilin", user.username);
         assert_eq!("https://gitlab.com/api/v4/user", *client.url(),);

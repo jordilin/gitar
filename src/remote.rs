@@ -413,6 +413,7 @@ get!(get_mr, MergeRequest);
 get!(get_cicd, Cicd);
 get!(get_project, RemoteProject);
 get!(get_tag, RemoteTag);
+get!(get_user, UserInfo);
 get!(get_project_member, ProjectMember);
 get!(get_registry, ContainerRegistry);
 get!(get_deploy, Deploy);
