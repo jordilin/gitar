@@ -51,6 +51,7 @@ impl Column {
     }
 }
 
+// TODO: Change args to borrow GetRemoteCliArgs
 pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
     w: &mut W,
     data: Vec<D>,

@@ -49,6 +49,8 @@ pub enum GRError {
     CacheLocationIsNotWriteable(String),
     #[error("Cache location write test failed: {0}")]
     CacheLocationWriteTestFailed(String),
+    #[error("User not found: {0}")]
+    UserNotFound(String),
 }
 
 pub trait AddContext<T, E>: Context<T, E> {
