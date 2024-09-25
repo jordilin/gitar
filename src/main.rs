@@ -172,8 +172,20 @@ fn handle_cli_options(
             "".to_string(),
         ),
         CliOptions::Amps(options) => cmds::amps::execute(options, config_file),
-        CliOptions::User(_) => {
-            unimplemented!()
+        CliOptions::User(options) => {
+            let requirements = vec![
+                CliDomainRequirements::DomainArgs,
+                CliDomainRequirements::RepoArgs,
+                CliDomainRequirements::CdInLocalRepo,
+            ];
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let config = remote::read_config(&config_file, &url)?;
+            cmds::user::execute(
+                options,
+                config,
+                url.domain().to_string(),
+                url.path().to_string(),
+            )
         }
     }
 }
