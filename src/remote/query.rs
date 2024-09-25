@@ -399,6 +399,7 @@ send!(
 
 send!(gitlab_auth_user, GitlabUserFields, Member);
 send!(github_auth_user, GithubUserFields, Member);
+send!(github_user_by_username, GithubUserFields, Member);
 
 send!(
     gitlab_get_runner_metadata,
