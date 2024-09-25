@@ -46,7 +46,7 @@ pub fn get_merge_request_details<W: Write>(
     args: &UserCliArgs,
     mut writer: W,
 ) -> Result<()> {
-    let response = remote.get(&args)?;
+    let response = remote.get(args)?;
     display::print(&mut writer, vec![response], args.get_args.clone())?;
     Ok(())
 }
