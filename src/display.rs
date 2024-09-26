@@ -68,7 +68,7 @@ pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
                     .columns
                     .into_iter()
                     .filter(|c| !c.optional || args.display_optional)
-                    .map(|item| (item.name, item.value))
+                    .map(|item| (item.name.to_lowercase(), item.value))
                     .collect();
                 writeln!(w, "{}", serde_json::to_string(&kvs)?)?;
             }
