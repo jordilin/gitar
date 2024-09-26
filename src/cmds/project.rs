@@ -129,7 +129,12 @@ impl From<Member> for DisplayBody {
         DisplayBody {
             columns: vec![
                 Column::new("ID", m.id.to_string()),
-                Column::new("Name", m.name),
+                Column::builder()
+                    .name("Name".to_string())
+                    .value(m.name)
+                    .optional(true)
+                    .build()
+                    .unwrap(),
                 Column::new("Username", m.username),
             ],
         }
@@ -404,7 +409,7 @@ mod test {
             Ok(vec![Member::builder()
                 .id(1)
                 .name("Tom".to_string())
-                .username("Sawyer".to_string())
+                .username("tomsawyer".to_string())
                 .build()
                 .unwrap()])
         }
@@ -571,7 +576,7 @@ mod test {
             .unwrap();
         list_project_members(remote, body_args, cli_args, &mut writer).unwrap();
         assert_eq!(
-            "ID|Name|Username\n1|Tom|Sawyer\n",
+            "ID|Username\n1|tomsawyer\n",
             String::from_utf8(writer).unwrap()
         );
     }
