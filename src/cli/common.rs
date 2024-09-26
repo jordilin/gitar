@@ -107,6 +107,7 @@ pub enum FormatCli {
     Csv,
     Json,
     Pipe,
+    Toml,
 }
 
 impl Display for FormatCli {
@@ -115,6 +116,7 @@ impl Display for FormatCli {
             FormatCli::Csv => write!(f, "csv"),
             FormatCli::Pipe => write!(f, "pipe"),
             FormatCli::Json => write!(f, "json"),
+            FormatCli::Toml => write!(f, "toml"),
         }
     }
 }
@@ -187,6 +189,7 @@ impl From<FormatCli> for Format {
             FormatCli::Csv => Format::CSV,
             FormatCli::Json => Format::JSON,
             FormatCli::Pipe => Format::PIPE,
+            FormatCli::Toml => Format::TOML,
         }
     }
 }

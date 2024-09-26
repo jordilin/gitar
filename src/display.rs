@@ -8,6 +8,7 @@ pub enum Format {
     JSON,
     #[default]
     PIPE,
+    TOML,
 }
 
 impl From<Format> for u8 {
@@ -16,6 +17,7 @@ impl From<Format> for u8 {
             Format::CSV => b',',
             Format::PIPE => b'|',
             Format::JSON => 0,
+            Format::TOML => 0,
         }
     }
 }
@@ -72,6 +74,31 @@ pub fn print<W: Write, D: Into<DisplayBody> + Clone>(
                     .collect();
                 writeln!(w, "{}", serde_json::to_string(&kvs)?)?;
             }
+        }
+        Format::TOML => {
+            writeln!(w, "[")?;
+            let data_len = data.len();
+            for (index, d) in data.into_iter().enumerate() {
+                let d = d.into();
+                write!(w, "    {{")?;
+                let mut first = true;
+                for column in d.columns {
+                    if !column.optional || args.display_optional {
+                        if !first {
+                            write!(w, ",")?;
+                        }
+                        write!(w, " {} = {:?}", column.name.to_lowercase(), column.value)?;
+                        first = false;
+                    }
+                }
+                write!(w, " }}")?;
+                if index < data_len - 1 {
+                    writeln!(w, ",")?;
+                } else {
+                    writeln!(w)?;
+                }
+            }
+            writeln!(w, "]")?;
         }
         _ => {
             let mut wtr = csv::WriterBuilder::new()
@@ -259,5 +286,57 @@ mod test {
             "title,author,isbn\nThe Catcher in the Rye,J.D. Salinger,0316769487\nThe Adventures of Huckleberry Finn,Mark Twain,9780199536559\n",
             String::from_utf8(w).unwrap()
         );
+    }
+
+    #[test]
+    fn test_toml_single_row() {
+        let mut w = Vec::new();
+        let books = vec![Book::new("The Catcher in the Rye", "J.D. Salinger")];
+        let args = GetRemoteCliArgs::builder()
+            .format(Format::TOML)
+            .build()
+            .unwrap();
+        print(&mut w, books, args).unwrap();
+        let s = String::from_utf8(w).unwrap();
+        assert_eq!(
+            s,
+            "[\n    { title = \"The Catcher in the Rye\", author = \"J.D. Salinger\" }\n]\n"
+        );
+    }
+
+    #[test]
+    fn test_toml_multiple_rows() {
+        let mut w = Vec::new();
+        let books = vec![
+            Book::new("The Catcher in the Rye", "J.D. Salinger"),
+            Book::new("The Adventures of Huckleberry Finn", "Mark Twain"),
+        ];
+        let args = GetRemoteCliArgs::builder()
+            .format(Format::TOML)
+            .build()
+            .unwrap();
+        print(&mut w, books, args).unwrap();
+        let s = String::from_utf8(w).unwrap();
+        assert_eq!(s, "[\n    { title = \"The Catcher in the Rye\", author = \"J.D. Salinger\" },\n    { title = \"The Adventures of Huckleberry Finn\", author = \"Mark Twain\" }\n]\n");
+    }
+
+    #[test]
+    fn test_toml_optional_columns() {
+        let mut w = Vec::new();
+        let books = vec![
+            BookOptionalColumns::new("The Catcher in the Rye", "J.D. Salinger", "0316769487"),
+            BookOptionalColumns::new(
+                "The Adventures of Huckleberry Finn",
+                "Mark Twain",
+                "9780199536559",
+            ),
+        ];
+        let args = GetRemoteCliArgs::builder()
+            .format(Format::TOML)
+            .build()
+            .unwrap();
+        print(&mut w, books, args).unwrap();
+        let s = String::from_utf8(w).unwrap();
+        assert_eq!(s, "[\n    { title = \"The Catcher in the Rye\", author = \"J.D. Salinger\" },\n    { title = \"The Adventures of Huckleberry Finn\", author = \"Mark Twain\" }\n]\n");
     }
 }
