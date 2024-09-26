@@ -90,7 +90,7 @@ mod tests {
         let mut writer = Vec::new();
         get_user_details(Arc::new(remote), &args, &mut writer).unwrap();
         assert_eq!(
-            "ID|Name|Username\n1||tomsawyer\n",
+            "ID|Username\n1|tomsawyer\n",
             String::from_utf8(writer).unwrap()
         );
     }
