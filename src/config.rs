@@ -89,7 +89,14 @@ enum UserInfo {
     /// Gitlab remotes. Gitlab REST API requires user ID. This configuration
     /// allows us to map username with user ID, so we can identify which ID is
     /// associated to which user.
-    UsernameID { username: String, id: u64 },
+    UsernameID {
+        username: String,
+        id: u64,
+    },
+    UsernameIDString {
+        username: String,
+        id: String,
+    },
 }
 
 #[derive(Deserialize, Clone, Debug, Default)]
@@ -232,6 +239,12 @@ impl ConfigFile {
                         .mr_member_type(MrMemberType::Filled)
                         .build()
                         .unwrap(),
+                    UserInfo::UsernameIDString { username, id } => Member::builder()
+                        .username(username.clone())
+                        .id(id.parse::<i64>().expect("User ID must be a number"))
+                        .mr_member_type(MrMemberType::Filled)
+                        .build()
+                        .unwrap(),
                 })
                 .collect()
         })
@@ -278,6 +291,17 @@ impl ConfigProperties for ConfigFile {
                                         .id(*id as i64)
                                         .build()
                                         .unwrap(),
+                                    UserInfo::UsernameIDString { username, id } => {
+                                        // TODO - should propagate error when
+                                        // parsing fails
+                                        Member::builder()
+                                            .username(username.clone())
+                                            .id(id
+                                                .parse::<i64>()
+                                                .expect("User ID must be a number"))
+                                            .build()
+                                            .unwrap()
+                                    }
                                 })
                         })
                 })
@@ -299,6 +323,15 @@ impl ConfigProperties for ConfigFile {
                                         .id(*id as i64)
                                         .build()
                                         .unwrap(),
+                                    UserInfo::UsernameIDString { username, id } => {
+                                        Member::builder()
+                                            .username(username.clone())
+                                            .id(id
+                                                .parse::<i64>()
+                                                .expect("User ID must be a number"))
+                                            .build()
+                                            .unwrap()
+                                    }
                                 })
                         })
                 })
@@ -697,5 +730,75 @@ mod test {
         );
         assert_eq!(None, config.preferred_assignee_username());
         assert_eq!("", config.merge_request_description_signature());
+    }
+
+    #[test]
+    fn test_config_with_member_ids_strings() {
+        let config_data = r#"
+        [gitlab_com]
+        api_token = '1234'
+        cache_location = "/home/user/.config/mr_cache"
+        rate_limit_remaining_threshold=15
+
+        [gitlab_com.merge_requests]
+        preferred_assignee_username = { username = "jordilin", id = "1234" }
+        description_signature = "- devops team :-)"
+        members = [
+            { username = 'jdoe', id = '1231' }
+        ]"#;
+
+        let domain = "gitlab.com";
+        let reader = std::io::Cursor::new(config_data);
+        let project_path = "datateam/projecta";
+        let url = RemoteURL::new(domain.to_string(), project_path.to_string());
+        let config = Arc::new(ConfigFile::new(reader, &url, no_env).unwrap());
+        let preferred_assignee_user = config.preferred_assignee_username().unwrap();
+        assert_eq!("jordilin", preferred_assignee_user.username);
+        assert_eq!(
+            "- devops team :-)",
+            config.merge_request_description_signature()
+        );
+        let members = config.merge_request_members().unwrap();
+        assert_eq!(1, members.len());
+        assert_eq!("jdoe", members[0].username);
+        assert_eq!(1231, members[0].id);
+    }
+
+    #[test]
+    fn test_config_with_overridden_project_specific_settings_member_id_strings() {
+        let config_data = r#"
+        [gitlab_com]
+        api_token = '1234'
+        cache_location = "/home/user/.config/mr_cache"
+        rate_limit_remaining_threshold=15
+
+        [gitlab_com.merge_requests]
+        preferred_assignee_username = "jordilin"
+        description_signature = "- devops team :-)"
+        members = [
+            { username = 'jdoe', id = "1234" }
+        ]
+
+        # Project specific settings for /datateam/projecta
+        [gitlab_com.datateam_projecta.merge_requests]
+        preferred_assignee_username = { username = 'jdoe', id = '1234' }
+        description_signature = '- data team projecta :-)'
+        members = [ { username = 'jane', id = "1235" } ]"#;
+
+        let domain = "gitlab.com";
+        let reader = std::io::Cursor::new(config_data);
+        let project_path = "datateam/projecta";
+        let url = RemoteURL::new(domain.to_string(), project_path.to_string());
+        let config = Arc::new(ConfigFile::new(reader, &url, no_env).unwrap());
+        let preferred_assignee_user = config.preferred_assignee_username().unwrap();
+        assert_eq!("jdoe", preferred_assignee_user.username);
+        assert_eq!(
+            "- data team projecta :-)",
+            config.merge_request_description_signature()
+        );
+        let members = config.merge_request_members().unwrap();
+        assert_eq!(1, members.len());
+        assert_eq!("jane", members[0].username);
+        assert_eq!(1235, members[0].id);
     }
 }
