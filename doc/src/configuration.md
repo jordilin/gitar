@@ -18,11 +18,27 @@ or any other domain that you want to use, for example your own company's domain.
 gr init --domain github.com
 ```
 
-This will create a configuration file in your `$HOME/.config/gitar/api`
-directory with some defaults. The configuration follows a properties file format
-with key, value pairs. Once the file is created, open the api file to add your
-API token and the preferred assignee username you want to use in your pull
-requests (traditionally your own username).
+This will create a configuration file in your `$HOME/.config/gitar/gitar.toml`
+directory with some defaults. The configuration follows a TOML file format.
+Once the file is created, open the configuration file to add your
+API token and the optional sections.
+
+## TOML domain sections
+
+The configuration file is divided into sections. Each section is named after the
+domain you are targetting. The formatting of the sections is as follows. Dots in
+the domain name are replaced by underscores.
+
+```toml
+[ github_com ]
+api_token="<your token>"
+
+[ gitlab_com ]
+api_token="<your token>"
+
+[ gitlab_yourcompany_com ]
+api_token="<your token>"
+```
 
 ### No configuration file
 
@@ -73,7 +89,8 @@ under it. Then copy the token and place it in the configuration file. You'll see
 a line like:
 
 ```verbatim
-github.com.api_token=<your-token>
+[ github_com ]
+api_token="<your-token>"
 ```
 
 ### Gitlab.com
@@ -85,17 +102,48 @@ scope, give it a name and an expiration date. Click on `Create personal access
 token` and copy the token over to the configuration file.
 
 ```verbatim
-gitlab.com.api_token=<your-token>
+[ gitlab_com ]
+api_token="<your-token>"
 ```
 
-## Assignee username
+## Merge requests configuration section
 
 The assignee username is the username that will be used to automatically assign
 a pull request to. Normally, that would be your username. Example, whenever I
 create a pull request to my own repository, I automatically assign it to myself.
+Members are the members you want to potentially assign a merge request to.
+For Gitlab, both members and assignee need to be formatted with a map of
+username and user ID. For Github, only the username is needed but the user ID
+can also be provided. Gitar can pull this information directly from the API:
 
-```verbatim
-github.com.preferred_assignee_username=<your-github-username>
+```bash
+# Retrieve number of pages required to retrieve candidates for assignee assignment
+gr pj members --num-pages
+# You might want to bypass throttling if num pages is just a few of them (<10)
+gr pj members --from-page 1 --to-page <total-pages> --throttle 2000 --format toml | tee members.toml
+# Retrieve my username metadata.
+gr us get <my-username> --format toml | tee my-username.toml
+```
+
+The output can be pasted to the configuration file.
+NOTE: The user ID number can be placed in between quotes or without them.
+
+```toml
+[ github_com.merge_requests ]
+preferred_assignee_username={ "username" = "<your-github-username>", "id" = <your-github-user-id> }
+members = [
+  { username = "user1", id = "1234" },
+  { username = "user2", id = "5678" },
+  { username = "user3", id = "9012" }
+]
+
+[ gitlab_com.merge_requests ]
+preferred_assignee_username={ "username" = "<your-gitlab-username>", "id" = <your-gitlab-user-id> }
+members = [
+  { username = "user1", id = "1234" },
+  { username = "user2", id = "5678" },
+  { username = "user3", id = "9012" },
+]
 ```
 
 When targetting other repositories outside of your namespace, .i.e creating a
@@ -127,33 +175,34 @@ API types:
 One page equals to one HTTP request. Gitar has an internal default of 10 maximum
 pages that can be retrieved per API call. This takes effect on list operations
 in every subcommand that has listing support. This can be increased/decreased on
-a per API basis.
+a per API basis. This information needs to be set in the TOML section
+`[domain.max_pages_api]`. Ex. `[github_com.max_pages_api]`.
 
-- `<domain>.max_pages_api_project=<number>` This API type is used to retrieve information
+- `project=<number>` This API type is used to retrieve information
   about a project/repository such as its members. When opening a merge request
-  gitar will pull up to `max_pages_api_project` pages of members to find the
+  gitar will pull up to `project` pages of members to find the
   your username to assign the pull request to. If you get an error that your
   username cannot be found, increase this number. Once the members have been
   retrieved, the list is permanently cached for next calls, so it will be fast.
 
-- `<domain>.max_pages_api_merge_request=<number>` This API type is used to retrieve
+- `merge_request=<number>` This API type is used to retrieve
   information about pull/merge requests. For example, listing opened, merged,
   closed pull requests, etc...
 
-- `<domain>.max_pages_api_pipeline=<number>` This API type is used to retrieve information
+- `pipeline=<number>` This API type is used to retrieve information
   about CI/CD pipelines/actions that run in the given project. This takes place
   in list operations in the `pp` subcommand.
 
-- `<domain>.max_pages_api_release=<number>` This API type is used to retrieve information
+- `release=<number>` This API type is used to retrieve information
   about releases in the current project, such as listing releases and its
   assets.
 
-- `<domain>.max_pages_api_container_registry=<number>` This API type is used to retrieve
+- `container_registry=<number>` This API type is used to retrieve
   information about container registry images in the current project. This is
   supported in Gitlab only. This takes place in list operations in the `dk`
   subcommand.
 
-- `<domain>.max_pages_api_repository_tags=<number>` This API type is used to
+- `repository_tags=<number>` This API type is used to
   retrieve information about tags in a repository. This takes place when listing
   repository tags using the `gr pj tags` subcommand.
 
@@ -162,9 +211,9 @@ a per API basis.
 Gitar has local caching support for each API type. Every HTTP response
 is cached and the next time the same request is made, the same response is
 returned until expired. The responses are stored in a local cache directory
-which can be configured by setting:
+which can be configured by setting the cache location in the `[<domain>]` section
 
-- `<domain>.cache_location=<full-path-to-cache-directory>` The path needs to exist
+- `cache_location="<full-path-to-cache-directory>"` The path needs to exist
   and be writable by the user running the gitar command.
 
 Cache values are a number followed by a letter representing the time unit. For
@@ -176,13 +225,14 @@ HTTP request to check if the cache is still valid and return the cached response
 if it is. Otherwise, it will automatically update the cache with the new
 response.
 
-Cache duration for each API type is as follows:
+Cache duration for each API type can be set in the TOML section
+`[<domain>.cache_expirations]`. Ex. `[github_com.cache_expirations]`.
 
-- `<domain>.cache_api_merge_request_expiration=<number><time-unit>` This API type is
+- `merge_request="<number><time-unit>"` This API type is
   used to retrieve information about pull/merge requests. For example, listing
   opened, merged, closed pull requests.
 
-- `<domain>.cache_api_project_expiration=<number><time-unit>` This API type is
+- `project="<number><time-unit>"` This API type is
   used to retrieve information about a project/repository such as its members.
   When opening a merge request gitar will pull up to `max_pages_api_project`
   pages information to retrieve project information and its members. Project
@@ -190,25 +240,25 @@ Cache duration for each API type is as follows:
   be ok. Members of a project, project ID, etc... can be cached for longer time
   depending on the projects you work on.
 
-- `<domain>.cache_api_pipeline_expiration=<number><time-unit>` This API type is used
+- `pipeline="<number><time-unit>"` This API type is used
   to retrieve information about CI/CD pipelines/actions that run in the given
   project. A low cache value is recommended for this API type as the status of
   pipelines change often in projects.
 
-- `<domain>.cache_api_container_registry_expiration=<number><time-unit>` This
+- `"container_registry="<number><time-unit>"` This
   API type is used to retrieve information about container registry images in
   the current project. This is supported in Gitlab only. This takes place in
   list operations in the `dk` subcommand.
 
-- `<domain>.cache_api_release_expiration=<number><time-unit>` This API type is
+- `release="<number><time-unit>"` This API type is
   used to retrieve information about releases in the current project, such as
   listing releases and its assets.
 
-- `<domain>.cache_api_single_page_expiration=<number><time-unit>` This API type
+- `single_page="<number><time-unit>"` This API type
   is used to retrieve information about single page calls. For example, trending
   repositories in github.com. A value of `1d` is recommended for this API type.
 
-- `<domain>.cache_api_repository_tags_expiration=<number><time-unit>` This API
+- `repository_tags="<number><time-unit>"` This API
   type is used to retrieve information about tags in a repository.
 
 >**Note**: Local cache can be automatically expired and refreshed by issuing the

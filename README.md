@@ -73,6 +73,10 @@ repository.
 
 ### Configuration
 
+**VERSION v1.0.0 and newer**: Configuration file format has changed and it uses TOML.
+Check the manual for more information.
+
+**VERSION v0.1.93 or OLDER**:
 Place your configuration information in a file called `$HOME/.config/gitar/api`.
 You'll need to gather a read/write API token from your Gitlab/Github account.
 
