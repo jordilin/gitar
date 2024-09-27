@@ -10,7 +10,7 @@ use gr::{
     Result,
 };
 
-const DEFAULT_CONFIG_PATH: &str = ".config/gitar/api";
+const DEFAULT_CONFIG_PATH: &str = ".config/gitar/gitar.toml";
 
 fn main() -> Result<()> {
     let home_dir = std::env::var("HOME").unwrap();
