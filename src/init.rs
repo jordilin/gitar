@@ -28,14 +28,22 @@ rate_limit_remaining_threshold=10
 
 [<DOMAIN>.merge_requests]
 
+# Single string username or map { "username" = "your_username", "id" = "your_user_id" }
 preferred_assignee_username="<VALUE>"
 description_signature=""
 
 # Array of usernames if the remote is Github
-# Array of hashmaps username => user ID if the remote is Gitlab
+# Array of hashmaps username => user ID if the remote is Gitlab or Github
 # Ex:
 # members = ["user1", "user2"]
-# members = [{"username": "user1", "id": "1234"}, {"username": "user2", "id": "5678"}]
+# members = [{"username" = "user1", "id" = "1234"}, {"username" = "user2", "id" = "5678"}]
+
+# You can use `gr pj members --format toml` to get the list of members for a project.
+# Be aware that if there are lots of members, this can involve multiple HTTP calls. Make use of
+# `gr pj members --num-pages` to query how many HTTP calls that might involve first.
+# To get your user ID, use `gr us get <your_username> --format toml`. Check the manual for more
+# information.
+
 
 members = []
 
