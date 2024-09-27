@@ -117,7 +117,7 @@ struct CreateMergeRequest {
     #[clap(long, short)]
     pub yes: bool,
     /// Adds and commits all changes before creating the merge request
-    #[clap(long)]
+    #[clap(long, value_name = "COMMIT_MSG")]
     pub commit: Option<String>,
     /// Update the merge request title and description with latest summary
     #[clap(long)]
@@ -128,6 +128,9 @@ struct CreateMergeRequest {
     /// Set up the merge request as draft
     #[clap(long, visible_alias = "wip")]
     pub draft: bool,
+    /// Dry run. Does not push the branch and does not create the merge request
+    #[clap(long)]
+    pub dry_run: bool,
     #[clap(flatten)]
     pub cache_args: CacheArgs,
 }
@@ -262,6 +265,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .draft(options.draft)
                 .amend(options.amend)
                 .force(options.force)
+                .dry_run(options.dry_run)
                 .build()
                 .unwrap(),
         )

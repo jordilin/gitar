@@ -193,6 +193,7 @@ pub struct MergeRequestCliArgs {
     pub amend: bool,
     pub force: bool,
     pub draft: bool,
+    pub dry_run: bool,
 }
 
 impl MergeRequestCliArgs {
@@ -634,6 +635,10 @@ fn open(
         dialog::show_summary_merge_request(&outgoing_commits, &args, cli_args.accept_summary)
     {
         println!("\nTaking off... 🚀\n");
+        if cli_args.dry_run {
+            println!("Dry run completed. No changes were made.");
+            return Ok(());
+        }
         git::push(&BlockingCommand, "origin", &mr_body.repo, cli_args.force)?;
         let merge_request_response = remote.open(args)?;
         println!("Merge request opened: {}", merge_request_response.web_url);
@@ -1380,6 +1385,7 @@ mod tests {
             .draft(false)
             .force(false)
             .amend(false)
+            .dry_run(false)
             .build()
             .unwrap();
 
@@ -1419,6 +1425,7 @@ mod tests {
             .draft(false)
             .force(false)
             .amend(false)
+            .dry_run(false)
             .build()
             .unwrap();
 
@@ -1459,6 +1466,7 @@ mod tests {
             .draft(false)
             .force(false)
             .amend(false)
+            .dry_run(false)
             .build()
             .unwrap();
 
@@ -1631,6 +1639,7 @@ mod tests {
             .draft(false)
             .force(false)
             .amend(false)
+            .dry_run(false)
             .build()
             .unwrap();
 
