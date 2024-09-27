@@ -117,7 +117,7 @@ struct CreateMergeRequest {
     #[clap(long, short)]
     pub yes: bool,
     /// Adds and commits all changes before creating the merge request
-    #[clap(long)]
+    #[clap(long, value_name = "COMMIT_MSG")]
     pub commit: Option<String>,
     /// Update the merge request title and description with latest summary
     #[clap(long)]
