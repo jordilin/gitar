@@ -73,7 +73,7 @@ repository.
 
 ### Configuration
 
-**VERSION v1.0.0**: Configuration file format has changed and it uses TOML.
+**VERSION v1.0.0 and newer**: Configuration file format has changed and it uses TOML.
 Check the manual for more information.
 
 **VERSION v0.1.93 or OLDER**:
