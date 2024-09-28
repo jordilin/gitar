@@ -150,6 +150,22 @@ When targetting other repositories outside of your namespace, .i.e creating a
 pull request from your fork to the original repository, the assignee is left
 blank.
 
+### Per project merge request configurations
+
+If you want to have different members in different projects, you can do so by
+adding the following section `[<domain>.merge_requests.<group>_<project_name>]`.
+Basically the path `/` is replaced by `_`. Ex. `jordilin/gitar` becomes
+`jordilin_gitar`. Same for subgroups: `group_subgroup_projectname`.
+
+Example:
+
+```toml
+[ github_com.merge_requests.jordilin_gitar ]
+members = []
+```
+
+This will effectively override the global configuration for the domain.
+
 ## API types and their configurations
 
 Gitar groups API calls into different types taking full control on how we want
