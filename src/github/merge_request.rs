@@ -220,13 +220,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
 
     fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
         let url = self.url_list_merge_requests(&args);
-        let response = query::github_list_merge_requests(
+        let response = query::paged::<_, MergeRequestResponse>(
             &self.runner,
             &url,
             args.list_args,
             self.request_headers(),
             None,
             ApiOperation::MergeRequest,
+            |value| GithubMergeRequestFields::from(value).into(),
         );
         if args.assignee.is_some() || args.author.is_some() {
             // Pull requests for the current authenticated user.
@@ -354,13 +355,14 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Github<R> {
             "{}/repos/{}/issues/{}/comments",
             self.rest_api_basepath, self.path, args.id
         );
-        query::github_list_merge_request_comments(
+        query::paged(
             &self.runner,
             &url,
             args.list_args,
             self.request_headers(),
             None,
             ApiOperation::MergeRequest,
+            |value| GithubMergeRequestCommentFields::from(value).into(),
         )
     }
 

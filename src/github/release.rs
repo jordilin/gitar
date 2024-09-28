@@ -11,13 +11,14 @@ use super::Github;
 impl<R: HttpRunner<Response = Response>> Deploy for Github<R> {
     fn list(&self, args: ReleaseBodyArgs) -> Result<Vec<Release>> {
         let url = format!("{}/repos/{}/releases", self.rest_api_basepath, self.path);
-        query::github_releases(
+        query::paged(
             &self.runner,
             &url,
             args.from_to_page,
             self.request_headers(),
             None,
             ApiOperation::Release,
+            |value| GithubReleaseFields::from(value).into(),
         )
     }
 
@@ -57,13 +58,14 @@ impl<R: HttpRunner<Response = Response>> DeployAsset for Github<R> {
             "{}/repos/{}/releases/{}/assets",
             self.rest_api_basepath, self.path, args.id
         );
-        query::github_release_assets(
+        query::paged(
             &self.runner,
             &url,
             args.list_args,
             self.request_headers(),
             None,
             ApiOperation::Release,
+            |value| GithubReleaseAssetFields::from(value).into(),
         )
     }
 

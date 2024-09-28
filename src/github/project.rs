@@ -5,10 +5,7 @@ use crate::{
     error::GRError,
     http::Method::GET,
     io::{CmdInfo, HttpRunner, Response},
-    remote::{
-        query::{self, github_list_members},
-        URLQueryParamBuilder,
-    },
+    remote::{query, URLQueryParamBuilder},
 };
 
 use super::Github;
@@ -48,13 +45,14 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
             "{}/repos/{}/contributors",
             self.rest_api_basepath, self.path
         );
-        let members = github_list_members(
+        let members = query::paged(
             &self.runner,
             url,
             None,
             self.request_headers(),
             None,
             ApiOperation::Project,
+            |value| GithubMemberFields::from(value).into(),
         )?;
         Ok(CmdInfo::Members(members))
     }
@@ -76,13 +74,14 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
 
     fn list(&self, args: crate::cmds::project::ProjectListBodyArgs) -> Result<Vec<Project>> {
         let url = self.list_project_url(&args, false);
-        let projects = query::github_list_projects(
+        let projects = query::paged(
             &self.runner,
             &url,
             args.from_to_page,
             self.request_headers(),
             None,
             ApiOperation::Project,
+            |value| GithubProjectFields::from(value).into(),
         )?;
         Ok(projects)
     }
@@ -115,13 +114,14 @@ impl<R: HttpRunner<Response = Response>> RemoteTag for Github<R> {
     // https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-repository-tags
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Tag>> {
         let url = self.list_project_url(&args, false);
-        let tags = query::github_list_repo_tags(
+        let tags = query::paged(
             &self.runner,
             &url,
             args.from_to_page,
             self.request_headers(),
             None,
             ApiOperation::RepositoryTag,
+            |value| GithubRepositoryTagFields::from(value).into(),
         )?;
         Ok(tags)
     }
@@ -133,13 +133,14 @@ impl<R: HttpRunner<Response = Response>> ProjectMember for Github<R> {
             "{}/repos/{}/contributors",
             self.rest_api_basepath, self.path
         );
-        let members = github_list_members(
+        let members = query::paged(
             &self.runner,
             url,
             args.from_to_page,
             self.request_headers(),
             None,
             ApiOperation::Project,
+            |value| GithubMemberFields::from(value).into(),
         )?;
         Ok(members)
     }

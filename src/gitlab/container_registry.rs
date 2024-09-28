@@ -15,13 +15,14 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
             "{}/registry/repositories?tags_count=true",
             self.rest_api_basepath()
         );
-        query::gitlab_project_registry_repositories(
+        query::paged(
             &self.runner,
             &url,
             args.body_args,
             self.headers(),
             None,
             ApiOperation::ContainerRegistry,
+            |value| GitlabRegistryRepositoryFields::from(value).into(),
         )
     }
 
@@ -34,13 +35,14 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
             self.rest_api_basepath(),
             repository_id
         );
-        query::gitlab_project_registry_repository_tags(
+        query::paged(
             &self.runner,
             &url,
             args.body_args,
             self.headers(),
             None,
             ApiOperation::ContainerRegistry,
+            |value| GitlabRepositoryTagFields::from(value).into(),
         )
     }
 

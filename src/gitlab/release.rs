@@ -13,13 +13,14 @@ use super::Gitlab;
 impl<R: HttpRunner<Response = Response>> Deploy for Gitlab<R> {
     fn list(&self, args: ReleaseBodyArgs) -> Result<Vec<Release>> {
         let url = format!("{}/releases", self.rest_api_basepath());
-        query::gitlab_releases(
+        query::paged(
             &self.runner,
             &url,
             args.from_to_page,
             self.headers(),
             None,
             ApiOperation::Release,
+            |value| GitlabReleaseFields::from(value).into(),
         )
     }
 

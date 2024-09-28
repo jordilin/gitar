@@ -15,13 +15,14 @@ use crate::{time, Result};
 impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
         let url = format!("{}/pipelines", self.rest_api_basepath());
-        query::gitlab_list_pipelines(
+        query::paged(
             &self.runner,
             &url,
             args.from_to_page,
             self.headers(),
             None,
             ApiOperation::Pipeline,
+            |value| GitlabPipelineFields::from(value).into(),
         )
     }
 
@@ -58,13 +59,14 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
 impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
     fn list(&self, args: RunnerListBodyArgs) -> Result<Vec<crate::cmds::cicd::Runner>> {
         let url = self.list_runners_url(&args, false);
-        query::gitlab_list_project_runners(
+        query::paged(
             &self.runner,
             &url,
             args.list_args,
             self.headers(),
             None,
             ApiOperation::Pipeline,
+            |value| GitlabRunnerFields::from(value).into(),
         )
     }
 
@@ -157,13 +159,13 @@ impl From<GitlabCreateRunnerFields> for RunnerRegistrationResponse {
     }
 }
 
-pub struct GitlabProjectJobFields {
+pub struct GitlabCicdJobFields {
     job: Job,
 }
 
-impl From<&serde_json::Value> for GitlabProjectJobFields {
+impl From<&serde_json::Value> for GitlabCicdJobFields {
     fn from(data: &serde_json::Value) -> Self {
-        GitlabProjectJobFields {
+        GitlabCicdJobFields {
             job: Job::builder()
                 .id(data["id"].as_i64().unwrap_or_default())
                 .name(data["name"].as_str().unwrap_or_default().to_string())
@@ -202,8 +204,8 @@ impl From<&serde_json::Value> for GitlabProjectJobFields {
     }
 }
 
-impl From<GitlabProjectJobFields> for Job {
-    fn from(fields: GitlabProjectJobFields) -> Self {
+impl From<GitlabCicdJobFields> for Job {
+    fn from(fields: GitlabCicdJobFields) -> Self {
         fields.job
     }
 }
@@ -212,13 +214,14 @@ impl<R: HttpRunner<Response = Response>> CicdJob for Gitlab<R> {
     // https://docs.gitlab.com/ee/api/jobs.html#list-project-jobs
     fn list(&self, args: JobListBodyArgs) -> Result<Vec<Job>> {
         let url = format!("{}/jobs", self.rest_api_basepath());
-        query::gitlab_list_project_jobs(
+        query::paged(
             &self.runner,
             &url,
             args.list_args,
             self.headers(),
             None,
             ApiOperation::Pipeline,
+            |value| GitlabCicdJobFields::from(value).into(),
         )
     }
 

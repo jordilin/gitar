@@ -5,7 +5,7 @@ use crate::error::GRError;
 use crate::gitlab::encode_path;
 use crate::http::{self};
 use crate::io::{CmdInfo, HttpRunner, Response};
-use crate::remote::query::{self, gitlab_list_members};
+use crate::remote::query;
 use crate::remote::URLQueryParamBuilder;
 use crate::Result;
 
@@ -40,13 +40,14 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
 
     fn get_project_members(&self) -> Result<CmdInfo> {
         let url = format!("{}/members/all", self.rest_api_basepath());
-        let members = gitlab_list_members(
+        let members = query::paged(
             &self.runner,
             &url,
             None,
             self.headers(),
             None,
             ApiOperation::Project,
+            |value| GitlabMemberFields::from(value).into(),
         )?;
         Ok(CmdInfo::Members(members))
     }
@@ -68,13 +69,14 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
 
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Project>> {
         let url = self.list_project_url(&args, false);
-        let projects = query::gitlab_list_projects(
+        let projects = query::paged(
             &self.runner,
             &url,
             args.from_to_page,
             self.headers(),
             None,
             ApiOperation::Project,
+            |value| GitlabProjectFields::from(value).into(),
         )?;
         Ok(projects)
     }
@@ -97,13 +99,14 @@ impl<R: HttpRunner<Response = Response>> RemoteTag for Gitlab<R> {
     // https://docs.gitlab.com/ee/api/tags.html
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Tag>> {
         let url = format!("{}/repository/tags", self.projects_base_url);
-        let tags = query::gitlab_list_project_tags(
+        let tags = query::paged(
             &self.runner,
             &url,
             args.from_to_page,
             self.headers(),
             None,
             ApiOperation::RepositoryTag,
+            |value| GitlabProjectTagFields::from(value).into(),
         )?;
         Ok(tags)
     }
@@ -117,13 +120,14 @@ impl<R: HttpRunner<Response = Response>> RemoteTag for Gitlab<R> {
 impl<R: HttpRunner<Response = Response>> ProjectMember for Gitlab<R> {
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Member>> {
         let url = format!("{}/members/all", self.rest_api_basepath());
-        let members = gitlab_list_members(
+        let members = query::paged(
             &self.runner,
             &url,
             args.from_to_page,
             self.headers(),
             None,
             ApiOperation::Project,
+            |value| GitlabMemberFields::from(value).into(),
         )?;
         Ok(members)
     }

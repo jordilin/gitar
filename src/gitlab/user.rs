@@ -35,13 +35,14 @@ impl<R: HttpRunner<Response = Response>> UserInfo for Gitlab<R> {
             .get_args(args.get_args.clone())
             .build()
             .unwrap();
-        let user = query::gitlab_user_by_username(
+        let user = query::paged::<_, Member>(
             &self.runner,
             &url,
             Some(list_args),
             self.headers(),
             None,
             ApiOperation::Project,
+            |value| GitlabUserFields::from(value).into(),
         )?;
         if user.is_empty() {
             return Err(GRError::UserNotFound(args.username.clone()).into());

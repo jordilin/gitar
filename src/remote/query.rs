@@ -3,37 +3,27 @@ use std::sync::Arc;
 
 use serde::Serialize;
 
+use crate::api_traits::Timestamp;
+use crate::display::DisplayBody;
 use crate::{
     api_defaults,
     api_traits::{ApiOperation, NumberDeltaErr},
     cmds::{
-        cicd::{Job, LintResponse, Pipeline, Runner, RunnerMetadata, RunnerRegistrationResponse},
-        docker::{ImageMetadata, RegistryRepository, RepositoryTag},
-        gist::Gist,
-        merge_request::{Comment, MergeRequestResponse},
-        project::{Member, Project, Tag},
-        release::{Release, ReleaseAssetMetadata},
+        cicd::{LintResponse, RunnerMetadata, RunnerRegistrationResponse},
+        docker::ImageMetadata,
+        merge_request::MergeRequestResponse,
+        project::{Member, Project},
     },
     display, error,
     github::{
-        cicd::GithubPipelineFields,
-        gist::GithubGistFields,
-        merge_request::{GithubMergeRequestCommentFields, GithubMergeRequestFields},
-        project::{GithubMemberFields, GithubProjectFields, GithubRepositoryTagFields},
-        release::{GithubReleaseAssetFields, GithubReleaseFields},
+        merge_request::GithubMergeRequestFields, project::GithubProjectFields,
         user::GithubUserFields,
     },
     gitlab::{
-        cicd::{
-            GitlabCreateRunnerFields, GitlabLintResponseFields, GitlabPipelineFields,
-            GitlabProjectJobFields, GitlabRunnerFields, GitlabRunnerMetadataFields,
-        },
-        container_registry::{
-            GitlabImageMetadataFields, GitlabRegistryRepositoryFields, GitlabRepositoryTagFields,
-        },
-        merge_request::{GitlabMergeRequestCommentFields, GitlabMergeRequestFields},
-        project::{GitlabMemberFields, GitlabProjectFields, GitlabProjectTagFields},
-        release::GitlabReleaseFields,
+        cicd::{GitlabCreateRunnerFields, GitlabLintResponseFields, GitlabRunnerMetadataFields},
+        container_registry::GitlabImageMetadataFields,
+        merge_request::GitlabMergeRequestFields,
+        project::GitlabProjectFields,
         user::GitlabUserFields,
     },
     http::{self, Body, Headers, Paginator, Request, Resource},
@@ -191,99 +181,100 @@ fn send_request<R: HttpRunner<Response = Response>, T: Serialize>(
     Ok(response)
 }
 
-macro_rules! paged {
-    ($func_name:ident, $map_type:ident, $return_type:ident) => {
-        pub fn $func_name<R: HttpRunner<Response = Response>>(
-            runner: &Arc<R>,
-            url: &str,
-            list_args: Option<ListBodyArgs>,
-            request_headers: Headers,
-            iter_over_sub_array: Option<&str>,
-            operation: ApiOperation,
-        ) -> Result<Vec<$return_type>> {
-            let request = build_list_request(url, &list_args, request_headers, operation);
-            let mut throttle_time = None;
-            let mut throttle_range = None;
-            let mut backoff_max_retries = 0;
-            let mut backoff_wait_time = 60;
+pub fn paged<R, T>(
+    runner: &Arc<R>,
+    url: &str,
+    list_args: Option<ListBodyArgs>,
+    request_headers: Headers,
+    iter_over_sub_array: Option<&str>,
+    operation: ApiOperation,
+    mapper: impl Fn(&serde_json::Value) -> T,
+) -> Result<Vec<T>>
+where
+    R: HttpRunner<Response = Response>,
+    T: Clone + Timestamp + Into<DisplayBody>,
+{
+    let request = build_list_request(url, &list_args, request_headers, operation);
+    let mut throttle_time = None;
+    let mut throttle_range = None;
+    let mut backoff_max_retries = 0;
+    let mut backoff_wait_time = 60;
+    if let Some(list_args) = &list_args {
+        throttle_time = list_args.throttle_time;
+        throttle_range = list_args.throttle_range;
+        backoff_max_retries = list_args.get_args.backoff_max_retries;
+        backoff_wait_time = list_args.get_args.backoff_retry_after;
+    }
+    let paginator = Paginator::new(
+        &runner,
+        request,
+        url,
+        throttle_time,
+        throttle_range,
+        backoff_max_retries,
+        backoff_wait_time,
+    );
+    let all_data = paginator
+        .map(|response| {
+            let response = response?;
+            if !response.is_ok(&http::Method::GET) {
+                return Err(query_error(&url, &response).into());
+            }
+            if iter_over_sub_array.is_some() {
+                let body = json_loads(&response.body)?;
+                let paged_data = body[iter_over_sub_array.unwrap()]
+                    .as_array()
+                    .ok_or_else(|| {
+                        error::GRError::RemoteUnexpectedResponseContract(format!(
+                            "Expected an array of {} but got: {}",
+                            iter_over_sub_array.unwrap(),
+                            response.body
+                        ))
+                    })?
+                    .iter()
+                    .fold(Vec::new(), |mut paged_data, data| {
+                        paged_data.push(mapper(data));
+                        paged_data
+                    });
+                if let Some(list_args) = &list_args {
+                    if list_args.flush {
+                        display::print(
+                            &mut std::io::stdout(),
+                            paged_data,
+                            list_args.get_args.clone(),
+                        )
+                        .unwrap();
+                        return Ok(Vec::new());
+                    }
+                }
+                return Ok(paged_data);
+            }
+            let paged_data =
+                json_load_page(&response.body)?
+                    .iter()
+                    .fold(Vec::new(), |mut paged_data, data| {
+                        paged_data.push(mapper(data));
+                        paged_data
+                    });
             if let Some(list_args) = &list_args {
-                throttle_time = list_args.throttle_time;
-                throttle_range = list_args.throttle_range;
-                backoff_max_retries = list_args.get_args.backoff_max_retries;
-                backoff_wait_time = list_args.get_args.backoff_retry_after;
+                if list_args.flush {
+                    display::print(
+                        &mut std::io::stdout(),
+                        paged_data,
+                        list_args.get_args.clone(),
+                    )
+                    .unwrap();
+                    return Ok(Vec::new());
+                }
             }
-            let paginator = Paginator::new(
-                &runner,
-                request,
-                url,
-                throttle_time,
-                throttle_range,
-                backoff_max_retries,
-                backoff_wait_time,
-            );
-            let all_data = paginator
-                .map(|response| {
-                    let response = response?;
-                    if !response.is_ok(&http::Method::GET) {
-                        return Err(query_error(&url, &response).into());
-                    }
-                    if iter_over_sub_array.is_some() {
-                        let body = json_loads(&response.body)?;
-                        let paged_data = body[iter_over_sub_array.unwrap()]
-                            .as_array()
-                            .ok_or_else(|| {
-                                error::GRError::RemoteUnexpectedResponseContract(format!(
-                                    "Expected an array of {} but got: {}",
-                                    iter_over_sub_array.unwrap(),
-                                    response.body
-                                ))
-                            })?
-                            .iter()
-                            .fold(Vec::new(), |mut paged_data, data| {
-                                paged_data.push(<$map_type>::from(data).into());
-                                paged_data
-                            });
-                        if let Some(list_args) = &list_args {
-                            if list_args.flush {
-                                display::print(
-                                    &mut std::io::stdout(),
-                                    paged_data,
-                                    list_args.get_args.clone(),
-                                )
-                                .unwrap();
-                                return Ok(Vec::new());
-                            }
-                        }
-                        return Ok(paged_data);
-                    }
-                    let paged_data = json_load_page(&response.body)?.iter().fold(
-                        Vec::new(),
-                        |mut paged_data, data| {
-                            paged_data.push(<$map_type>::from(data).into());
-                            paged_data
-                        },
-                    );
-                    if let Some(list_args) = &list_args {
-                        if list_args.flush {
-                            display::print(
-                                &mut std::io::stdout(),
-                                paged_data,
-                                list_args.get_args.clone(),
-                            )
-                            .unwrap();
-                            return Ok(Vec::new());
-                        }
-                    }
-                    Ok(paged_data)
-                })
-                .collect::<Result<Vec<Vec<$return_type>>>>()
-                .map(|paged_data| paged_data.into_iter().flatten().collect());
-            match all_data {
-                Ok(paged_data) => Ok(sort_filter_by_date(paged_data, list_args)?),
-                Err(err) => Err(err),
-            }
-        }
-    };
+            Ok(paged_data)
+        })
+        .collect::<Result<Vec<Vec<T>>>>()
+        .map(|paged_data| paged_data.into_iter().flatten().collect());
+    match all_data {
+        Ok(paged_data) => Ok(sort_filter_by_date(paged_data, list_args)?),
+        Err(err) => Err(err),
+    }
 }
 
 fn build_list_request<'a>(
@@ -308,69 +299,6 @@ fn build_list_request<'a>(
     }
     request
 }
-
-// Paged HTTP requests
-
-paged!(github_list_members, GithubMemberFields, Member);
-paged!(gitlab_list_members, GitlabMemberFields, Member);
-paged!(github_list_pipelines, GithubPipelineFields, Pipeline);
-paged!(gitlab_list_pipelines, GitlabPipelineFields, Pipeline);
-paged!(
-    github_list_merge_requests,
-    GithubMergeRequestFields,
-    MergeRequestResponse
-);
-paged!(
-    gitlab_list_merge_requests,
-    GitlabMergeRequestFields,
-    MergeRequestResponse
-);
-
-paged!(
-    gitlab_project_registry_repositories,
-    GitlabRegistryRepositoryFields,
-    RegistryRepository
-);
-
-paged!(
-    gitlab_project_registry_repository_tags,
-    GitlabRepositoryTagFields,
-    RepositoryTag
-);
-
-paged!(github_releases, GithubReleaseFields, Release);
-paged!(gitlab_releases, GitlabReleaseFields, Release);
-
-paged!(
-    github_release_assets,
-    GithubReleaseAssetFields,
-    ReleaseAssetMetadata
-);
-
-paged!(gitlab_list_project_runners, GitlabRunnerFields, Runner);
-paged!(gitlab_list_project_jobs, GitlabProjectJobFields, Job);
-
-paged!(gitlab_list_projects, GitlabProjectFields, Project);
-paged!(github_list_projects, GithubProjectFields, Project);
-
-paged!(
-    gitlab_list_merge_request_comments,
-    GitlabMergeRequestCommentFields,
-    Comment
-);
-
-paged!(
-    github_list_merge_request_comments,
-    GithubMergeRequestCommentFields,
-    Comment
-);
-
-paged!(github_list_user_gists, GithubGistFields, Gist);
-
-paged!(github_list_repo_tags, GithubRepositoryTagFields, Tag);
-paged!(gitlab_list_project_tags, GitlabProjectTagFields, Tag);
-
-paged!(gitlab_user_by_username, GitlabUserFields, Member);
 
 // Single HTTP requests
 

@@ -120,13 +120,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
 
     fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
         let url = self.list_merge_request_url(&args, false);
-        query::gitlab_list_merge_requests(
+        query::paged(
             &self.runner,
             &url,
             args.list_args,
             self.headers(),
             None,
             ApiOperation::MergeRequest,
+            |value| GitlabMergeRequestFields::from(value).into(),
         )
     }
 
@@ -271,13 +272,14 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Gitlab<R> {
             args.id
         );
 
-        query::gitlab_list_merge_request_comments(
+        query::paged(
             &self.runner,
             &url,
             args.list_args,
             self.headers(),
             None,
             ApiOperation::MergeRequest,
+            |value| GitlabMergeRequestCommentFields::from(value).into(),
         )
     }
 
