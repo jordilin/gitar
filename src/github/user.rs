@@ -2,21 +2,20 @@ use super::Github;
 use crate::api_traits::{ApiOperation, UserInfo};
 use crate::cmds::project::Member;
 use crate::cmds::user::UserCliArgs;
-use crate::http::Method;
 use crate::io::{HttpRunner, Response};
 use crate::remote::query;
-use crate::{http, Result};
+use crate::Result;
 
 impl<R: HttpRunner<Response = Response>> UserInfo for Github<R> {
     fn get_auth_user(&self) -> Result<Member> {
         let url = format!("{}/user", self.rest_api_basepath);
-        let user = query::github_auth_user::<_, ()>(
+        let user = query::get::<_, (), Member>(
             &self.runner,
             &url,
             None,
             self.request_headers(),
-            http::Method::GET,
             ApiOperation::Project,
+            |value| GithubUserFields::from(value).into(),
         )?;
         Ok(user)
     }
@@ -24,13 +23,13 @@ impl<R: HttpRunner<Response = Response>> UserInfo for Github<R> {
     fn get(&self, _args: &UserCliArgs) -> Result<Member> {
         // https://docs.github.com/en/rest/users/users?apiVersion=2022-11-28#get-a-user
         let url = format!("{}/users/{}", self.rest_api_basepath, _args.username);
-        let user = query::github_user_by_username::<_, ()>(
+        let user = query::get::<_, (), Member>(
             &self.runner,
             &url,
             None,
             self.request_headers(),
-            Method::GET,
             ApiOperation::Project,
+            |value| GithubUserFields::from(value).into(),
         )?;
         Ok(user)
     }

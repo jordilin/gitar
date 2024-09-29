@@ -10,10 +10,7 @@ use crate::{
         },
         project::MrMemberType,
     },
-    http::{
-        Body,
-        Method::{GET, PATCH, POST, PUT},
-    },
+    http::{self, Body},
     io::{HttpRunner, Response},
     json_loads,
     remote::query,
@@ -92,13 +89,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             body.add("head", args.source_branch.clone());
         }
 
-        match query::github_merge_request_response(
+        match query::send_raw(
             &self.runner,
             &mr_url,
             Some(&body),
             self.request_headers(),
-            POST,
             ApiOperation::MergeRequest,
+            http::Method::POST,
         ) {
             Ok(response) => {
                 match response.status {
@@ -134,13 +131,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                         let mut body = Body::new();
                         let assignees = vec![args.assignee.username.as_str()];
                         body.add("assignees", &assignees);
-                        query::github_merge_request::<_, &Vec<&str>>(
+                        query::send::<_, &Vec<&str>, _>(
                             &self.runner,
                             &issues_url,
                             Some(&body),
                             self.request_headers(),
-                            PATCH,
                             ApiOperation::MergeRequest,
+                            |value| GithubMergeRequestFields::from(value).into(),
+                            http::Method::PATCH,
                         )
                     }
                     422 => {
@@ -162,12 +160,11 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                         }
                         let remote_pr_branch = format!("{}:{}", owner_path[0], args.source_branch);
                         let existing_mr_url = format!("{}?head={}", mr_url, remote_pr_branch);
-                        let response = query::github_merge_request_response::<_, ()>(
+                        let response = query::get_raw::<_, ()>(
                             &self.runner,
                             &existing_mr_url,
                             None,
                             self.request_headers(),
-                            GET,
                             ApiOperation::MergeRequest,
                         )?;
                         let merge_requests_json: Vec<serde_json::Value> =
@@ -180,13 +177,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                                     "{}/repos/{}/pulls/{}",
                                     self.rest_api_basepath, self.path, mr_id
                                 );
-                                query::github_merge_request::<_, String>(
+                                query::send_json::<_, String>(
                                     &self.runner,
                                     &url,
                                     Some(&body),
                                     self.request_headers(),
-                                    PATCH,
                                     ApiOperation::MergeRequest,
+                                    http::Method::PATCH,
                                 )?;
                             }
                             Ok(MergeRequestResponse::builder()
@@ -220,13 +217,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
 
     fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
         let url = self.url_list_merge_requests(&args);
-        let response = query::github_list_merge_requests(
+        let response = query::paged::<_, MergeRequestResponse>(
             &self.runner,
             &url,
             args.list_args,
             self.request_headers(),
             None,
             ApiOperation::MergeRequest,
+            |value| GithubMergeRequestFields::from(value).into(),
         );
         if args.assignee.is_some() || args.author.is_some() {
             // Pull requests for the current authenticated user.
@@ -257,13 +255,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             "{}/repos/{}/pulls/{}/merge",
             self.rest_api_basepath, self.path, id
         );
-        query::github_merge_request_json::<_, ()>(
+        query::send_json::<_, ()>(
             &self.runner,
             &url,
             None,
             self.request_headers(),
-            PUT,
             ApiOperation::MergeRequest,
+            http::Method::PUT,
         )?;
         // Response:
         // {
@@ -286,13 +284,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             "{}/repos/{}/pulls/{}",
             self.rest_api_basepath, self.path, id
         );
-        query::github_merge_request::<_, ()>(
+        query::get::<_, (), _>(
             &self.runner,
             &url,
             None,
             self.request_headers(),
-            GET,
             ApiOperation::MergeRequest,
+            |value| GithubMergeRequestFields::from(value).into(),
         )
     }
 
@@ -303,13 +301,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
         );
         let mut body = Body::new();
         body.add("state", "closed");
-        query::github_merge_request::<_, &str>(
+        query::send::<_, &str, _>(
             &self.runner,
             &url,
             Some(&body),
             self.request_headers(),
-            PATCH,
             ApiOperation::MergeRequest,
+            |value| GithubMergeRequestFields::from(value).into(),
+            http::Method::PATCH,
         )
     }
 
@@ -338,13 +337,13 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Github<R> {
         );
         let mut body = Body::new();
         body.add("body", args.comment);
-        query::create_merge_request_comment(
+        query::send_raw(
             &self.runner,
             &url,
             Some(&body),
             self.request_headers(),
-            POST,
             ApiOperation::MergeRequest,
+            http::Method::POST,
         )?;
         Ok(())
     }
@@ -354,13 +353,14 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Github<R> {
             "{}/repos/{}/issues/{}/comments",
             self.rest_api_basepath, self.path, args.id
         );
-        query::github_list_merge_request_comments(
+        query::paged(
             &self.runner,
             &url,
             args.list_args,
             self.request_headers(),
             None,
             ApiOperation::MergeRequest,
+            |value| GithubMergeRequestCommentFields::from(value).into(),
         )
     }
 

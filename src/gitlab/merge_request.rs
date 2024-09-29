@@ -6,7 +6,6 @@ use crate::cmds::merge_request::{
 };
 use crate::cmds::project::MrMemberType;
 use crate::error::{self, GRError};
-use crate::http::Method::GET;
 use crate::http::{self, Body, Headers};
 use crate::io::CmdInfo;
 use crate::remote::query;
@@ -56,13 +55,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
             }
         }
         let url = format!("{}/merge_requests", self.rest_api_basepath());
-        let response = query::gitlab_merge_request_response(
+        let response = query::send_raw(
             &self.runner,
             &url,
             Some(&body),
             self.headers(),
-            http::Method::POST,
             ApiOperation::MergeRequest,
+            http::Method::POST,
         )?;
         // if status code is 409, it means that the merge request already
         // exists. We already pushed the branch, just return the merge request
@@ -84,13 +83,13 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
                     self.rest_api_basepath(),
                     merge_request_iid
                 );
-                query::gitlab_merge_request_response(
+                query::send_raw(
                     &self.runner,
                     &url,
                     Some(&body),
                     self.headers(),
-                    http::Method::PUT,
                     ApiOperation::MergeRequest,
+                    http::Method::PUT,
                 )?;
             }
             let merge_request_url = format!(
@@ -120,39 +119,41 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
 
     fn list(&self, args: MergeRequestListBodyArgs) -> Result<Vec<MergeRequestResponse>> {
         let url = self.list_merge_request_url(&args, false);
-        query::gitlab_list_merge_requests(
+        query::paged(
             &self.runner,
             &url,
             args.list_args,
             self.headers(),
             None,
             ApiOperation::MergeRequest,
+            |value| GitlabMergeRequestFields::from(value).into(),
         )
     }
 
     fn merge(&self, id: i64) -> Result<MergeRequestResponse> {
         // PUT /projects/:id/merge_requests/:merge_request_iid/merge
         let url = format!("{}/merge_requests/{}/merge", self.rest_api_basepath(), id);
-        query::gitlab_merge_request::<_, ()>(
+        query::send::<_, (), _>(
             &self.runner,
             &url,
             None,
             self.headers(),
-            http::Method::PUT,
             ApiOperation::MergeRequest,
+            |value| GitlabMergeRequestFields::from(value).into(),
+            http::Method::PUT,
         )
     }
 
     fn get(&self, id: i64) -> Result<MergeRequestResponse> {
         // GET /projects/:id/merge_requests/:merge_request_iid
         let url = format!("{}/merge_requests/{}", self.rest_api_basepath(), id);
-        query::gitlab_merge_request::<_, ()>(
+        query::get::<_, (), _>(
             &self.runner,
             &url,
             None,
             self.headers(),
-            GET,
             ApiOperation::MergeRequest,
+            |value| GitlabMergeRequestFields::from(value).into(),
         )
     }
 
@@ -160,13 +161,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
         let url = format!("{}/merge_requests/{}", self.rest_api_basepath(), id);
         let mut body = Body::new();
         body.add("state_event", "close");
-        query::gitlab_merge_request::<_, &str>(
+        query::send::<_, &str, _>(
             &self.runner,
             &url,
             Some(&body),
             self.headers(),
-            http::Method::PUT,
             ApiOperation::MergeRequest,
+            |value| GitlabMergeRequestFields::from(value).into(),
+            http::Method::PUT,
         )
     }
 
@@ -186,13 +188,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
 
     fn approve(&self, id: i64) -> Result<MergeRequestResponse> {
         let url = format!("{}/merge_requests/{}/approve", self.rest_api_basepath(), id);
-        let result = query::gitlab_merge_request::<_, ()>(
+        let result = query::send::<_, (), MergeRequestResponse>(
             &self.runner,
             &url,
             None,
             self.headers(),
-            http::Method::POST,
             ApiOperation::MergeRequest,
+            |value| GitlabMergeRequestFields::from(value).into(),
+            http::Method::POST,
         );
         // responses in approvals for Gitlab do not contain the merge request
         // URL, patch it in the response.
@@ -253,13 +256,13 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Gitlab<R> {
         );
         let mut body = Body::new();
         body.add("body", args.comment);
-        query::create_merge_request_comment(
+        query::send_raw(
             &self.runner,
             &url,
             Some(&body),
             self.headers(),
-            http::Method::POST,
             ApiOperation::MergeRequest,
+            http::Method::POST,
         )?;
         Ok(())
     }
@@ -271,13 +274,14 @@ impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Gitlab<R> {
             args.id
         );
 
-        query::gitlab_list_merge_request_comments(
+        query::paged(
             &self.runner,
             &url,
             args.list_args,
             self.headers(),
             None,
             ApiOperation::MergeRequest,
+            |value| GitlabMergeRequestCommentFields::from(value).into(),
         )
     }
 

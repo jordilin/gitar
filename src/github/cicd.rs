@@ -19,13 +19,14 @@ impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
             "{}/repos/{}/actions/runs",
             self.rest_api_basepath, self.path
         );
-        query::github_list_pipelines(
+        query::paged(
             &self.runner,
             &url,
             args.from_to_page,
             self.request_headers(),
             Some("workflow_runs"),
             ApiOperation::Pipeline,
+            |value| GithubPipelineFields::from(value).into(),
         )
     }
 

@@ -1,9 +1,8 @@
 use crate::{
     api_traits::{ApiOperation, Deploy, DeployAsset, NumberDeltaErr},
     cmds::release::{Release, ReleaseAssetListBodyArgs, ReleaseAssetMetadata, ReleaseBodyArgs},
-    http::{self, Method::GET},
+    http,
     io::{HttpRunner, Response},
-    json_loads,
     remote::query,
     Result,
 };
@@ -13,13 +12,14 @@ use super::Gitlab;
 impl<R: HttpRunner<Response = Response>> Deploy for Gitlab<R> {
     fn list(&self, args: ReleaseBodyArgs) -> Result<Vec<Release>> {
         let url = format!("{}/releases", self.rest_api_basepath());
-        query::gitlab_releases(
+        query::paged(
             &self.runner,
             &url,
             args.from_to_page,
             self.headers(),
             None,
             ApiOperation::Release,
+            |value| GitlabReleaseFields::from(value).into(),
         )
     }
 
@@ -43,16 +43,13 @@ impl<R: HttpRunner<Response = Response>> Gitlab<R> {
 
     fn get_release(&self, args: ReleaseAssetListBodyArgs) -> Result<serde_json::Value> {
         let url = format!("{}/releases/{}", self.rest_api_basepath(), args.id);
-        let response = query::gitlab_get_release::<_, ()>(
+        query::get_json::<_, ()>(
             &self.runner,
             &url,
             None,
             self.headers(),
-            GET,
             ApiOperation::Release,
-        )?;
-        let release = json_loads(&response.body)?;
-        Ok(release)
+        )
     }
 }
 

@@ -1,7 +1,6 @@
 use crate::{
     api_traits::{ApiOperation, ContainerRegistry},
     cmds::docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
-    http,
     io::{HttpRunner, Response},
     remote::query,
     Result,
@@ -15,13 +14,14 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
             "{}/registry/repositories?tags_count=true",
             self.rest_api_basepath()
         );
-        query::gitlab_project_registry_repositories(
+        query::paged(
             &self.runner,
             &url,
             args.body_args,
             self.headers(),
             None,
             ApiOperation::ContainerRegistry,
+            |value| GitlabRegistryRepositoryFields::from(value).into(),
         )
     }
 
@@ -34,13 +34,14 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
             self.rest_api_basepath(),
             repository_id
         );
-        query::gitlab_project_registry_repository_tags(
+        query::paged(
             &self.runner,
             &url,
             args.body_args,
             self.headers(),
             None,
             ApiOperation::ContainerRegistry,
+            |value| GitlabRepositoryTagFields::from(value).into(),
         )
     }
 
@@ -94,13 +95,13 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
             repository_id,
             tag
         );
-        query::gitlab_registry_image_tag_metadata::<_, ()>(
+        query::get::<_, (), _>(
             &self.runner,
             &url,
             None,
             self.headers(),
-            http::Method::GET,
             ApiOperation::ContainerRegistry,
+            |value| GitlabImageMetadataFields::from(value).into(),
         )
     }
 }

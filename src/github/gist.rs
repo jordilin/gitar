@@ -13,13 +13,14 @@ use super::Github;
 impl<R: HttpRunner<Response = Response>> CodeGist for Github<R> {
     fn list(&self, args: GistListBodyArgs) -> crate::Result<Vec<Gist>> {
         let url = self.auth_user_gist_url(false);
-        query::github_list_user_gists(
+        query::paged(
             &self.runner,
             &url,
             args.body_args,
             self.request_headers(),
             None,
             ApiOperation::Gist,
+            |value| GithubGistFields::from(value).into(),
         )
     }
 

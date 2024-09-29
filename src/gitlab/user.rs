@@ -2,7 +2,6 @@ use crate::{
     api_traits::{ApiOperation, UserInfo},
     cmds::{project::Member, user::UserCliArgs},
     error::GRError,
-    http,
     io::{HttpRunner, Response},
     remote::{self, query},
     Result,
@@ -12,13 +11,13 @@ use super::Gitlab;
 
 impl<R: HttpRunner<Response = Response>> UserInfo for Gitlab<R> {
     fn get_auth_user(&self) -> Result<Member> {
-        let user = query::gitlab_auth_user::<_, ()>(
+        let user = query::get::<_, (), _>(
             &self.runner,
             &self.base_current_user_url,
             None,
             self.headers(),
-            http::Method::GET,
             ApiOperation::Project,
+            |value| GitlabUserFields::from(value).into(),
         )?;
         Ok(user)
     }
@@ -35,13 +34,14 @@ impl<R: HttpRunner<Response = Response>> UserInfo for Gitlab<R> {
             .get_args(args.get_args.clone())
             .build()
             .unwrap();
-        let user = query::gitlab_user_by_username(
+        let user = query::paged::<_, Member>(
             &self.runner,
             &url,
             Some(list_args),
             self.headers(),
             None,
             ApiOperation::Project,
+            |value| GitlabUserFields::from(value).into(),
         )?;
         if user.is_empty() {
             return Err(GRError::UserNotFound(args.username.clone()).into());
