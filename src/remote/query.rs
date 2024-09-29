@@ -8,24 +8,7 @@ use crate::display::DisplayBody;
 use crate::{
     api_defaults,
     api_traits::{ApiOperation, NumberDeltaErr},
-    cmds::{
-        cicd::{LintResponse, RunnerMetadata, RunnerRegistrationResponse},
-        docker::ImageMetadata,
-        merge_request::MergeRequestResponse,
-        project::{Member, Project},
-    },
     display, error,
-    github::{
-        merge_request::GithubMergeRequestFields, project::GithubProjectFields,
-        user::GithubUserFields,
-    },
-    gitlab::{
-        cicd::{GitlabCreateRunnerFields, GitlabLintResponseFields, GitlabRunnerMetadataFields},
-        container_registry::GitlabImageMetadataFields,
-        merge_request::GitlabMergeRequestFields,
-        project::GitlabProjectFields,
-        user::GitlabUserFields,
-    },
     http::{self, Body, Headers, Paginator, Request, Resource},
     io::{HttpRunner, PageHeader, Response},
     json_load_page, json_loads,
@@ -108,46 +91,96 @@ fn query_error(url: &str, response: &Response) -> error::GRError {
     ))
 }
 
-macro_rules! send {
-    ($func_name:ident, $map_type:ident, $return_type:ident) => {
-        pub fn $func_name<R: HttpRunner<Response = Response>, T: Serialize>(
-            runner: &Arc<R>,
-            url: &str,
-            body: Option<&Body<T>>,
-            request_headers: Headers,
-            method: http::Method,
-            operation: ApiOperation,
-        ) -> Result<$return_type> {
-            let response = send_request(runner, url, body, request_headers, method, operation)?;
-            let body = json_loads(&response.body)?;
-            Ok(<$map_type>::from(&body).into())
-        }
-    };
-    ($func_name:ident, Response) => {
-        pub fn $func_name<R: HttpRunner<Response = Response>, T: Serialize>(
-            runner: &Arc<R>,
-            url: &str,
-            body: Option<&Body<T>>,
-            request_headers: Headers,
-            method: http::Method,
-            operation: ApiOperation,
-        ) -> Result<Response> {
-            send_request(runner, url, body, request_headers, method, operation)
-        }
-    };
-    ($func_name:ident, serde_json::Value) => {
-        pub fn $func_name<R: HttpRunner<Response = Response>, T: Serialize>(
-            runner: &Arc<R>,
-            url: &str,
-            body: Option<&Body<T>>,
-            request_headers: Headers,
-            method: http::Method,
-            operation: ApiOperation,
-        ) -> Result<serde_json::Value> {
-            let response = send_request(runner, url, body, request_headers, method, operation)?;
-            json_loads(&response.body)
-        }
-    };
+pub fn send<R: HttpRunner<Response = Response>, D: Serialize, T>(
+    runner: &Arc<R>,
+    url: &str,
+    body: Option<&Body<D>>,
+    request_headers: Headers,
+    operation: ApiOperation,
+    mapper: impl Fn(&serde_json::Value) -> T,
+    method: http::Method,
+) -> Result<T> {
+    let response = send_request(runner, url, body, request_headers, method, operation)?;
+    let body = json_loads(&response.body)?;
+    Ok(mapper(&body).into())
+}
+
+pub fn send_json<R: HttpRunner<Response = Response>, D: Serialize>(
+    runner: &Arc<R>,
+    url: &str,
+    body: Option<&Body<D>>,
+    request_headers: Headers,
+    operation: ApiOperation,
+    method: http::Method,
+) -> Result<serde_json::Value> {
+    let response = send_request(runner, url, body, request_headers, method, operation)?;
+    json_loads(&response.body)
+}
+
+pub fn send_raw<R: HttpRunner<Response = Response>, D: Serialize>(
+    runner: &Arc<R>,
+    url: &str,
+    body: Option<&Body<D>>,
+    request_headers: Headers,
+    operation: ApiOperation,
+    method: http::Method,
+) -> Result<Response> {
+    send_request(runner, url, body, request_headers, method, operation)
+}
+
+pub fn get<R: HttpRunner<Response = Response>, D: Serialize, T>(
+    runner: &Arc<R>,
+    url: &str,
+    body: Option<&Body<D>>,
+    request_headers: Headers,
+    operation: ApiOperation,
+    mapper: impl Fn(&serde_json::Value) -> T,
+) -> Result<T> {
+    let response = send_request(
+        runner,
+        url,
+        body,
+        request_headers,
+        http::Method::GET,
+        operation,
+    )?;
+    let body = json_loads(&response.body)?;
+    Ok(mapper(&body).into())
+}
+
+pub fn get_json<R: HttpRunner<Response = Response>, D: Serialize>(
+    runner: &Arc<R>,
+    url: &str,
+    body: Option<&Body<D>>,
+    request_headers: Headers,
+    operation: ApiOperation,
+) -> Result<serde_json::Value> {
+    let response = send_request(
+        runner,
+        url,
+        body,
+        request_headers,
+        http::Method::GET,
+        operation,
+    )?;
+    json_loads(&response.body)
+}
+
+pub fn get_raw<R: HttpRunner<Response = Response>, D: Serialize>(
+    runner: &Arc<R>,
+    url: &str,
+    body: Option<&Body<D>>,
+    request_headers: Headers,
+    operation: ApiOperation,
+) -> Result<Response> {
+    send_request(
+        runner,
+        url,
+        body,
+        request_headers,
+        http::Method::GET,
+        operation,
+    )
 }
 
 fn send_request<R: HttpRunner<Response = Response>, T: Serialize>(
@@ -299,55 +332,6 @@ fn build_list_request<'a>(
     }
     request
 }
-
-// Single HTTP requests
-
-send!(gitlab_project_data, GitlabProjectFields, Project);
-send!(github_project_data, GithubProjectFields, Project);
-send!(
-    github_merge_request,
-    GithubMergeRequestFields,
-    MergeRequestResponse
-);
-
-send!(github_merge_request_json, serde_json::Value);
-send!(github_merge_request_response, Response);
-send!(
-    gitlab_merge_request,
-    GitlabMergeRequestFields,
-    MergeRequestResponse
-);
-
-send!(gitlab_merge_request_response, Response);
-send!(
-    gitlab_registry_image_tag_metadata,
-    GitlabImageMetadataFields,
-    ImageMetadata
-);
-
-send!(gitlab_auth_user, GitlabUserFields, Member);
-send!(github_auth_user, GithubUserFields, Member);
-send!(github_user_by_username, GithubUserFields, Member);
-
-send!(
-    gitlab_get_runner_metadata,
-    GitlabRunnerMetadataFields,
-    RunnerMetadata
-);
-
-send!(create_merge_request_comment, Response);
-
-send!(github_trending_language_projects, Response);
-
-send!(gitlab_get_release, Response);
-
-send!(gitlab_lint_ci_file, GitlabLintResponseFields, LintResponse);
-
-send!(
-    gitlab_create_runner,
-    GitlabCreateRunnerFields,
-    RunnerRegistrationResponse
-);
 
 #[cfg(test)]
 mod test {

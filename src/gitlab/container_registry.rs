@@ -1,7 +1,6 @@
 use crate::{
     api_traits::{ApiOperation, ContainerRegistry},
     cmds::docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
-    http,
     io::{HttpRunner, Response},
     remote::query,
     Result,
@@ -96,13 +95,13 @@ impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
             repository_id,
             tag
         );
-        query::gitlab_registry_image_tag_metadata::<_, ()>(
+        query::get::<_, (), _>(
             &self.runner,
             &url,
             None,
             self.headers(),
-            http::Method::GET,
             ApiOperation::ContainerRegistry,
+            |value| GitlabImageMetadataFields::from(value).into(),
         )
     }
 }

@@ -3,7 +3,6 @@ use crate::cli::browse::BrowseOptions;
 use crate::cmds::project::{Member, Project, ProjectListBodyArgs, Tag};
 use crate::error::GRError;
 use crate::gitlab::encode_path;
-use crate::http::{self};
 use crate::io::{CmdInfo, HttpRunner, Response};
 use crate::remote::query;
 use crate::remote::URLQueryParamBuilder;
@@ -27,13 +26,13 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
                 .into());
             }
         };
-        let project = query::gitlab_project_data::<_, ()>(
+        let project = query::get::<_, (), _>(
             &self.runner,
             &url,
             None,
             self.headers(),
-            http::Method::GET,
             ApiOperation::Project,
+            |value| GitlabProjectFields::from(value).into(),
         )?;
         Ok(CmdInfo::Project(project))
     }

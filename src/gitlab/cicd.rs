@@ -45,13 +45,14 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
         let url = format!("{}/ci/lint", self.rest_api_basepath());
         let mut payload = Body::new();
         payload.add("content", body.to_string());
-        query::gitlab_lint_ci_file(
+        query::send(
             &self.runner,
             &url,
             Some(&payload),
             self.headers(),
-            http::Method::POST,
             ApiOperation::Pipeline,
+            |value| GitlabLintResponseFields::from(value).into(),
+            http::Method::POST,
         )
     }
 }
@@ -72,13 +73,13 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
 
     fn get(&self, id: i64) -> Result<RunnerMetadata> {
         let url = format!("{}/{}", self.base_runner_url, id);
-        query::gitlab_get_runner_metadata::<_, ()>(
+        query::get::<_, (), _>(
             &self.runner,
             &url,
             None,
             self.headers(),
-            http::Method::GET,
             ApiOperation::Pipeline,
+            |value| GitlabRunnerMetadataFields::from(value).into(),
         )
     }
 
@@ -120,13 +121,14 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
         }
         body.add("runner_type", args.kind.to_string());
 
-        query::gitlab_create_runner(
+        query::send(
             &self.runner,
             &url,
             Some(&body),
             self.headers(),
-            http::Method::POST,
             ApiOperation::Pipeline,
+            |value| GitlabCreateRunnerFields::from(value).into(),
+            http::Method::POST,
         )
     }
 }

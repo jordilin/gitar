@@ -3,9 +3,9 @@ use regex::Regex;
 use crate::{
     api_traits::{ApiOperation, TrendingProjectURL},
     cmds::trending::TrendingProject,
-    http::{Headers, Method},
+    http::Headers,
     io::{HttpRunner, Response},
-    remote::query::github_trending_language_projects,
+    remote::query,
     Result,
 };
 
@@ -16,12 +16,11 @@ impl<R: HttpRunner<Response = Response>> TrendingProjectURL for Github<R> {
         let url = format!("https://{}/trending/{}", self.domain, language);
         let mut headers = Headers::new();
         headers.set("Accept".to_string(), "text/html".to_string());
-        let response = github_trending_language_projects::<_, String>(
+        let response = query::get_raw::<_, String>(
             &self.runner,
             &url,
             None,
             headers,
-            Method::GET,
             ApiOperation::SinglePage,
         )?;
         parse_response(response)

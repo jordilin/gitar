@@ -3,7 +3,6 @@ use crate::{
     cli::browse::BrowseOptions,
     cmds::project::{Member, Project, ProjectListBodyArgs, Tag},
     error::GRError,
-    http::Method::GET,
     io::{CmdInfo, HttpRunner, Response},
     remote::{query, URLQueryParamBuilder},
 };
@@ -29,13 +28,13 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
         } else {
             format!("{}/repos/{}", self.rest_api_basepath, self.path)
         };
-        let project = query::github_project_data::<_, ()>(
+        let project = query::get::<_, (), Project>(
             &self.runner,
             &url,
             None,
             self.request_headers(),
-            GET,
             ApiOperation::Project,
+            |value| GithubProjectFields::from(value).into(),
         )?;
         Ok(CmdInfo::Project(project))
     }
