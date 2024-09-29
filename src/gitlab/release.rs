@@ -3,7 +3,6 @@ use crate::{
     cmds::release::{Release, ReleaseAssetListBodyArgs, ReleaseAssetMetadata, ReleaseBodyArgs},
     http,
     io::{HttpRunner, Response},
-    json_loads,
     remote::query,
     Result,
 };
@@ -44,15 +43,13 @@ impl<R: HttpRunner<Response = Response>> Gitlab<R> {
 
     fn get_release(&self, args: ReleaseAssetListBodyArgs) -> Result<serde_json::Value> {
         let url = format!("{}/releases/{}", self.rest_api_basepath(), args.id);
-        let response = query::get_raw::<_, ()>(
+        query::get_json::<_, ()>(
             &self.runner,
             &url,
             None,
             self.headers(),
             ApiOperation::Release,
-        )?;
-        let release = json_loads(&response.body)?;
-        Ok(release)
+        )
     }
 }
 
