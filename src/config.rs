@@ -17,8 +17,8 @@ pub trait ConfigProperties: Send + Sync {
         None
     }
 
-    fn merge_request_members(&self) -> Option<Vec<Member>> {
-        None
+    fn merge_request_members(&self) -> Vec<Member> {
+        vec![]
     }
 
     fn merge_request_description_signature(&self) -> &str {
@@ -201,9 +201,9 @@ impl ConfigFile {
         }
     }
 
-    fn get_members_from_config(&self) -> Option<Vec<Member>> {
+    fn get_members_from_config(&self) -> Vec<Member> {
         if let Some(domain_config) = &self.inner.domains.get(&self.domain_key) {
-            domain_config
+            let members = domain_config
                 .projects
                 .get(&self.project_path_key)
                 .and_then(|project_config| {
@@ -217,9 +217,10 @@ impl ConfigFile {
                         .merge_requests
                         .as_ref()
                         .and_then(|merge_request_config| self.get_members(merge_request_config))
-                })
+                });
+            members.unwrap_or_default()
         } else {
-            None
+            vec![]
         }
     }
 
@@ -284,10 +285,12 @@ impl ConfigProperties for ConfigFile {
                                 .map(|user_info| match user_info {
                                     UserInfo::UsernameOnly(username) => Member::builder()
                                         .username(username.clone())
+                                        .mr_member_type(MrMemberType::Filled)
                                         .build()
                                         .unwrap(),
                                     UserInfo::UsernameID { username, id } => Member::builder()
                                         .username(username.clone())
+                                        .mr_member_type(MrMemberType::Filled)
                                         .id(*id as i64)
                                         .build()
                                         .unwrap(),
@@ -296,6 +299,7 @@ impl ConfigProperties for ConfigFile {
                                         // parsing fails
                                         Member::builder()
                                             .username(username.clone())
+                                            .mr_member_type(MrMemberType::Filled)
                                             .id(id
                                                 .parse::<i64>()
                                                 .expect("User ID must be a number"))
@@ -316,16 +320,19 @@ impl ConfigProperties for ConfigFile {
                                 .map(|user_info| match user_info {
                                     UserInfo::UsernameOnly(username) => Member::builder()
                                         .username(username.clone())
+                                        .mr_member_type(MrMemberType::Filled)
                                         .build()
                                         .unwrap(),
                                     UserInfo::UsernameID { username, id } => Member::builder()
                                         .username(username.clone())
+                                        .mr_member_type(MrMemberType::Filled)
                                         .id(*id as i64)
                                         .build()
                                         .unwrap(),
                                     UserInfo::UsernameIDString { username, id } => {
                                         Member::builder()
                                             .username(username.clone())
+                                            .mr_member_type(MrMemberType::Filled)
                                             .id(id
                                                 .parse::<i64>()
                                                 .expect("User ID must be a number"))
@@ -340,7 +347,7 @@ impl ConfigProperties for ConfigFile {
         }
     }
 
-    fn merge_request_members(&self) -> Option<Vec<Member>> {
+    fn merge_request_members(&self) -> Vec<Member> {
         self.get_members_from_config()
     }
 
@@ -437,7 +444,7 @@ impl ConfigProperties for Arc<ConfigFile> {
         self.as_ref().rate_limit_remaining_threshold()
     }
 
-    fn merge_request_members(&self) -> Option<Vec<Member>> {
+    fn merge_request_members(&self) -> Vec<Member> {
         self.as_ref().merge_request_members()
     }
 }
@@ -505,6 +512,7 @@ mod test {
         );
         let preferred_assignee_user = config.preferred_assignee_username().unwrap();
         assert_eq!("jordilin", preferred_assignee_user.username);
+        assert_eq!(MrMemberType::Filled, preferred_assignee_user.mr_member_type);
         assert_eq!(2, config.get_max_pages(&ApiOperation::MergeRequest));
         assert_eq!(3, config.get_max_pages(&ApiOperation::Pipeline));
         assert_eq!(4, config.get_max_pages(&ApiOperation::Project));
@@ -531,7 +539,7 @@ mod test {
             "0s",
             config.get_cache_expiration(&ApiOperation::RepositoryTag)
         );
-        let members = config.merge_request_members().unwrap();
+        let members = config.merge_request_members();
         assert_eq!(2, members.len());
         assert_eq!("jdoe", members[0].username);
         assert_eq!(1231, members[0].id);
@@ -599,7 +607,7 @@ mod test {
             "- data team projecta :-)",
             config.merge_request_description_signature()
         );
-        let members = config.merge_request_members().unwrap();
+        let members = config.merge_request_members();
         assert_eq!(1, members.len());
         assert_eq!("jane", members[0].username);
         assert_eq!(1234, members[0].id);
@@ -758,7 +766,7 @@ mod test {
             "- devops team :-)",
             config.merge_request_description_signature()
         );
-        let members = config.merge_request_members().unwrap();
+        let members = config.merge_request_members();
         assert_eq!(1, members.len());
         assert_eq!("jdoe", members[0].username);
         assert_eq!(1231, members[0].id);
@@ -796,7 +804,7 @@ mod test {
             "- data team projecta :-)",
             config.merge_request_description_signature()
         );
-        let members = config.merge_request_members().unwrap();
+        let members = config.merge_request_members();
         assert_eq!(1, members.len());
         assert_eq!("jane", members[0].username);
         assert_eq!(1235, members[0].id);

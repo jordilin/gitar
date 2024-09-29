@@ -660,20 +660,16 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
     let remote_cl = remote.clone();
     let remote_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data(None, None) };
     let assignees_cmd = move || -> Result<CmdInfo> {
-        let assignees = config.merge_request_members();
-        if assignees.is_some() {
-            let mut assignees = assignees.unwrap();
-            let default_assignee = config.preferred_assignee_username();
-            if let Some(assignee) = default_assignee {
-                assignees.insert(0, assignee);
-                // Allow client to unselect the default assignee
-                assignees.insert(1, Member::default());
-            } else {
-                assignees.insert(0, Member::default());
-            }
-            return Ok(CmdInfo::Members(assignees));
+        let mut assignees = config.merge_request_members();
+        let default_assignee = config.preferred_assignee_username();
+        if let Some(assignee) = default_assignee {
+            assignees.insert(0, assignee);
+            // Allow client to unselect the default assignee
+            assignees.insert(1, Member::default());
+        } else {
+            assignees.insert(0, Member::default());
         }
-        Ok(CmdInfo::Members(vec![]))
+        return Ok(CmdInfo::Members(assignees));
     };
     let status_runner = task_runner.clone();
     let git_status_cmd = || -> Result<CmdInfo> { git::status(status_runner) };
