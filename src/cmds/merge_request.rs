@@ -669,7 +669,7 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
         } else {
             assignees.insert(0, Member::default());
         }
-        return Ok(CmdInfo::Members(assignees));
+        Ok(CmdInfo::Members(assignees))
     };
     let status_runner = task_runner.clone();
     let git_status_cmd = || -> Result<CmdInfo> { git::status(status_runner) };
