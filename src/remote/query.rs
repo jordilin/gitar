@@ -102,7 +102,7 @@ pub fn send<R: HttpRunner<Response = Response>, D: Serialize, T>(
 ) -> Result<T> {
     let response = send_request(runner, url, body, request_headers, method, operation)?;
     let body = json_loads(&response.body)?;
-    Ok(mapper(&body).into())
+    Ok(mapper(&body))
 }
 
 pub fn send_json<R: HttpRunner<Response = Response>, D: Serialize>(
@@ -145,7 +145,7 @@ pub fn get<R: HttpRunner<Response = Response>, D: Serialize, T>(
         operation,
     )?;
     let body = json_loads(&response.body)?;
-    Ok(mapper(&body).into())
+    Ok(mapper(&body))
 }
 
 pub fn get_json<R: HttpRunner<Response = Response>, D: Serialize>(
@@ -239,7 +239,7 @@ where
         backoff_wait_time = list_args.get_args.backoff_retry_after;
     }
     let paginator = Paginator::new(
-        &runner,
+        runner,
         request,
         url,
         throttle_time,
@@ -251,7 +251,7 @@ where
         .map(|response| {
             let response = response?;
             if !response.is_ok(&http::Method::GET) {
-                return Err(query_error(&url, &response).into());
+                return Err(query_error(url, &response).into());
             }
             if iter_over_sub_array.is_some() {
                 let body = json_loads(&response.body)?;
