@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use console::style;
 
 use dialoguer::theme::ColorfulTheme;
@@ -8,6 +10,7 @@ use dialoguer::Input;
 
 use crate::cmds::merge_request::MergeRequestBodyArgs;
 use crate::cmds::project::Member;
+use crate::config::ConfigProperties;
 use crate::error;
 use crate::Result;
 
@@ -16,6 +19,8 @@ pub struct MergeRequestUserInput {
     pub title: String,
     pub description: String,
     pub assignee: Member,
+    #[builder(default)]
+    pub reviewer: Member,
 }
 
 impl MergeRequestUserInput {
@@ -32,6 +37,7 @@ impl MergeRequestUserInput {
                 .username(username.to_string())
                 .build()
                 .unwrap(),
+            reviewer: Member::default(),
         }
     }
 }
@@ -40,17 +46,51 @@ impl MergeRequestUserInput {
 pub fn prompt_user_merge_request_info(
     default_title: &str,
     default_description: &str,
-    members: &[Member],
+    config: &Arc<dyn ConfigProperties>,
 ) -> Result<MergeRequestUserInput> {
     let (title, description) = prompt_user_title_description(default_title, default_description);
 
+    let mut members = config.merge_request_members();
+    let default_assignee = config.preferred_assignee_username();
+    let mut default_assigned = false;
+    if let Some(assignee) = default_assignee {
+        members.insert(0, assignee);
+        default_assigned = true;
+        // Allow client to unselect the default assignee, leaving it blank.
+        members.insert(1, Member::default());
+    } else {
+        // Default to blank - not assigned
+        members.insert(0, Member::default());
+    }
+
+    let assignee_members_index = gather_member(&members, "Assignee:");
+    let assigned_member = members[assignee_members_index].clone();
+
+    // Reviewer selection:
+    // Remove the default assignee from the list of reviewers, leaving it blank
+    // as default in first position.
+    if default_assigned {
+        members.remove(0);
+    }
+    let reviewer_members_index = gather_member(&members, "Reviewer:");
+
+    Ok(MergeRequestUserInput::builder()
+        .title(title)
+        .description(description)
+        .assignee(assigned_member)
+        .reviewer(members[reviewer_members_index].clone())
+        .build()
+        .unwrap())
+}
+
+fn gather_member(members: &Vec<Member>, prompt: &str) -> usize {
     let usernames = members
         .iter()
         .map(|member| member.username.as_str())
         .collect::<Vec<&str>>();
 
     let assignee_selection_id = FuzzySelect::with_theme(&ColorfulTheme::default())
-        .with_prompt("Assignee:")
+        .with_prompt(prompt)
         .default(0)
         .items(&usernames)
         .interact()
@@ -62,13 +102,7 @@ pub fn prompt_user_merge_request_info(
         // The preferred one has been selected
         0
     };
-
-    Ok(MergeRequestUserInput::builder()
-        .title(title)
-        .description(description)
-        .assignee(members[assignee_members_index].clone())
-        .build()
-        .unwrap())
+    assignee_members_index
 }
 
 pub fn prompt_user_title_description(
@@ -144,6 +178,7 @@ pub fn show_summary_merge_request(
     );
     show_input("Target branch", &args.target_branch, false, Style::Bold);
     show_input("Assignee", &args.assignee.username, false, Style::Bold);
+    show_input("Reviewer", &args.reviewer.username, false, Style::Bold);
     show_input("Title", &args.title, false, Style::Bold);
     if !args.description.is_empty() {
         show_input("Description:", &args.description, true, Style::Bold);

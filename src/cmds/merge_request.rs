@@ -126,7 +126,7 @@ impl Display for MergeRequestState {
     }
 }
 
-#[derive(Builder)]
+#[derive(Builder, Debug)]
 pub struct MergeRequestBodyArgs {
     #[builder(default)]
     pub title: String,
@@ -140,6 +140,8 @@ pub struct MergeRequestBodyArgs {
     pub target_branch: String,
     #[builder(default)]
     pub assignee: Member,
+    #[builder(default)]
+    pub reviewer: Member,
     #[builder(default = "String::from(\"true\")")]
     pub remove_source_branch: String,
     #[builder(default)]
@@ -368,7 +370,6 @@ pub fn execute(
                 let reader = get_reader_file_cli(description_file)?;
                 cmds(
                     project_remote,
-                    config.clone(),
                     &cli_args,
                     Arc::new(BlockingCommand),
                     Some(reader),
@@ -376,7 +377,6 @@ pub fn execute(
             } else {
                 cmds(
                     project_remote,
-                    config.clone(),
                     &cli_args,
                     Arc::new(BlockingCommand),
                     None::<Cursor<&str>>,
@@ -551,25 +551,6 @@ fn user_prompt_confirmation(
     if cli_args.draft {
         title = format!("DRAFT: {}", title);
     }
-    if cli_args.target_repo.is_some() {
-        // Targetting another repo different than the origin. Bypass gathering
-        // of assignee members and prompt user for title and description only.
-        let mut description = description;
-        if !cli_args.auto {
-            (title, description) = dialog::prompt_user_title_description(&title, &description);
-        }
-        return Ok(MergeRequestBodyArgs::builder()
-            .title(title)
-            .description(description)
-            .source_branch(mr_body.repo.current_branch().to_string())
-            .target_branch(target_branch.to_string())
-            .target_repo(cli_args.target_repo.as_ref().unwrap().clone())
-            .assignee(Member::default())
-            .remove_source_branch("true".to_string())
-            .amend(cli_args.amend)
-            .draft(cli_args.draft)
-            .build()?);
-    }
     let user_input = if cli_args.auto {
         let preferred_assignee_members = [config.preferred_assignee_username().unwrap_or_default()];
         dialog::MergeRequestUserInput::builder()
@@ -579,7 +560,7 @@ fn user_prompt_confirmation(
             .build()
             .unwrap()
     } else {
-        dialog::prompt_user_merge_request_info(&title, &description, &mr_body.members)?
+        dialog::prompt_user_merge_request_info(&title, &description, &config)?
     };
 
     Ok(MergeRequestBodyArgs::builder()
@@ -588,6 +569,7 @@ fn user_prompt_confirmation(
         .source_branch(mr_body.repo.current_branch().to_string())
         .target_branch(target_branch.to_string())
         .assignee(user_input.assignee)
+        .reviewer(user_input.reviewer)
         // TODO make this configurable
         .remove_source_branch("true".to_string())
         .draft(cli_args.draft)
@@ -652,25 +634,12 @@ fn open(
 /// Required commands to build a Project and a Repository
 fn cmds<R: BufRead + Send + Sync + 'static>(
     remote: Arc<dyn RemoteProject + Send + Sync + 'static>,
-    config: Arc<dyn ConfigProperties>,
     cli_args: &MergeRequestCliArgs,
     task_runner: Arc<impl TaskRunner<Response = Response> + Send + Sync + 'static>,
     reader: Option<R>,
 ) -> Vec<Cmd<CmdInfo>> {
     let remote_cl = remote.clone();
     let remote_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data(None, None) };
-    let assignees_cmd = move || -> Result<CmdInfo> {
-        let mut assignees = config.merge_request_members();
-        let default_assignee = config.preferred_assignee_username();
-        if let Some(assignee) = default_assignee {
-            assignees.insert(0, assignee);
-            // Allow client to unselect the default assignee
-            assignees.insert(1, Member::default());
-        } else {
-            assignees.insert(0, Member::default());
-        }
-        Ok(CmdInfo::Members(assignees))
-    };
     let status_runner = task_runner.clone();
     let git_status_cmd = || -> Result<CmdInfo> { git::status(status_runner) };
     let title = cli_args.title.clone();
@@ -717,10 +686,6 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
         Box::new(git_current_branch),
         Box::new(git_last_commit_message),
     ];
-    // Only gather project members if we are not targeting a different repo
-    if cli_args.target_repo.is_none() {
-        cmds.push(Box::new(assignees_cmd));
-    }
     if cli_args.fetch.is_some() {
         let fetch_runner = task_runner.clone();
         let remote_alias = cli_args.fetch.as_ref().unwrap().clone();
@@ -748,21 +713,22 @@ fn build_description(description: &str, signature: &str) -> String {
 struct MergeRequestBody {
     repo: Repo,
     project: Project,
-    members: Vec<Member>,
+}
+
+impl MergeRequestBody {
+    fn builder() -> MergeRequestBodyBuilder {
+        MergeRequestBodyBuilder::default()
+    }
 }
 
 fn get_repo_project_info(cmds: Vec<Cmd<CmdInfo>>) -> Result<MergeRequestBody> {
     let mut project = Project::default();
-    let mut members = Vec::new();
     let mut repo = git::Repo::default();
     let cmd_results = exec::parallel_stream(cmds);
     for cmd_result in cmd_results {
         match cmd_result {
             Ok(CmdInfo::Project(project_data)) => {
                 project = project_data;
-            }
-            Ok(CmdInfo::Members(members_data)) => {
-                members = members_data;
             }
             Ok(CmdInfo::StatusModified(status)) => repo.with_status(status),
             Ok(CmdInfo::Branch(branch)) => repo.with_branch(&branch),
@@ -773,10 +739,9 @@ fn get_repo_project_info(cmds: Vec<Cmd<CmdInfo>>) -> Result<MergeRequestBody> {
             _ => {}
         }
     }
-    Ok(MergeRequestBodyBuilder::default()
+    Ok(MergeRequestBody::builder()
         .repo(repo)
         .project(project)
-        .members(members)
         .build()?)
 }
 
@@ -890,7 +855,7 @@ mod tests {
 
     use crate::{
         api_traits::CommentMergeRequest, cli::browse::BrowseOptions,
-        cmds::project::ProjectListBodyArgs, error, test::utils::config,
+        cmds::project::ProjectListBodyArgs, error,
     };
 
     use super::*;
@@ -1039,7 +1004,6 @@ mod tests {
         assert_eq!(result.repo.title(), "title");
         assert_eq!(result.repo.current_branch(), "current-branch");
         assert_eq!(result.repo.last_commit_message(), "last-commit-message");
-        assert_eq!(result.members.len(), 0);
     }
 
     #[test]
@@ -1388,9 +1352,8 @@ mod tests {
         let responses = gen_cmd_responses();
 
         let task_runner = Arc::new(MockShellRunner::new(responses));
-        let config = config();
-        let cmds = cmds(remote, config, &cli_args, task_runner, None::<Cursor<&str>>);
-        assert_eq!(cmds.len(), 6);
+        let cmds = cmds(remote, &cli_args, task_runner, None::<Cursor<&str>>);
+        assert_eq!(cmds.len(), 5);
         let cmds = cmds
             .into_iter()
             .map(|cmd| cmd())
@@ -1426,12 +1389,8 @@ mod tests {
             .unwrap();
 
         let responses = gen_cmd_responses();
-
-        let config = config();
-
         let task_runner = Arc::new(MockShellRunner::new(responses));
-
-        let cmds = cmds(remote, config, &cli_args, task_runner, None::<Cursor<&str>>);
+        let cmds = cmds(remote, &cli_args, task_runner, None::<Cursor<&str>>);
         let results = cmds
             .into_iter()
             .map(|cmd| cmd())
@@ -1472,8 +1431,7 @@ mod tests {
 
         let description_contents = "This merge requests adds a new feature\n";
         let reader = Cursor::new(description_contents);
-        let config = config();
-        let cmds = cmds(remote, config, &cli_args, task_runner, Some(reader));
+        let cmds = cmds(remote, &cli_args, task_runner, Some(reader));
         let results = cmds
             .into_iter()
             .map(|cmd| cmd())
@@ -1642,15 +1600,14 @@ mod tests {
         let responses = gen_cmd_responses();
 
         let task_runner = Arc::new(MockShellRunner::new(responses));
-        let config = config();
-        let cmds = cmds(remote, config, &cli_args, task_runner, None::<Cursor<&str>>);
-        assert_eq!(cmds.len(), 7);
+        let cmds = cmds(remote, &cli_args, task_runner, None::<Cursor<&str>>);
+        assert_eq!(cmds.len(), 6);
         let cmds = cmds
             .into_iter()
             .map(|cmd| cmd())
             .collect::<Result<Vec<CmdInfo>>>()
             .unwrap();
-        let fetch_result = cmds[6].clone();
+        let fetch_result = cmds[5].clone();
         match fetch_result {
             CmdInfo::Ignore => {}
             _ => panic!("Expected ignore cmdinfo variant on fetch"),

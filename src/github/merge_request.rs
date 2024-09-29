@@ -140,6 +140,8 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                             |value| GithubMergeRequestFields::from(value).into(),
                             http::Method::PATCH,
                         )
+                        // TODO requested reviewers
+                        // https://docs.github.com/en/rest/pulls/review-requests?apiVersion=2022-11-28#request-reviewers-for-a-pull-request
                     }
                     422 => {
                         // There is an existing pull request already.
