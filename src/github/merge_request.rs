@@ -54,6 +54,7 @@ impl<R> Github<R> {
 
 impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
     fn open(&self, args: MergeRequestBodyArgs) -> Result<MergeRequestResponse> {
+        // https://docs.github.com/en/rest/pulls/pulls?apiVersion=2022-11-28#create-a-pull-request
         let mut body = Body::new();
         body.add("base", args.target_branch);
         body.add("title", args.title);
@@ -100,18 +101,6 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
             Ok(response) => {
                 match response.status {
                     201 => {
-                        let body = response.body;
-                        // If target repo is provided bypass user assignation
-                        // Do the same when assignee is not provided
-
-                        if !target_repo.is_empty()
-                            || args.assignee.mr_member_type == MrMemberType::Empty
-                        {
-                            let json_value = json_loads(&body)?;
-                            return Ok(MergeRequestResponse::from(GithubMergeRequestFields::from(
-                                &json_value,
-                            )));
-                        }
                         // This is a new pull request
                         // Set the assignee to the pull request. Currently, the
                         // only way to set the assignee to a pull request is by
@@ -122,26 +111,70 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                         // Note: Github's REST API v3 considers every pull request
                         // an issue, but not every issue is a pull request.
                         // https://docs.github.com/en/rest/issues/issues#update-an-issue
+                        let body = response.body;
                         let merge_request_json = json_loads(&body)?;
-                        let id = merge_request_json["number"].to_string();
-                        let issues_url = format!(
-                            "{}/repos/{}/issues/{}",
-                            self.rest_api_basepath, self.path, id
-                        );
-                        let mut body = Body::new();
-                        let assignees = vec![args.assignee.username.as_str()];
-                        body.add("assignees", &assignees);
-                        query::send::<_, &Vec<&str>, _>(
-                            &self.runner,
-                            &issues_url,
-                            Some(&body),
-                            self.request_headers(),
-                            ApiOperation::MergeRequest,
-                            |value| GithubMergeRequestFields::from(value).into(),
-                            http::Method::PATCH,
-                        )
-                        // TODO requested reviewers
+                        let id = merge_request_json["number"].as_i64().unwrap();
+                        match args.assignee.mr_member_type {
+                            MrMemberType::Empty => (),
+                            MrMemberType::Filled => {
+                                // Assignee API
+                                // https://docs.github.com/en/rest/issues/issues#update-an-issue
+                                let issues_url = format!(
+                                    "{}/repos/{}/issues/{}",
+                                    self.rest_api_basepath, self.path, id
+                                );
+                                let mut body = Body::new();
+                                let assignees = vec![args.assignee.username.as_str()];
+                                body.add("assignees", &assignees);
+                                query::send_raw(
+                                    &self.runner,
+                                    &issues_url,
+                                    Some(&body),
+                                    self.request_headers(),
+                                    ApiOperation::MergeRequest,
+                                    http::Method::PATCH,
+                                )?;
+                            }
+                        }
+                        // Requested reviewers API
                         // https://docs.github.com/en/rest/pulls/review-requests?apiVersion=2022-11-28#request-reviewers-for-a-pull-request
+                        match args.reviewer.mr_member_type {
+                            MrMemberType::Empty => (),
+                            MrMemberType::Filled => {
+                                let mut body = Body::new();
+                                let reviewers = vec![args.reviewer.username.as_str()];
+                                body.add("reviewers", &reviewers);
+                                let requested_reviewers_url =
+                                    format!("{}/{}/requested_reviewers", mr_url, id);
+
+                                let response = query::send_raw(
+                                    &self.runner,
+                                    &requested_reviewers_url,
+                                    Some(&body),
+                                    self.request_headers(),
+                                    ApiOperation::MergeRequest,
+                                    http::Method::POST,
+                                )?;
+                                // Consider 422 failure - Reviewer not a collaborator
+                                if response.status != 201 {
+                                    return Err(query::query_error(
+                                        &requested_reviewers_url,
+                                        &response,
+                                    )
+                                    .into());
+                                }
+                            }
+                        }
+                        Ok(MergeRequestResponse::builder()
+                            .id(id)
+                            .web_url(
+                                merge_request_json[0]["html_url"]
+                                    .to_string()
+                                    .trim_matches('"')
+                                    .to_string(),
+                            )
+                            .build()
+                            .unwrap())
                     }
                     422 => {
                         // There is an existing pull request already.
@@ -516,6 +549,7 @@ mod test {
     #[test]
     fn test_open_merge_request() {
         let responses = ResponseContracts::new(ContractType::Github)
+            .add_contract(201, "merge_request.json", None)
             .add_contract(200, "merge_request.json", None)
             .add_contract(201, "merge_request.json", None);
         let (client, github) = setup_client!(responses, default_github(), dyn MergeRequest);
@@ -526,8 +560,52 @@ mod test {
             .id(1234)
             .build()
             .unwrap();
+        let reviewer = Member::builder()
+            .name("huck".to_string())
+            .username("hfinn".to_string())
+            .mr_member_type(MrMemberType::Filled)
+            .id(45678)
+            .build()
+            .unwrap();
         let mr_args = MergeRequestBodyArgs::builder()
             .assignee(assignee)
+            .reviewer(reviewer)
+            .build()
+            .unwrap();
+        assert!(github.open(mr_args).is_ok());
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/pulls/23/requested_reviewers",
+            *client.url(),
+        );
+        let actual_method = client.http_method.borrow();
+        assert_eq!(http::Method::POST, actual_method[0]);
+        // Assignee call
+        assert_eq!(http::Method::PATCH, actual_method[1]);
+        // Reviewer call
+        assert_eq!(http::Method::POST, actual_method[2]);
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_open_merge_request_with_assignee_no_reviewer() {
+        let responses = ResponseContracts::new(ContractType::Github)
+            .add_contract(200, "merge_request.json", None)
+            .add_contract(201, "merge_request.json", None);
+        let (client, github) = setup_client!(responses, default_github(), dyn MergeRequest);
+        let assignee = Member::builder()
+            .name("tom".to_string())
+            .username("tsawyer".to_string())
+            .mr_member_type(MrMemberType::Filled)
+            .id(1234)
+            .build()
+            .unwrap();
+        let reviewer = Member::default(); // Default member is empty/placeholder
+        let mr_args = MergeRequestBodyArgs::builder()
+            .assignee(assignee)
+            .reviewer(reviewer)
             .build()
             .unwrap();
         assert!(github.open(mr_args).is_ok());
@@ -536,6 +614,72 @@ mod test {
             *client.url(),
         );
         let actual_method = client.http_method.borrow();
+        assert_eq!(http::Method::PATCH, actual_method[1]);
+        // The open create merge request was a POST.
+        assert_eq!(http::Method::POST, actual_method[0]);
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_open_merge_request_with_reviewer_no_assignee() {
+        let responses = ResponseContracts::new(ContractType::Github)
+            .add_contract(201, "merge_request.json", None)
+            .add_contract(201, "merge_request.json", None);
+        let (client, github) = setup_client!(responses, default_github(), dyn MergeRequest);
+        let assignee = Member::default();
+        let reviewer = Member::builder()
+            .name("huck".to_string())
+            .username("hfinn".to_string())
+            .mr_member_type(MrMemberType::Filled)
+            .id(1234)
+            .build()
+            .unwrap();
+        let mr_args = MergeRequestBodyArgs::builder()
+            .assignee(assignee)
+            .reviewer(reviewer)
+            .build()
+            .unwrap();
+        assert!(github.open(mr_args).is_ok());
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/pulls/23/requested_reviewers",
+            *client.url(),
+        );
+        let actual_method = client.http_method.borrow();
+        // POST on requesting a reviewer
+        assert_eq!(http::Method::POST, actual_method[1]);
+        // The open create merge request was a POST.
+        assert_eq!(http::Method::POST, actual_method[0]);
+        assert_eq!(
+            Some(ApiOperation::MergeRequest),
+            *client.api_operation.borrow()
+        );
+    }
+
+    #[test]
+    fn test_open_merge_request_with_no_assignee_no_reviewer() {
+        let responses = ResponseContracts::new(ContractType::Github).add_contract(
+            201,
+            "merge_request.json",
+            None,
+        );
+        let (client, github) = setup_client!(responses, default_github(), dyn MergeRequest);
+        let assignee = Member::default();
+        let reviewer = Member::default();
+        let mr_args = MergeRequestBodyArgs::builder()
+            .assignee(assignee)
+            .reviewer(reviewer)
+            .build()
+            .unwrap();
+        assert!(github.open(mr_args).is_ok());
+        assert_eq!(
+            "https://api.github.com/repos/jordilin/githapi/pulls",
+            *client.url(),
+        );
+        let actual_method = client.http_method.borrow();
+        // The open create merge request was a POST.
         assert_eq!(http::Method::POST, actual_method[0]);
         assert_eq!(
             Some(ApiOperation::MergeRequest),

@@ -84,7 +84,7 @@ pub fn num_resources<R: HttpRunner<Response = Response>>(
     }
 }
 
-fn query_error(url: &str, response: &Response) -> error::GRError {
+pub fn query_error(url: &str, response: &Response) -> error::GRError {
     error::GRError::RemoteServerError(format!(
         "Failed to submit request to URL: {} with status code: {} and body: {}",
         url, response.status, response.body
@@ -208,6 +208,9 @@ fn send_request<R: HttpRunner<Response = Response>, T: Serialize>(
             .unwrap()
     };
     let response = runner.run(&mut request)?;
+    // TODO: Might not be the right place as some APIs might still need to check
+    // the response status code. See github merge request request reviewers when
+    // a 422 is considered an error.
     if !response.is_ok(&method) {
         return Err(query_error(url, &response).into());
     }
