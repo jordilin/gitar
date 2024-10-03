@@ -566,6 +566,10 @@ mod test {
         let response = github.open(mr_args).unwrap();
         assert_eq!(23, response.id);
         assert_eq!(
+            "https://github.com/jordilin/githapi/pull/23",
+            response.web_url
+        );
+        assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/pulls/23/requested_reviewers",
             *client.url(),
         );
@@ -602,6 +606,10 @@ mod test {
             .unwrap();
         let response = github.open(mr_args).unwrap();
         assert_eq!(23, response.id);
+        assert_eq!(
+            "https://github.com/jordilin/githapi/pull/23",
+            response.web_url
+        );
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/issues/23",
             *client.url(),
