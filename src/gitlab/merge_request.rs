@@ -31,6 +31,14 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
             }
             MrMemberType::Empty => {}
         }
+        match args.reviewer.mr_member_type {
+            MrMemberType::Filled => {
+                // We support one reviewer for now. The CE edition of Gitlab
+                // only supports one, so we'll keep it simple.
+                body.add("reviewer_ids", args.reviewer.id.to_string());
+            }
+            MrMemberType::Empty => {}
+        }
         body.add("description", args.description);
         body.add("remove_source_branch", args.remove_source_branch);
         // if target repo provided, add target_project_id in the payload
@@ -510,8 +518,16 @@ mod test {
             .id(1234)
             .build()
             .unwrap();
+        let reviewer = Member::builder()
+            .name("huck".to_string())
+            .username("hfinn".to_string())
+            .mr_member_type(MrMemberType::Filled)
+            .id(5678)
+            .build()
+            .unwrap();
         let mr_args = MergeRequestBodyArgs::builder()
             .assignee(assignee)
+            .reviewer(reviewer)
             .build()
             .unwrap();
         let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
@@ -533,6 +549,7 @@ mod test {
         );
         let actual_body = client.request_body.borrow();
         assert!(actual_body.contains("assignee_id"));
+        assert!(actual_body.contains("reviewer_ids"));
     }
 
     #[test]
