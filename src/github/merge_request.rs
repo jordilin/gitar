@@ -165,16 +165,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
                                 }
                             }
                         }
-                        Ok(MergeRequestResponse::builder()
-                            .id(id)
-                            .web_url(
-                                merge_request_json[0]["html_url"]
-                                    .to_string()
-                                    .trim_matches('"')
-                                    .to_string(),
-                            )
-                            .build()
-                            .unwrap())
+                        Ok(GithubMergeRequestFields::from(&merge_request_json).into())
                     }
                     422 => {
                         // There is an existing pull request already.
@@ -572,7 +563,12 @@ mod test {
             .reviewer(reviewer)
             .build()
             .unwrap();
-        assert!(github.open(mr_args).is_ok());
+        let response = github.open(mr_args).unwrap();
+        assert_eq!(23, response.id);
+        assert_eq!(
+            "https://github.com/jordilin/githapi/pull/23",
+            response.web_url
+        );
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/pulls/23/requested_reviewers",
             *client.url(),
@@ -608,7 +604,12 @@ mod test {
             .reviewer(reviewer)
             .build()
             .unwrap();
-        assert!(github.open(mr_args).is_ok());
+        let response = github.open(mr_args).unwrap();
+        assert_eq!(23, response.id);
+        assert_eq!(
+            "https://github.com/jordilin/githapi/pull/23",
+            response.web_url
+        );
         assert_eq!(
             "https://api.github.com/repos/jordilin/githapi/issues/23",
             *client.url(),
