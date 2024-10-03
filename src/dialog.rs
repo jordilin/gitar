@@ -83,7 +83,7 @@ pub fn prompt_user_merge_request_info(
         .unwrap())
 }
 
-fn gather_member(members: &Vec<Member>, prompt: &str) -> usize {
+fn gather_member(members: &[Member], prompt: &str) -> usize {
     let usernames = members
         .iter()
         .map(|member| member.username.as_str())
@@ -96,13 +96,12 @@ fn gather_member(members: &Vec<Member>, prompt: &str) -> usize {
         .interact()
         .unwrap();
 
-    let assignee_members_index = if assignee_selection_id != 0 {
+    if assignee_selection_id != 0 {
         assignee_selection_id
     } else {
         // The preferred one has been selected
         0
-    };
-    assignee_members_index
+    }
 }
 
 pub fn prompt_user_title_description(
