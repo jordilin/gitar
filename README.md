@@ -46,6 +46,7 @@ Some benefits:
   very fast.
 
 I've only tested on MacOS and Linux.
+Manual can be found at: <https://jordilin.github.io/gitar/>
 
 ## Installation
 
