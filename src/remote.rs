@@ -442,7 +442,7 @@ pub enum CliDomainRequirements {
     RepoArgs,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct RemoteURL {
     /// Domain of the project. Ex github.com
     domain: String,
@@ -538,6 +538,7 @@ pub fn url<R: TaskRunner<Response = Response>>(
     cli_args: &cli::CliArgs,
     requirements: &[CliDomainRequirements],
     runner: &R,
+    target_repo: &Option<&str>,
 ) -> Result<RemoteURL> {
     let mut errors = Vec::new();
     for requirement in requirements {
@@ -954,7 +955,7 @@ mod test {
             .unwrap();
         let runner = MockRunner::new(vec![response]);
         let requirements = vec![CliDomainRequirements::CdInLocalRepo];
-        let url = url(&cli_args, &requirements, &runner).unwrap();
+        let url = url(&cli_args, &requirements, &runner, &None).unwrap();
         assert_eq!("github.com", url.domain());
         assert_eq!("jordilin/gitar", url.path());
     }
@@ -965,7 +966,7 @@ mod test {
         let response = Response::builder().body("".to_string()).build().unwrap();
         let runner = MockRunner::new(vec![response]);
         let requirements = vec![CliDomainRequirements::CdInLocalRepo];
-        let result = url(&cli_args, &requirements, &runner);
+        let result = url(&cli_args, &requirements, &runner, &None);
         match result {
             Err(err) => match err.downcast_ref::<error::GRError>() {
                 Some(error::GRError::PreconditionNotMet(_)) => (),
@@ -983,7 +984,13 @@ mod test {
             CliDomainRequirements::RepoArgs,
         ];
         let response = Response::builder().body("".to_string()).build().unwrap();
-        let url = url(&cli_args, &requirements, &MockRunner::new(vec![response])).unwrap();
+        let url = url(
+            &cli_args,
+            &requirements,
+            &MockRunner::new(vec![response]),
+            &None,
+        )
+        .unwrap();
         assert_eq!("github.com", url.domain());
         assert_eq!("jordilin/gitar", url.path());
         assert_eq!("jordilin_gitar", url.config_encoded_project_path());
@@ -997,7 +1004,13 @@ mod test {
             CliDomainRequirements::DomainArgs,
         ];
         let response = Response::builder().body("".to_string()).build().unwrap();
-        let url = url(&cli_args, &requirements, &MockRunner::new(vec![response])).unwrap();
+        let url = url(
+            &cli_args,
+            &requirements,
+            &MockRunner::new(vec![response]),
+            &None,
+        )
+        .unwrap();
         assert_eq!("github.com", url.domain());
         assert_eq!("", url.path());
     }
