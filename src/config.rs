@@ -163,12 +163,14 @@ impl ConfigFile {
     /// This is to allow for overriding project specific configurations such as
     /// reviewers, assignees, etc.
     pub fn new<T: Read, FE: Fn(&str) -> Result<String>>(
-        mut reader: T,
+        readers: Vec<T>,
         url: &RemoteURL,
         env: FE,
     ) -> Result<ConfigFile> {
         let mut config_data = String::new();
-        reader.read_to_string(&mut config_data)?;
+        for mut reader in readers.into_iter() {
+            reader.read_to_string(&mut config_data)?;
+        }
         let mut config: ConfigFileInner = toml::from_str(&config_data)?;
         let project_path_key = url.config_encoded_project_path();
         let domain = url.domain();
@@ -496,7 +498,7 @@ mod test {
         repository_tag = "0s"
         "#;
         let domain = "gitlab.com";
-        let reader = std::io::Cursor::new(config_data);
+        let reader = vec![std::io::Cursor::new(config_data)];
         let project_path = "/jordilin/gitar";
         let url = RemoteURL::new(domain.to_string(), project_path.to_string());
         let config = Arc::new(ConfigFile::new(reader, &url, no_env).unwrap());
@@ -555,7 +557,7 @@ mod test {
         api_token = '1234'
         "#;
         let domain = "github.com";
-        let reader = std::io::Cursor::new(config_data);
+        let reader = vec![std::io::Cursor::new(config_data)];
         let project_path = "/jordilin/gitar";
         let url = RemoteURL::new(domain.to_string(), project_path.to_string());
         let config = Arc::new(ConfigFile::new(reader, &url, no_env).unwrap());
@@ -597,7 +599,7 @@ mod test {
         members = [ { username = 'jane', id = 1234 } ]"#;
 
         let domain = "gitlab.com";
-        let reader = std::io::Cursor::new(config_data);
+        let reader = vec![std::io::Cursor::new(config_data)];
         let project_path = "datateam/projecta";
         let url = RemoteURL::new(domain.to_string(), project_path.to_string());
         let config = Arc::new(ConfigFile::new(reader, &url, no_env).unwrap());
@@ -611,6 +613,79 @@ mod test {
         assert_eq!(1, members.len());
         assert_eq!("jane", members[0].username);
         assert_eq!(1234, members[0].id);
+    }
+
+    #[test]
+    fn test_config_with_overridden_project_specific_settings_multiple_readers() {
+        let config_data = r#"
+        [gitlab_com]
+        api_token = '1234'
+        cache_location = "/home/user/.config/mr_cache"
+        rate_limit_remaining_threshold=15
+
+        [gitlab_com.merge_requests]
+        preferred_assignee_username = "jordilin"
+        description_signature = "- devops team :-)"
+        members = [
+            { username = 'jdoe', id = 1231 }
+        ]"#;
+
+        let config_data_2 = r#"
+        # Project specific settings for /datateam/projecta
+        [gitlab_com.datateam_projecta.merge_requests]
+        preferred_assignee_username = 'jdoe'
+        description_signature = '- data team projecta :-)'
+        members = [ { username = 'jane', id = 1234 } ]"#;
+
+        let domain = "gitlab.com";
+        let reader = vec![
+            std::io::Cursor::new(config_data),
+            std::io::Cursor::new(config_data_2),
+        ];
+        let project_path = "datateam/projecta";
+        let url = RemoteURL::new(domain.to_string(), project_path.to_string());
+        let config = Arc::new(ConfigFile::new(reader, &url, no_env).unwrap());
+        let preferred_assignee_user = config.preferred_assignee_username().unwrap();
+        assert_eq!("jdoe", preferred_assignee_user.username);
+        assert_eq!(
+            "- data team projecta :-)",
+            config.merge_request_description_signature()
+        );
+        let members = config.merge_request_members();
+        assert_eq!(1, members.len());
+        assert_eq!("jane", members[0].username);
+        assert_eq!(1234, members[0].id);
+    }
+
+    #[test]
+    fn test_config_multiple_readers_same_headers_is_error() {
+        let config_data = r#"
+        [gitlab_com]
+        api_token = '1234'
+        cache_location = "/home/user/.config/mr_cache"
+        rate_limit_remaining_threshold=15
+
+        [gitlab_com.merge_requests]
+        preferred_assignee_username = "jordilin"
+        description_signature = "- devops team :-)"
+        members = [
+            { username = 'jdoe', id = 1231 }
+        ]"#;
+
+        let config_data_2 = r#"
+        [gitlab_com]
+        api_token = '1234'
+        cache_location = "/home/user/.config/mr_cache"
+        rate_limit_remaining_threshold=15"#;
+
+        let domain = "gitlab.com";
+        let reader = vec![
+            std::io::Cursor::new(config_data),
+            std::io::Cursor::new(config_data_2),
+        ];
+        let project_path = "datateam/projecta";
+        let url = RemoteURL::new(domain.to_string(), project_path.to_string());
+        assert!(ConfigFile::new(reader, &url, no_env).is_err());
     }
 
     #[test]
@@ -630,7 +705,7 @@ mod test {
         "#;
 
         let domain = "gitlab.com";
-        let reader = std::io::Cursor::new(config_data);
+        let reader = vec![std::io::Cursor::new(config_data)];
         let project_path = "datateam_projecta";
         let url = RemoteURL::new(domain.to_string(), project_path.to_string());
         let config = Arc::new(ConfigFile::new(reader, &url, no_env).unwrap());
@@ -644,7 +719,7 @@ mod test {
         [gitlab_com]
         api_token_typo=1234"#;
         let domain = "gitlab.com";
-        let reader = std::io::Cursor::new(config_data);
+        let reader = vec![std::io::Cursor::new(config_data)];
         let project_path = "/jordilin/gitar";
         let url = RemoteURL::new(domain.to_string(), project_path.to_string());
         assert!(ConfigFile::new(reader, &url, no_env).is_err());
@@ -654,7 +729,7 @@ mod test {
     fn test_config_no_data() {
         let config_data = "";
         let domain = "gitlab.com";
-        let reader = std::io::Cursor::new(config_data);
+        let reader = vec![std::io::Cursor::new(config_data)];
         let project_path = "/jordilin/gitar";
         let url = RemoteURL::new(domain.to_string(), project_path.to_string());
         assert!(ConfigFile::new(reader, &url, no_env).is_err());
@@ -670,7 +745,7 @@ mod test {
         [gitlab_com]
         "#;
         let domain = "gitlab.com";
-        let reader = std::io::Cursor::new(config_data);
+        let reader = vec![std::io::Cursor::new(config_data)];
         let project_path = "/jordilin/gitar";
         let url = RemoteURL::new(domain.to_string(), project_path.to_string());
         let config = Arc::new(ConfigFile::new(reader, &url, env).unwrap());
@@ -683,7 +758,7 @@ mod test {
         [gitlab_company_com]
         "#;
         let domain = "gitlab.company.com";
-        let reader = std::io::Cursor::new(config_data);
+        let reader = vec![std::io::Cursor::new(config_data)];
         let project_path = "/jordilin/gitar";
         let url = RemoteURL::new(domain.to_string(), project_path.to_string());
         let config = Arc::new(ConfigFile::new(reader, &url, env).unwrap());
@@ -696,7 +771,7 @@ mod test {
         [gitlabweb]
         "#;
         let domain = "gitlabweb";
-        let reader = std::io::Cursor::new(config_data);
+        let reader = vec![std::io::Cursor::new(config_data)];
         let project_path = "/jordilin/gitar";
         let url = RemoteURL::new(domain.to_string(), project_path.to_string());
         let config = Arc::new(ConfigFile::new(reader, &url, env).unwrap());
@@ -756,7 +831,7 @@ mod test {
         ]"#;
 
         let domain = "gitlab.com";
-        let reader = std::io::Cursor::new(config_data);
+        let reader = vec![std::io::Cursor::new(config_data)];
         let project_path = "datateam/projecta";
         let url = RemoteURL::new(domain.to_string(), project_path.to_string());
         let config = Arc::new(ConfigFile::new(reader, &url, no_env).unwrap());
@@ -794,7 +869,7 @@ mod test {
         members = [ { username = 'jane', id = "1235" } ]"#;
 
         let domain = "gitlab.com";
-        let reader = std::io::Cursor::new(config_data);
+        let reader = vec![std::io::Cursor::new(config_data)];
         let project_path = "datateam/projecta";
         let url = RemoteURL::new(domain.to_string(), project_path.to_string());
         let config = Arc::new(ConfigFile::new(reader, &url, no_env).unwrap());
