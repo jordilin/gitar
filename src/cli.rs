@@ -151,7 +151,7 @@ pub enum CliOptions {
     User(UserOptions),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CliArgs {
     pub verbose: u8,
     pub repo: Option<String>,

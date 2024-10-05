@@ -2,7 +2,10 @@ use std::{path::Path, sync::Arc};
 
 use env_logger::Env;
 use gr::{
-    cli::{browse::BrowseOptions, parse_cli, trending::TrendingOptions, CliOptions},
+    cli::{
+        browse::BrowseOptions, merge_request::MergeRequestOptions, parse_cli,
+        trending::TrendingOptions, CliOptions,
+    },
     cmds::{self, browse, cicd, docker, merge_request, project},
     init,
     remote::{self, CliDomainRequirements, RemoteURL},
@@ -45,15 +48,31 @@ fn handle_cli_options(
 ) -> Result<()> {
     match cli_options {
         CliOptions::MergeRequest(options) => {
-            let requirements = vec![
-                CliDomainRequirements::RepoArgs,
-                CliDomainRequirements::CdInLocalRepo,
-            ];
-            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let url = if let MergeRequestOptions::Create(opts) = &options {
+                // This is a create merge request operation. The remote URL that
+                // we are targetting is either our own or the remote of our
+                // fork specified with --target-repo
+                let reqs = vec![CliDomainRequirements::CdInLocalRepo];
+                remote::url(
+                    &cli_args,
+                    &reqs,
+                    &BlockingCommand,
+                    &opts.target_repo.as_deref(),
+                )?
+            } else {
+                // For operations involving list, get, close, etc... it is not a
+                // requirement to be in a local repo. We can do --repo <repo> to
+                // list merge requests, close merge requests, etc.
+                let reqs = vec![
+                    CliDomainRequirements::RepoArgs,
+                    CliDomainRequirements::CdInLocalRepo,
+                ];
+                remote::url(&cli_args, &reqs, &BlockingCommand, &None)?
+            };
+
             let config = remote::read_config(&config_file, &url)?;
             merge_request::execute(
                 options,
-                cli_args,
                 config,
                 url.domain().to_string(),
                 url.path().to_string(),
@@ -66,7 +85,7 @@ fn handle_cli_options(
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
             browse::execute(
                 options,
                 config,
@@ -79,7 +98,7 @@ fn handle_cli_options(
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
             let config = remote::read_config(&config_file, &url)?;
             cicd::execute(
                 options,
@@ -93,7 +112,7 @@ fn handle_cli_options(
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
             let config = remote::read_config(&config_file, &url)?;
             project::execute(
                 options,
@@ -107,7 +126,7 @@ fn handle_cli_options(
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
             let config = remote::read_config(&config_file, &url)?;
             docker::execute(
                 options,
@@ -121,7 +140,7 @@ fn handle_cli_options(
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
             let config = remote::read_config(&config_file, &url)?;
             cmds::release::execute(
                 options,
@@ -135,7 +154,7 @@ fn handle_cli_options(
                 CliDomainRequirements::DomainArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
             let config = remote::read_config(&config_file, &url)?;
             cmds::my::execute(
                 options,
@@ -161,7 +180,7 @@ fn handle_cli_options(
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
             let config = remote::read_config(&config_file, &url)?;
             cmds::cache::execute(options, config)
         }
@@ -178,7 +197,7 @@ fn handle_cli_options(
                 CliDomainRequirements::RepoArgs,
                 CliDomainRequirements::CdInLocalRepo,
             ];
-            let url = remote::url(&cli_args, &requirements, &BlockingCommand)?;
+            let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
             let config = remote::read_config(&config_file, &url)?;
             cmds::user::execute(
                 options,

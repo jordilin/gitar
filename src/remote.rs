@@ -442,7 +442,7 @@ pub enum CliDomainRequirements {
     RepoArgs,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct RemoteURL {
     /// Domain of the project. Ex github.com
     domain: String,
@@ -489,10 +489,23 @@ impl CliDomainRequirements {
         &self,
         cli_args: &cli::CliArgs,
         runner: &R,
+        mr_target_repo: &Option<&str>,
     ) -> Result<RemoteURL> {
         match self {
             CliDomainRequirements::CdInLocalRepo => match git::remote_url(runner) {
-                Ok(CmdInfo::RemoteUrl(url)) => Ok(url),
+                Ok(CmdInfo::RemoteUrl(url)) => {
+                    // If target_repo is provided, then target's
+                    // <repo_owner>/<repo_name> takes preference. Domain is kept
+                    // as is from the forked repo.
+                    if let Some(target_repo) = mr_target_repo {
+                        Ok(RemoteURL::new(
+                            url.domain().to_string(),
+                            target_repo.to_string(),
+                        ))
+                    } else {
+                        Ok(url)
+                    }
+                }
                 Err(err) => Err(GRError::GitRemoteUrlNotFound(format!("{}", err)).into()),
                 _ => Err(GRError::ApplicationError(
                     "Could not get remote url during startup. \
@@ -538,10 +551,11 @@ pub fn url<R: TaskRunner<Response = Response>>(
     cli_args: &cli::CliArgs,
     requirements: &[CliDomainRequirements],
     runner: &R,
+    mr_target_repo: &Option<&str>,
 ) -> Result<RemoteURL> {
     let mut errors = Vec::new();
     for requirement in requirements {
-        match requirement.check(cli_args, runner) {
+        match requirement.check(cli_args, runner, mr_target_repo) {
             Ok(url) => return Ok(url),
             Err(err) => {
                 errors.push(err);
@@ -954,7 +968,7 @@ mod test {
             .unwrap();
         let runner = MockRunner::new(vec![response]);
         let requirements = vec![CliDomainRequirements::CdInLocalRepo];
-        let url = url(&cli_args, &requirements, &runner).unwrap();
+        let url = url(&cli_args, &requirements, &runner, &None).unwrap();
         assert_eq!("github.com", url.domain());
         assert_eq!("jordilin/gitar", url.path());
     }
@@ -965,7 +979,7 @@ mod test {
         let response = Response::builder().body("".to_string()).build().unwrap();
         let runner = MockRunner::new(vec![response]);
         let requirements = vec![CliDomainRequirements::CdInLocalRepo];
-        let result = url(&cli_args, &requirements, &runner);
+        let result = url(&cli_args, &requirements, &runner, &None);
         match result {
             Err(err) => match err.downcast_ref::<error::GRError>() {
                 Some(error::GRError::PreconditionNotMet(_)) => (),
@@ -983,7 +997,13 @@ mod test {
             CliDomainRequirements::RepoArgs,
         ];
         let response = Response::builder().body("".to_string()).build().unwrap();
-        let url = url(&cli_args, &requirements, &MockRunner::new(vec![response])).unwrap();
+        let url = url(
+            &cli_args,
+            &requirements,
+            &MockRunner::new(vec![response]),
+            &None,
+        )
+        .unwrap();
         assert_eq!("github.com", url.domain());
         assert_eq!("jordilin/gitar", url.path());
         assert_eq!("jordilin_gitar", url.config_encoded_project_path());
@@ -997,7 +1017,13 @@ mod test {
             CliDomainRequirements::DomainArgs,
         ];
         let response = Response::builder().body("".to_string()).build().unwrap();
-        let url = url(&cli_args, &requirements, &MockRunner::new(vec![response])).unwrap();
+        let url = url(
+            &cli_args,
+            &requirements,
+            &MockRunner::new(vec![response]),
+            &None,
+        )
+        .unwrap();
         assert_eq!("github.com", url.domain());
         assert_eq!("", url.path());
     }
@@ -1031,5 +1057,22 @@ mod test {
     fn test_get_config_encoded_domain() {
         let remote_url = RemoteURL::new("github.com".to_string(), "jordilin/gitar".to_string());
         assert_eq!("github_com", remote_url.config_encoded_domain());
+    }
+
+    #[test]
+    fn test_remote_url_from_optional_target_repo() {
+        let target_repo = Some("jordilin/gitar");
+        let cli_args = CliArgs::default();
+        // Huck Finn opens a PR from a forked repo over to the main repo
+        // jordilin/gitar
+        let response = Response::builder()
+            .body("git@github.com:hfinn/gitar.git".to_string())
+            .build()
+            .unwrap();
+        let runner = MockRunner::new(vec![response]);
+        let requirements = vec![CliDomainRequirements::CdInLocalRepo];
+        let url = url(&cli_args, &requirements, &runner, &target_repo).unwrap();
+        assert_eq!("github.com", url.domain());
+        assert_eq!("jordilin/gitar", url.path());
     }
 }
