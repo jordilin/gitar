@@ -7,23 +7,20 @@ use gr::{
         trending::TrendingOptions, CliOptions,
     },
     cmds::{self, browse, cicd, docker, merge_request, project},
-    init,
+    get_default_config_path, init,
     remote::{self, CliDomainRequirements, RemoteURL},
     shell::BlockingCommand,
     Result,
 };
 
-const DEFAULT_CONFIG_PATH: &str = ".config/gitar/gitar.toml";
-
 fn main() -> Result<()> {
-    let home_dir = std::env::var("HOME").unwrap();
     let option_args = parse_cli();
     let cli_options = option_args.cli_options.unwrap_or_else(|| {
         eprintln!("Please specify a subcommand");
         std::process::exit(1);
     });
     let cli_args = option_args.cli_args;
-    let mut config_file = Path::new(&home_dir).join(DEFAULT_CONFIG_PATH);
+    let mut config_file = get_default_config_path().join("gitar.toml");
     if let Some(ref config) = cli_args.config {
         config_file = Path::new(&config).to_path_buf();
     }

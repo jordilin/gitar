@@ -15,7 +15,7 @@ use crate::github::Github;
 use crate::gitlab::Gitlab;
 use crate::io::{CmdInfo, HttpRunner, Response, TaskRunner};
 use crate::time::Milliseconds;
-use crate::{cli, error, http, log_debug, log_info};
+use crate::{cli, error, get_default_config_path, http, log_debug, log_info};
 use crate::{git, Result};
 use std::sync::Arc;
 
@@ -614,13 +614,22 @@ pub fn read_config<P: AsRef<Path>>(
     url: &RemoteURL,
 ) -> Result<Arc<dyn ConfigProperties>> {
     let enc_domain = url.config_encoded_domain();
-    let mut extra_configs = [
-        format!("{}.toml", enc_domain),
-        format!("{}_{}.toml", enc_domain, url.config_encoded_project_path()),
-    ]
-    .into_iter()
-    .map(PathBuf::from)
-    .collect::<Vec<PathBuf>>();
+
+    let domain_config_file = get_default_config_path().join(format!("{}.toml", enc_domain));
+    let domain_project_file = get_default_config_path().join(format!(
+        "{}_{}.toml",
+        enc_domain,
+        url.config_encoded_project_path()
+    ));
+
+    log_debug!("config_file: {:?}", config_file.as_ref());
+    log_debug!("domain_config_file: {:?}", domain_config_file);
+    log_debug!("domain_project_file: {:?}", domain_project_file);
+
+    let mut extra_configs = [domain_config_file, domain_project_file]
+        .into_iter()
+        .map(PathBuf::from)
+        .collect::<Vec<PathBuf>>();
 
     fn open_files(file_paths: &[PathBuf]) -> Vec<File> {
         file_paths
