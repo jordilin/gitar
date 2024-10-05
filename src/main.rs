@@ -53,13 +53,12 @@ fn handle_cli_options(
                 // we are targetting is either our own or the remote of our
                 // fork specified with --target-repo
                 let reqs = vec![CliDomainRequirements::CdInLocalRepo];
-                let url = remote::url(
+                remote::url(
                     &cli_args,
                     &reqs,
                     &BlockingCommand,
                     &opts.target_repo.as_deref(),
-                )?;
-                url
+                )?
             } else {
                 // For operations involving list, get, close, etc... it is not a
                 // requirement to be in a local repo. We can do --repo <repo> to
@@ -68,8 +67,7 @@ fn handle_cli_options(
                     CliDomainRequirements::RepoArgs,
                     CliDomainRequirements::CdInLocalRepo,
                 ];
-                let url = remote::url(&cli_args, &reqs, &BlockingCommand, &None)?;
-                url
+                remote::url(&cli_args, &reqs, &BlockingCommand, &None)?
             };
 
             let config = remote::read_config(&config_file, &url)?;
