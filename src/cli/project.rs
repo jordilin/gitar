@@ -2,7 +2,7 @@ use clap::Parser;
 
 use crate::cmds::project::{ProjectListCliArgs, ProjectMetadataGetCliArgs};
 
-use super::common::{validate_project_repo_path, GetArgs, ListArgs};
+use super::common::{validate_domain_project_repo_path, GetArgs, ListArgs};
 
 #[derive(Parser)]
 pub struct ProjectCommand {
@@ -26,7 +26,8 @@ struct ProjectInfo {
     #[clap(long, group = "id_or_repo")]
     pub id: Option<i64>,
     /// Path of the project in the format `OWNER/PROJECT_NAME`
-    #[clap(long, group = "id_or_repo", value_name = "OWNER/PROJECT_NAME", value_parser=validate_project_repo_path)]
+    #[clap(long, group = "id_or_repo", value_name = "DOMAIN/OWNER/PROJECT_NAME",
+        value_parser=validate_domain_project_repo_path)]
     pub repo: Option<String>,
     #[clap(flatten)]
     pub get_args: GetArgs,

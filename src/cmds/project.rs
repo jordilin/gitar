@@ -295,8 +295,15 @@ fn project_info<W: Write>(
     mut writer: W,
     cli_args: ProjectMetadataGetCliArgs,
 ) -> Result<()> {
-    let CmdInfo::Project(project_data) =
-        remote.get_project_data(cli_args.id, cli_args.path.as_deref())?
+    // check if cli_args.path is present and remove the domain from it
+    let path = if let Some(path) = &cli_args.path {
+        // path github.com/jordilin/gitar
+        debug_assert!(path.matches('/').count() >= 2);
+        Some(path.split('/').skip(1).collect::<Vec<&str>>().join("/"))
+    } else {
+        None
+    };
+    let CmdInfo::Project(project_data) = remote.get_project_data(cli_args.id, path.as_deref())?
     else {
         return Err(error::GRError::ApplicationError(
             "remote.get_project_data expects CmdInfo::Project invariant".to_string(),
@@ -445,7 +452,7 @@ mod test {
         let get_args = GetRemoteCliArgs::default();
         let cli_args = ProjectMetadataGetCliArgs::builder()
             .id(None)
-            .path(Some("jordilin/gitar".to_string()))
+            .path(Some("github.com/jordilin/gitar".to_string()))
             .get_args(get_args)
             .build()
             .unwrap();
