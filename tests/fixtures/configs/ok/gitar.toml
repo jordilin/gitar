@@ -1,0 +1,3 @@
+[github_test_com]
+api_token="1234"
+cache_location="/tmp/cache"

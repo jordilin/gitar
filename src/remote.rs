@@ -609,25 +609,22 @@ pub fn url<R: TaskRunner<Response = Response>>(
 /// If all files are missing, then a default configuration is returned. That is
 /// gitar works with no configuration as long as auth tokens are provided via
 /// environment variables. Ex. CI/CD use cases and one-offs.
-pub fn read_config(cli_args: &cli::CliArgs, url: &RemoteURL) -> Result<Arc<dyn ConfigProperties>> {
-    let default_config_path = if let Some(ref config) = cli_args.config {
-        &Path::new(config).to_path_buf()
-    } else {
-        get_default_config_path()
-    };
-
-    let config_file = default_config_path.join("gitar.toml");
-
+pub fn read_config(
+    config_path: ConfigFilePath,
+    url: &RemoteURL,
+) -> Result<Arc<dyn ConfigProperties>> {
     let enc_domain = url.config_encoded_domain();
 
-    let domain_config_file = default_config_path.join(format!("{}.toml", enc_domain));
-    let domain_project_file = default_config_path.join(format!(
+    let domain_config_file = config_path.directory.join(format!("{}.toml", enc_domain));
+    let domain_project_file = config_path.directory.join(format!(
         "{}_{}.toml",
         enc_domain,
         url.config_encoded_project_path()
     ));
 
-    log_debug!("config_file: {:?}", config_file);
+    println!("config_path: {:?}", config_path.file_name);
+
+    log_debug!("config_file: {:?}", config_path.file_name);
     log_debug!("domain_config_file: {:?}", domain_config_file);
     log_debug!("domain_project_file: {:?}", domain_project_file);
 
@@ -649,7 +646,7 @@ pub fn read_config(cli_args: &cli::CliArgs, url: &RemoteURL) -> Result<Arc<dyn C
             .collect()
     }
 
-    extra_configs.push(config_file);
+    extra_configs.push(config_path.file_name);
     let files = open_files(&extra_configs);
     if files.is_empty() {
         let config = NoConfig::new(url.domain(), env_token)?;
@@ -657,6 +654,36 @@ pub fn read_config(cli_args: &cli::CliArgs, url: &RemoteURL) -> Result<Arc<dyn C
     }
     let config = ConfigFile::new(files, url, env_token)?;
     Ok(Arc::new(config))
+}
+
+/// ConfigFilePath is in charge of computing the default config file name and
+/// its parent directory based on global CLI arguments.
+pub struct ConfigFilePath {
+    directory: PathBuf,
+    file_name: PathBuf,
+}
+
+impl ConfigFilePath {
+    pub fn new(cli_args: &cli::CliArgs) -> Self {
+        let directory = if let Some(ref config) = cli_args.config {
+            &Path::new(config).to_path_buf()
+        } else {
+            get_default_config_path()
+        };
+        let file_name = directory.join("gitar.toml");
+        ConfigFilePath {
+            directory: directory.clone(),
+            file_name,
+        }
+    }
+
+    pub fn directory(&self) -> &PathBuf {
+        &self.directory
+    }
+
+    pub fn file_name(&self) -> &PathBuf {
+        &self.file_name
+    }
 }
 
 #[cfg(test)]

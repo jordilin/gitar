@@ -1,9 +1,9 @@
 use std::fs::OpenOptions;
 use std::io::{ErrorKind, Write};
-use std::path::Path;
 
 use crate::cli::init::InitCommandOptions;
 use crate::error::{AddContext, GRError};
+use crate::remote::ConfigFilePath;
 use crate::Result;
 
 const CONFIG_TEMPLATE: &str = r#"
@@ -86,31 +86,31 @@ repository_tags=10
 ### Other domains - add more if needed
 "#;
 
-pub fn execute<P: AsRef<Path>>(options: InitCommandOptions, config_path: P) -> Result<()> {
+pub fn execute(options: InitCommandOptions, config_path: ConfigFilePath) -> Result<()> {
     let file = OpenOptions::new()
         .write(true)
         .create_new(true)
-        .open(config_path.as_ref());
+        .open(config_path.file_name());
 
     let mut file = match file {
         Ok(f) => f,
         Err(e) if e.kind() == ErrorKind::AlreadyExists => {
             return Err(GRError::PreconditionNotMet(format!(
                 "Config file at {} already exists, move it aside before running `init` again",
-                config_path.as_ref().display()
+                config_path.file_name().display()
             ))
             .into())
         }
         Err(e) => {
             return Err(e).err_context(format!(
                 "Unable to create config file at path {}",
-                config_path.as_ref().display()
+                config_path.file_name().display()
             ))
         }
     };
     generate_and_persist(options, &mut file).err_context(format!(
         "Failed to generate and persist config at path {}",
-        config_path.as_ref().display()
+        config_path.file_name().display()
     ))
 }
 
