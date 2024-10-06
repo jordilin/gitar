@@ -279,3 +279,28 @@ Cache duration for each API type can be set in the TOML section
 
 >**Note**: Local cache can be automatically expired and refreshed by issuing the
 `-r` flag when running the `gr` command.
+
+## Split configuration files
+
+If you have merge request configuration for multiple projects, multiple
+domains, the main configuration file `gitar.toml` can quickly grow in size.
+To avoid this, you can split the configuration file into multiple files as
+follows. Gitar reads the main configuration file `gitar.toml` and then attempts
+to read the following file name patterns in the same directory:
+
+- `<domain>.toml` Ex: `github_com.toml`, `gitlab_com.toml`, `gitlab_yourcompany_com.toml`
+- `<domain>_<group>_<project>.toml` Ex: `github_com_jordilin_gitar.toml`, `gitlab_com_group_subgroup_projectname.toml`
+
+As we can observe in the examples above, the following conventions are used:
+
+1. Substitute `.` with `_`.
+2. Substitute `/` with `_` for domain, group, and project names.
+
+The total configuration is the concatenation of all the files. For example, if
+we have `gitar.toml` and `github_com.toml` in the same directory, then gitar
+will read both files and concatenate the configuration. If there are duplicate
+sections it will throw a TOML configuration error. Sections can be added in any
+of the files. For example, if you were to specify the `api_token` for Github in
+`github_com.toml` adding it to the `gitar.toml` file would be an error.
+If you prefer, you can also keep one configuration for each domain and remove
+the main `gitar.toml` file.
