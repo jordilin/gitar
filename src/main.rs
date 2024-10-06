@@ -20,6 +20,7 @@ fn main() -> Result<()> {
         std::process::exit(1);
     });
     let cli_args = option_args.cli_args;
+    // Default config file gitar.toml
     let mut config_file = get_default_config_path().join("gitar.toml");
     if let Some(ref config) = cli_args.config {
         config_file = Path::new(&config).to_path_buf();
@@ -67,7 +68,7 @@ fn handle_cli_options(
                 remote::url(&cli_args, &reqs, &BlockingCommand, &None)?
             };
 
-            let config = remote::read_config(&config_file, &url)?;
+            let config = remote::read_config(&cli_args, &url)?;
             merge_request::execute(
                 options,
                 config,
@@ -96,7 +97,7 @@ fn handle_cli_options(
                 CliDomainRequirements::CdInLocalRepo,
             ];
             let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
-            let config = remote::read_config(&config_file, &url)?;
+            let config = remote::read_config(&cli_args, &url)?;
             cicd::execute(
                 options,
                 config,
@@ -110,7 +111,7 @@ fn handle_cli_options(
                 CliDomainRequirements::CdInLocalRepo,
             ];
             let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
-            let config = remote::read_config(&config_file, &url)?;
+            let config = remote::read_config(&cli_args, &url)?;
             project::execute(
                 options,
                 config,
@@ -124,7 +125,7 @@ fn handle_cli_options(
                 CliDomainRequirements::CdInLocalRepo,
             ];
             let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
-            let config = remote::read_config(&config_file, &url)?;
+            let config = remote::read_config(&cli_args, &url)?;
             docker::execute(
                 options,
                 config,
@@ -138,7 +139,7 @@ fn handle_cli_options(
                 CliDomainRequirements::CdInLocalRepo,
             ];
             let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
-            let config = remote::read_config(&config_file, &url)?;
+            let config = remote::read_config(&cli_args, &url)?;
             cmds::release::execute(
                 options,
                 config,
@@ -152,7 +153,7 @@ fn handle_cli_options(
                 CliDomainRequirements::CdInLocalRepo,
             ];
             let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
-            let config = remote::read_config(&config_file, &url)?;
+            let config = remote::read_config(&cli_args, &url)?;
             cmds::my::execute(
                 options,
                 config,
@@ -166,7 +167,7 @@ fn handle_cli_options(
                 // <language>` everywhere in the shell.
                 let domain = "github.com";
                 let url = RemoteURL::new(domain.to_string(), "".to_string());
-                let config = remote::read_config(&config_file, &url)?;
+                let config = remote::read_config(&cli_args, &url)?;
                 cmds::trending::execute(args, config, domain)
             }
         },
@@ -178,7 +179,7 @@ fn handle_cli_options(
                 CliDomainRequirements::CdInLocalRepo,
             ];
             let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
-            let config = remote::read_config(&config_file, &url)?;
+            let config = remote::read_config(&cli_args, &url)?;
             cmds::cache::execute(options, config)
         }
         CliOptions::Manual => browse::execute(
@@ -195,7 +196,7 @@ fn handle_cli_options(
                 CliDomainRequirements::CdInLocalRepo,
             ];
             let url = remote::url(&cli_args, &requirements, &BlockingCommand, &None)?;
-            let config = remote::read_config(&config_file, &url)?;
+            let config = remote::read_config(&cli_args, &url)?;
             cmds::user::execute(
                 options,
                 config,

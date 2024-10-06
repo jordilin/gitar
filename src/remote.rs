@@ -609,20 +609,25 @@ pub fn url<R: TaskRunner<Response = Response>>(
 /// If all files are missing, then a default configuration is returned. That is
 /// gitar works with no configuration as long as auth tokens are provided via
 /// environment variables. Ex. CI/CD use cases and one-offs.
-pub fn read_config<P: AsRef<Path>>(
-    config_file: &P,
-    url: &RemoteURL,
-) -> Result<Arc<dyn ConfigProperties>> {
+pub fn read_config(cli_args: &cli::CliArgs, url: &RemoteURL) -> Result<Arc<dyn ConfigProperties>> {
+    let default_config_path = if let Some(ref config) = cli_args.config {
+        &Path::new(config).to_path_buf()
+    } else {
+        get_default_config_path()
+    };
+
+    let config_file = default_config_path.join("gitar.toml");
+
     let enc_domain = url.config_encoded_domain();
 
-    let domain_config_file = get_default_config_path().join(format!("{}.toml", enc_domain));
-    let domain_project_file = get_default_config_path().join(format!(
+    let domain_config_file = default_config_path.join(format!("{}.toml", enc_domain));
+    let domain_project_file = default_config_path.join(format!(
         "{}_{}.toml",
         enc_domain,
         url.config_encoded_project_path()
     ));
 
-    log_debug!("config_file: {:?}", config_file.as_ref());
+    log_debug!("config_file: {:?}", config_file);
     log_debug!("domain_config_file: {:?}", domain_config_file);
     log_debug!("domain_project_file: {:?}", domain_project_file);
 
@@ -644,7 +649,7 @@ pub fn read_config<P: AsRef<Path>>(
             .collect()
     }
 
-    extra_configs.push(config_file.as_ref().to_path_buf());
+    extra_configs.push(config_file);
     let files = open_files(&extra_configs);
     if files.is_empty() {
         let config = NoConfig::new(url.domain(), env_token)?;
