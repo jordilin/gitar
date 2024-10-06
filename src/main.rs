@@ -1,4 +1,4 @@
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
 use env_logger::Env;
 use gr::{
@@ -7,7 +7,7 @@ use gr::{
         trending::TrendingOptions, CliOptions,
     },
     cmds::{self, browse, cicd, docker, merge_request, project},
-    get_default_config_path, init,
+    init,
     remote::{self, CliDomainRequirements, ConfigFilePath, RemoteURL},
     shell::BlockingCommand,
     Result,

@@ -622,8 +622,6 @@ pub fn read_config(
         url.config_encoded_project_path()
     ));
 
-    println!("config_path: {:?}", config_path.file_name);
-
     log_debug!("config_file: {:?}", config_path.file_name);
     log_debug!("domain_config_file: {:?}", domain_config_file);
     log_debug!("domain_project_file: {:?}", domain_project_file);
