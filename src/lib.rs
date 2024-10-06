@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 pub mod api_defaults;
 pub mod api_traits;
 pub mod cache;
@@ -42,3 +44,14 @@ fn json_loads(data: &str) -> Result<serde_json::Value> {
 }
 
 pub const USER_GUIDE_URL: &str = "https://jordilin.github.io/gitar";
+
+lazy_static! {
+    pub static ref DEFAULT_CONFIG_PATH: PathBuf = {
+        let home = std::env::var("HOME").unwrap();
+        PathBuf::from(home).join(".config/gitar")
+    };
+}
+
+pub fn get_default_config_path() -> &'static PathBuf {
+    &DEFAULT_CONFIG_PATH
+}

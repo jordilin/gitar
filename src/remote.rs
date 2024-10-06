@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::api_traits::{
     Cicd, CicdJob, CicdRunner, CodeGist, CommentMergeRequest, ContainerRegistry, Deploy,
@@ -15,7 +15,7 @@ use crate::github::Github;
 use crate::gitlab::Gitlab;
 use crate::io::{CmdInfo, HttpRunner, Response, TaskRunner};
 use crate::time::Milliseconds;
-use crate::{cli, error, http, log_debug, log_info};
+use crate::{cli, error, get_default_config_path, http, log_debug, log_info};
 use crate::{git, Result};
 use std::sync::Arc;
 
@@ -581,16 +581,106 @@ pub fn url<R: TaskRunner<Response = Response>>(
     .into())
 }
 
-pub fn read_config(config_file: &Path, url: &RemoteURL) -> Result<Arc<dyn ConfigProperties>> {
-    match File::open(config_file) {
-        Ok(f) => {
-            let config = ConfigFile::new(f, url, env_token)?;
-            Ok(Arc::new(config))
+/// Reads configuration from TOML file. The config_file is the main default
+/// config file and it holds global configuration. Additionally, this function
+/// will attempt to gather configurations named after the domain and the project
+/// we are targetting. This is so the main config does not become unnecessarily
+/// large when providing merge request configuration for a specific project. The
+/// total configuration is as if we concatenated them all into one, so headers
+/// cannot be named the same across different configuration files. The
+/// configuration for a specific domain or project can go to either config file
+/// but cannot be mixed. Ex.
+///
+/// - gitar.toml - left empty
+/// - github_com.toml - holds configuration for github.com
+/// - github_com_jordilin_gitar.toml - holds configuration for jordilin/gitar
+///
+/// But also, we could just have:
+///
+/// - gitar.toml - left empty
+/// - github_com_jordilin_gitar.toml - holds configuration for gitub.com and
+///   jordilin/gitar
+/// - github_com.toml - left empty
+///
+/// Up to the user how he/she wants to organize the TOML configuration across
+/// files as long as TOML headers are unique and abide by the configuration
+/// format supported by Gitar.
+///
+/// If all files are missing, then a default configuration is returned. That is
+/// gitar works with no configuration as long as auth tokens are provided via
+/// environment variables. Ex. CI/CD use cases and one-offs.
+pub fn read_config(
+    config_path: ConfigFilePath,
+    url: &RemoteURL,
+) -> Result<Arc<dyn ConfigProperties>> {
+    let enc_domain = url.config_encoded_domain();
+
+    let domain_config_file = config_path.directory.join(format!("{}.toml", enc_domain));
+    let domain_project_file = config_path.directory.join(format!(
+        "{}_{}.toml",
+        enc_domain,
+        url.config_encoded_project_path()
+    ));
+
+    log_debug!("config_file: {:?}", config_path.file_name);
+    log_debug!("domain_config_file: {:?}", domain_config_file);
+    log_debug!("domain_project_config_file: {:?}", domain_project_file);
+
+    let mut extra_configs = [domain_config_file, domain_project_file]
+        .into_iter()
+        .map(PathBuf::from)
+        .collect::<Vec<PathBuf>>();
+
+    fn open_files(file_paths: &[PathBuf]) -> Vec<File> {
+        file_paths
+            .iter()
+            .filter_map(|path| match File::open(path) {
+                Ok(file) => Some(file),
+                Err(e) => {
+                    log_debug!("Could not open file: {:?} - {}", path, e);
+                    None
+                }
+            })
+            .collect()
+    }
+
+    extra_configs.push(config_path.file_name);
+    let files = open_files(&extra_configs);
+    if files.is_empty() {
+        let config = NoConfig::new(url.domain(), env_token)?;
+        return Ok(Arc::new(config));
+    }
+    let config = ConfigFile::new(files, url, env_token)?;
+    Ok(Arc::new(config))
+}
+
+/// ConfigFilePath is in charge of computing the default config file name and
+/// its parent directory based on global CLI arguments.
+pub struct ConfigFilePath {
+    directory: PathBuf,
+    file_name: PathBuf,
+}
+
+impl ConfigFilePath {
+    pub fn new(cli_args: &cli::CliArgs) -> Self {
+        let directory = if let Some(ref config) = cli_args.config {
+            &Path::new(config).to_path_buf()
+        } else {
+            get_default_config_path()
+        };
+        let file_name = directory.join("gitar.toml");
+        ConfigFilePath {
+            directory: directory.clone(),
+            file_name,
         }
-        Err(_) => {
-            let config = NoConfig::new(url.domain(), env_token)?;
-            Ok(Arc::new(config))
-        }
+    }
+
+    pub fn directory(&self) -> &PathBuf {
+        &self.directory
+    }
+
+    pub fn file_name(&self) -> &PathBuf {
+        &self.file_name
     }
 }
 

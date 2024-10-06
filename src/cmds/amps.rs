@@ -5,13 +5,14 @@ use crate::{
     dialog,
     error::GRError,
     io::{Response, TaskRunner},
+    remote::ConfigFilePath,
     shell, Result,
 };
 
-pub fn execute(options: AmpsOptions, config_file: std::path::PathBuf) -> Result<()> {
+pub fn execute(options: AmpsOptions, config_file: ConfigFilePath) -> Result<()> {
     match options {
         Exec(amp_name_args) => {
-            let base_path = config_file.parent().unwrap();
+            let base_path = config_file.directory();
             let amps_scripts = base_path.join("amps");
             if amp_name_args.is_empty() {
                 let runner = shell::BlockingCommand;
@@ -31,7 +32,7 @@ pub fn execute(options: AmpsOptions, config_file: std::path::PathBuf) -> Result<
             Ok(())
         }
         _ => {
-            let base_path = config_file.parent().unwrap();
+            let base_path = config_file.directory();
             let amps_scripts = base_path.join("amps");
             let runner = shell::BlockingCommand;
             let amps = list_amps(runner, amps_scripts.to_str().unwrap())?;
