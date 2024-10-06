@@ -146,10 +146,6 @@ members = [
 ]
 ```
 
-When targetting other repositories outside of your namespace, .i.e creating a
-pull request from your fork to the original repository, the assignee is left
-blank.
-
 ### Per project merge request configurations
 
 If you want to have different members in different projects, you can do so by
