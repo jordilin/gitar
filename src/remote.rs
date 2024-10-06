@@ -624,7 +624,7 @@ pub fn read_config(
 
     log_debug!("config_file: {:?}", config_path.file_name);
     log_debug!("domain_config_file: {:?}", domain_config_file);
-    log_debug!("domain_project_file: {:?}", domain_project_file);
+    log_debug!("domain_project_config_file: {:?}", domain_project_file);
 
     let mut extra_configs = [domain_config_file, domain_project_file]
         .into_iter()
