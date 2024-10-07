@@ -10,7 +10,7 @@ use crate::{log_error, Error};
 
 /// ExponentialBackoff wraps an HttpRunner and retries requests with an
 /// exponential backoff retry mechanism.
-pub struct ExponentialBackoff<'a, R> {
+pub struct Backoff<'a, R> {
     runner: &'a Arc<R>,
     max_retries: u32,
     num_retries: u32,
@@ -20,14 +20,14 @@ pub struct ExponentialBackoff<'a, R> {
     strategy: Box<dyn BackOffStrategy>,
 }
 
-impl<'a, R> ExponentialBackoff<'a, R> {
+impl<'a, R> Backoff<'a, R> {
     pub fn new(
         runner: &'a Arc<R>,
         max_retries: u32,
         default_delay_wait: u64,
         now: fn() -> Seconds,
     ) -> Self {
-        ExponentialBackoff {
+        Backoff {
             runner,
             max_retries,
             num_retries: 0,
@@ -50,7 +50,7 @@ impl<'a, R> ExponentialBackoff<'a, R> {
     }
 }
 
-impl<'a, R: HttpRunner<Response = Response>> ExponentialBackoff<'a, R> {
+impl<'a, R: HttpRunner<Response = Response>> Backoff<'a, R> {
     pub fn retry_on_error<T: Serialize>(&mut self, request: &mut Request<T>) -> Result<Response> {
         loop {
             match self.runner.run(request) {
@@ -162,7 +162,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 3, 60, now_mock);
+        let mut backoff = Backoff::new(&client, 3, 60, now_mock);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(2, *client.throttled());
     }
@@ -181,7 +181,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 1, 60, now_mock);
+        let mut backoff = Backoff::new(&client, 1, 60, now_mock);
         match backoff.retry_on_error(&mut request) {
             Ok(_) => panic!("Expected max retries reached error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
@@ -203,7 +203,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 0, 60, now_mock);
+        let mut backoff = Backoff::new(&client, 0, 60, now_mock);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(0, *client.throttled());
     }
@@ -217,7 +217,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 0, 60, now_mock);
+        let mut backoff = Backoff::new(&client, 0, 60, now_mock);
         match backoff.retry_on_error(&mut request) {
             Ok(_) => panic!("Expected rate limit exceeded error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
@@ -241,7 +241,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 3, 60, now_mock);
+        let mut backoff = Backoff::new(&client, 3, 60, now_mock);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(2, *client.throttled());
         // 60 secs base wait, 1st retry 2^1 = 2 => 62000 milliseconds
@@ -264,7 +264,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 3, 60, now_mock);
+        let mut backoff = Backoff::new(&client, 3, 60, now_mock);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(2, *client.throttled());
         // 61 secs base wait, 1st retry 2^1 = 2 => 63000 milliseconds
@@ -288,7 +288,7 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = ExponentialBackoff::new(&client, 3, 60, now_mock);
+        let mut backoff = Backoff::new(&client, 3, 60, now_mock);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(2, *client.throttled());
         // 120 secs base wait, 1st retry 2^1 = 2 => 122000 milliseconds
