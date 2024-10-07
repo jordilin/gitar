@@ -26,6 +26,7 @@ impl<'a, R> Backoff<'a, R> {
         max_retries: u32,
         default_delay_wait: u64,
         now: fn() -> Seconds,
+        strategy: Box<dyn BackOffStrategy>,
     ) -> Self {
         Backoff {
             runner,
@@ -34,7 +35,7 @@ impl<'a, R> Backoff<'a, R> {
             rate_limit_header: RateLimitHeader::default(),
             default_delay_wait: Seconds::new(default_delay_wait),
             now,
-            strategy: Box::new(Exponential),
+            strategy,
         }
     }
 
@@ -99,11 +100,11 @@ impl<'a, R: HttpRunner<Response = Response>> Backoff<'a, R> {
     }
 }
 
-trait BackOffStrategy {
+pub trait BackOffStrategy {
     fn wait_time(&self, base_wait: Seconds, num_retries: u32) -> Seconds;
 }
 
-struct Exponential;
+pub struct Exponential;
 
 impl BackOffStrategy for Exponential {
     fn wait_time(&self, base_wait: Seconds, num_retries: u32) -> Seconds {
@@ -162,7 +163,8 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = Backoff::new(&client, 3, 60, now_mock);
+        let strategy = Box::new(Exponential);
+        let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(2, *client.throttled());
     }
@@ -181,7 +183,8 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = Backoff::new(&client, 1, 60, now_mock);
+        let strategy = Box::new(Exponential);
+        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy);
         match backoff.retry_on_error(&mut request) {
             Ok(_) => panic!("Expected max retries reached error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
@@ -203,7 +206,8 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = Backoff::new(&client, 0, 60, now_mock);
+        let strategy = Box::new(Exponential);
+        let mut backoff = Backoff::new(&client, 0, 60, now_mock, strategy);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(0, *client.throttled());
     }
@@ -217,7 +221,8 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = Backoff::new(&client, 0, 60, now_mock);
+        let strategy = Box::new(Exponential);
+        let mut backoff = Backoff::new(&client, 0, 60, now_mock, strategy);
         match backoff.retry_on_error(&mut request) {
             Ok(_) => panic!("Expected rate limit exceeded error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
@@ -241,7 +246,8 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = Backoff::new(&client, 3, 60, now_mock);
+        let strategy = Box::new(Exponential);
+        let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(2, *client.throttled());
         // 60 secs base wait, 1st retry 2^1 = 2 => 62000 milliseconds
@@ -264,7 +270,8 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = Backoff::new(&client, 3, 60, now_mock);
+        let strategy = Box::new(Exponential);
+        let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(2, *client.throttled());
         // 61 secs base wait, 1st retry 2^1 = 2 => 63000 milliseconds
@@ -288,7 +295,8 @@ mod tests {
             .method(http::Method::GET)
             .build()
             .unwrap();
-        let mut backoff = Backoff::new(&client, 3, 60, now_mock);
+        let strategy = Box::new(Exponential);
+        let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy);
         backoff.retry_on_error(&mut request).unwrap();
         assert_eq!(2, *client.throttled());
         // 120 secs base wait, 1st retry 2^1 = 2 => 122000 milliseconds

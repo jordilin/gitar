@@ -1,5 +1,5 @@
 use crate::api_traits::ApiOperation;
-use crate::backoff::Backoff;
+use crate::backoff::{Backoff, Exponential};
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
 use crate::error::GRError;
@@ -384,6 +384,7 @@ impl<'a, R, T> Paginator<'a, R, T> {
                 backoff_max_retries,
                 backoff_default_wait_time,
                 time::now_epoch_seconds,
+                Box::new(Exponential),
             ),
         }
     }
