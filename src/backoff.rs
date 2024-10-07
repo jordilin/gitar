@@ -67,6 +67,7 @@ impl<'a, R: HttpRunner<Response = Response>> Backoff<'a, R> {
                         self.max_retries
                     );
                     if let Some(headers) = self.should_retry_on_error(&err) {
+                        // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
                         self.rate_limit_header = headers;
                         self.num_retries += 1;
                         if self.num_retries <= self.max_retries {
@@ -108,7 +109,7 @@ pub struct Exponential;
 
 impl BackOffStrategy for Exponential {
     fn wait_time(&self, base_wait: Seconds, num_retries: u32) -> Seconds {
-        // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
+        log_info!("Exponential backoff strategy");
         let wait_time = base_wait + 2u64.pow(num_retries).into();
         log_info!("Waiting for {} seconds", wait_time);
         wait_time
