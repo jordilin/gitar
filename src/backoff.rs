@@ -17,6 +17,7 @@ pub struct ExponentialBackoff<'a, R> {
     rate_limit_header: RateLimitHeader,
     default_delay_wait: Seconds,
     now: fn() -> Seconds,
+    strategy: Box<dyn BackOffStrategy>,
 }
 
 impl<'a, R> ExponentialBackoff<'a, R> {
@@ -33,23 +34,8 @@ impl<'a, R> ExponentialBackoff<'a, R> {
             rate_limit_header: RateLimitHeader::default(),
             default_delay_wait: Seconds::new(default_delay_wait),
             now,
+            strategy: Box::new(Exponential),
         }
-    }
-
-    fn wait_time(&mut self) -> Seconds {
-        // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
-        let now = (self.now)();
-        let mut base_wait_time = if self.rate_limit_header.reset > now {
-            self.rate_limit_header.reset - now
-        } else {
-            self.default_delay_wait
-        };
-        if self.rate_limit_header.retry_after > Seconds::new(0) {
-            base_wait_time = self.rate_limit_header.retry_after;
-        }
-        let wait_time = base_wait_time + 2u64.pow(self.num_retries).into();
-        log_info!("Waiting for {} seconds", wait_time);
-        wait_time
     }
 
     /// Checks if the error is a candidate for retrying the request. A request
@@ -83,7 +69,20 @@ impl<'a, R: HttpRunner<Response = Response>> ExponentialBackoff<'a, R> {
                         self.rate_limit_header = headers;
                         self.num_retries += 1;
                         if self.num_retries <= self.max_retries {
-                            self.runner.throttle(self.wait_time().into());
+                            let now = (self.now)();
+                            let mut base_wait_time = if self.rate_limit_header.reset > now {
+                                self.rate_limit_header.reset - now
+                            } else {
+                                self.default_delay_wait
+                            };
+                            if self.rate_limit_header.retry_after > Seconds::new(0) {
+                                base_wait_time = self.rate_limit_header.retry_after;
+                            }
+                            self.runner.throttle(
+                                self.strategy
+                                    .wait_time(base_wait_time, self.num_retries)
+                                    .into(),
+                            );
                             continue;
                         }
                         return Err(GRError::ExponentialBackoffMaxRetriesReached(format!(
@@ -97,6 +96,21 @@ impl<'a, R: HttpRunner<Response = Response>> ExponentialBackoff<'a, R> {
                 }
             };
         }
+    }
+}
+
+trait BackOffStrategy {
+    fn wait_time(&self, base_wait: Seconds, num_retries: u32) -> Seconds;
+}
+
+struct Exponential;
+
+impl BackOffStrategy for Exponential {
+    fn wait_time(&self, base_wait: Seconds, num_retries: u32) -> Seconds {
+        // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
+        let wait_time = base_wait + 2u64.pow(num_retries).into();
+        log_info!("Waiting for {} seconds", wait_time);
+        wait_time
     }
 }
 
