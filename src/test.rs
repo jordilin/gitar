@@ -151,6 +151,10 @@ pub mod utils {
                     let headers = response.get_ratelimit_headers().unwrap_or_default();
                     return Err(error::GRError::RateLimitExceeded(headers).into());
                 }
+                500..=599 => return Err(error::GRError::RemoteServerError(response.body).into()),
+                // Just for testing purposes, if the test client sets a status
+                // code of -1 we return a HTTP transport error.
+                -1 => return Err(error::GRError::HttpTransportError(response.body).into()),
                 _ => return Err(error::gen(&response.body)),
             }
         }

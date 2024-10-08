@@ -4,9 +4,9 @@ use serde::Serialize;
 
 use crate::error::{AddContext, GRError};
 use crate::io::{HttpRunner, RateLimitHeader};
+use crate::log_error;
 use crate::{error, log_info, Result};
 use crate::{http::Request, io::Response, time::Seconds};
-use crate::{log_error, Error};
 
 /// ExponentialBackoff wraps an HttpRunner and retries requests with an
 /// exponential backoff retry mechanism.
@@ -38,17 +38,6 @@ impl<'a, R> Backoff<'a, R> {
             strategy,
         }
     }
-
-    /// Checks if the error is a candidate for retrying the request. A request
-    /// can be retried if we are being rate limited or if there is a network
-    /// outage.
-    fn should_retry_on_error(&self, err: &Error) -> Option<RateLimitHeader> {
-        return match err.downcast_ref::<error::GRError>() {
-            Some(error::GRError::RateLimitExceeded(headers)) => Some(headers.clone()),
-            Some(error::GRError::HttpTransportError(_)) => Some(RateLimitHeader::default()),
-            _ => None,
-        };
-    }
 }
 
 impl<'a, R: HttpRunner<Response = Response>> Backoff<'a, R> {
@@ -66,35 +55,52 @@ impl<'a, R: HttpRunner<Response = Response>> Backoff<'a, R> {
                         self.num_retries + 1,
                         self.max_retries
                     );
-                    if let Some(headers) = self.should_retry_on_error(&err) {
-                        // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
-                        self.rate_limit_header = headers;
-                        self.num_retries += 1;
-                        if self.num_retries <= self.max_retries {
-                            let now = (self.now)();
-                            let mut base_wait_time = if self.rate_limit_header.reset > now {
-                                self.rate_limit_header.reset - now
-                            } else {
-                                self.default_delay_wait
-                            };
-                            if self.rate_limit_header.retry_after > Seconds::new(0) {
-                                base_wait_time = self.rate_limit_header.retry_after;
+                    // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
+                    match err.downcast_ref::<error::GRError>() {
+                        Some(error::GRError::RateLimitExceeded(headers)) => {
+                            self.rate_limit_header = headers.clone();
+                            self.num_retries += 1;
+                            if self.num_retries <= self.max_retries {
+                                let now = (self.now)();
+                                let mut base_wait_time = if self.rate_limit_header.reset > now {
+                                    self.rate_limit_header.reset - now
+                                } else {
+                                    self.default_delay_wait
+                                };
+                                if self.rate_limit_header.retry_after > Seconds::new(0) {
+                                    base_wait_time = self.rate_limit_header.retry_after;
+                                }
+                                self.runner.throttle(
+                                    self.strategy
+                                        .wait_time(base_wait_time, self.num_retries)
+                                        .into(),
+                                );
+                                continue;
                             }
-                            self.runner.throttle(
-                                self.strategy
-                                    .wait_time(base_wait_time, self.num_retries)
-                                    .into(),
-                            );
-                            continue;
                         }
-                        return Err(GRError::ExponentialBackoffMaxRetriesReached(format!(
-                            "Retried the request {} times",
-                            self.max_retries
-                        )))
-                        .err_context(err);
-                    } else {
-                        return Err(err);
+                        Some(
+                            error::GRError::HttpTransportError(_)
+                            | error::GRError::RemoteServerError(_),
+                        ) => {
+                            self.num_retries += 1;
+                            if self.num_retries <= self.max_retries {
+                                self.runner.throttle(
+                                    self.strategy
+                                        .wait_time(self.default_delay_wait, self.num_retries)
+                                        .into(),
+                                );
+                                continue;
+                            }
+                        }
+                        _ => {
+                            return Err(err);
+                        }
                     }
+                    return Err(GRError::ExponentialBackoffMaxRetriesReached(format!(
+                        "Retried the request {} times",
+                        self.max_retries
+                    )))
+                    .err_context(err);
                 }
             };
         }
@@ -144,6 +150,18 @@ mod tests {
 
     fn response_ok() -> Response {
         Response::builder().status(200).build().unwrap()
+    }
+
+    fn response_server_error() -> Response {
+        Response::builder().status(500).build().unwrap()
+    }
+
+    fn response_transport_error() -> Response {
+        // Could be a timeout, connection error, etc. Status code
+        // For testing purposes, the status code of -1 simulates a transport
+        // error from the mock http runner.
+        // TODO: Should move to enums instead at some point.
+        Response::builder().status(-1).build().unwrap()
     }
 
     fn now_mock() -> Seconds {
@@ -304,5 +322,85 @@ mod tests {
         // 61 secs base wait, 2nd retry 2^2 = 4 => 65000 milliseconds
         // Total wait 187000
         assert_eq!(Milliseconds::new(187000), *client.milliseconds_throttled());
+    }
+
+    #[test]
+    fn test_retries_on_server_500_error() {
+        let responses = vec![response_ok(), response_server_error()];
+        let client = Arc::new(MockRunner::new(responses));
+        let mut request: Request<()> = Request::builder()
+            .resource(Resource::new("http://localhost", None))
+            .method(http::Method::GET)
+            .build()
+            .unwrap();
+        let strategy = Box::new(Exponential);
+        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy);
+        backoff.retry_on_error(&mut request).unwrap();
+        assert_eq!(1, *client.throttled());
+        // Success on 2nd retry. Wait time of 1min + 2^1 = 2 => 62000 milliseconds
+        assert_eq!(Milliseconds::new(62000), *client.milliseconds_throttled());
+    }
+
+    #[test]
+    fn test_retries_on_server_500_error_and_fails_after_max_retries_reached() {
+        let responses = vec![response_server_error(), response_server_error()];
+        let client = Arc::new(MockRunner::new(responses));
+        let mut request: Request<()> = Request::builder()
+            .resource(Resource::new("http://localhost", None))
+            .method(http::Method::GET)
+            .build()
+            .unwrap();
+        let strategy = Box::new(Exponential);
+        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy);
+        match backoff.retry_on_error(&mut request) {
+            Ok(_) => panic!("Expected max retries reached error"),
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::ExponentialBackoffMaxRetriesReached(_)) => {
+                    assert_eq!(1, *client.throttled());
+                    assert_eq!(Milliseconds::new(62000), *client.milliseconds_throttled());
+                }
+                _ => panic!("Expected max retries reached error"),
+            },
+        }
+    }
+
+    #[test]
+    fn test_retries_on_transport_error() {
+        let responses = vec![response_ok(), response_transport_error()];
+        let client = Arc::new(MockRunner::new(responses));
+        let mut request: Request<()> = Request::builder()
+            .resource(Resource::new("http://localhost", None))
+            .method(http::Method::GET)
+            .build()
+            .unwrap();
+        let strategy = Box::new(Exponential);
+        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy);
+        backoff.retry_on_error(&mut request).unwrap();
+        assert_eq!(1, *client.throttled());
+        // Success on 2nd retry. Wait time of 1min + 2^1 = 2 => 62000 milliseconds
+        assert_eq!(Milliseconds::new(62000), *client.milliseconds_throttled());
+    }
+
+    #[test]
+    fn test_retries_on_transport_error_and_fails_after_max_retries_reached() {
+        let responses = vec![response_transport_error(), response_transport_error()];
+        let client = Arc::new(MockRunner::new(responses));
+        let mut request: Request<()> = Request::builder()
+            .resource(Resource::new("http://localhost", None))
+            .method(http::Method::GET)
+            .build()
+            .unwrap();
+        let strategy = Box::new(Exponential);
+        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy);
+        match backoff.retry_on_error(&mut request) {
+            Ok(_) => panic!("Expected max retries reached error"),
+            Err(err) => match err.downcast_ref::<error::GRError>() {
+                Some(error::GRError::ExponentialBackoffMaxRetriesReached(_)) => {
+                    assert_eq!(1, *client.throttled());
+                    assert_eq!(Milliseconds::new(62000), *client.milliseconds_throttled());
+                }
+                _ => panic!("Expected max retries reached error"),
+            },
+        }
     }
 }
