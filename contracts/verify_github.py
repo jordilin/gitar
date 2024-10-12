@@ -190,7 +190,7 @@ if __name__ == "__main__":
         TestAPI(
             get_user_info_api,
             "get user info API contract",
-            get_contract_json("get_user_info.json", REMOTE),
+            get_contract_json("get_auth_user.json", REMOTE),
         ),
         TestAPI(
             list_issues_user_api,

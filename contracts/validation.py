@@ -1,5 +1,7 @@
 import os
 import json
+import random
+import time
 
 
 def _verify_all_keys_exist(expected, actual):
@@ -56,6 +58,9 @@ def validate_responses(testcases):
                 find_expectations(expected.name)
                 return False
         print("OK")
+        throttle_time = random.randint(1, 3)
+        print("Throttling for {} seconds".format(throttle_time))
+        time.sleep(throttle_time)
     return True
 
 
