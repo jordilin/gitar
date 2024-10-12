@@ -1,5 +1,5 @@
 use crate::api_traits::ApiOperation;
-use crate::backoff::ExponentialBackoff;
+use crate::backoff::{Backoff, Exponential};
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
 use crate::error::GRError;
@@ -359,7 +359,7 @@ pub struct Paginator<'a, R, T> {
     iter: u32,
     throttle_time: Option<Milliseconds>,
     throttle_range: Option<(Milliseconds, Milliseconds)>,
-    backoff: ExponentialBackoff<'a, R>,
+    backoff: Backoff<'a, R>,
 }
 
 impl<'a, R, T> Paginator<'a, R, T> {
@@ -379,11 +379,12 @@ impl<'a, R, T> Paginator<'a, R, T> {
             iter: 0,
             throttle_time,
             throttle_range,
-            backoff: ExponentialBackoff::new(
+            backoff: Backoff::new(
                 runner,
                 backoff_max_retries,
                 backoff_default_wait_time,
                 time::now_epoch_seconds,
+                Box::new(Exponential),
             ),
         }
     }
