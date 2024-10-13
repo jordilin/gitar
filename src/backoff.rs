@@ -58,7 +58,7 @@ impl<'a, R: HttpRunner<Response = Response>> Backoff<'a, R> {
                     // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
                     match err.downcast_ref::<error::GRError>() {
                         Some(error::GRError::RateLimitExceeded(headers)) => {
-                            self.rate_limit_header = headers.clone();
+                            self.rate_limit_header = *headers;
                             self.num_retries += 1;
                             if self.num_retries <= self.max_retries {
                                 let now = (self.now)();

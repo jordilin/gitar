@@ -3,13 +3,18 @@ use crate::backoff::{Backoff, Exponential};
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
 use crate::error::GRError;
-use crate::io::{HttpRunner, RateLimitHeader, Response, ResponseField};
+use crate::io::{
+    parse_link_headers, parse_page_headers, parse_ratelimit_headers, FlowControlHeaders,
+    HttpRunner, RateLimitHeader, Response, ResponseField,
+};
 use crate::time::{self, now_epoch_seconds, Milliseconds, Seconds};
 use crate::{api_defaults, error, log_debug, log_error};
 use crate::{log_info, Result};
 use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
 use std::collections::{hash_map, HashMap};
 use std::iter::Iterator;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use ureq::Error;
 
@@ -68,6 +73,9 @@ impl<C> Client<C> {
                             );
                             headers
                         });
+                let rate_limit_header = Rc::new(parse_ratelimit_headers(Some(&headers)));
+                let page_header = Rc::new(parse_page_headers(Some(&headers)));
+                let flow_control_headers = FlowControlHeaders::new(page_header, rate_limit_header);
                 // log debug response headers
                 log_debug!("Response headers: {:?}", headers);
                 let body = response.into_string().unwrap_or_default();
@@ -75,6 +83,7 @@ impl<C> Client<C> {
                     .status(status)
                     .body(body)
                     .headers(headers)
+                    .flow_control_headers(flow_control_headers)
                     .build()
                     .unwrap();
                 self.handle_rate_limit(&response)?;
@@ -87,10 +96,10 @@ impl<C> Client<C> {
 
 impl<C> Client<C> {
     fn handle_rate_limit(&self, response: &Response) -> Result<()> {
-        if let Some(headers) = response.get_ratelimit_headers() {
+        if let Some(headers) = response.get_ratelimit_headers().borrow() {
             if headers.remaining <= self.config.rate_limit_remaining_threshold() {
                 log_error!("Rate limit threshold reached");
-                return Err(error::GRError::RateLimitExceeded(headers).into());
+                return Err(error::GRError::RateLimitExceeded(*headers).into());
             }
             Ok(())
         } else {
@@ -405,6 +414,7 @@ impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginato
             if self.iter >= 1 {
                 self.request.set_url(page_url);
             }
+            // TODO throttle after first page
             log_info!("Requesting page: {}", self.iter + 1);
             log_info!("URL: {}", self.request.url());
             if let Some(throttle_time) = self.throttle_time {
@@ -416,11 +426,9 @@ impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginato
             }
             match self.backoff.retry_on_error(&mut self.request) {
                 Ok(response) => {
-                    if let Some(page_headers) = response.get_page_headers() {
-                        let next_page = page_headers.next;
-                        let last_page = page_headers.last;
-                        match (next_page, last_page) {
-                            (Some(next), _) => self.page_url = Some(next.url),
+                    if let Some(page_headers) = response.get_page_headers().borrow() {
+                        match (page_headers.next_page(), page_headers.last_page()) {
+                            (Some(next), _) => self.page_url = Some(next.url().to_string()),
                             (None, _) => self.page_url = None,
                         }
                         self.iter += 1;
@@ -434,6 +442,7 @@ impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginato
                     return Some(Err(err));
                 }
             }
+            // Get response and throttle.
         }
         None
     }
