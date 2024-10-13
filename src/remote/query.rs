@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::iter::Iterator;
 use std::sync::Arc;
 
@@ -10,28 +11,27 @@ use crate::{
     api_traits::{ApiOperation, NumberDeltaErr},
     display, error,
     http::{self, Body, Headers, Paginator, Request, Resource},
-    io::{HttpRunner, PageHeader, Response},
+    io::{HttpRunner, Response},
     json_load_page, json_loads,
     remote::ListBodyArgs,
     time::sort_filter_by_date,
     Result,
 };
 
-fn get_page_header<R: HttpRunner<Response = Response>>(
+fn get_remote_resource_headers<'a, R: HttpRunner<Response = Response>>(
     runner: &Arc<R>,
     url: &str,
     request_headers: Headers,
     api_operation: ApiOperation,
-) -> Result<Option<PageHeader>> {
-    let response = send_request::<_, String>(
+) -> Result<Response> {
+    send_request::<_, String>(
         runner,
         url,
         None,
         request_headers,
         http::Method::HEAD,
         api_operation,
-    )?;
-    Ok(response.get_page_headers())
+    )
 }
 
 pub fn num_pages<R: HttpRunner<Response = Response>>(
@@ -40,10 +40,10 @@ pub fn num_pages<R: HttpRunner<Response = Response>>(
     request_headers: Headers,
     api_operation: ApiOperation,
 ) -> Result<Option<u32>> {
-    let page_header = get_page_header(runner, url, request_headers, api_operation)?;
-    match page_header {
+    let response = get_remote_resource_headers(runner, url, request_headers, api_operation)?;
+    match response.get_page_headers().borrow() {
         Some(page_header) => {
-            if let Some(last_page) = page_header.last {
+            if let Some(last_page) = page_header.last_page() {
                 return Ok(Some(last_page.number));
             }
             Ok(None)
@@ -60,11 +60,11 @@ pub fn num_resources<R: HttpRunner<Response = Response>>(
     request_headers: Headers,
     api_operation: ApiOperation,
 ) -> Result<Option<NumberDeltaErr>> {
-    let page_header = get_page_header(runner, url, request_headers, api_operation)?;
-    match page_header {
+    let response = get_remote_resource_headers(runner, url, request_headers, api_operation)?;
+    match response.get_page_headers().borrow() {
         Some(page_header) => {
             // total resources per_page * total_pages
-            if let Some(last_page) = page_header.last {
+            if let Some(last_page) = page_header.last_page() {
                 let count = last_page.number * page_header.per_page;
                 return Ok(Some(NumberDeltaErr {
                     num: count,

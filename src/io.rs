@@ -13,8 +13,10 @@ use crate::{
 use regex::Regex;
 use serde::Serialize;
 use std::{
+    borrow::Borrow,
     ffi::OsStr,
     fmt::{self, Display, Formatter},
+    rc::Rc,
     thread,
 };
 
@@ -81,6 +83,8 @@ pub struct Response {
     /// Optional headers. Mostly used by HTTP downstream HTTP responses
     #[builder(setter(into, strip_option), default)]
     pub headers: Option<Headers>,
+    #[builder(default)]
+    pub flow_control_headers: FlowControlHeaders,
     #[builder(default = "parse_link_headers")]
     link_header_processor: fn(&str) -> PageHeader,
 }
@@ -106,51 +110,12 @@ impl Response {
             .map(|s| s.as_str())
     }
 
-    pub fn get_page_headers(&self) -> Option<PageHeader> {
-        if let Some(headers) = &self.headers {
-            match headers.get(LINK_HEADER) {
-                Some(link) => return Some((self.link_header_processor)(link)),
-                None => return None,
-            }
-        }
-        None
+    pub fn get_page_headers(&self) -> Rc<Option<PageHeader>> {
+        self.flow_control_headers.get_page_header()
     }
 
-    // Defaults:
-    // https://docs.gitlab.com/ee/user/gitlab_com/index.html#gitlabcom-specific-rate-limits
-    // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#primary-rate-limit-for-authenticated-users
-
-    // Github 5000 requests per hour for authenticated users
-    // Gitlab 2000 requests per minute for authenticated users
-    // Most limiting Github 5000/60 = 83.33 requests per minute
-
-    pub fn get_ratelimit_headers(&self) -> Option<RateLimitHeader> {
-        let mut ratelimit_header = RateLimitHeader::default();
-
-        // process remote headers and patch the defaults accordingly
-        if let Some(headers) = &self.headers {
-            if let Some(retry_after) = headers.get(RETRY_AFTER) {
-                ratelimit_header.retry_after =
-                    Seconds::new(retry_after.parse::<u64>().unwrap_or(0));
-            }
-            if let Some(github_remaining) = headers.get(GITHUB_RATELIMIT_REMAINING) {
-                ratelimit_header.remaining = github_remaining.parse::<u32>().unwrap_or(0);
-                if let Some(github_reset) = headers.get(GITHUB_RATELIMIT_RESET) {
-                    ratelimit_header.reset = Seconds::new(github_reset.parse::<u64>().unwrap_or(0));
-                }
-                log_info!("Header {}", ratelimit_header);
-                return Some(ratelimit_header);
-            }
-            if let Some(gitlab_remaining) = headers.get(GITLAB_RATELIMIT_REMAINING) {
-                ratelimit_header.remaining = gitlab_remaining.parse::<u32>().unwrap_or(0);
-                if let Some(gitlab_reset) = headers.get(GITLAB_RATELIMIT_RESET) {
-                    ratelimit_header.reset = Seconds::new(gitlab_reset.parse::<u64>().unwrap_or(0));
-                }
-                log_info!("Header {}", ratelimit_header);
-                return Some(ratelimit_header);
-            }
-        }
-        None
+    pub fn get_ratelimit_headers(&self) -> Rc<Option<RateLimitHeader>> {
+        self.flow_control_headers.get_rate_limit_header()
     }
 
     pub fn get_etag(&self) -> Option<&str> {
@@ -223,7 +188,7 @@ pub fn parse_link_headers(link: &str) -> PageHeader {
     page_header
 }
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PageHeader {
     pub next: Option<Page>,
     pub last: Option<Page>,
@@ -241,9 +206,27 @@ impl PageHeader {
     pub fn set_last_page(&mut self, page: Page) {
         self.last = Some(page);
     }
+
+    pub fn next_page(&self) -> Option<&Page> {
+        self.next.as_ref()
+    }
+
+    pub fn last_page(&self) -> Option<&Page> {
+        self.last.as_ref()
+    }
 }
 
-#[derive(Debug, PartialEq)]
+pub fn parse_page_headers(headers: Option<&Headers>) -> Option<PageHeader> {
+    if let Some(headers) = headers {
+        match headers.get(LINK_HEADER) {
+            Some(link) => return Some(parse_link_headers(link)),
+            None => return None,
+        }
+    }
+    None
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Page {
     pub url: String,
     pub number: u32,
@@ -255,6 +238,10 @@ impl Page {
             url: url.to_string(),
             number,
         }
+    }
+
+    pub fn url(&self) -> &str {
+        &self.url
     }
 }
 
@@ -282,7 +269,7 @@ pub const GITLAB_RATELIMIT_RESET: &str = "ratelimit-reset";
 /// Gitlab API ratelimit headers:
 /// remaining: RateLimit-Remaining
 /// reset: RateLimit-Reset
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct RateLimitHeader {
     // The number of requests remaining in the current rate limit window.
     pub remaining: u32,
@@ -302,6 +289,42 @@ impl RateLimitHeader {
     }
 }
 
+// Defaults:
+// https://docs.gitlab.com/ee/user/gitlab_com/index.html#gitlabcom-specific-rate-limits
+// https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#primary-rate-limit-for-authenticated-users
+
+// Github 5000 requests per hour for authenticated users
+// Gitlab 2000 requests per minute for authenticated users
+// Most limiting Github 5000/60 = 83.33 requests per minute
+
+pub fn parse_ratelimit_headers(headers: Option<&Headers>) -> Option<RateLimitHeader> {
+    let mut ratelimit_header = RateLimitHeader::default();
+
+    // process remote headers and patch the defaults accordingly
+    if let Some(headers) = headers {
+        if let Some(retry_after) = headers.get(RETRY_AFTER) {
+            ratelimit_header.retry_after = Seconds::new(retry_after.parse::<u64>().unwrap_or(0));
+        }
+        if let Some(github_remaining) = headers.get(GITHUB_RATELIMIT_REMAINING) {
+            ratelimit_header.remaining = github_remaining.parse::<u32>().unwrap_or(0);
+            if let Some(github_reset) = headers.get(GITHUB_RATELIMIT_RESET) {
+                ratelimit_header.reset = Seconds::new(github_reset.parse::<u64>().unwrap_or(0));
+            }
+            log_info!("Header {}", ratelimit_header);
+            return Some(ratelimit_header);
+        }
+        if let Some(gitlab_remaining) = headers.get(GITLAB_RATELIMIT_REMAINING) {
+            ratelimit_header.remaining = gitlab_remaining.parse::<u32>().unwrap_or(0);
+            if let Some(gitlab_reset) = headers.get(GITLAB_RATELIMIT_RESET) {
+                ratelimit_header.reset = Seconds::new(gitlab_reset.parse::<u64>().unwrap_or(0));
+            }
+            log_info!("Header {}", ratelimit_header);
+            return Some(ratelimit_header);
+        }
+    }
+    None
+}
+
 impl Display for RateLimitHeader {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let reset = time::epoch_to_minutes_relative(self.reset);
@@ -310,6 +333,32 @@ impl Display for RateLimitHeader {
             "RateLimitHeader: remaining: {}, reset in: {} minutes",
             self.remaining, reset
         )
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct FlowControlHeaders {
+    page_header: Rc<Option<PageHeader>>,
+    rate_limit_header: Rc<Option<RateLimitHeader>>,
+}
+
+impl FlowControlHeaders {
+    pub fn new(
+        page_header: Rc<Option<PageHeader>>,
+        rate_limit_header: Rc<Option<RateLimitHeader>>,
+    ) -> Self {
+        FlowControlHeaders {
+            page_header,
+            rate_limit_header,
+        }
+    }
+
+    pub fn get_page_header(&self) -> Rc<Option<PageHeader>> {
+        self.page_header.clone()
+    }
+
+    pub fn get_rate_limit_header(&self) -> Rc<Option<RateLimitHeader>> {
+        self.rate_limit_header.clone()
     }
 }
 
