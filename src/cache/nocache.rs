@@ -1,5 +1,5 @@
 use crate::cache::{Cache, CacheState};
-use crate::io::{Response, ResponseField};
+use crate::io::{HttpResponse, ResponseField};
 
 use crate::Result;
 
@@ -9,11 +9,11 @@ impl<K> Cache<K> for NoCache {
     fn get(&self, _key: &K) -> Result<CacheState> {
         Ok(CacheState::None)
     }
-    fn set(&self, _key: &K, _value: &Response) -> Result<()> {
+    fn set(&self, _key: &K, _value: &HttpResponse) -> Result<()> {
         Ok(())
     }
 
-    fn update(&self, _key: &K, _value: &Response, _field: &ResponseField) -> Result<()> {
+    fn update(&self, _key: &K, _value: &HttpResponse, _field: &ResponseField) -> Result<()> {
         Ok(())
     }
 }

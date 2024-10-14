@@ -12,14 +12,14 @@ use crate::remote::query;
 use crate::Result;
 use crate::{
     api_traits::MergeRequest,
-    io::{HttpRunner, Response},
+    io::{HttpRunner, HttpResponse},
 };
 
 use crate::json_loads;
 
 use super::Gitlab;
 
-impl<R: HttpRunner<Response = Response>> MergeRequest for Gitlab<R> {
+impl<R: HttpRunner<Response = HttpResponse>> MergeRequest for Gitlab<R> {
     fn open(&self, args: MergeRequestBodyArgs) -> Result<MergeRequestResponse> {
         let mut body = Body::new();
         body.add("source_branch", args.source_branch);
@@ -255,7 +255,7 @@ impl<R> Gitlab<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Gitlab<R> {
+impl<R: HttpRunner<Response = HttpResponse>> CommentMergeRequest for Gitlab<R> {
     fn create(&self, args: CommentMergeRequestBodyArgs) -> Result<()> {
         let url = format!(
             "{}/merge_requests/{}/notes",

@@ -6,7 +6,7 @@ pub mod utils {
         config::ConfigProperties,
         error,
         http::{self, Headers, Request},
-        io::{HttpRunner, Response, TaskRunner},
+        io::{HttpResponse, HttpRunner, ShellResponse, TaskRunner},
         time::Milliseconds,
         Result,
     };
@@ -47,8 +47,8 @@ pub mod utils {
         contents
     }
 
-    pub struct MockRunner {
-        responses: RefCell<Vec<Response>>,
+    pub struct MockRunner<R> {
+        responses: RefCell<Vec<R>>,
         cmd: RefCell<String>,
         headers: RefCell<Headers>,
         url: RefCell<String>,
@@ -61,8 +61,8 @@ pub mod utils {
         pub request_body: RefCell<String>,
     }
 
-    impl MockRunner {
-        pub fn new(responses: Vec<Response>) -> Self {
+    impl<R> MockRunner<R> {
+        pub fn new(responses: Vec<R>) -> Self {
             Self {
                 responses: RefCell::new(responses),
                 cmd: RefCell::new(String::new()),
@@ -107,8 +107,8 @@ pub mod utils {
         }
     }
 
-    impl TaskRunner for MockRunner {
-        type Response = Response;
+    impl TaskRunner for MockRunner<ShellResponse> {
+        type Response = ShellResponse;
 
         fn run<T>(&self, cmd: T) -> Result<Self::Response>
         where
@@ -130,8 +130,8 @@ pub mod utils {
         }
     }
 
-    impl HttpRunner for MockRunner {
-        type Response = Response;
+    impl HttpRunner for MockRunner<HttpResponse> {
+        type Response = HttpResponse;
 
         fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response> {
             self.url.replace(cmd.url().to_string());
@@ -306,10 +306,18 @@ pub mod utils {
                 .into_iter()
                 .map(|(status_code, get_contract_fn, headers)| {
                     let body = get_contract_fn();
-                    let mut response = Response::builder();
+                    let mut response = HttpResponse::builder();
                     response.status(status_code);
                     if headers.is_some() {
                         response.headers(headers.clone().unwrap());
+                        let rate_limit_header =
+                            crate::io::parse_ratelimit_headers(headers.as_ref());
+                        let link_header = crate::io::parse_page_headers(headers.as_ref());
+                        let flow_control_headers = crate::io::FlowControlHeaders::new(
+                            std::rc::Rc::new(link_header),
+                            std::rc::Rc::new(rate_limit_header),
+                        );
+                        response.flow_control_headers(flow_control_headers);
                     }
                     if body.is_some() {
                         response.body(body.unwrap());

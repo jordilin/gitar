@@ -3,13 +3,13 @@ use std::{cell::RefCell, collections::HashMap};
 use crate::{
     cache::{Cache, CacheState},
     http::Resource,
-    io::{Response, ResponseField},
+    io::{HttpResponse, ResponseField},
 };
 
 use crate::Result;
 
 pub struct InMemoryCache {
-    cache: RefCell<HashMap<String, Response>>,
+    cache: RefCell<HashMap<String, HttpResponse>>,
     expired: bool,
     pub updated: RefCell<bool>,
     pub updated_field: RefCell<ResponseField>,
@@ -47,7 +47,7 @@ impl Cache<Resource> for &InMemoryCache {
         Ok(CacheState::None)
     }
 
-    fn set(&self, key: &Resource, value: &Response) -> Result<()> {
+    fn set(&self, key: &Resource, value: &HttpResponse) -> Result<()> {
         self.cache
             .borrow_mut()
             .insert(key.url.to_string(), value.clone());
@@ -57,7 +57,7 @@ impl Cache<Resource> for &InMemoryCache {
     fn update(
         &self,
         key: &Resource,
-        value: &Response,
+        value: &HttpResponse,
         field: &crate::io::ResponseField,
     ) -> Result<()> {
         *self.updated.borrow_mut() = true;
@@ -77,7 +77,7 @@ impl Cache<String> for InMemoryCache {
         Ok(CacheState::None)
     }
 
-    fn set(&self, key: &String, value: &Response) -> Result<()> {
+    fn set(&self, key: &String, value: &HttpResponse) -> Result<()> {
         self.cache
             .borrow_mut()
             .insert(key.to_string(), value.clone());
@@ -87,7 +87,7 @@ impl Cache<String> for InMemoryCache {
     fn update(
         &self,
         key: &String,
-        value: &Response,
+        value: &HttpResponse,
         _field: &crate::io::ResponseField,
     ) -> Result<()> {
         self.set(key, value)

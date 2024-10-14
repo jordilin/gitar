@@ -4,8 +4,8 @@ use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
 use crate::error::GRError;
 use crate::io::{
-    parse_link_headers, parse_page_headers, parse_ratelimit_headers, FlowControlHeaders,
-    HttpRunner, RateLimitHeader, Response, ResponseField,
+    parse_page_headers, parse_ratelimit_headers, FlowControlHeaders, HttpResponse, HttpRunner,
+    RateLimitHeader, ResponseField,
 };
 use crate::time::{self, now_epoch_seconds, Milliseconds, Seconds};
 use crate::{api_defaults, error, log_debug, log_error};
@@ -40,7 +40,7 @@ impl<C> Client<C> {
         }
     }
 
-    fn submit<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
+    fn submit<T: Serialize>(&self, request: &Request<T>) -> Result<HttpResponse> {
         let ureq_req = match request.method {
             Method::GET => ureq::get(request.url()),
             Method::HEAD => ureq::head(request.url()),
@@ -79,7 +79,7 @@ impl<C> Client<C> {
                 // log debug response headers
                 log_debug!("Response headers: {:?}", headers);
                 let body = response.into_string().unwrap_or_default();
-                let response = Response::builder()
+                let response = HttpResponse::builder()
                     .status(status)
                     .body(body)
                     .headers(headers)
@@ -95,7 +95,7 @@ impl<C> Client<C> {
 }
 
 impl<C> Client<C> {
-    fn handle_rate_limit(&self, response: &Response) -> Result<()> {
+    fn handle_rate_limit(&self, response: &HttpResponse) -> Result<()> {
         if let Some(headers) = response.get_ratelimit_headers().borrow() {
             if headers.remaining <= self.config.rate_limit_remaining_threshold() {
                 log_error!("Rate limit threshold reached");
@@ -309,12 +309,12 @@ pub enum Method {
 }
 
 impl<C: Cache<Resource>> HttpRunner for Client<C> {
-    type Response = Response;
+    type Response = HttpResponse;
 
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response> {
         match cmd.method {
             Method::GET => {
-                let mut default_response = Response::builder().build().unwrap();
+                let mut default_response = HttpResponse::builder().build().unwrap();
                 match self.cache.get(&cmd.resource) {
                     Ok(CacheState::Fresh(response)) => {
                         log_debug!("Cache fresh for {}", cmd.resource.url);
@@ -399,8 +399,8 @@ impl<'a, R, T> Paginator<'a, R, T> {
     }
 }
 
-impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginator<'a, R, T> {
-    type Item = Result<Response>;
+impl<'a, T: Serialize, R: HttpRunner<Response = HttpResponse>> Iterator for Paginator<'a, R, T> {
+    type Item = Result<HttpResponse>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(page_url) = &self.page_url {
@@ -459,37 +459,41 @@ mod test {
         test::utils::{init_test_logger, ConfigMock, MockRunner, LOG_BUFFER},
     };
 
-    fn header_processor_next_page_no_last(_header: &str) -> PageHeader {
+    fn header_processor_next_page_no_last() -> Rc<Option<PageHeader>> {
         let mut page_header = PageHeader::new();
         page_header.set_next_page(Page::new("http://localhost?page=2", 1));
-        page_header
+        Rc::new(Some(page_header))
     }
 
-    fn header_processor_last_page_no_next(_header: &str) -> PageHeader {
+    fn header_processor_last_page_no_next() -> Rc<Option<PageHeader>> {
         let mut page_header = PageHeader::new();
         page_header.set_last_page(Page::new("http://localhost?page=2", 1));
-        page_header
+        Rc::new(Some(page_header))
     }
 
-    fn response_with_next_page() -> Response {
+    fn response_with_next_page() -> HttpResponse {
         let mut headers = Headers::new();
         headers.set("link".to_string(), "http://localhost?page=2".to_string());
-        let response = Response::builder()
+        let flow_control_headers =
+            FlowControlHeaders::new(header_processor_next_page_no_last(), Rc::new(None));
+        let response = HttpResponse::builder()
             .status(200)
             .headers(headers)
-            .link_header_processor(header_processor_next_page_no_last)
+            .flow_control_headers(flow_control_headers)
             .build()
             .unwrap();
         response
     }
 
-    fn response_with_last_page() -> Response {
+    fn response_with_last_page() -> HttpResponse {
         let mut headers = Headers::new();
         headers.set("link".to_string(), "http://localhost?page=2".to_string());
-        let response = Response::builder()
+        let flow_control_headers =
+            FlowControlHeaders::new(header_processor_last_page_no_next(), Rc::new(None));
+        let response = HttpResponse::builder()
             .status(200)
             .headers(headers)
-            .link_header_processor(header_processor_last_page_no_next)
+            .flow_control_headers(flow_control_headers)
             .build()
             .unwrap();
         response
@@ -497,11 +501,11 @@ mod test {
 
     #[test]
     fn test_paginator_no_headers_no_next_no_last_pages() {
-        let response = Response::builder().status(200).build().unwrap();
+        let response = HttpResponse::builder().status(200).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
         let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(1, responses.len());
         assert_eq!("http://localhost", *client.url());
     }
@@ -511,16 +515,15 @@ mod test {
         let response1 = response_with_next_page();
         let mut headers = Headers::new();
         headers.set("link".to_string(), "http://localhost?page=2".to_string());
-        let response2 = Response::builder()
+        let response2 = HttpResponse::builder()
             .status(200)
             .headers(headers)
-            .link_header_processor(|_header| PageHeader::new())
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
         let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(2, responses.len());
     }
 
@@ -531,13 +534,13 @@ mod test {
         let client = Arc::new(MockRunner::new(vec![response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
         let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(2, responses.len());
     }
 
     #[test]
     fn test_paginator_error_response() {
-        let response = Response::builder()
+        let response = HttpResponse::builder()
             .status(500)
             .body("Internal Server Error".to_string())
             .build()
@@ -545,7 +548,7 @@ mod test {
         let client = Arc::new(MockRunner::new(vec![response]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
         let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(1, responses.len());
         assert_eq!("http://localhost", *client.url());
     }
@@ -570,7 +573,7 @@ mod test {
         );
         let request: Request<()> = Request::new("http://localhost", Method::GET);
         let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(1, responses.len());
     }
 
@@ -588,7 +591,7 @@ mod test {
         let request: Request<()> = Request::new("http://localhost", Method::GET);
         let client = Arc::new(MockRunner::new(responses));
         let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(REST_API_MAX_PAGES, responses.len() as u32);
     }
 
@@ -596,9 +599,18 @@ mod test {
     fn test_ratelimit_remaining_threshold_reached_is_error() {
         let mut headers = Headers::new();
         headers.set("x-ratelimit-remaining".to_string(), "10".to_string());
-        let response = Response::builder()
+        let flow_control_headers = FlowControlHeaders::new(
+            Rc::new(None),
+            Rc::new(Some(RateLimitHeader::new(
+                10,
+                Seconds::new(60),
+                Seconds::new(60),
+            ))),
+        );
+        let response = HttpResponse::builder()
             .status(200)
             .headers(headers)
+            .flow_control_headers(flow_control_headers)
             .build()
             .unwrap();
         let client = Client::new(cache::NoCache, Arc::new(ConfigMock::new(1)), false);
@@ -609,7 +621,7 @@ mod test {
     fn test_ratelimit_remaining_threshold_not_reached_is_ok() {
         let mut headers = Headers::new();
         headers.set("ratelimit-remaining".to_string(), "11".to_string());
-        let response = Response::builder()
+        let response = HttpResponse::builder()
             .status(200)
             .headers(headers)
             .build()
@@ -699,7 +711,7 @@ mod test {
             .build()
             .unwrap();
         let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(1, responses.len());
     }
 
@@ -720,7 +732,7 @@ mod test {
             0,
             60,
         );
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(3, responses.len());
         let buffer = LOG_BUFFER.lock().unwrap();
         assert!(buffer.contains("Throttling for: 1 ms"));
@@ -743,7 +755,7 @@ mod test {
             0,
             60,
         );
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(2, responses.len());
         let buffer = LOG_BUFFER.lock().unwrap();
         assert!(buffer.contains("Throttling between: 1 ms and 3 ms"));
@@ -770,7 +782,7 @@ mod test {
             .build()
             .unwrap();
         let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(5, responses.len());
     }
 }

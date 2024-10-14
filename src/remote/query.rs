@@ -11,19 +11,19 @@ use crate::{
     api_traits::{ApiOperation, NumberDeltaErr},
     display, error,
     http::{self, Body, Headers, Paginator, Request, Resource},
-    io::{HttpRunner, Response},
+    io::{HttpResponse, HttpRunner},
     json_load_page, json_loads,
     remote::ListBodyArgs,
     time::sort_filter_by_date,
     Result,
 };
 
-fn get_remote_resource_headers<'a, R: HttpRunner<Response = Response>>(
+fn get_remote_resource_headers<'a, R: HttpRunner<Response = HttpResponse>>(
     runner: &Arc<R>,
     url: &str,
     request_headers: Headers,
     api_operation: ApiOperation,
-) -> Result<Response> {
+) -> Result<HttpResponse> {
     send_request::<_, String>(
         runner,
         url,
@@ -34,7 +34,7 @@ fn get_remote_resource_headers<'a, R: HttpRunner<Response = Response>>(
     )
 }
 
-pub fn num_pages<R: HttpRunner<Response = Response>>(
+pub fn num_pages<R: HttpRunner<Response = HttpResponse>>(
     runner: &Arc<R>,
     url: &str,
     request_headers: Headers,
@@ -54,7 +54,7 @@ pub fn num_pages<R: HttpRunner<Response = Response>>(
     }
 }
 
-pub fn num_resources<R: HttpRunner<Response = Response>>(
+pub fn num_resources<R: HttpRunner<Response = HttpResponse>>(
     runner: &Arc<R>,
     url: &str,
     request_headers: Headers,
@@ -84,14 +84,14 @@ pub fn num_resources<R: HttpRunner<Response = Response>>(
     }
 }
 
-pub fn query_error(url: &str, response: &Response) -> error::GRError {
+pub fn query_error(url: &str, response: &HttpResponse) -> error::GRError {
     error::GRError::RemoteServerError(format!(
         "Failed to submit request to URL: {} with status code: {} and body: {}",
         url, response.status, response.body
     ))
 }
 
-pub fn send<R: HttpRunner<Response = Response>, D: Serialize, T>(
+pub fn send<R: HttpRunner<Response = HttpResponse>, D: Serialize, T>(
     runner: &Arc<R>,
     url: &str,
     body: Option<&Body<D>>,
@@ -105,7 +105,7 @@ pub fn send<R: HttpRunner<Response = Response>, D: Serialize, T>(
     Ok(mapper(&body))
 }
 
-pub fn send_json<R: HttpRunner<Response = Response>, D: Serialize>(
+pub fn send_json<R: HttpRunner<Response = HttpResponse>, D: Serialize>(
     runner: &Arc<R>,
     url: &str,
     body: Option<&Body<D>>,
@@ -117,18 +117,18 @@ pub fn send_json<R: HttpRunner<Response = Response>, D: Serialize>(
     json_loads(&response.body)
 }
 
-pub fn send_raw<R: HttpRunner<Response = Response>, D: Serialize>(
+pub fn send_raw<R: HttpRunner<Response = HttpResponse>, D: Serialize>(
     runner: &Arc<R>,
     url: &str,
     body: Option<&Body<D>>,
     request_headers: Headers,
     operation: ApiOperation,
     method: http::Method,
-) -> Result<Response> {
+) -> Result<HttpResponse> {
     send_request(runner, url, body, request_headers, method, operation)
 }
 
-pub fn get<R: HttpRunner<Response = Response>, D: Serialize, T>(
+pub fn get<R: HttpRunner<Response = HttpResponse>, D: Serialize, T>(
     runner: &Arc<R>,
     url: &str,
     body: Option<&Body<D>>,
@@ -148,7 +148,7 @@ pub fn get<R: HttpRunner<Response = Response>, D: Serialize, T>(
     Ok(mapper(&body))
 }
 
-pub fn get_json<R: HttpRunner<Response = Response>, D: Serialize>(
+pub fn get_json<R: HttpRunner<Response = HttpResponse>, D: Serialize>(
     runner: &Arc<R>,
     url: &str,
     body: Option<&Body<D>>,
@@ -166,13 +166,13 @@ pub fn get_json<R: HttpRunner<Response = Response>, D: Serialize>(
     json_loads(&response.body)
 }
 
-pub fn get_raw<R: HttpRunner<Response = Response>, D: Serialize>(
+pub fn get_raw<R: HttpRunner<Response = HttpResponse>, D: Serialize>(
     runner: &Arc<R>,
     url: &str,
     body: Option<&Body<D>>,
     request_headers: Headers,
     operation: ApiOperation,
-) -> Result<Response> {
+) -> Result<HttpResponse> {
     send_request(
         runner,
         url,
@@ -183,14 +183,14 @@ pub fn get_raw<R: HttpRunner<Response = Response>, D: Serialize>(
     )
 }
 
-fn send_request<R: HttpRunner<Response = Response>, T: Serialize>(
+fn send_request<R: HttpRunner<Response = HttpResponse>, T: Serialize>(
     runner: &Arc<R>,
     url: &str,
     body: Option<&Body<T>>,
     request_headers: Headers,
     method: http::Method,
     operation: ApiOperation,
-) -> Result<Response> {
+) -> Result<HttpResponse> {
     let mut request = if let Some(body) = body {
         http::Request::builder()
             .method(method.clone())
@@ -227,7 +227,7 @@ pub fn paged<R, T>(
     mapper: impl Fn(&serde_json::Value) -> T,
 ) -> Result<Vec<T>>
 where
-    R: HttpRunner<Response = Response>,
+    R: HttpRunner<Response = HttpResponse>,
     T: Clone + Timestamp + Into<DisplayBody>,
 {
     let request = build_list_request(url, &list_args, request_headers, operation);
@@ -338,13 +338,18 @@ fn build_list_request<'a>(
 
 #[cfg(test)]
 mod test {
-    use crate::{io::Page, test::utils::MockRunner};
+    use std::rc::Rc;
+
+    use crate::{
+        io::{FlowControlHeaders, Page, PageHeader},
+        test::utils::MockRunner,
+    };
 
     use super::*;
 
     #[test]
     fn test_numpages_assume_one_if_pages_not_available() {
-        let response = Response::builder().status(200).build().unwrap();
+        let response = HttpResponse::builder().status(200).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let url = "https://github.com/api/v4/projects/1/pipelines";
         let headers = Headers::new();
@@ -355,7 +360,7 @@ mod test {
 
     #[test]
     fn test_numpages_error_on_404() {
-        let response = Response::builder().status(404).build().unwrap();
+        let response = HttpResponse::builder().status(404).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let url = "https://github.com/api/v4/projects/1/pipelines";
         let headers = Headers::new();
@@ -366,7 +371,7 @@ mod test {
     #[test]
     fn test_num_resources_assume_one_if_pages_not_available() {
         let headers = Headers::new();
-        let response = Response::builder().status(200).build().unwrap();
+        let response = HttpResponse::builder().status(200).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let url = "https://github.com/api/v4/projects/1/pipelines?page=1";
         let num_resources = num_resources(&client, url, headers, ApiOperation::Pipeline).unwrap();
@@ -379,20 +384,18 @@ mod test {
         // Value doesn't matter as we are injecting the header processor
         // enforcing the last page and per_page values.
         headers.set("link", "");
-        let response = Response::builder()
+        let next_page = Page::new("https://gitlab.com/api/v4/projects/1/pipelines?page=2", 2);
+        let last_page = Page::new("https://gitlab.com/api/v4/projects/1/pipelines?page=4", 4);
+        let mut page_header = PageHeader::new();
+        page_header.set_next_page(next_page);
+        page_header.set_last_page(last_page);
+        page_header.per_page = 20;
+        let flow_control_header =
+            FlowControlHeaders::new(Rc::new(Some(page_header)), Rc::new(None));
+        let response = HttpResponse::builder()
             .status(200)
             .headers(headers)
-            .link_header_processor(|_link| {
-                let mut page_header = PageHeader::new();
-                let next_page =
-                    Page::new("https://gitlab.com/api/v4/projects/1/pipelines?page=2", 2);
-                let last_page =
-                    Page::new("https://gitlab.com/api/v4/projects/1/pipelines?page=4", 4);
-                page_header.set_next_page(next_page);
-                page_header.set_last_page(last_page);
-                page_header.per_page = 20;
-                page_header
-            })
+            .flow_control_headers(flow_control_header)
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
@@ -406,7 +409,7 @@ mod test {
 
     #[test]
     fn test_numresources_error_on_404() {
-        let response = Response::builder().status(404).build().unwrap();
+        let response = HttpResponse::builder().status(404).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let url = "https://github.com/api/v4/projects/1/pipelines";
         let headers = Headers::new();

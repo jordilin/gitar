@@ -2,11 +2,11 @@ use super::Github;
 use crate::api_traits::{ApiOperation, UserInfo};
 use crate::cmds::project::Member;
 use crate::cmds::user::UserCliArgs;
-use crate::io::{HttpRunner, Response};
+use crate::io::{HttpRunner, HttpResponse};
 use crate::remote::query;
 use crate::Result;
 
-impl<R: HttpRunner<Response = Response>> UserInfo for Github<R> {
+impl<R: HttpRunner<Response = HttpResponse>> UserInfo for Github<R> {
     fn get_auth_user(&self) -> Result<Member> {
         let url = format!("{}/user", self.rest_api_basepath);
         let user = query::get::<_, (), Member>(

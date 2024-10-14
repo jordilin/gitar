@@ -4,7 +4,7 @@ use crate::config::ConfigProperties;
 use crate::display::{Column, DisplayBody};
 use crate::error::{AddContext, GRError};
 use crate::git::Repo;
-use crate::io::{CmdInfo, Response, TaskRunner};
+use crate::io::{CmdInfo, ShellResponse, TaskRunner};
 use crate::remote::{CacheCliArgs, CacheType, GetRemoteCliArgs, ListBodyArgs, ListRemoteCliArgs};
 use crate::shell::BlockingCommand;
 use crate::{dialog, display, exec, git, remote, Cmd, Result};
@@ -627,7 +627,7 @@ fn open(
 fn cmds<R: BufRead + Send + Sync + 'static>(
     remote: Arc<dyn RemoteProject + Send + Sync + 'static>,
     cli_args: &MergeRequestCliArgs,
-    task_runner: Arc<impl TaskRunner<Response = Response> + Send + Sync + 'static>,
+    task_runner: Arc<impl TaskRunner<Response = ShellResponse> + Send + Sync + 'static>,
     reader: Option<R>,
 ) -> Vec<Cmd<CmdInfo>> {
     let remote_cl = remote.clone();
@@ -1270,11 +1270,11 @@ mod tests {
     }
 
     struct MockShellRunner {
-        responses: Mutex<Vec<Response>>,
+        responses: Mutex<Vec<ShellResponse>>,
     }
 
     impl MockShellRunner {
-        pub fn new(response: Vec<Response>) -> MockShellRunner {
+        pub fn new(response: Vec<ShellResponse>) -> MockShellRunner {
             MockShellRunner {
                 responses: Mutex::new(response),
             }
@@ -1282,7 +1282,7 @@ mod tests {
     }
 
     impl TaskRunner for MockShellRunner {
-        type Response = Response;
+        type Response = ShellResponse;
 
         fn run<T>(&self, _cmd: T) -> Result<Self::Response>
         where
@@ -1290,29 +1290,32 @@ mod tests {
             T::Item: AsRef<std::ffi::OsStr>,
         {
             let response = self.responses.lock().unwrap().pop().unwrap();
-            Ok(Response::builder().body(response.body).build().unwrap())
+            Ok(ShellResponse::builder()
+                .body(response.body)
+                .build()
+                .unwrap())
         }
     }
 
-    fn gen_cmd_responses() -> Vec<Response> {
+    fn gen_cmd_responses() -> Vec<ShellResponse> {
         let responses = vec![
-            Response::builder()
+            ShellResponse::builder()
                 .body("fetch cmd".to_string())
                 .build()
                 .unwrap(),
-            Response::builder()
+            ShellResponse::builder()
                 .body("last commit message cmd".to_string())
                 .build()
                 .unwrap(),
-            Response::builder()
+            ShellResponse::builder()
                 .body("current branch cmd".to_string())
                 .build()
                 .unwrap(),
-            Response::builder()
+            ShellResponse::builder()
                 .body("title git cmd".to_string())
                 .build()
                 .unwrap(),
-            Response::builder()
+            ShellResponse::builder()
                 .body("status cmd".to_string())
                 .build()
                 .unwrap(),

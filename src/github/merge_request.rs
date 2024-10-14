@@ -11,7 +11,7 @@ use crate::{
         project::MrMemberType,
     },
     http::{self, Body},
-    io::{HttpRunner, Response},
+    io::{HttpRunner, HttpResponse},
     json_loads,
     remote::query,
 };
@@ -52,7 +52,7 @@ impl<R> Github<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
+impl<R: HttpRunner<Response = HttpResponse>> MergeRequest for Github<R> {
     fn open(&self, args: MergeRequestBodyArgs) -> Result<MergeRequestResponse> {
         // https://docs.github.com/en/rest/pulls/pulls?apiVersion=2022-11-28#create-a-pull-request
         let mut body = Body::new();
@@ -355,7 +355,7 @@ impl<R: HttpRunner<Response = Response>> MergeRequest for Github<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> CommentMergeRequest for Github<R> {
+impl<R: HttpRunner<Response = HttpResponse>> CommentMergeRequest for Github<R> {
     fn create(&self, args: CommentMergeRequestBodyArgs) -> Result<()> {
         let url = format!(
             "{}/repos/{}/issues/{}/comments",

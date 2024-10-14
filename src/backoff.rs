@@ -6,7 +6,7 @@ use crate::error::{AddContext, GRError};
 use crate::io::{HttpRunner, RateLimitHeader};
 use crate::log_error;
 use crate::{error, log_info, Result};
-use crate::{http::Request, io::Response, time::Seconds};
+use crate::{http::Request, io::HttpResponse, time::Seconds};
 
 /// ExponentialBackoff wraps an HttpRunner and retries requests with an
 /// exponential backoff retry mechanism.
@@ -40,8 +40,11 @@ impl<'a, R> Backoff<'a, R> {
     }
 }
 
-impl<'a, R: HttpRunner<Response = Response>> Backoff<'a, R> {
-    pub fn retry_on_error<T: Serialize>(&mut self, request: &mut Request<T>) -> Result<Response> {
+impl<'a, R: HttpRunner<Response = HttpResponse>> Backoff<'a, R> {
+    pub fn retry_on_error<T: Serialize>(
+        &mut self,
+        request: &mut Request<T>,
+    ) -> Result<HttpResponse> {
         loop {
             match self.runner.run(request) {
                 Ok(response) => return Ok(response),
@@ -124,44 +127,52 @@ impl BackOffStrategy for Exponential {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use crate::{
         http::{self, Headers, Resource},
+        io::FlowControlHeaders,
         test::utils::MockRunner,
         time::Milliseconds,
     };
 
     use super::*;
 
-    fn ratelimited_with_headers(remaining: u32, reset: u64, retry_after: u64) -> Response {
+    fn ratelimited_with_headers(remaining: u32, reset: u64, retry_after: u64) -> HttpResponse {
         let mut headers = Headers::new();
         headers.set("x-ratelimit-remaining".to_string(), remaining.to_string());
         headers.set("x-ratelimit-reset".to_string(), reset.to_string());
         headers.set("retry-after".to_string(), retry_after.to_string());
-        Response::builder()
+        let rate_limit_header =
+            RateLimitHeader::new(remaining, Seconds::new(reset), Seconds::new(retry_after));
+        let flow_control_headers =
+            FlowControlHeaders::new(Rc::new(None), Rc::new(Some(rate_limit_header)));
+        HttpResponse::builder()
             .status(429)
             .headers(headers)
+            .flow_control_headers(flow_control_headers)
             .build()
             .unwrap()
     }
 
-    fn ratelimited_with_no_headers() -> Response {
-        Response::builder().status(429).build().unwrap()
+    fn ratelimited_with_no_headers() -> HttpResponse {
+        HttpResponse::builder().status(429).build().unwrap()
     }
 
-    fn response_ok() -> Response {
-        Response::builder().status(200).build().unwrap()
+    fn response_ok() -> HttpResponse {
+        HttpResponse::builder().status(200).build().unwrap()
     }
 
-    fn response_server_error() -> Response {
-        Response::builder().status(500).build().unwrap()
+    fn response_server_error() -> HttpResponse {
+        HttpResponse::builder().status(500).build().unwrap()
     }
 
-    fn response_transport_error() -> Response {
+    fn response_transport_error() -> HttpResponse {
         // Could be a timeout, connection error, etc. Status code
         // For testing purposes, the status code of -1 simulates a transport
         // error from the mock http runner.
         // TODO: Should move to enums instead at some point.
-        Response::builder().status(-1).build().unwrap()
+        HttpResponse::builder().status(-1).build().unwrap()
     }
 
     fn now_mock() -> Seconds {
