@@ -3,14 +3,14 @@ use crate::{
     cli::browse::BrowseOptions,
     cmds::project::{Member, Project, ProjectListBodyArgs, Tag},
     error::GRError,
-    io::{CmdInfo, HttpRunner, Response},
+    io::{CmdInfo, HttpResponse, HttpRunner},
     remote::{query, URLQueryParamBuilder},
 };
 
 use super::Github;
 use crate::Result;
 
-impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
+impl<R: HttpRunner<Response = HttpResponse>> RemoteProject for Github<R> {
     fn get_project_data(&self, id: Option<i64>, path: Option<&str>) -> Result<CmdInfo> {
         // NOTE: What I call project in here is understood as repository in
         // Github parlance. In Github there is also the concept of having
@@ -109,7 +109,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Github<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> RemoteTag for Github<R> {
+impl<R: HttpRunner<Response = HttpResponse>> RemoteTag for Github<R> {
     // https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-repository-tags
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Tag>> {
         let url = self.list_project_url(&args, false);
@@ -126,7 +126,7 @@ impl<R: HttpRunner<Response = Response>> RemoteTag for Github<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> ProjectMember for Github<R> {
+impl<R: HttpRunner<Response = HttpResponse>> ProjectMember for Github<R> {
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Member>> {
         let url = &format!(
             "{}/repos/{}/contributors",

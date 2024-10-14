@@ -1,7 +1,7 @@
 use crate::{
     api_traits::{ApiOperation, CodeGist, NumberDeltaErr},
     cmds::gist::{Gist, GistListBodyArgs},
-    io::{HttpRunner, Response},
+    io::{HttpRunner, HttpResponse},
     remote::{query, URLQueryParamBuilder},
     Result,
 };
@@ -10,7 +10,7 @@ use super::Github;
 
 // https://docs.github.com/en/rest/gists/gists?apiVersion=2022-11-28
 
-impl<R: HttpRunner<Response = Response>> CodeGist for Github<R> {
+impl<R: HttpRunner<Response = HttpResponse>> CodeGist for Github<R> {
     fn list(&self, args: GistListBodyArgs) -> crate::Result<Vec<Gist>> {
         let url = self.auth_user_gist_url(false);
         query::paged(

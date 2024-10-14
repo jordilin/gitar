@@ -1,14 +1,14 @@
 use crate::{
     api_traits::{ApiOperation, ContainerRegistry},
     cmds::docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
-    io::{HttpRunner, Response},
+    io::{HttpRunner, HttpResponse},
     remote::query,
     Result,
 };
 
 use super::Gitlab;
 
-impl<R: HttpRunner<Response = Response>> ContainerRegistry for Gitlab<R> {
+impl<R: HttpRunner<Response = HttpResponse>> ContainerRegistry for Gitlab<R> {
     fn list_repositories(&self, args: DockerListBodyArgs) -> Result<Vec<RegistryRepository>> {
         let url = format!(
             "{}/registry/repositories?tags_count=true",

@@ -4,7 +4,7 @@ use crate::{
     cli::amps::AmpsOptions::{self, Exec},
     dialog,
     error::GRError,
-    io::{Response, TaskRunner},
+    io::{ShellResponse, TaskRunner},
     remote::ConfigFilePath,
     shell, Result,
 };
@@ -44,7 +44,10 @@ pub fn execute(options: AmpsOptions, config_file: ConfigFilePath) -> Result<()> 
     }
 }
 
-fn list_amps(runner: impl TaskRunner<Response = Response>, amps_path: &str) -> Result<Vec<String>> {
+fn list_amps(
+    runner: impl TaskRunner<Response = ShellResponse>,
+    amps_path: &str,
+) -> Result<Vec<String>> {
     let cmd = vec!["ls", amps_path];
     let response = runner.run(cmd)?;
     if response.body.is_empty() {
@@ -89,7 +92,7 @@ impl<'a, A, R> Amp<'a, A, R> {
     }
 }
 
-impl<'a, A: Fn() -> String, R: TaskRunner<Response = Response>> Amp<'a, A, R> {
+impl<'a, A: Fn() -> String, R: TaskRunner<Response = ShellResponse>> Amp<'a, A, R> {
     fn exec_amps(&self, amp: String, base_path: &Path) -> Result<()> {
         let mut args = (self.args_prompter_fn)();
         loop {
@@ -126,12 +129,12 @@ mod tests {
 
     #[test]
     fn test_exec_amp_with_help_and_run() {
-        let response_help = Response::builder()
+        let response_help = ShellResponse::builder()
             .status(0)
             .body("this is the help".to_string())
             .build()
             .unwrap();
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .status(0)
             .body("response output".to_string())
             .build()
@@ -151,7 +154,7 @@ mod tests {
 
     #[test]
     fn test_exec_amp_with_help_and_exit() {
-        let response_help = Response::builder()
+        let response_help = ShellResponse::builder()
             .status(0)
             .body("this is the help".to_string())
             .build()
@@ -168,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_list_amps_error_if_none_available() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .status(0)
             .body("".to_string())
             .build()

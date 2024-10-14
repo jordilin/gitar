@@ -4,14 +4,14 @@ use crate::{
     api_traits::{ApiOperation, TrendingProjectURL},
     cmds::trending::TrendingProject,
     http::Headers,
-    io::{HttpRunner, Response},
+    io::{HttpRunner, HttpResponse},
     remote::query,
     Result,
 };
 
 use super::Github;
 
-impl<R: HttpRunner<Response = Response>> TrendingProjectURL for Github<R> {
+impl<R: HttpRunner<Response = HttpResponse>> TrendingProjectURL for Github<R> {
     fn list(&self, language: String) -> Result<Vec<TrendingProject>> {
         let url = format!("https://{}/trending/{}", self.domain, language);
         let mut headers = Headers::new();
@@ -27,7 +27,7 @@ impl<R: HttpRunner<Response = Response>> TrendingProjectURL for Github<R> {
     }
 }
 
-fn parse_response(response: Response) -> Result<Vec<TrendingProject>> {
+fn parse_response(response: HttpResponse) -> Result<Vec<TrendingProject>> {
     let body = response.body;
     let proj_re = Regex::new(r#"href="/[a-zA-Z0-9_-]*/[a-zA-Z0-9_-]*/stargazers""#).unwrap();
     let description_re = Regex::new(r#"<p class="col-9 color-fg-muted my-1 pr-4">"#).unwrap();

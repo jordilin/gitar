@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 
 use crate::cache::Cache;
 use crate::http::{Headers, Resource};
-use crate::io::{self, Response};
+use crate::io::{self, HttpResponse};
 use crate::time::Seconds;
 
 use super::CacheState;
@@ -88,7 +88,7 @@ impl FileCache {
         format!("{}/{:x}", location, hash)
     }
 
-    fn get_cache_data(&self, mut reader: impl BufRead) -> Result<Response> {
+    fn get_cache_data(&self, mut reader: impl BufRead) -> Result<HttpResponse> {
         let decompressed_data = GzDecoder::new(&mut reader);
         let mut reader = BufReader::new(decompressed_data);
         let mut headers = String::new();
@@ -113,7 +113,7 @@ impl FileCache {
         reader.read_to_end(&mut body)?;
         let body = String::from_utf8(body)?.trim().to_string();
         let headers_map = serde_json::from_str::<Headers>(&headers)?;
-        let response = Response::builder()
+        let response = HttpResponse::builder()
             .status(status_code)
             .body(body)
             .headers(headers_map)
@@ -121,7 +121,7 @@ impl FileCache {
         Ok(response)
     }
 
-    fn persist_cache_data(&self, value: &Response, f: BufWriter<File>) -> Result<()> {
+    fn persist_cache_data(&self, value: &HttpResponse, f: BufWriter<File>) -> Result<()> {
         let headers_map = value.headers.as_ref().unwrap();
         let headers = serde_json::to_string(headers_map).unwrap();
         let status = value.status.to_string();
@@ -173,7 +173,7 @@ impl Cache<Resource> for FileCache {
         }
     }
 
-    fn set(&self, key: &Resource, value: &Response) -> Result<()> {
+    fn set(&self, key: &Resource, value: &HttpResponse) -> Result<()> {
         let path = self.get_cache_file(&key.url);
         let f = File::create(path)?;
         let f = BufWriter::new(f);
@@ -181,7 +181,12 @@ impl Cache<Resource> for FileCache {
         Ok(())
     }
 
-    fn update(&self, key: &Resource, value: &Response, field: &io::ResponseField) -> Result<()> {
+    fn update(
+        &self,
+        key: &Resource,
+        value: &HttpResponse,
+        field: &io::ResponseField,
+    ) -> Result<()> {
         let path = self.get_cache_file(&key.url);
         if let Ok(f) = File::open(path) {
             let mut f = BufReader::new(f);

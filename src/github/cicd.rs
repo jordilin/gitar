@@ -7,11 +7,11 @@ use crate::cmds::cicd::{
 use crate::remote::query;
 use crate::{
     api_traits::Cicd,
-    io::{HttpRunner, Response},
+    io::{HttpRunner, HttpResponse},
 };
 use crate::{http, time, Result};
 
-impl<R: HttpRunner<Response = Response>> Cicd for Github<R> {
+impl<R: HttpRunner<Response = HttpResponse>> Cicd for Github<R> {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
         // Doc:
         // https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#list-workflow-runs-for-a-repository
@@ -60,7 +60,7 @@ impl<R> Github<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> CicdRunner for Github<R> {
+impl<R: HttpRunner<Response = HttpResponse>> CicdRunner for Github<R> {
     fn list(&self, _args: RunnerListBodyArgs) -> Result<Vec<crate::cmds::cicd::Runner>> {
         todo!();
     }
@@ -82,7 +82,7 @@ impl<R: HttpRunner<Response = Response>> CicdRunner for Github<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> CicdJob for Github<R> {
+impl<R: HttpRunner<Response = HttpResponse>> CicdJob for Github<R> {
     fn list(&self, _args: JobListBodyArgs) -> Result<Vec<Job>> {
         todo!();
     }

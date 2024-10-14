@@ -1,5 +1,5 @@
 use crate::error;
-use crate::io::Response;
+use crate::io::ShellResponse;
 use crate::io::TaskRunner;
 use crate::Result;
 use std::ffi::OsStr;
@@ -13,7 +13,7 @@ use std::thread;
 pub struct BlockingCommand;
 
 impl TaskRunner for BlockingCommand {
-    type Response = Response;
+    type Response = ShellResponse;
 
     fn run<T>(&self, cmd: T) -> Result<Self::Response>
     where
@@ -24,7 +24,7 @@ impl TaskRunner for BlockingCommand {
     }
 }
 
-fn run_args<T>(args: T) -> Result<Response>
+fn run_args<T>(args: T) -> Result<ShellResponse>
 where
     T: IntoIterator,
     T::Item: AsRef<OsStr>,
@@ -32,7 +32,7 @@ where
     let args: Vec<_> = args.into_iter().collect();
     let mut process = process::Command::new(&args[0]);
     process.args(&args[1..]);
-    let mut response_builder = Response::builder();
+    let mut response_builder = ShellResponse::builder();
     match process.output() {
         Ok(output) => {
             let status_code = output.status.code().unwrap_or(0);
@@ -59,7 +59,7 @@ where
 pub struct StreamingCommand;
 
 impl TaskRunner for StreamingCommand {
-    type Response = Response;
+    type Response = ShellResponse;
 
     fn run<T>(&self, cmd: T) -> Result<Self::Response>
     where
@@ -94,7 +94,10 @@ impl TaskRunner for StreamingCommand {
         stdout_handle.join().unwrap();
         stderr_handle.join().unwrap();
         let _ = child.wait()?;
-        Ok(Response::builder().status(0).body("".to_string()).build()?)
+        Ok(ShellResponse::builder()
+            .status(0)
+            .body("".to_string())
+            .build()?)
     }
 }
 
