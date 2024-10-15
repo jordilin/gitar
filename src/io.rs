@@ -149,7 +149,7 @@ const NEXT: &str = "next";
 const LAST: &str = "last";
 pub const LINK_HEADER: &str = "link";
 
-pub fn parse_link_headers(link: &str) -> PageHeader {
+fn parse_link_headers(link: &str) -> PageHeader {
     lazy_static! {
         static ref RE_URL: Regex = Regex::new(r#"<([^>]+)>;\s*rel="([^"]+)""#).unwrap();
         static ref RE_PAGE_NUMBER: Regex = Regex::new(r"[^(per_)]page=(\d+)").unwrap();
