@@ -413,36 +413,36 @@ impl<'a, T: Serialize, R: HttpRunner<Response = HttpResponse>> Iterator for Pagi
             }
             if self.iter >= 1 {
                 self.request.set_url(page_url);
+                if let Some(throttle_time) = self.throttle_time {
+                    log_info!("Throttling for: {} ms", throttle_time);
+                    self.runner.throttle(throttle_time);
+                } else if let Some((min, max)) = self.throttle_range {
+                    log_info!("Throttling between: {} ms and {} ms", min, max);
+                    self.runner.throttle_range(min, max);
+                }
             }
-            // TODO throttle after first page
             log_info!("Requesting page: {}", self.iter + 1);
             log_info!("URL: {}", self.request.url());
-            if let Some(throttle_time) = self.throttle_time {
-                log_info!("Throttling for: {} ms", throttle_time);
-                self.runner.throttle(throttle_time);
-            } else if let Some((min, max)) = self.throttle_range {
-                log_info!("Throttling between: {} ms and {} ms", min, max);
-                self.runner.throttle_range(min, max);
-            }
-            match self.backoff.retry_on_error(&mut self.request) {
+
+            let response = match self.backoff.retry_on_error(&mut self.request) {
                 Ok(response) => {
                     if let Some(page_headers) = response.get_page_headers().borrow() {
                         match (page_headers.next_page(), page_headers.last_page()) {
                             (Some(next), _) => self.page_url = Some(next.url().to_string()),
                             (None, _) => self.page_url = None,
                         }
-                        self.iter += 1;
-                        return Some(Ok(response));
-                    }
-                    self.page_url = None;
-                    return Some(Ok(response));
+                    } else {
+                        self.page_url = None;
+                    };
+                    Some(Ok(response))
                 }
                 Err(err) => {
                     self.page_url = None;
-                    return Some(Err(err));
+                    Some(Err(err))
                 }
-            }
-            // Get response and throttle.
+            };
+            self.iter += 1;
+            return response;
         }
         None
     }
@@ -736,7 +736,7 @@ mod test {
         assert_eq!(3, responses.len());
         let buffer = LOG_BUFFER.lock().unwrap();
         assert!(buffer.contains("Throttling for: 1 ms"));
-        assert_eq!(Milliseconds::new(3), *client.milliseconds_throttled());
+        assert_eq!(Milliseconds::new(2), *client.milliseconds_throttled());
     }
 
     #[test]
@@ -759,7 +759,7 @@ mod test {
         assert_eq!(2, responses.len());
         let buffer = LOG_BUFFER.lock().unwrap();
         assert!(buffer.contains("Throttling between: 1 ms and 3 ms"));
-        assert_eq!(2, *client.throttled());
+        assert_eq!(1, *client.throttled());
     }
 
     #[test]
