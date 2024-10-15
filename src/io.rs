@@ -96,7 +96,7 @@ pub struct HttpResponse {
     /// Optional headers. Mostly used by HTTP downstream HTTP responses
     #[builder(setter(into, strip_option), default)]
     pub headers: Option<Headers>,
-    #[builder(setter(into, strip_option), default)]
+    #[builder(setter(into), default)]
     pub flow_control_headers: FlowControlHeaders,
 }
 
