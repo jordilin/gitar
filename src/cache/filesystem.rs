@@ -1,6 +1,7 @@
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::Path;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use flate2::bufread::GzDecoder;
@@ -8,7 +9,7 @@ use sha2::{Digest, Sha256};
 
 use crate::cache::Cache;
 use crate::http::{Headers, Resource};
-use crate::io::{self, HttpResponse};
+use crate::io::{self, FlowControlHeaders, HttpResponse};
 use crate::time::Seconds;
 
 use super::CacheState;
@@ -113,10 +114,17 @@ impl FileCache {
         reader.read_to_end(&mut body)?;
         let body = String::from_utf8(body)?.trim().to_string();
         let headers_map = serde_json::from_str::<Headers>(&headers)?;
+        // Gather cached link headers for pagination.
+        // We don't need rate limit headers as we are not querying the API at
+        // this point.
+        let page_header = io::parse_page_headers(Some(&headers_map));
+        let flow_control_headers = FlowControlHeaders::new(Rc::new(page_header), Rc::new(None));
+
         let response = HttpResponse::builder()
             .status(status_code)
             .body(body)
             .headers(headers_map)
+            .flow_control_headers(flow_control_headers)
             .build()?;
         Ok(response)
     }
