@@ -6,6 +6,7 @@ use serde::Serialize;
 
 use crate::api_traits::Timestamp;
 use crate::display::DisplayBody;
+use crate::http::throttle::{self, ThrottleStrategy};
 use crate::{
     api_defaults,
     api_traits::{ApiOperation, NumberDeltaErr},
@@ -241,14 +242,20 @@ where
         backoff_max_retries = list_args.get_args.backoff_max_retries;
         backoff_wait_time = list_args.get_args.backoff_retry_after;
     }
+    let throttle_strategy: Box<dyn ThrottleStrategy> = match throttle_time {
+        Some(throttle_time) => Box::new(throttle::Fixed::new(throttle_time)),
+        None => match throttle_range {
+            Some((min, max)) => Box::new(throttle::Random::new(min, max)),
+            None => Box::new(throttle::NoThrottle::new()),
+        },
+    };
     let paginator = Paginator::new(
         runner,
         request,
         url,
-        throttle_time,
-        throttle_range,
         backoff_max_retries,
         backoff_wait_time,
+        &throttle_strategy,
     );
     let all_data = paginator
         .map(|response| {

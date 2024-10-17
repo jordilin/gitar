@@ -6,7 +6,7 @@ pub mod utils {
         config::ConfigProperties,
         error,
         http::{self, Headers, Request},
-        io::{HttpResponse, HttpRunner, ShellResponse, TaskRunner},
+        io::{self, HttpResponse, HttpRunner, ShellResponse, TaskRunner},
         time::Milliseconds,
         Result,
     };
@@ -19,6 +19,7 @@ pub mod utils {
         fs::File,
         io::Read,
         ops::Deref,
+        rc::Rc,
         sync::{Arc, Mutex},
     };
 
@@ -392,6 +393,29 @@ pub mod utils {
 
         fn into_iter(self) -> Self::IntoIter {
             self.contracts.into_iter()
+        }
+    }
+
+    pub struct MockThrottler {
+        throttled: RefCell<u32>,
+    }
+
+    impl MockThrottler {
+        pub fn new() -> Self {
+            Self {
+                throttled: RefCell::new(0),
+            }
+        }
+
+        pub fn throttled(&self) -> Ref<u32> {
+            self.throttled.borrow()
+        }
+    }
+
+    impl http::throttle::ThrottleStrategy for Rc<MockThrottler> {
+        fn throttle(&self, _response: Option<&io::FlowControlHeaders>) {
+            let mut throttled = self.throttled.borrow_mut();
+            *throttled += 1;
         }
     }
 }

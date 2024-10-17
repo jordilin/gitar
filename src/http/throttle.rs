@@ -25,6 +25,7 @@ impl Fixed {
 
 impl ThrottleStrategy for Fixed {
     fn throttle(&self, _response: Option<&FlowControlHeaders>) {
+        log_info!("Throttling for: {} ms", self.delay);
         thread::sleep(std::time::Duration::from_millis(*self.delay));
     }
 }
@@ -45,9 +46,29 @@ impl Random {
 
 impl ThrottleStrategy for Random {
     fn throttle(&self, _response: Option<&FlowControlHeaders>) {
+        log_info!(
+            "Throttling between: {} ms and {} ms",
+            self.delay_min,
+            self.delay_max
+        );
         let mut rng = rand::thread_rng();
         let wait_time = rng.gen_range(*self.delay_min..=*self.delay_max);
         log_info!("Sleeping for {} milliseconds", wait_time);
         thread::sleep(std::time::Duration::from_millis(wait_time));
+    }
+}
+
+#[derive(Default)]
+pub struct NoThrottle;
+
+impl NoThrottle {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl ThrottleStrategy for NoThrottle {
+    fn throttle(&self, _response: Option<&FlowControlHeaders>) {
+        log_info!("No throttling enabled");
     }
 }
