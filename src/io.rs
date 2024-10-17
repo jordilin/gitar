@@ -129,6 +129,10 @@ impl HttpResponse {
         self.flow_control_headers.get_rate_limit_header()
     }
 
+    pub fn get_flow_control_headers(&self) -> &FlowControlHeaders {
+        &self.flow_control_headers
+    }
+
     pub fn get_etag(&self) -> Option<&str> {
         self.header("etag")
     }
