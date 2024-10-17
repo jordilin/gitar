@@ -373,15 +373,15 @@ impl<C: Cache<Resource>> HttpRunner for Client<C> {
 }
 
 pub struct Paginator<'a, R, T> {
-    runner: &'a Arc<R>,
     request: Request<'a, T>,
     page_url: Option<String>,
     iter: u32,
     backoff: Backoff<'a, R>,
     throttler: &'a Box<dyn ThrottleStrategy>,
+    max_pages: u32,
 }
 
-impl<'a, R, T> Paginator<'a, R, T> {
+impl<'a, R: HttpRunner, T: Serialize> Paginator<'a, R, T> {
     pub fn new(
         runner: &'a Arc<R>,
         request: Request<'a, T>,
@@ -390,8 +390,12 @@ impl<'a, R, T> Paginator<'a, R, T> {
         backoff_default_wait_time: u64,
         throttle_strategy: &'a Box<dyn ThrottleStrategy>,
     ) -> Self {
+        let max_pages = if let Some(max_pages) = request.max_pages {
+            max_pages as u32
+        } else {
+            runner.api_max_pages(&request)
+        };
         Paginator {
-            runner,
             request,
             page_url: Some(page_url.to_string()),
             iter: 0,
@@ -403,6 +407,7 @@ impl<'a, R, T> Paginator<'a, R, T> {
                 Box::new(Exponential),
             ),
             throttler: throttle_strategy,
+            max_pages,
         }
     }
 }
@@ -412,16 +417,11 @@ impl<'a, T: Serialize, R: HttpRunner<Response = HttpResponse>> Iterator for Pagi
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(page_url) = &self.page_url {
-            if let Some(max_pages) = self.request.max_pages {
-                if self.iter >= max_pages as u32 {
-                    return None;
-                }
-            } else if self.iter == self.runner.api_max_pages(&self.request) {
+            if self.iter >= self.max_pages {
                 return None;
             }
             if self.iter >= 1 {
                 self.request.set_url(page_url);
-                self.throttler.throttle(None);
             }
             log_info!("Requesting page: {}", self.iter + 1);
             log_info!("URL: {}", self.request.url());
@@ -436,15 +436,21 @@ impl<'a, T: Serialize, R: HttpRunner<Response = HttpResponse>> Iterator for Pagi
                     } else {
                         self.page_url = None;
                     };
-                    Some(Ok(response))
+                    Ok(response)
                 }
                 Err(err) => {
                     self.page_url = None;
-                    Some(Err(err))
+                    Err(err)
                 }
             };
             self.iter += 1;
-            return response;
+            if self.iter < self.max_pages && self.page_url.is_some() {
+                // technically no need to check ok on response, as page_url is Some
+                // (response was Ok)
+                self.throttler
+                    .throttle(Some(&response.as_ref().unwrap().get_flow_control_headers()));
+            }
+            return Some(response);
         }
         None
     }
