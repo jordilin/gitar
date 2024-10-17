@@ -1,3 +1,5 @@
+pub mod throttle;
+
 use crate::api_traits::ApiOperation;
 use crate::backoff::{Backoff, Exponential};
 use crate::cache::{Cache, CacheState};
@@ -79,14 +81,14 @@ impl<C> Client<C> {
                 // log debug response headers
                 log_debug!("Response headers: {:?}", headers);
                 let body = response.into_string().unwrap_or_default();
-                let response = HttpResponse::builder()
+                let mut response = HttpResponse::builder()
                     .status(status)
                     .body(body)
                     .headers(headers)
                     .flow_control_headers(flow_control_headers)
                     .build()
                     .unwrap();
-                self.handle_rate_limit(&response)?;
+                self.handle_rate_limit(&mut response)?;
                 Ok(response)
             }
             Err(err) => Err(GRError::HttpTransportError(err.to_string()).into()),
@@ -95,7 +97,7 @@ impl<C> Client<C> {
 }
 
 impl<C> Client<C> {
-    fn handle_rate_limit(&self, response: &HttpResponse) -> Result<()> {
+    fn handle_rate_limit(&self, response: &mut HttpResponse) -> Result<()> {
         if let Some(headers) = response.get_ratelimit_headers().borrow() {
             if headers.remaining <= self.config.rate_limit_remaining_threshold() {
                 log_error!("Rate limit threshold reached");
@@ -109,6 +111,7 @@ impl<C> Client<C> {
             // limits.
             log_info!("Rate limit headers not provided by remote, using defaults");
             default_rate_limit_handler(
+                response,
                 &self.config,
                 &self.time_to_ratelimit_reset,
                 &self.remaining_requests,
@@ -119,6 +122,7 @@ impl<C> Client<C> {
 }
 
 fn default_rate_limit_handler(
+    response: &mut HttpResponse,
     config: &Arc<dyn ConfigProperties>,
     time_to_ratelimit_reset: &Mutex<Seconds>,
     remaining_requests: &Mutex<u32>,
@@ -137,6 +141,12 @@ fn default_rate_limit_handler(
                 api_defaults::DEFAULT_NUMBER_REQUESTS_MINUTE,
                 time_to_ratelimit_reset
             );
+            let rate_limit_header = RateLimitHeader::new(
+                *remaining_requests,
+                time_to_ratelimit_reset,
+                time_to_ratelimit_reset,
+            );
+            response.update_rate_limit_headers(rate_limit_header);
             return Err(error::GRError::RateLimitExceeded(RateLimitHeader::new(
                 *remaining_requests,
                 time_to_ratelimit_reset,
@@ -607,27 +617,27 @@ mod test {
                 Seconds::new(60),
             ))),
         );
-        let response = HttpResponse::builder()
+        let mut response = HttpResponse::builder()
             .status(200)
             .headers(headers)
             .flow_control_headers(flow_control_headers)
             .build()
             .unwrap();
         let client = Client::new(cache::NoCache, Arc::new(ConfigMock::new(1)), false);
-        assert!(client.handle_rate_limit(&response).is_err());
+        assert!(client.handle_rate_limit(&mut response).is_err());
     }
 
     #[test]
     fn test_ratelimit_remaining_threshold_not_reached_is_ok() {
         let mut headers = Headers::new();
         headers.set("ratelimit-remaining".to_string(), "11".to_string());
-        let response = HttpResponse::builder()
+        let mut response = HttpResponse::builder()
             .status(200)
             .headers(headers)
             .build()
             .unwrap();
         let client = Client::new(cache::NoCache, Arc::new(ConfigMock::new(1)), false);
-        assert!(client.handle_rate_limit(&response).is_ok());
+        assert!(client.handle_rate_limit(&mut response).is_ok());
     }
 
     fn epoch_seconds_now_mock(secs: u64) -> Seconds {
@@ -650,7 +660,9 @@ mod test {
             let time_to_ratelimit_reset = time_to_ratelimit_reset.clone();
             let config = config.clone();
             threads.push(std::thread::spawn(move || {
+                let mut response = HttpResponse::builder().status(200).build().unwrap();
                 let result = default_rate_limit_handler(
+                    &mut response,
                     &config,
                     &time_to_ratelimit_reset,
                     &remaining_requests,
@@ -684,7 +696,9 @@ mod test {
             let time_to_ratelimit_reset = time_to_ratelimit_reset.clone();
             let config = config.clone();
             threads.push(std::thread::spawn(move || {
+                let mut response = HttpResponse::builder().status(200).build().unwrap();
                 let result = default_rate_limit_handler(
+                    &mut response,
                     &config,
                     &time_to_ratelimit_reset,
                     &remaining_requests,
