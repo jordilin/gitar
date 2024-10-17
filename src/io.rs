@@ -143,6 +143,10 @@ impl HttpResponse {
             http::Method::PATCH | http::Method::PUT => self.status >= 200 && self.status < 300,
         }
     }
+
+    pub fn update_rate_limit_headers(&mut self, headers: RateLimitHeader) {
+        self.flow_control_headers.rate_limit_header = Rc::new(Some(headers));
+    }
 }
 
 const NEXT: &str = "next";
