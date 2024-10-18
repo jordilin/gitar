@@ -10,7 +10,7 @@ pub trait ThrottleStrategy {
     /// Implementors might use the headers to adjust the throttling or ignore
     /// them altogether. Ex. strategies could be a fixed delay, random, or based
     /// on rate limiting headers.
-    fn throttle(&self, response: Option<&FlowControlHeaders>);
+    fn throttle(&self, flow_control_headers: Option<&FlowControlHeaders>);
 }
 
 pub struct Fixed {
@@ -24,7 +24,7 @@ impl Fixed {
 }
 
 impl ThrottleStrategy for Fixed {
-    fn throttle(&self, _response: Option<&FlowControlHeaders>) {
+    fn throttle(&self, _flow_control_headers: Option<&FlowControlHeaders>) {
         log_info!("Throttling for: {} ms", self.delay);
         thread::sleep(std::time::Duration::from_millis(*self.delay));
     }
@@ -45,7 +45,7 @@ impl Random {
 }
 
 impl ThrottleStrategy for Random {
-    fn throttle(&self, _response: Option<&FlowControlHeaders>) {
+    fn throttle(&self, _flow_control_headers: Option<&FlowControlHeaders>) {
         log_info!(
             "Throttling between: {} ms and {} ms",
             self.delay_min,
@@ -68,7 +68,7 @@ impl NoThrottle {
 }
 
 impl ThrottleStrategy for NoThrottle {
-    fn throttle(&self, _response: Option<&FlowControlHeaders>) {
+    fn throttle(&self, _flow_control_headers: Option<&FlowControlHeaders>) {
         log_info!("No throttling enabled");
     }
 }
