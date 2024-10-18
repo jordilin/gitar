@@ -19,7 +19,7 @@ use crate::{
     Result,
 };
 
-fn get_remote_resource_headers<'a, R: HttpRunner<Response = HttpResponse>>(
+fn get_remote_resource_headers<R: HttpRunner<Response = HttpResponse>>(
     runner: &Arc<R>,
     url: &str,
     request_headers: Headers,
@@ -255,7 +255,7 @@ where
         url,
         backoff_max_retries,
         backoff_wait_time,
-        &throttle_strategy,
+        throttle_strategy.as_ref(),
     );
     let all_data = paginator
         .map(|response| {
