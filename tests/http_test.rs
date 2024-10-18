@@ -4,7 +4,7 @@ use gr::cache::{Cache, InMemoryCache, NoCache};
 use gr::config::ConfigProperties;
 use gr::error::GRError;
 use gr::http::{Client, Headers, Method, Request};
-use gr::io::{HttpRunner, HttpResponse, ResponseField};
+use gr::io::{HttpResponse, HttpRunner, ResponseField};
 use httpmock::prelude::*;
 use httpmock::Method::{GET, HEAD, PATCH, POST};
 
@@ -150,6 +150,8 @@ fn test_http_gathers_from_inmemory_fresh_cache() {
     assert_eq!(response.status, 200);
     assert!(response.body.contains("id"));
 
+    assert!(response.local_cache);
+
     // Mock was never called. We used the cache
     server_mock.assert_hits(0);
 }
@@ -196,6 +198,7 @@ fn test_http_gathers_from_inmemory_stale_cache_server_304() {
 
     let response = runner.run(&mut request).unwrap();
     assert_eq!(response.status, 200);
+    assert!(!response.local_cache);
     assert!(response.body.contains("id"));
 
     // While do we have a cache, the cache was expired, hence we expect the
