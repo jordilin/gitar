@@ -446,10 +446,13 @@ impl<'a, T: Serialize, R: HttpRunner<Response = HttpResponse>> Iterator for Pagi
             };
             self.iter += 1;
             if self.iter < self.max_pages && self.page_url.is_some() {
-                // technically no need to check ok on response, as page_url is Some
+                // Technically no need to check ok on response, as page_url is Some
                 // (response was Ok)
-                self.throttler
-                    .throttle(Some(&response.as_ref().unwrap().get_flow_control_headers()));
+                let response = response.as_ref().unwrap();
+                if !response.local_cache {
+                    self.throttler
+                        .throttle(Some(&response.get_flow_control_headers()));
+                }
             }
             return Some(response);
         }
@@ -505,6 +508,36 @@ mod test {
             .status(200)
             .headers(headers)
             .flow_control_headers(flow_control_headers)
+            .build()
+            .unwrap();
+        response
+    }
+
+    fn cached_response_next_page() -> HttpResponse {
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), "http://localhost?page=2".to_string());
+        let flow_control_headers =
+            FlowControlHeaders::new(header_processor_next_page_no_last(), Rc::new(None));
+        let response = HttpResponse::builder()
+            .status(200)
+            .headers(headers)
+            .flow_control_headers(flow_control_headers)
+            .local_cache(true)
+            .build()
+            .unwrap();
+        response
+    }
+
+    fn cached_response_last_page() -> HttpResponse {
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), "http://localhost?page=2".to_string());
+        let flow_control_headers =
+            FlowControlHeaders::new(header_processor_last_page_no_next(), Rc::new(None));
+        let response = HttpResponse::builder()
+            .status(200)
+            .headers(headers)
+            .flow_control_headers(flow_control_headers)
+            .local_cache(true)
             .build()
             .unwrap();
         response
@@ -764,6 +797,21 @@ mod test {
         let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(2, responses.len());
         assert_eq!(1, *throttler.throttled());
+    }
+
+    #[test]
+    fn test_paginator_no_throttle_if_response_is_from_local_cache() {
+        let response1 = cached_response_next_page();
+        let response2 = cached_response_next_page();
+        let response3 = cached_response_last_page();
+        let client = Arc::new(MockRunner::new(vec![response3, response2, response1]));
+        let request: Request<()> = Request::new("http://localhost", Method::GET);
+        let throttler = Rc::new(MockThrottler::new());
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let paginator = Paginator::new(&client, request, "http://localhost", 0, 60, &bthrottler);
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
+        assert_eq!(3, responses.len());
+        assert_eq!(0, *throttler.throttled());
     }
 
     #[test]
