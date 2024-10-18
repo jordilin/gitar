@@ -327,10 +327,11 @@ impl<C: Cache<Resource>> HttpRunner for Client<C> {
             Method::GET => {
                 let mut default_response = HttpResponse::builder().build().unwrap();
                 match self.cache.get(&cmd.resource) {
-                    Ok(CacheState::Fresh(response)) => {
+                    Ok(CacheState::Fresh(mut response)) => {
                         log_debug!("Cache fresh for {}", cmd.resource.url);
                         if !self.refresh_cache {
                             log_debug!("Returning local cached response");
+                            response.local_cache = true;
                             return Ok(response);
                         }
                         default_response = response;

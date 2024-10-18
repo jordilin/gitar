@@ -98,6 +98,8 @@ pub struct HttpResponse {
     pub headers: Option<Headers>,
     #[builder(setter(into), default)]
     pub flow_control_headers: FlowControlHeaders,
+    #[builder(setter(into), default)]
+    pub local_cache: bool,
 }
 
 impl HttpResponse {
