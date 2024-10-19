@@ -5,8 +5,10 @@ use std::sync::Arc;
 use serde::Serialize;
 
 use crate::api_traits::Timestamp;
+use crate::backoff::{Backoff, Exponential};
 use crate::display::DisplayBody;
 use crate::http::throttle::{self, ThrottleStrategy};
+use crate::time;
 use crate::{
     api_defaults,
     api_traits::{ApiOperation, NumberDeltaErr},
@@ -249,14 +251,15 @@ where
             None => Box::new(throttle::NoThrottle::new()),
         },
     };
-    let paginator = Paginator::new(
+    let backoff = Backoff::new(
         runner,
-        request,
-        url,
         backoff_max_retries,
         backoff_wait_time,
-        throttle_strategy,
+        time::now_epoch_seconds,
+        Box::new(Exponential),
+        Box::new(throttle::DynamicFixed::new()),
     );
+    let paginator = Paginator::new(runner, request, url, backoff, throttle_strategy);
     let all_data = paginator
         .map(|response| {
             let response = response?;
