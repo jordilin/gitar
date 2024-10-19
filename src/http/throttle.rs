@@ -18,6 +18,10 @@ pub trait ThrottleStrategy {
     }
 }
 
+/// Dynamically throttles for the amount of time specified in the throttle_for
+/// method using the default trait implementation. As opposed to the PreFixed,
+/// which takes a fixed delay in the constructor and throttles for that amount
+/// of time every time.
 pub struct DynamicFixed;
 
 impl ThrottleStrategy for DynamicFixed {
