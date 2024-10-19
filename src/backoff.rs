@@ -42,6 +42,10 @@ impl<'a, R> Backoff<'a, R> {
             throttler: throttler_strategy,
         }
     }
+
+    fn log_backoff_enabled(&self) {
+        log_info!("Backoff enabled with {} max retries", self.max_retries);
+    }
 }
 
 impl<'a, R: HttpRunner<Response = HttpResponse>> Backoff<'a, R> {
@@ -79,6 +83,7 @@ impl<'a, R: HttpRunner<Response = HttpResponse>> Backoff<'a, R> {
                                 if self.rate_limit_header.retry_after > Seconds::new(0) {
                                     base_wait_time = self.rate_limit_header.retry_after;
                                 }
+                                self.log_backoff_enabled();
                                 self.throttler.throttle_for(
                                     self.backoff_strategy
                                         .wait_time(base_wait_time, self.num_retries)
@@ -93,6 +98,7 @@ impl<'a, R: HttpRunner<Response = HttpResponse>> Backoff<'a, R> {
                         ) => {
                             self.num_retries += 1;
                             if self.num_retries <= self.max_retries {
+                                self.log_backoff_enabled();
                                 self.throttler.throttle_for(
                                     self.backoff_strategy
                                         .wait_time(self.default_delay_wait, self.num_retries)
