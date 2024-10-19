@@ -50,6 +50,13 @@ impl<'a, R: HttpRunner<Response = HttpResponse>> Backoff<'a, R> {
         request: &mut Request<T>,
     ) -> Result<HttpResponse> {
         loop {
+            if self.num_retries > 0 {
+                log_info!(
+                    "Retrying request {} out of {}",
+                    self.num_retries,
+                    self.max_retries
+                );
+            }
             match self.runner.run(request) {
                 Ok(response) => return Ok(response),
                 Err(err) => {
@@ -57,11 +64,6 @@ impl<'a, R: HttpRunner<Response = HttpResponse>> Backoff<'a, R> {
                         return Err(err);
                     }
                     log_error!("Error: {}", err);
-                    log_info!(
-                        "Backoff enabled re-trying {} out of {}",
-                        self.num_retries + 1,
-                        self.max_retries
-                    );
                     // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
                     match err.downcast_ref::<error::GRError>() {
                         Some(error::GRError::RateLimitExceeded(headers)) => {
@@ -122,7 +124,7 @@ pub struct Exponential;
 
 impl BackOffStrategy for Exponential {
     fn wait_time(&self, base_wait: Seconds, num_retries: u32) -> Seconds {
-        log_info!("Exponential backoff strategy");
+        log_info!("Exponential backoff strategy enabled");
         let wait_time = base_wait + 2u64.pow(num_retries).into();
         log_info!("Waiting for {} seconds", wait_time);
         wait_time
