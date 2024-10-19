@@ -11,19 +11,36 @@ pub trait ThrottleStrategy {
     /// them altogether. Ex. strategies could be a fixed delay, random, or based
     /// on rate limiting headers.
     fn throttle(&self, flow_control_headers: Option<&FlowControlHeaders>);
+    /// Throttle for specific amount of time.
+    fn throttle_for(&self, delay: Milliseconds) {
+        log_info!("Throttling for backoff: {} ms", delay);
+        thread::sleep(std::time::Duration::from_millis(*delay));
+    }
 }
 
-pub struct Fixed {
+pub struct DynamicFixed;
+
+impl DynamicFixed {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl ThrottleStrategy for DynamicFixed {
+    fn throttle(&self, _flow_control_headers: Option<&FlowControlHeaders>) {}
+}
+
+pub struct PreFixed {
     delay: Milliseconds,
 }
 
-impl Fixed {
+impl PreFixed {
     pub fn new(delay: Milliseconds) -> Self {
         Self { delay }
     }
 }
 
-impl ThrottleStrategy for Fixed {
+impl ThrottleStrategy for PreFixed {
     fn throttle(&self, _flow_control_headers: Option<&FlowControlHeaders>) {
         log_info!("Throttling for: {} ms", self.delay);
         thread::sleep(std::time::Duration::from_millis(*self.delay));

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use serde::Serialize;
 
 use crate::error::{AddContext, GRError};
+use crate::http::throttle::ThrottleStrategy;
 use crate::io::{HttpRunner, RateLimitHeader};
 use crate::log_error;
 use crate::{error, log_info, Result};
@@ -17,7 +18,8 @@ pub struct Backoff<'a, R> {
     rate_limit_header: RateLimitHeader,
     default_delay_wait: Seconds,
     now: fn() -> Seconds,
-    strategy: Box<dyn BackOffStrategy>,
+    backoff_strategy: Box<dyn BackOffStrategy>,
+    throttler: Box<dyn ThrottleStrategy>,
 }
 
 impl<'a, R> Backoff<'a, R> {
@@ -27,6 +29,7 @@ impl<'a, R> Backoff<'a, R> {
         default_delay_wait: u64,
         now: fn() -> Seconds,
         strategy: Box<dyn BackOffStrategy>,
+        throttler_strategy: Box<dyn ThrottleStrategy>,
     ) -> Self {
         Backoff {
             runner,
@@ -35,7 +38,8 @@ impl<'a, R> Backoff<'a, R> {
             rate_limit_header: RateLimitHeader::default(),
             default_delay_wait: Seconds::new(default_delay_wait),
             now,
-            strategy,
+            backoff_strategy: strategy,
+            throttler: throttler_strategy,
         }
     }
 }
@@ -73,8 +77,8 @@ impl<'a, R: HttpRunner<Response = HttpResponse>> Backoff<'a, R> {
                                 if self.rate_limit_header.retry_after > Seconds::new(0) {
                                     base_wait_time = self.rate_limit_header.retry_after;
                                 }
-                                self.runner.throttle(
-                                    self.strategy
+                                self.throttler.throttle_for(
+                                    self.backoff_strategy
                                         .wait_time(base_wait_time, self.num_retries)
                                         .into(),
                                 );
@@ -87,8 +91,8 @@ impl<'a, R: HttpRunner<Response = HttpResponse>> Backoff<'a, R> {
                         ) => {
                             self.num_retries += 1;
                             if self.num_retries <= self.max_retries {
-                                self.runner.throttle(
-                                    self.strategy
+                                self.throttler.throttle_for(
+                                    self.backoff_strategy
                                         .wait_time(self.default_delay_wait, self.num_retries)
                                         .into(),
                                 );
@@ -132,7 +136,7 @@ mod tests {
     use crate::{
         http::{self, Headers, Resource},
         io::FlowControlHeaders,
-        test::utils::MockRunner,
+        test::utils::{MockRunner, MockThrottler},
         time::Milliseconds,
     };
 
@@ -194,9 +198,11 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy);
+        let throttler = Rc::new(MockThrottler::new());
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy, bthrottler);
         backoff.retry_on_error(&mut request).unwrap();
-        assert_eq!(2, *client.throttled());
+        assert_eq!(2, *throttler.throttled());
     }
 
     #[test]
@@ -214,13 +220,18 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy);
+        let throttler = Rc::new(MockThrottler::new());
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy, bthrottler);
         match backoff.retry_on_error(&mut request) {
             Ok(_) => panic!("Expected max retries reached error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
                 Some(error::GRError::ExponentialBackoffMaxRetriesReached(_)) => {
-                    assert_eq!(1, *client.throttled());
-                    assert_eq!(Milliseconds::new(62000), *client.milliseconds_throttled());
+                    assert_eq!(1, *throttler.throttled());
+                    assert_eq!(
+                        Milliseconds::new(62000),
+                        *throttler.milliseconds_throttled()
+                    );
                 }
                 _ => panic!("Expected max retries reached error"),
             },
@@ -237,9 +248,11 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let mut backoff = Backoff::new(&client, 0, 60, now_mock, strategy);
+        let throttler = Rc::new(MockThrottler::new());
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let mut backoff = Backoff::new(&client, 0, 60, now_mock, strategy, bthrottler);
         backoff.retry_on_error(&mut request).unwrap();
-        assert_eq!(0, *client.throttled());
+        assert_eq!(0, *throttler.throttled());
     }
 
     #[test]
@@ -252,7 +265,9 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let mut backoff = Backoff::new(&client, 0, 60, now_mock, strategy);
+        let throttler = Rc::new(MockThrottler::new());
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let mut backoff = Backoff::new(&client, 0, 60, now_mock, strategy, bthrottler);
         match backoff.retry_on_error(&mut request) {
             Ok(_) => panic!("Expected rate limit exceeded error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
@@ -277,13 +292,18 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy);
+        let throttler = Rc::new(MockThrottler::new());
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy, bthrottler);
         backoff.retry_on_error(&mut request).unwrap();
-        assert_eq!(2, *client.throttled());
+        assert_eq!(2, *throttler.throttled());
         // 60 secs base wait, 1st retry 2^1 = 2 => 62000 milliseconds
         // 60 secs base wait, 2nd retry 2^2 = 4 => 64000 milliseconds
         // Total wait 126000
-        assert_eq!(Milliseconds::new(126000), *client.milliseconds_throttled());
+        assert_eq!(
+            Milliseconds::new(126000),
+            *throttler.milliseconds_throttled()
+        );
     }
 
     #[test]
@@ -301,13 +321,18 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy);
+        let throttler = Rc::new(MockThrottler::new());
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy, bthrottler);
         backoff.retry_on_error(&mut request).unwrap();
-        assert_eq!(2, *client.throttled());
+        assert_eq!(2, *throttler.throttled());
         // 61 secs base wait, 1st retry 2^1 = 2 => 63000 milliseconds
         // 65 secs base wait, 2nd retry 2^2 = 4 => 69000 milliseconds
         // Total wait 132000
-        assert_eq!(Milliseconds::new(132000), *client.milliseconds_throttled());
+        assert_eq!(
+            Milliseconds::new(132000),
+            *throttler.milliseconds_throttled()
+        );
     }
 
     #[test]
@@ -326,13 +351,18 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy);
+        let throttler = Rc::new(MockThrottler::new());
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy, bthrottler);
         backoff.retry_on_error(&mut request).unwrap();
-        assert_eq!(2, *client.throttled());
+        assert_eq!(2, *throttler.throttled());
         // 120 secs base wait, 1st retry 2^1 = 2 => 122000 milliseconds
         // 61 secs base wait, 2nd retry 2^2 = 4 => 65000 milliseconds
         // Total wait 187000
-        assert_eq!(Milliseconds::new(187000), *client.milliseconds_throttled());
+        assert_eq!(
+            Milliseconds::new(187000),
+            *throttler.milliseconds_throttled()
+        );
     }
 
     #[test]
@@ -345,11 +375,16 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy);
+        let throttler = Rc::new(MockThrottler::new());
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy, bthrottler);
         backoff.retry_on_error(&mut request).unwrap();
-        assert_eq!(1, *client.throttled());
+        assert_eq!(1, *throttler.throttled());
         // Success on 2nd retry. Wait time of 1min + 2^1 = 2 => 62000 milliseconds
-        assert_eq!(Milliseconds::new(62000), *client.milliseconds_throttled());
+        assert_eq!(
+            Milliseconds::new(62000),
+            *throttler.milliseconds_throttled()
+        );
     }
 
     #[test]
@@ -362,13 +397,18 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy);
+        let throttler = Rc::new(MockThrottler::new());
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy, bthrottler);
         match backoff.retry_on_error(&mut request) {
             Ok(_) => panic!("Expected max retries reached error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
                 Some(error::GRError::ExponentialBackoffMaxRetriesReached(_)) => {
-                    assert_eq!(1, *client.throttled());
-                    assert_eq!(Milliseconds::new(62000), *client.milliseconds_throttled());
+                    assert_eq!(1, *throttler.throttled());
+                    assert_eq!(
+                        Milliseconds::new(62000),
+                        *throttler.milliseconds_throttled()
+                    );
                 }
                 _ => panic!("Expected max retries reached error"),
             },
@@ -385,11 +425,16 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy);
+        let throttler = Rc::new(MockThrottler::new());
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy, bthrottler);
         backoff.retry_on_error(&mut request).unwrap();
-        assert_eq!(1, *client.throttled());
+        assert_eq!(1, *throttler.throttled());
         // Success on 2nd retry. Wait time of 1min + 2^1 = 2 => 62000 milliseconds
-        assert_eq!(Milliseconds::new(62000), *client.milliseconds_throttled());
+        assert_eq!(
+            Milliseconds::new(62000),
+            *throttler.milliseconds_throttled()
+        );
     }
 
     #[test]
@@ -402,13 +447,18 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy);
+        let throttler = Rc::new(MockThrottler::new());
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy, bthrottler);
         match backoff.retry_on_error(&mut request) {
             Ok(_) => panic!("Expected max retries reached error"),
             Err(err) => match err.downcast_ref::<error::GRError>() {
                 Some(error::GRError::ExponentialBackoffMaxRetriesReached(_)) => {
-                    assert_eq!(1, *client.throttled());
-                    assert_eq!(Milliseconds::new(62000), *client.milliseconds_throttled());
+                    assert_eq!(1, *throttler.throttled());
+                    assert_eq!(
+                        Milliseconds::new(62000),
+                        *throttler.milliseconds_throttled()
+                    );
                 }
                 _ => panic!("Expected max retries reached error"),
             },

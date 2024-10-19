@@ -171,20 +171,6 @@ pub mod utils {
                     .unwrap_or(&ApiOperation::Project),
             )
         }
-
-        fn throttle(&self, milliseconds: Milliseconds) {
-            let mut throttled = self.throttled.borrow_mut();
-            *throttled += 1;
-            let mut milliseconds_throttled = self.milliseconds_throttled.borrow_mut();
-            *milliseconds_throttled += milliseconds;
-        }
-
-        fn throttle_range(&self, min: Milliseconds, _max: Milliseconds) {
-            let mut throttled = self.throttled.borrow_mut();
-            *throttled += 1;
-            let mut milliseconds_throttled = self.milliseconds_throttled.borrow_mut();
-            *milliseconds_throttled += min;
-        }
     }
 
     pub struct ConfigMock {
@@ -398,17 +384,23 @@ pub mod utils {
 
     pub struct MockThrottler {
         throttled: RefCell<u32>,
+        milliseconds_throttled: RefCell<Milliseconds>,
     }
 
     impl MockThrottler {
         pub fn new() -> Self {
             Self {
                 throttled: RefCell::new(0),
+                milliseconds_throttled: RefCell::new(Milliseconds::new(0)),
             }
         }
 
         pub fn throttled(&self) -> Ref<u32> {
             self.throttled.borrow()
+        }
+
+        pub fn milliseconds_throttled(&self) -> Ref<Milliseconds> {
+            self.milliseconds_throttled.borrow()
         }
     }
 
@@ -416,6 +408,13 @@ pub mod utils {
         fn throttle(&self, _response: Option<&io::FlowControlHeaders>) {
             let mut throttled = self.throttled.borrow_mut();
             *throttled += 1;
+        }
+
+        fn throttle_for(&self, delay: Milliseconds) {
+            let mut throttled = self.throttled.borrow_mut();
+            *throttled += 1;
+            let mut milliseconds_throttled = self.milliseconds_throttled.borrow_mut();
+            *milliseconds_throttled += delay;
         }
     }
 }

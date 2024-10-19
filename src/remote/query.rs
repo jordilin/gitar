@@ -243,7 +243,7 @@ where
         backoff_wait_time = list_args.get_args.backoff_retry_after;
     }
     let throttle_strategy: Box<dyn ThrottleStrategy> = match throttle_time {
-        Some(throttle_time) => Box::new(throttle::Fixed::new(throttle_time)),
+        Some(throttle_time) => Box::new(throttle::PreFixed::new(throttle_time)),
         None => match throttle_range {
             Some((min, max)) => Box::new(throttle::Random::new(min, max)),
             None => Box::new(throttle::NoThrottle::new()),

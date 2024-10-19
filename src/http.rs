@@ -396,17 +396,19 @@ impl<'a, R: HttpRunner, T: Serialize> Paginator<'a, R, T> {
         } else {
             runner.api_max_pages(&request)
         };
+        let backoff = Backoff::new(
+            runner,
+            backoff_max_retries,
+            backoff_default_wait_time,
+            time::now_epoch_seconds,
+            Box::new(Exponential),
+            Box::new(throttle::DynamicFixed::new()),
+        );
         Paginator {
             request,
             page_url: Some(page_url.to_string()),
             iter: 0,
-            backoff: Backoff::new(
-                runner,
-                backoff_max_retries,
-                backoff_default_wait_time,
-                time::now_epoch_seconds,
-                Box::new(Exponential),
-            ),
+            backoff,
             throttler: throttle_strategy,
             max_pages,
         }

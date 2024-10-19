@@ -7,7 +7,7 @@ use crate::{
     http::{self, Headers, Request},
     log_info,
     remote::RemoteURL,
-    time::{self, Milliseconds, Seconds},
+    time::{self, Seconds},
     Result,
 };
 use regex::Regex;
@@ -16,10 +16,7 @@ use std::{
     ffi::OsStr,
     fmt::{self, Display, Formatter},
     rc::Rc,
-    thread,
 };
-
-use rand::Rng;
 
 /// A trait that handles the execution of processes with a finite lifetime. For
 /// example, it can be an in-memory process for testing or a shell command doing
@@ -42,18 +39,6 @@ pub trait HttpRunner {
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response>;
     /// Return the number of API MAX PAGES allowed for the given Request.
     fn api_max_pages<T: Serialize>(&self, cmd: &Request<T>) -> u32;
-    /// Milliseconds to wait before executing the next request
-    fn throttle(&self, milliseconds: Milliseconds) {
-        thread::sleep(std::time::Duration::from_millis(*milliseconds));
-    }
-    /// Random wait time between the given range before submitting the next HTTP
-    /// request. The wait time is in milliseconds. The range is inclusive.
-    fn throttle_range(&self, min: Milliseconds, max: Milliseconds) {
-        let mut rng = rand::thread_rng();
-        let wait_time = rng.gen_range(*min..=*max);
-        log_info!("Sleeping for {} milliseconds", wait_time);
-        thread::sleep(std::time::Duration::from_millis(wait_time));
-    }
 }
 
 #[derive(Clone, Debug)]
