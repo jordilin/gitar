@@ -20,12 +20,6 @@ pub trait ThrottleStrategy {
 
 pub struct DynamicFixed;
 
-impl DynamicFixed {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
 impl ThrottleStrategy for DynamicFixed {
     fn throttle(&self, _flow_control_headers: Option<&FlowControlHeaders>) {}
 }

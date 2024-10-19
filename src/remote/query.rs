@@ -257,7 +257,7 @@ where
         backoff_wait_time,
         time::now_epoch_seconds,
         Box::new(Exponential),
-        Box::new(throttle::DynamicFixed::new()),
+        Box::new(throttle::DynamicFixed),
     );
     let paginator = Paginator::new(runner, request, url, backoff, throttle_strategy);
     let all_data = paginator

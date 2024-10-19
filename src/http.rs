@@ -549,7 +549,7 @@ mod test {
             60,
             time::now_epoch_seconds,
             Box::new(Exponential),
-            Box::new(throttle::DynamicFixed::new()),
+            Box::new(throttle::DynamicFixed),
         );
         let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
         let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
@@ -576,7 +576,7 @@ mod test {
             60,
             time::now_epoch_seconds,
             Box::new(Exponential),
-            Box::new(throttle::DynamicFixed::new()),
+            Box::new(throttle::DynamicFixed),
         );
         let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
         let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
@@ -596,7 +596,7 @@ mod test {
             60,
             time::now_epoch_seconds,
             Box::new(Exponential),
-            Box::new(throttle::DynamicFixed::new()),
+            Box::new(throttle::DynamicFixed),
         );
         let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
         let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
@@ -619,7 +619,7 @@ mod test {
             60,
             time::now_epoch_seconds,
             Box::new(Exponential),
-            Box::new(throttle::DynamicFixed::new()),
+            Box::new(throttle::DynamicFixed),
         );
         let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
         let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
@@ -653,7 +653,7 @@ mod test {
             60,
             time::now_epoch_seconds,
             Box::new(Exponential),
-            Box::new(throttle::DynamicFixed::new()),
+            Box::new(throttle::DynamicFixed),
         );
         let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
         let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
@@ -680,7 +680,7 @@ mod test {
             60,
             time::now_epoch_seconds,
             Box::new(Exponential),
-            Box::new(throttle::DynamicFixed::new()),
+            Box::new(throttle::DynamicFixed),
         );
         let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
         let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
@@ -813,7 +813,7 @@ mod test {
             60,
             time::now_epoch_seconds,
             Box::new(Exponential),
-            Box::new(throttle::DynamicFixed::new()),
+            Box::new(throttle::DynamicFixed),
         );
         let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
         let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
@@ -835,7 +835,7 @@ mod test {
             60,
             time::now_epoch_seconds,
             Box::new(Exponential),
-            Box::new(throttle::DynamicFixed::new()),
+            Box::new(throttle::DynamicFixed),
         );
         let paginator = Paginator::new(&client, request, "http://localhost", backoff, bthrottler);
         let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
@@ -857,7 +857,7 @@ mod test {
             60,
             time::now_epoch_seconds,
             Box::new(Exponential),
-            Box::new(throttle::DynamicFixed::new()),
+            Box::new(throttle::DynamicFixed),
         );
         let paginator = Paginator::new(&client, request, "http://localhost", backoff, bthrottler);
         let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
@@ -880,7 +880,7 @@ mod test {
             60,
             time::now_epoch_seconds,
             Box::new(Exponential),
-            Box::new(throttle::DynamicFixed::new()),
+            Box::new(throttle::DynamicFixed),
         );
         let paginator = Paginator::new(&client, request, "http://localhost", backoff, bthrottler);
         let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
@@ -913,7 +913,7 @@ mod test {
             60,
             time::now_epoch_seconds,
             Box::new(Exponential),
-            Box::new(throttle::DynamicFixed::new()),
+            Box::new(throttle::DynamicFixed),
         );
         let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
         let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
