@@ -255,7 +255,7 @@ where
         url,
         backoff_max_retries,
         backoff_wait_time,
-        throttle_strategy.as_ref(),
+        throttle_strategy,
     );
     let all_data = paginator
         .map(|response| {
