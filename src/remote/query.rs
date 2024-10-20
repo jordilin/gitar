@@ -248,7 +248,7 @@ where
         Some(throttle_time) => Box::new(throttle::PreFixed::new(throttle_time)),
         None => match throttle_range {
             Some((min, max)) => Box::new(throttle::Random::new(min, max)),
-            None => Box::new(throttle::NoThrottle::new()),
+            None => Box::new(throttle::AutoRate::default()),
         },
     };
     let backoff = Backoff::new(
