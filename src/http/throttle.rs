@@ -6,6 +6,7 @@ use std::thread;
 use rand::Rng;
 
 use crate::{
+    api_defaults::{DEFAULT_JITTER_MAX_MILLISECONDS, DEFAULT_JITTER_MIN_MILLISECONDS},
     io::FlowControlHeaders,
     log_debug, log_info,
     time::{self, Milliseconds, Seconds},
@@ -23,6 +24,17 @@ pub trait ThrottleStrategy {
         log_info!("Throttling for : {} ms", delay);
         thread::sleep(std::time::Duration::from_millis(*delay));
     }
+    /// Return strategy type
+    fn strategy(&self) -> ThrottleStrategyType;
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ThrottleStrategyType {
+    PreFixed,
+    DynamicFixed,
+    Random,
+    AutoRate,
+    NoThrottle,
 }
 
 /// Dynamically throttles for the amount of time specified in the throttle_for
@@ -33,6 +45,9 @@ pub struct DynamicFixed;
 
 impl ThrottleStrategy for DynamicFixed {
     fn throttle(&self, _flow_control_headers: Option<&FlowControlHeaders>) {}
+    fn strategy(&self) -> ThrottleStrategyType {
+        ThrottleStrategyType::DynamicFixed
+    }
 }
 
 pub struct PreFixed {
@@ -49,6 +64,9 @@ impl ThrottleStrategy for PreFixed {
     fn throttle(&self, _flow_control_headers: Option<&FlowControlHeaders>) {
         log_info!("Throttling for: {} ms", self.delay);
         thread::sleep(std::time::Duration::from_millis(*self.delay));
+    }
+    fn strategy(&self) -> ThrottleStrategyType {
+        ThrottleStrategyType::PreFixed
     }
 }
 
@@ -78,6 +96,9 @@ impl ThrottleStrategy for Random {
         log_info!("Sleeping for {} milliseconds", wait_time);
         thread::sleep(std::time::Duration::from_millis(wait_time));
     }
+    fn strategy(&self) -> ThrottleStrategyType {
+        ThrottleStrategyType::Random
+    }
 }
 
 #[derive(Default)]
@@ -93,6 +114,9 @@ impl ThrottleStrategy for NoThrottle {
     fn throttle(&self, _flow_control_headers: Option<&FlowControlHeaders>) {
         log_info!("No throttling enabled");
     }
+    fn strategy(&self) -> ThrottleStrategyType {
+        ThrottleStrategyType::NoThrottle
+    }
 }
 
 /// AutoRate implements an automatic throttling algorithm that limits the
@@ -107,9 +131,6 @@ pub struct AutoRate {
     jitter_min: Milliseconds,
     now: fn() -> Seconds,
 }
-
-const DEFAULT_JITTER_MAX_MILLISECONDS: u64 = 5000;
-const DEFAULT_JITTER_MIN_MILLISECONDS: u64 = 1000;
 
 impl Default for AutoRate {
     fn default() -> Self {
@@ -161,5 +182,8 @@ impl ThrottleStrategy for AutoRate {
             }
             None => (),
         };
+    }
+    fn strategy(&self) -> ThrottleStrategyType {
+        ThrottleStrategyType::AutoRate
     }
 }

@@ -18,7 +18,7 @@ use std::collections::{hash_map, HashMap};
 use std::iter::Iterator;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use throttle::ThrottleStrategy;
+use throttle::{ThrottleStrategy, ThrottleStrategyType};
 use ureq::Error;
 
 pub struct Client<C> {
@@ -439,12 +439,19 @@ impl<'a, T: Serialize, R: HttpRunner<Response = HttpResponse>> Iterator for Pagi
             };
             self.iter += 1;
             if self.iter < self.max_pages && self.page_url.is_some() {
+                let response = response.as_ref().unwrap();
                 // Technically no need to check ok on response, as page_url is Some
                 // (response was Ok)
-                let response = response.as_ref().unwrap();
                 if !response.local_cache {
-                    self.throttler
-                        .throttle(Some(response.get_flow_control_headers()));
+                    if self.throttler.strategy() == ThrottleStrategyType::AutoRate {
+                        if self.iter >= api_defaults::ENGAGE_AUTORATE_THROTTLING_THRESHOLD {
+                            self.throttler
+                                .throttle(Some(response.get_flow_control_headers()));
+                        }
+                    } else {
+                        self.throttler
+                            .throttle(Some(response.get_flow_control_headers()));
+                    }
                 }
             }
             return Some(response);
@@ -827,7 +834,7 @@ mod test {
         let response3 = response_with_last_page();
         let client = Arc::new(MockRunner::new(vec![response3, response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let throttler = Rc::new(MockThrottler::new());
+        let throttler = Rc::new(MockThrottler::new(None));
         let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
         let backoff = Backoff::new(
             &client,
@@ -849,7 +856,7 @@ mod test {
         let response2 = response_with_last_page();
         let client = Arc::new(MockRunner::new(vec![response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let throttler = Rc::new(MockThrottler::new());
+        let throttler = Rc::new(MockThrottler::new(None));
         let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
         let backoff = Backoff::new(
             &client,
@@ -872,7 +879,7 @@ mod test {
         let response3 = cached_response_last_page();
         let client = Arc::new(MockRunner::new(vec![response3, response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let throttler = Rc::new(MockThrottler::new());
+        let throttler = Rc::new(MockThrottler::new(None));
         let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
         let backoff = Backoff::new(
             &client,
@@ -919,5 +926,40 @@ mod test {
         let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
         let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(5, responses.len());
+    }
+
+    #[test]
+    fn test_paginator_auto_throttle_enabled_after_autorate_engage_threshold() {
+        let response1 = response_with_next_page();
+        let response2 = response_with_next_page();
+        let response3 = response_with_next_page();
+        // Throttles in next two requests
+        let response4 = response_with_next_page();
+        let response5 = response_with_last_page();
+        let client = Arc::new(MockRunner::new(vec![
+            response5, response4, response3, response2, response1,
+        ]));
+        let request: Request<()> = Request::builder()
+            .method(Method::GET)
+            .resource(Resource::new("http://localhost", None))
+            .max_pages(5)
+            .build()
+            .unwrap();
+        let throttler = Rc::new(MockThrottler::new(Some(
+            throttle::ThrottleStrategyType::AutoRate,
+        )));
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let backoff = Backoff::new(
+            &client,
+            0,
+            60,
+            time::now_epoch_seconds,
+            Box::new(Exponential),
+            Box::new(throttle::DynamicFixed),
+        );
+        let paginator = Paginator::new(&client, request, "http://localhost", backoff, bthrottler);
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
+        assert_eq!(5, responses.len());
+        assert_eq!(2, *throttler.throttled());
     }
 }

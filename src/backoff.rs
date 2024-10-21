@@ -206,7 +206,7 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let throttler = Rc::new(MockThrottler::new());
+        let throttler = Rc::new(MockThrottler::new(None));
         let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
         let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy, bthrottler);
         backoff.retry_on_error(&mut request).unwrap();
@@ -228,7 +228,7 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let throttler = Rc::new(MockThrottler::new());
+        let throttler = Rc::new(MockThrottler::new(None));
         let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
         let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy, bthrottler);
         match backoff.retry_on_error(&mut request) {
@@ -256,7 +256,7 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let throttler = Rc::new(MockThrottler::new());
+        let throttler = Rc::new(MockThrottler::new(None));
         let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
         let mut backoff = Backoff::new(&client, 0, 60, now_mock, strategy, bthrottler);
         backoff.retry_on_error(&mut request).unwrap();
@@ -273,7 +273,7 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let throttler = Rc::new(MockThrottler::new());
+        let throttler = Rc::new(MockThrottler::new(None));
         let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
         let mut backoff = Backoff::new(&client, 0, 60, now_mock, strategy, bthrottler);
         match backoff.retry_on_error(&mut request) {
@@ -300,7 +300,7 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let throttler = Rc::new(MockThrottler::new());
+        let throttler = Rc::new(MockThrottler::new(None));
         let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
         let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy, bthrottler);
         backoff.retry_on_error(&mut request).unwrap();
@@ -329,7 +329,7 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let throttler = Rc::new(MockThrottler::new());
+        let throttler = Rc::new(MockThrottler::new(None));
         let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
         let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy, bthrottler);
         backoff.retry_on_error(&mut request).unwrap();
@@ -359,7 +359,7 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let throttler = Rc::new(MockThrottler::new());
+        let throttler = Rc::new(MockThrottler::new(None));
         let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
         let mut backoff = Backoff::new(&client, 3, 60, now_mock, strategy, bthrottler);
         backoff.retry_on_error(&mut request).unwrap();
@@ -383,7 +383,7 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let throttler = Rc::new(MockThrottler::new());
+        let throttler = Rc::new(MockThrottler::new(None));
         let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
         let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy, bthrottler);
         backoff.retry_on_error(&mut request).unwrap();
@@ -405,7 +405,7 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let throttler = Rc::new(MockThrottler::new());
+        let throttler = Rc::new(MockThrottler::new(None));
         let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
         let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy, bthrottler);
         match backoff.retry_on_error(&mut request) {
@@ -433,7 +433,7 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let throttler = Rc::new(MockThrottler::new());
+        let throttler = Rc::new(MockThrottler::new(None));
         let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
         let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy, bthrottler);
         backoff.retry_on_error(&mut request).unwrap();
@@ -455,7 +455,7 @@ mod tests {
             .build()
             .unwrap();
         let strategy = Box::new(Exponential);
-        let throttler = Rc::new(MockThrottler::new());
+        let throttler = Rc::new(MockThrottler::new(None));
         let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
         let mut backoff = Backoff::new(&client, 1, 60, now_mock, strategy, bthrottler);
         match backoff.retry_on_error(&mut request) {

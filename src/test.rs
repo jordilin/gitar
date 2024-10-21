@@ -5,7 +5,11 @@ pub mod utils {
         api_traits::ApiOperation,
         config::ConfigProperties,
         error,
-        http::{self, Headers, Request},
+        http::{
+            self,
+            throttle::{self, ThrottleStrategyType},
+            Headers, Request,
+        },
         io::{self, HttpResponse, HttpRunner, ShellResponse, TaskRunner},
         time::Milliseconds,
         Result,
@@ -385,13 +389,15 @@ pub mod utils {
     pub struct MockThrottler {
         throttled: RefCell<u32>,
         milliseconds_throttled: RefCell<Milliseconds>,
+        strategy: throttle::ThrottleStrategyType,
     }
 
     impl MockThrottler {
-        pub fn new() -> Self {
+        pub fn new(strategy_type: Option<ThrottleStrategyType>) -> Self {
             Self {
                 throttled: RefCell::new(0),
                 milliseconds_throttled: RefCell::new(Milliseconds::new(0)),
+                strategy: strategy_type.unwrap_or(ThrottleStrategyType::NoThrottle),
             }
         }
 
@@ -415,6 +421,10 @@ pub mod utils {
             *throttled += 1;
             let mut milliseconds_throttled = self.milliseconds_throttled.borrow_mut();
             *milliseconds_throttled += delay;
+        }
+
+        fn strategy(&self) -> ThrottleStrategyType {
+            self.strategy.clone()
         }
     }
 }
