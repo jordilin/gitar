@@ -3,14 +3,14 @@ use crate::cli::browse::BrowseOptions;
 use crate::cmds::project::{Member, Project, ProjectListBodyArgs, Tag};
 use crate::error::GRError;
 use crate::gitlab::encode_path;
-use crate::io::{CmdInfo, HttpRunner, Response};
+use crate::io::{CmdInfo, HttpResponse, HttpRunner};
 use crate::remote::query;
 use crate::remote::URLQueryParamBuilder;
 use crate::Result;
 
 use super::Gitlab;
 
-impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
+impl<R: HttpRunner<Response = HttpResponse>> RemoteProject for Gitlab<R> {
     fn get_project_data(&self, id: Option<i64>, path: Option<&str>) -> Result<CmdInfo> {
         let url = match (id, path) {
             (Some(id), None) => format!("{}/{}", self.base_project_url, id),
@@ -94,7 +94,7 @@ impl<R: HttpRunner<Response = Response>> RemoteProject for Gitlab<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> RemoteTag for Gitlab<R> {
+impl<R: HttpRunner<Response = HttpResponse>> RemoteTag for Gitlab<R> {
     // https://docs.gitlab.com/ee/api/tags.html
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Tag>> {
         let url = format!("{}/repository/tags", self.projects_base_url);
@@ -116,7 +116,7 @@ impl<R: HttpRunner<Response = Response>> RemoteTag for Gitlab<R> {
     // ApiOperation to reflect this.
 }
 
-impl<R: HttpRunner<Response = Response>> ProjectMember for Gitlab<R> {
+impl<R: HttpRunner<Response = HttpResponse>> ProjectMember for Gitlab<R> {
     fn list(&self, args: ProjectListBodyArgs) -> Result<Vec<Member>> {
         let url = format!("{}/members/all", self.rest_api_basepath());
         let members = query::paged(

@@ -8,7 +8,7 @@ use gr::{
     cache::{filesystem::FileCache, Cache, CacheState},
     config::ConfigProperties,
     http::{Headers, Resource},
-    io::{Response, ResponseField},
+    io::{HttpResponse, ResponseField},
 };
 
 struct TestConfig {
@@ -41,7 +41,7 @@ fn test_file_cache_fresh() {
 
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 
-    let response = Response::builder()
+    let response = HttpResponse::builder()
         .status(200)
         .body("Test response body".to_string())
         .headers({
@@ -90,7 +90,7 @@ fn test_file_cache_stale_user_expired_no_cache() {
 
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 
-    let response = Response::builder()
+    let response = HttpResponse::builder()
         .status(200)
         .body("Test response body".to_string())
         .headers({
@@ -136,7 +136,7 @@ fn test_file_cache_fresh_user_expired_but_under_max_age() {
 
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 
-    let response = Response::builder()
+    let response = HttpResponse::builder()
         .status(200)
         .body("Test response body".to_string())
         .headers({
@@ -185,7 +185,7 @@ fn test_cache_stale_both_user_expired_and_max_aged_expired() {
 
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 
-    let response = Response::builder()
+    let response = HttpResponse::builder()
         .status(200)
         .body("Test response body".to_string())
         .headers({
@@ -228,7 +228,7 @@ fn test_cache_update_refreshes_cache() {
     let resource = Resource::new("https://api.example.com/test", Some(ApiOperation::Project));
 
     // First response
-    let response = Response::builder()
+    let response = HttpResponse::builder()
         .status(200)
         .body("Test response body".to_string())
         .headers({
@@ -242,7 +242,7 @@ fn test_cache_update_refreshes_cache() {
     file_cache.set(&resource, &response).unwrap();
 
     // Second call, we get a 304 response
-    let new_response = Response::builder()
+    let new_response = HttpResponse::builder()
         .status(304)
         .headers(Headers::new())
         .build()

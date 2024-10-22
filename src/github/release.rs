@@ -1,14 +1,14 @@
 use crate::{
     api_traits::{ApiOperation, Deploy, DeployAsset, NumberDeltaErr},
     cmds::release::{Release, ReleaseAssetListBodyArgs, ReleaseAssetMetadata, ReleaseBodyArgs},
-    io::{HttpRunner, Response},
+    io::{HttpResponse, HttpRunner},
     remote::query,
     Result,
 };
 
 use super::Github;
 
-impl<R: HttpRunner<Response = Response>> Deploy for Github<R> {
+impl<R: HttpRunner<Response = HttpResponse>> Deploy for Github<R> {
     fn list(&self, args: ReleaseBodyArgs) -> Result<Vec<Release>> {
         let url = format!("{}/repos/{}/releases", self.rest_api_basepath, self.path);
         query::paged(
@@ -52,7 +52,7 @@ impl<R> Github<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> DeployAsset for Github<R> {
+impl<R: HttpRunner<Response = HttpResponse>> DeployAsset for Github<R> {
     fn list(&self, args: ReleaseAssetListBodyArgs) -> Result<Vec<ReleaseAssetMetadata>> {
         let url = format!(
             "{}/repos/{}/releases/{}/assets",

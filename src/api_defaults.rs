@@ -18,3 +18,10 @@ pub const DEFAULT_NUMBER_REQUESTS_MINUTE: u32 = 80;
 pub const DEFAULT_PER_PAGE: u32 = 30;
 
 pub const EXPIRE_IMMEDIATELY: &str = "0s";
+
+// Default jitter values for autorate throttling.
+pub const DEFAULT_JITTER_MAX_MILLISECONDS: u64 = 5000;
+pub const DEFAULT_JITTER_MIN_MILLISECONDS: u64 = 1000;
+
+// Trigger autorate throttling after 3 API calls.
+pub const ENGAGE_AUTORATE_THROTTLING_THRESHOLD: u32 = 3;

@@ -1,13 +1,13 @@
 use crate::{
     api_traits::ContainerRegistry,
     cmds::docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
-    io::{HttpRunner, Response},
+    io::{HttpResponse, HttpRunner},
     Result,
 };
 
 use super::Github;
 
-impl<R: HttpRunner<Response = Response>> ContainerRegistry for Github<R> {
+impl<R: HttpRunner<Response = HttpResponse>> ContainerRegistry for Github<R> {
     fn list_repositories(&self, _args: DockerListBodyArgs) -> Result<Vec<RegistryRepository>> {
         todo!("list_repositories")
     }

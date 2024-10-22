@@ -13,7 +13,7 @@ use crate::display::Format;
 use crate::error::GRError;
 use crate::github::Github;
 use crate::gitlab::Gitlab;
-use crate::io::{CmdInfo, HttpRunner, Response, TaskRunner};
+use crate::io::{CmdInfo, HttpResponse, HttpRunner, ShellResponse, TaskRunner};
 use crate::time::Milliseconds;
 use crate::{cli, error, get_default_config_path, http, log_debug, log_info};
 use crate::{git, Result};
@@ -391,7 +391,7 @@ macro_rules! get {
                 runner: Arc<R>,
             ) -> Result<Arc<dyn $trait_name + Send + Sync + 'static>>
             where
-                R: HttpRunner<Response = Response> + Send + Sync + 'static,
+                R: HttpRunner<Response = HttpResponse> + Send + Sync + 'static,
             {
                 let github_domain_regex = regex::Regex::new(r"^github").unwrap();
                 let gitlab_domain_regex = regex::Regex::new(r"^gitlab").unwrap();
@@ -485,7 +485,7 @@ impl RemoteURL {
 }
 
 impl CliDomainRequirements {
-    pub fn check<R: TaskRunner<Response = Response>>(
+    pub fn check<R: TaskRunner<Response = ShellResponse>>(
         &self,
         cli_args: &cli::CliArgs,
         runner: &R,
@@ -547,7 +547,7 @@ impl Display for CliDomainRequirements {
     }
 }
 
-pub fn url<R: TaskRunner<Response = Response>>(
+pub fn url<R: TaskRunner<Response = ShellResponse>>(
     cli_args: &cli::CliArgs,
     requirements: &[CliDomainRequirements],
     runner: &R,
@@ -1052,7 +1052,7 @@ mod test {
     #[test]
     fn test_cli_requires_cd_local_repo_run_git_remote() {
         let cli_args = CliArgs::new(0, None, None, None);
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body("git@github.com:jordilin/gitar.git".to_string())
             .build()
             .unwrap();
@@ -1066,7 +1066,10 @@ mod test {
     #[test]
     fn test_cli_requires_cd_local_repo_run_git_remote_error() {
         let cli_args = CliArgs::new(0, None, None, None);
-        let response = Response::builder().body("".to_string()).build().unwrap();
+        let response = ShellResponse::builder()
+            .body("".to_string())
+            .build()
+            .unwrap();
         let runner = MockRunner::new(vec![response]);
         let requirements = vec![CliDomainRequirements::CdInLocalRepo];
         let result = url(&cli_args, &requirements, &runner, &None);
@@ -1086,7 +1089,10 @@ mod test {
             CliDomainRequirements::CdInLocalRepo,
             CliDomainRequirements::RepoArgs,
         ];
-        let response = Response::builder().body("".to_string()).build().unwrap();
+        let response = ShellResponse::builder()
+            .body("".to_string())
+            .build()
+            .unwrap();
         let url = url(
             &cli_args,
             &requirements,
@@ -1106,7 +1112,10 @@ mod test {
             CliDomainRequirements::CdInLocalRepo,
             CliDomainRequirements::DomainArgs,
         ];
-        let response = Response::builder().body("".to_string()).build().unwrap();
+        let response = ShellResponse::builder()
+            .body("".to_string())
+            .build()
+            .unwrap();
         let url = url(
             &cli_args,
             &requirements,
@@ -1155,7 +1164,7 @@ mod test {
         let cli_args = CliArgs::default();
         // Huck Finn opens a PR from a forked repo over to the main repo
         // jordilin/gitar
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body("git@github.com:hfinn/gitar.git".to_string())
             .build()
             .unwrap();

@@ -4,7 +4,7 @@ use gr::cache::{Cache, InMemoryCache, NoCache};
 use gr::config::ConfigProperties;
 use gr::error::GRError;
 use gr::http::{Client, Headers, Method, Request};
-use gr::io::{HttpRunner, Response, ResponseField};
+use gr::io::{HttpResponse, HttpRunner, ResponseField};
 use httpmock::prelude::*;
 use httpmock::Method::{GET, HEAD, PATCH, POST};
 
@@ -120,7 +120,7 @@ fn test_http_gathers_from_inmemory_fresh_cache() {
         "default_branch": "main",
     }"#;
 
-    let response = Response::builder()
+    let response = HttpResponse::builder()
         .status(200)
         .body(body_str.to_string())
         .build()
@@ -149,6 +149,8 @@ fn test_http_gathers_from_inmemory_fresh_cache() {
     let response = runner.run(&mut request).unwrap();
     assert_eq!(response.status, 200);
     assert!(response.body.contains("id"));
+
+    assert!(response.local_cache);
 
     // Mock was never called. We used the cache
     server_mock.assert_hits(0);
@@ -180,7 +182,7 @@ fn test_http_gathers_from_inmemory_stale_cache_server_304() {
     let mut headers = Headers::new();
     headers.set("etag".to_string(), "1234".to_string());
     headers.set("Max-Age".to_string(), "0".to_string());
-    let response = Response::builder()
+    let response = HttpResponse::builder()
         .status(200)
         .body(body_str.to_string())
         .headers(headers)
@@ -196,6 +198,7 @@ fn test_http_gathers_from_inmemory_stale_cache_server_304() {
 
     let response = runner.run(&mut request).unwrap();
     assert_eq!(response.status, 200);
+    assert!(!response.local_cache);
     assert!(response.body.contains("id"));
 
     // While do we have a cache, the cache was expired, hence we expect the

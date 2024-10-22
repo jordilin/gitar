@@ -7,7 +7,7 @@ use crate::{
     http::{self, Headers, Request},
     log_info,
     remote::RemoteURL,
-    time::{self, Milliseconds, Seconds},
+    time::{self, Seconds},
     Result,
 };
 use regex::Regex;
@@ -15,10 +15,8 @@ use serde::Serialize;
 use std::{
     ffi::OsStr,
     fmt::{self, Display, Formatter},
-    thread,
+    rc::Rc,
 };
-
-use rand::Rng;
 
 /// A trait that handles the execution of processes with a finite lifetime. For
 /// example, it can be an in-memory process for testing or a shell command doing
@@ -41,18 +39,6 @@ pub trait HttpRunner {
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response>;
     /// Return the number of API MAX PAGES allowed for the given Request.
     fn api_max_pages<T: Serialize>(&self, cmd: &Request<T>) -> u32;
-    /// Milliseconds to wait before executing the next request
-    fn throttle(&self, milliseconds: Milliseconds) {
-        thread::sleep(std::time::Duration::from_millis(*milliseconds));
-    }
-    /// Random wait time between the given range before submitting the next HTTP
-    /// request. The wait time is in milliseconds. The range is inclusive.
-    fn throttle_range(&self, min: Milliseconds, max: Milliseconds) {
-        let mut rng = rand::thread_rng();
-        let wait_time = rng.gen_range(*min..=*max);
-        log_info!("Sleeping for {} milliseconds", wait_time);
-        thread::sleep(std::time::Duration::from_millis(wait_time));
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -71,9 +57,23 @@ pub enum CmdInfo {
     Exit,
 }
 
+#[derive(Clone, Debug, Builder)]
+pub struct ShellResponse {
+    #[builder(default)]
+    pub status: i32,
+    #[builder(default)]
+    pub body: String,
+}
+
+impl ShellResponse {
+    pub fn builder() -> ShellResponseBuilder {
+        ShellResponseBuilder::default()
+    }
+}
+
 /// Adapts lower level I/O HTTP/Shell outputs to a common Response.
 #[derive(Clone, Debug, Builder)]
-pub struct Response {
+pub struct HttpResponse {
     #[builder(default)]
     pub status: i32,
     #[builder(default)]
@@ -81,13 +81,15 @@ pub struct Response {
     /// Optional headers. Mostly used by HTTP downstream HTTP responses
     #[builder(setter(into, strip_option), default)]
     pub headers: Option<Headers>,
-    #[builder(default = "parse_link_headers")]
-    link_header_processor: fn(&str) -> PageHeader,
+    #[builder(setter(into), default)]
+    pub flow_control_headers: FlowControlHeaders,
+    #[builder(setter(into), default)]
+    pub local_cache: bool,
 }
 
-impl Response {
-    pub fn builder() -> ResponseBuilder {
-        ResponseBuilder::default()
+impl HttpResponse {
+    pub fn builder() -> HttpResponseBuilder {
+        HttpResponseBuilder::default()
     }
 }
 
@@ -98,7 +100,7 @@ pub enum ResponseField {
     Headers,
 }
 
-impl Response {
+impl HttpResponse {
     pub fn header(&self, key: &str) -> Option<&str> {
         self.headers
             .as_ref()
@@ -106,51 +108,16 @@ impl Response {
             .map(|s| s.as_str())
     }
 
-    pub fn get_page_headers(&self) -> Option<PageHeader> {
-        if let Some(headers) = &self.headers {
-            match headers.get(LINK_HEADER) {
-                Some(link) => return Some((self.link_header_processor)(link)),
-                None => return None,
-            }
-        }
-        None
+    pub fn get_page_headers(&self) -> Rc<Option<PageHeader>> {
+        self.flow_control_headers.get_page_header()
     }
 
-    // Defaults:
-    // https://docs.gitlab.com/ee/user/gitlab_com/index.html#gitlabcom-specific-rate-limits
-    // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#primary-rate-limit-for-authenticated-users
+    pub fn get_ratelimit_headers(&self) -> Rc<Option<RateLimitHeader>> {
+        self.flow_control_headers.get_rate_limit_header()
+    }
 
-    // Github 5000 requests per hour for authenticated users
-    // Gitlab 2000 requests per minute for authenticated users
-    // Most limiting Github 5000/60 = 83.33 requests per minute
-
-    pub fn get_ratelimit_headers(&self) -> Option<RateLimitHeader> {
-        let mut ratelimit_header = RateLimitHeader::default();
-
-        // process remote headers and patch the defaults accordingly
-        if let Some(headers) = &self.headers {
-            if let Some(retry_after) = headers.get(RETRY_AFTER) {
-                ratelimit_header.retry_after =
-                    Seconds::new(retry_after.parse::<u64>().unwrap_or(0));
-            }
-            if let Some(github_remaining) = headers.get(GITHUB_RATELIMIT_REMAINING) {
-                ratelimit_header.remaining = github_remaining.parse::<u32>().unwrap_or(0);
-                if let Some(github_reset) = headers.get(GITHUB_RATELIMIT_RESET) {
-                    ratelimit_header.reset = Seconds::new(github_reset.parse::<u64>().unwrap_or(0));
-                }
-                log_info!("Header {}", ratelimit_header);
-                return Some(ratelimit_header);
-            }
-            if let Some(gitlab_remaining) = headers.get(GITLAB_RATELIMIT_REMAINING) {
-                ratelimit_header.remaining = gitlab_remaining.parse::<u32>().unwrap_or(0);
-                if let Some(gitlab_reset) = headers.get(GITLAB_RATELIMIT_RESET) {
-                    ratelimit_header.reset = Seconds::new(gitlab_reset.parse::<u64>().unwrap_or(0));
-                }
-                log_info!("Header {}", ratelimit_header);
-                return Some(ratelimit_header);
-            }
-        }
-        None
+    pub fn get_flow_control_headers(&self) -> &FlowControlHeaders {
+        &self.flow_control_headers
     }
 
     pub fn get_etag(&self) -> Option<&str> {
@@ -167,13 +134,17 @@ impl Response {
             http::Method::PATCH | http::Method::PUT => self.status >= 200 && self.status < 300,
         }
     }
+
+    pub fn update_rate_limit_headers(&mut self, headers: RateLimitHeader) {
+        self.flow_control_headers.rate_limit_header = Rc::new(Some(headers));
+    }
 }
 
 const NEXT: &str = "next";
 const LAST: &str = "last";
 pub const LINK_HEADER: &str = "link";
 
-pub fn parse_link_headers(link: &str) -> PageHeader {
+fn parse_link_headers(link: &str) -> PageHeader {
     lazy_static! {
         static ref RE_URL: Regex = Regex::new(r#"<([^>]+)>;\s*rel="([^"]+)""#).unwrap();
         static ref RE_PAGE_NUMBER: Regex = Regex::new(r"[^(per_)]page=(\d+)").unwrap();
@@ -223,7 +194,7 @@ pub fn parse_link_headers(link: &str) -> PageHeader {
     page_header
 }
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PageHeader {
     pub next: Option<Page>,
     pub last: Option<Page>,
@@ -241,9 +212,27 @@ impl PageHeader {
     pub fn set_last_page(&mut self, page: Page) {
         self.last = Some(page);
     }
+
+    pub fn next_page(&self) -> Option<&Page> {
+        self.next.as_ref()
+    }
+
+    pub fn last_page(&self) -> Option<&Page> {
+        self.last.as_ref()
+    }
 }
 
-#[derive(Debug, PartialEq)]
+pub fn parse_page_headers(headers: Option<&Headers>) -> Option<PageHeader> {
+    if let Some(headers) = headers {
+        match headers.get(LINK_HEADER) {
+            Some(link) => return Some(parse_link_headers(link)),
+            None => return None,
+        }
+    }
+    None
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Page {
     pub url: String,
     pub number: u32,
@@ -255,6 +244,10 @@ impl Page {
             url: url.to_string(),
             number,
         }
+    }
+
+    pub fn url(&self) -> &str {
+        &self.url
     }
 }
 
@@ -282,7 +275,7 @@ pub const GITLAB_RATELIMIT_RESET: &str = "ratelimit-reset";
 /// Gitlab API ratelimit headers:
 /// remaining: RateLimit-Remaining
 /// reset: RateLimit-Reset
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct RateLimitHeader {
     // The number of requests remaining in the current rate limit window.
     pub remaining: u32,
@@ -302,6 +295,42 @@ impl RateLimitHeader {
     }
 }
 
+// Defaults:
+// https://docs.gitlab.com/ee/user/gitlab_com/index.html#gitlabcom-specific-rate-limits
+// https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#primary-rate-limit-for-authenticated-users
+
+// Github 5000 requests per hour for authenticated users
+// Gitlab 2000 requests per minute for authenticated users
+// Most limiting Github 5000/60 = 83.33 requests per minute
+
+pub fn parse_ratelimit_headers(headers: Option<&Headers>) -> Option<RateLimitHeader> {
+    let mut ratelimit_header = RateLimitHeader::default();
+
+    // process remote headers and patch the defaults accordingly
+    if let Some(headers) = headers {
+        if let Some(retry_after) = headers.get(RETRY_AFTER) {
+            ratelimit_header.retry_after = Seconds::new(retry_after.parse::<u64>().unwrap_or(0));
+        }
+        if let Some(github_remaining) = headers.get(GITHUB_RATELIMIT_REMAINING) {
+            ratelimit_header.remaining = github_remaining.parse::<u32>().unwrap_or(0);
+            if let Some(github_reset) = headers.get(GITHUB_RATELIMIT_RESET) {
+                ratelimit_header.reset = Seconds::new(github_reset.parse::<u64>().unwrap_or(0));
+            }
+            log_info!("Header {}", ratelimit_header);
+            return Some(ratelimit_header);
+        }
+        if let Some(gitlab_remaining) = headers.get(GITLAB_RATELIMIT_REMAINING) {
+            ratelimit_header.remaining = gitlab_remaining.parse::<u32>().unwrap_or(0);
+            if let Some(gitlab_reset) = headers.get(GITLAB_RATELIMIT_RESET) {
+                ratelimit_header.reset = Seconds::new(gitlab_reset.parse::<u64>().unwrap_or(0));
+            }
+            log_info!("Header {}", ratelimit_header);
+            return Some(ratelimit_header);
+        }
+    }
+    None
+}
+
 impl Display for RateLimitHeader {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let reset = time::epoch_to_minutes_relative(self.reset);
@@ -310,6 +339,32 @@ impl Display for RateLimitHeader {
             "RateLimitHeader: remaining: {}, reset in: {} minutes",
             self.remaining, reset
         )
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct FlowControlHeaders {
+    page_header: Rc<Option<PageHeader>>,
+    rate_limit_header: Rc<Option<RateLimitHeader>>,
+}
+
+impl FlowControlHeaders {
+    pub fn new(
+        page_header: Rc<Option<PageHeader>>,
+        rate_limit_header: Rc<Option<RateLimitHeader>>,
+    ) -> Self {
+        FlowControlHeaders {
+            page_header,
+            rate_limit_header,
+        }
+    }
+
+    pub fn get_page_header(&self) -> Rc<Option<PageHeader>> {
+        self.page_header.clone()
+    }
+
+    pub fn get_rate_limit_header(&self) -> Rc<Option<RateLimitHeader>> {
+        self.rate_limit_header.clone()
     }
 }
 
@@ -324,9 +379,13 @@ mod test {
         headers.set("x-ratelimit-remaining".to_string(), "30".to_string());
         headers.set("x-ratelimit-reset".to_string(), "1658602270".to_string());
         headers.set("retry-after".to_string(), "60".to_string());
-        let response = Response::builder()
+        let rate_limit_header = parse_ratelimit_headers(Some(&headers)).unwrap();
+        let flow_control_headers =
+            FlowControlHeaders::new(Rc::new(None), Rc::new(Some(rate_limit_header)));
+        let response = HttpResponse::builder()
             .body(body.to_string())
             .headers(headers)
+            .flow_control_headers(flow_control_headers)
             .build()
             .unwrap();
         let ratelimit_headers = response.get_ratelimit_headers().unwrap();
@@ -342,9 +401,13 @@ mod test {
         headers.set("ratelimit-remaining".to_string(), "30".to_string());
         headers.set("ratelimit-reset".to_string(), "1658602270".to_string());
         headers.set("retry-after".to_string(), "60".to_string());
-        let response = Response::builder()
+        let rate_limit_header = parse_ratelimit_headers(Some(&headers)).unwrap();
+        let flow_control_headers =
+            FlowControlHeaders::new(Rc::new(None), Rc::new(Some(rate_limit_header)));
+        let response = HttpResponse::builder()
             .body(body.to_string())
             .headers(headers)
+            .flow_control_headers(flow_control_headers)
             .build()
             .unwrap();
         let ratelimit_headers = response.get_ratelimit_headers().unwrap();
@@ -360,9 +423,13 @@ mod test {
         headers.set("RateLimit-remaining".to_string(), "30".to_string());
         headers.set("rateLimit-reset".to_string(), "1658602270".to_string());
         headers.set("Retry-After".to_string(), "60".to_string());
-        let response = Response::builder()
+        let rate_limit_header = parse_ratelimit_headers(Some(&headers));
+        let flow_control_headers =
+            FlowControlHeaders::new(Rc::new(None), Rc::new(rate_limit_header));
+        let response = HttpResponse::builder()
             .body(body.to_string())
             .headers(headers)
+            .flow_control_headers(flow_control_headers)
             .build()
             .unwrap();
         let ratelimit_headers = response.get_ratelimit_headers();
@@ -402,7 +469,7 @@ mod test {
 
     #[test]
     fn test_response_ok_status_get_request_200() {
-        assert!(Response::builder()
+        assert!(HttpResponse::builder()
             .status(200)
             .build()
             .unwrap()
@@ -413,14 +480,14 @@ mod test {
     fn test_response_not_ok_if_get_request_400s() {
         let not_ok_status = 400..=499;
         for status in not_ok_status {
-            let response = Response::builder().status(status).build().unwrap();
+            let response = HttpResponse::builder().status(status).build().unwrap();
             assert!(!response.is_ok(&http::Method::GET));
         }
     }
 
     #[test]
     fn test_response_ok_status_post_request_201() {
-        assert!(Response::builder()
+        assert!(HttpResponse::builder()
             .status(201)
             .build()
             .unwrap()
@@ -432,7 +499,7 @@ mod test {
         // special case handled by the caller (merge_request)
         let not_ok_status = [409, 422];
         for status in not_ok_status.iter() {
-            let response = Response::builder().status(*status).build().unwrap();
+            let response = HttpResponse::builder().status(*status).build().unwrap();
             assert!(response.is_ok(&http::Method::POST));
         }
     }
@@ -448,7 +515,7 @@ mod test {
         let not_ok_status = 500..=599;
         for status in not_ok_status {
             for method in methods.iter() {
-                let response = Response::builder().status(status).build().unwrap();
+                let response = HttpResponse::builder().status(status).build().unwrap();
                 assert!(!response.is_ok(method));
             }
         }

@@ -2,14 +2,14 @@ use crate::{
     api_traits::{ApiOperation, Deploy, DeployAsset, NumberDeltaErr},
     cmds::release::{Release, ReleaseAssetListBodyArgs, ReleaseAssetMetadata, ReleaseBodyArgs},
     http,
-    io::{HttpRunner, Response},
+    io::{HttpResponse, HttpRunner},
     remote::query,
     Result,
 };
 
 use super::Gitlab;
 
-impl<R: HttpRunner<Response = Response>> Deploy for Gitlab<R> {
+impl<R: HttpRunner<Response = HttpResponse>> Deploy for Gitlab<R> {
     fn list(&self, args: ReleaseBodyArgs) -> Result<Vec<Release>> {
         let url = format!("{}/releases", self.rest_api_basepath());
         query::paged(
@@ -34,7 +34,7 @@ impl<R: HttpRunner<Response = Response>> Deploy for Gitlab<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> Gitlab<R> {
+impl<R: HttpRunner<Response = HttpResponse>> Gitlab<R> {
     fn resource_release_metadata_url(&self) -> (String, http::Headers) {
         let url = format!("{}/releases?page=1", self.rest_api_basepath());
         let headers = self.headers();
@@ -53,7 +53,7 @@ impl<R: HttpRunner<Response = Response>> Gitlab<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> DeployAsset for Gitlab<R> {
+impl<R: HttpRunner<Response = HttpResponse>> DeployAsset for Gitlab<R> {
     fn list(&self, args: ReleaseAssetListBodyArgs) -> Result<Vec<ReleaseAssetMetadata>> {
         let release = self.get_release(args)?;
         let mut asset_metatadata = Vec::new();

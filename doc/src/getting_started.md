@@ -5,3 +5,5 @@ a configuration file. Let's get started:
 
 - [Installation](./installation.md)
 - [Configuration](./configuration.md)
+- [Caching](./caching.md)
+- [Listing data](./listing.md)

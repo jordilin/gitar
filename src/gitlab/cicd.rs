@@ -8,11 +8,11 @@ use crate::http::{self, Body, Headers};
 use crate::remote::{query, URLQueryParamBuilder};
 use crate::{
     api_traits::Cicd,
-    io::{HttpRunner, Response},
+    io::{HttpResponse, HttpRunner},
 };
 use crate::{time, Result};
 
-impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
+impl<R: HttpRunner<Response = HttpResponse>> Cicd for Gitlab<R> {
     fn list(&self, args: PipelineBodyArgs) -> Result<Vec<Pipeline>> {
         let url = format!("{}/pipelines", self.rest_api_basepath());
         query::paged(
@@ -57,7 +57,7 @@ impl<R: HttpRunner<Response = Response>> Cicd for Gitlab<R> {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> CicdRunner for Gitlab<R> {
+impl<R: HttpRunner<Response = HttpResponse>> CicdRunner for Gitlab<R> {
     fn list(&self, args: RunnerListBodyArgs) -> Result<Vec<crate::cmds::cicd::Runner>> {
         let url = self.list_runners_url(&args, false);
         query::paged(
@@ -212,7 +212,7 @@ impl From<GitlabCicdJobFields> for Job {
     }
 }
 
-impl<R: HttpRunner<Response = Response>> CicdJob for Gitlab<R> {
+impl<R: HttpRunner<Response = HttpResponse>> CicdJob for Gitlab<R> {
     // https://docs.gitlab.com/ee/api/jobs.html#list-project-jobs
     fn list(&self, args: JobListBodyArgs) -> Result<Vec<Job>> {
         let url = format!("{}/jobs", self.rest_api_basepath());

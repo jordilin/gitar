@@ -15,7 +15,7 @@ use std::sync::Arc;
 use crate::error;
 use crate::error::AddContext;
 use crate::io::CmdInfo;
-use crate::io::Response;
+use crate::io::ShellResponse;
 use crate::io::TaskRunner;
 use crate::remote::RemoteURL;
 use crate::Result;
@@ -24,13 +24,13 @@ use crate::Result;
 ///
 /// Takes a [`Runner`] as a parameter and returns a result encapsulating a
 /// [`CmdInfo::StatusModified`]. Untracked files are not being considered.
-pub fn status(exec: Arc<impl TaskRunner<Response = Response>>) -> Result<CmdInfo> {
+pub fn status(exec: Arc<impl TaskRunner<Response = ShellResponse>>) -> Result<CmdInfo> {
     let cmd_params = ["git", "status", "--short"];
     let response = exec.run(cmd_params)?;
     handle_git_status(&response)
 }
 
-fn handle_git_status(response: &Response) -> Result<CmdInfo> {
+fn handle_git_status(response: &ShellResponse) -> Result<CmdInfo> {
     let modified = response
         .body
         .split('\n')
@@ -49,7 +49,7 @@ fn handle_git_status(response: &Response) -> Result<CmdInfo> {
 }
 
 /// Gather the current branch name in the local git repository.
-pub fn current_branch(runner: Arc<impl TaskRunner<Response = Response>>) -> Result<CmdInfo> {
+pub fn current_branch(runner: Arc<impl TaskRunner<Response = ShellResponse>>) -> Result<CmdInfo> {
     // Does not work for git version at least 2.18
     // let cmd_params = ["git", "branch", "--show-current"];
     // Use rev-parse for older versions of git that don't support --show-current.
@@ -94,13 +94,13 @@ pub fn commit(exec: &impl TaskRunner, message: &str) -> Result<CmdInfo> {
 }
 
 /// Get the origin remote url from the local git repository.
-pub fn remote_url(exec: &impl TaskRunner<Response = Response>) -> Result<CmdInfo> {
+pub fn remote_url(exec: &impl TaskRunner<Response = ShellResponse>) -> Result<CmdInfo> {
     let cmd_params = ["git", "remote", "get-url", "--all", "origin"];
     let response = exec.run(cmd_params)?;
     handle_git_remote_url(&response)
 }
 
-fn handle_git_remote_url(response: &Response) -> Result<CmdInfo> {
+fn handle_git_remote_url(response: &ShellResponse) -> Result<CmdInfo> {
     let fields = response.body.split(':').collect::<Vec<&str>>();
     match fields.len() {
         // git@github.com:jordilin/gitar.git
@@ -150,7 +150,7 @@ fn handle_git_remote_url(response: &Response) -> Result<CmdInfo> {
 /// [`Runner`] as a parameter and the encapsulated result is a
 /// [`CmdInfo::LastCommitSummary`].
 pub fn commit_summary(
-    runner: Arc<impl TaskRunner<Response = Response>>,
+    runner: Arc<impl TaskRunner<Response = ShellResponse>>,
     commit: &Option<String>,
 ) -> Result<CmdInfo> {
     let mut cmd_params = vec!["git", "log", "--format=%s", "-n1"];
@@ -162,7 +162,7 @@ pub fn commit_summary(
 }
 
 pub fn outgoing_commits(
-    runner: &impl TaskRunner<Response = Response>,
+    runner: &impl TaskRunner<Response = ShellResponse>,
     remote: &str,
     default_branch: &str,
 ) -> Result<String> {
@@ -193,7 +193,7 @@ pub fn rebase(runner: &impl TaskRunner, remote_alias: &str) -> Result<CmdInfo> {
 }
 
 pub fn commit_message(
-    runner: Arc<impl TaskRunner<Response = Response>>,
+    runner: Arc<impl TaskRunner<Response = ShellResponse>>,
     commit: &Option<String>,
 ) -> Result<CmdInfo> {
     let mut cmd_params = vec!["git", "log", "--pretty=format:%b", "-n1"];
@@ -204,7 +204,7 @@ pub fn commit_message(
     Ok(CmdInfo::CommitMessage(response.body))
 }
 
-pub fn checkout(runner: &impl TaskRunner<Response = Response>, branch: &str) -> Result<()> {
+pub fn checkout(runner: &impl TaskRunner<Response = ShellResponse>, branch: &str) -> Result<()> {
     let git_cmd = format!("git checkout origin/{} -b {}", branch, branch);
     let cmd_params = ["/bin/sh", "-c", &git_cmd];
     runner.run(cmd_params).err_context(format!(
@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_git_repo_has_modified_files() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body(get_contract(
                 ContractType::Git,
                 "git_status_modified_files.txt",
@@ -291,7 +291,7 @@ mod tests {
 
     #[test]
     fn test_git_repo_has_untracked_and_modified_files_is_modified() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body(get_contract(
                 ContractType::Git,
                 "git_status_untracked_and_modified_files.txt",
@@ -309,7 +309,7 @@ mod tests {
 
     #[test]
     fn test_git_status_command_is_correct() {
-        let response = Response::builder().build().unwrap();
+        let response = ShellResponse::builder().build().unwrap();
         let runner = Arc::new(MockRunner::new(vec![response]));
         status(runner.clone()).unwrap();
         // assert_eq!("git status --short", runner.cmd.borrow().as_str());
@@ -318,7 +318,7 @@ mod tests {
 
     #[test]
     fn test_git_repo_is_clean() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body(get_contract(ContractType::Git, "git_status_clean_repo.txt"))
             .build()
             .unwrap();
@@ -333,7 +333,7 @@ mod tests {
 
     #[test]
     fn test_git_repo_has_untracked_files_treats_repo_as_no_local_modifications() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body(get_contract(
                 ContractType::Git,
                 "git_status_untracked_files.txt",
@@ -351,7 +351,7 @@ mod tests {
 
     #[test]
     fn test_git_remote_url_cmd_is_correct() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body("git@github.com:jordilin/mr.git".to_string())
             .build()
             .unwrap();
@@ -362,7 +362,7 @@ mod tests {
 
     #[test]
     fn test_get_remote_git_url() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body("git@github.com:jordilin/mr.git".to_string())
             .build()
             .unwrap();
@@ -380,7 +380,7 @@ mod tests {
 
     #[test]
     fn test_get_remote_https_url() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body("https://github.com/jordilin/gitar.git".to_string())
             .build()
             .unwrap();
@@ -398,7 +398,7 @@ mod tests {
 
     #[test]
     fn test_get_remote_ssh_url() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body("ssh://git@gitlab-web:2222/testgroup/testsubproject.git".to_string())
             .build()
             .unwrap();
@@ -419,7 +419,7 @@ mod tests {
 
     #[test]
     fn test_remote_url_no_remote() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .status(1)
             .body("error: No such remote 'origin'".to_string())
             .build()
@@ -430,14 +430,14 @@ mod tests {
 
     #[test]
     fn test_empty_remote_url() {
-        let response = Response::builder().build().unwrap();
+        let response = ShellResponse::builder().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         assert!(remote_url(&runner).is_err())
     }
 
     #[test]
     fn test_git_fetch_cmd_is_correct() {
-        let response = Response::builder().build().unwrap();
+        let response = ShellResponse::builder().build().unwrap();
         let runner = Arc::new(MockRunner::new(vec![response]));
         fetch(runner.clone(), "origin".to_string()).unwrap();
         assert_eq!("git fetch origin", *runner.cmd());
@@ -445,7 +445,7 @@ mod tests {
 
     #[test]
     fn test_gather_current_branch_cmd_is_correct() {
-        let response = Response::builder().build().unwrap();
+        let response = ShellResponse::builder().build().unwrap();
         let runner = Arc::new(MockRunner::new(vec![response]));
         current_branch(runner.clone()).unwrap();
         assert_eq!("git rev-parse --abbrev-ref HEAD", *runner.cmd());
@@ -453,7 +453,7 @@ mod tests {
 
     #[test]
     fn test_gather_current_branch_ok() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body(get_contract(ContractType::Git, "git_current_branch.txt"))
             .build()
             .unwrap();
@@ -468,7 +468,7 @@ mod tests {
 
     #[test]
     fn test_last_commit_summary_cmd_is_correct() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body("Add README".to_string())
             .build()
             .unwrap();
@@ -479,7 +479,7 @@ mod tests {
 
     #[test]
     fn test_last_commit_summary_get_last_commit() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body("Add README".to_string())
             .build()
             .unwrap();
@@ -494,7 +494,7 @@ mod tests {
 
     #[test]
     fn test_last_commit_summary_errors() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .status(1)
             .body("Could not retrieve last commit".to_string())
             .build()
@@ -505,7 +505,7 @@ mod tests {
 
     #[test]
     fn test_commit_summary_specific_sha_cmd_is_correct() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body("Add README".to_string())
             .build()
             .unwrap();
@@ -516,7 +516,7 @@ mod tests {
 
     #[test]
     fn test_git_push_cmd_is_correct() {
-        let response = Response::builder().build().unwrap();
+        let response = ShellResponse::builder().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         let mut repo = Repo::new();
         repo.with_current_branch("new_feature");
@@ -526,7 +526,7 @@ mod tests {
 
     #[test]
     fn test_git_push_cmd_fails() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .status(1)
             .body(get_contract(ContractType::Git, "git_push_failure.txt"))
             .build()
@@ -539,7 +539,7 @@ mod tests {
 
     #[test]
     fn test_git_force_push_cmd_is_correct() {
-        let response = Response::builder().build().unwrap();
+        let response = ShellResponse::builder().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         let mut repo = Repo::new();
         repo.with_current_branch("new_feature");
@@ -571,7 +571,7 @@ mod tests {
 
     #[test]
     fn test_git_rebase_cmd_is_correct() {
-        let response = Response::builder().build().unwrap();
+        let response = ShellResponse::builder().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         rebase(&runner, "origin/main").unwrap();
         assert_eq!("git rebase origin/main", *runner.cmd());
@@ -579,7 +579,7 @@ mod tests {
 
     #[test]
     fn test_git_rebase_fails_throws_error() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .status(1)
             .body(get_contract(
                 ContractType::Git,
@@ -593,7 +593,7 @@ mod tests {
 
     #[test]
     fn test_outgoing_commits_cmd_is_ok() {
-        let response = Response::builder().build().unwrap();
+        let response = ShellResponse::builder().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         outgoing_commits(&runner, "origin", "main").unwrap();
         let expected_cmd = "git log origin/main.. --reverse --pretty=format:%s - %h %d".to_string();
@@ -602,7 +602,7 @@ mod tests {
 
     #[test]
     fn test_last_commit_message_cmd_is_ok() {
-        let response = Response::builder().build().unwrap();
+        let response = ShellResponse::builder().build().unwrap();
         let runner = Arc::new(MockRunner::new(vec![response]));
         commit_message(runner.clone(), &None).unwrap();
         let expected_cmd = "git log --pretty=format:%b -n1".to_string();
@@ -611,7 +611,7 @@ mod tests {
 
     #[test]
     fn test_commit_message_from_specific_commit_cmd_is_ok() {
-        let response = Response::builder().build().unwrap();
+        let response = ShellResponse::builder().build().unwrap();
         let runner = Arc::new(MockRunner::new(vec![response]));
         commit_message(runner.clone(), &Some("123456".to_string())).unwrap();
         let expected_cmd = "git log --pretty=format:%b -n1 123456".to_string();
@@ -620,7 +620,7 @@ mod tests {
 
     #[test]
     fn test_git_add_changes_cmd_is_ok() {
-        let response = Response::builder().build().unwrap();
+        let response = ShellResponse::builder().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         add(&runner).unwrap();
         let expected_cmd = "git add -u".to_string();
@@ -629,7 +629,7 @@ mod tests {
 
     #[test]
     fn test_git_add_changes_cmd_is_err() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .status(1)
             .body("error: could not add changes".to_string())
             .build()
@@ -640,7 +640,7 @@ mod tests {
 
     #[test]
     fn test_git_commit_message_is_ok() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .body("Add README".to_string())
             .build()
             .unwrap();
@@ -652,7 +652,7 @@ mod tests {
 
     #[test]
     fn test_git_commit_message_is_err() {
-        let response = Response::builder()
+        let response = ShellResponse::builder()
             .status(1)
             .body("error: could not commit changes".to_string())
             .build()

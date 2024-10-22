@@ -2,14 +2,14 @@ use crate::{
     api_traits::{ApiOperation, UserInfo},
     cmds::{project::Member, user::UserCliArgs},
     error::GRError,
-    io::{HttpRunner, Response},
+    io::{HttpResponse, HttpRunner},
     remote::{self, query},
     Result,
 };
 
 use super::Gitlab;
 
-impl<R: HttpRunner<Response = Response>> UserInfo for Gitlab<R> {
+impl<R: HttpRunner<Response = HttpResponse>> UserInfo for Gitlab<R> {
     fn get_auth_user(&self) -> Result<Member> {
         let user = query::get::<_, (), _>(
             &self.runner,

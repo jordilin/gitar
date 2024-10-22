@@ -1,16 +1,24 @@
+pub mod throttle;
+
 use crate::api_traits::ApiOperation;
-use crate::backoff::{Backoff, Exponential};
+use crate::backoff::Backoff;
 use crate::cache::{Cache, CacheState};
 use crate::config::ConfigProperties;
 use crate::error::GRError;
-use crate::io::{HttpRunner, RateLimitHeader, Response, ResponseField};
-use crate::time::{self, now_epoch_seconds, Milliseconds, Seconds};
+use crate::io::{
+    parse_page_headers, parse_ratelimit_headers, FlowControlHeaders, HttpResponse, HttpRunner,
+    RateLimitHeader, ResponseField,
+};
+use crate::time::{self, now_epoch_seconds, Seconds};
 use crate::{api_defaults, error, log_debug, log_error};
 use crate::{log_info, Result};
 use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
 use std::collections::{hash_map, HashMap};
 use std::iter::Iterator;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
+use throttle::{ThrottleStrategy, ThrottleStrategyType};
 use ureq::Error;
 
 pub struct Client<C> {
@@ -35,7 +43,7 @@ impl<C> Client<C> {
         }
     }
 
-    fn submit<T: Serialize>(&self, request: &Request<T>) -> Result<Response> {
+    fn submit<T: Serialize>(&self, request: &Request<T>) -> Result<HttpResponse> {
         let ureq_req = match request.method {
             Method::GET => ureq::get(request.url()),
             Method::HEAD => ureq::head(request.url()),
@@ -68,16 +76,20 @@ impl<C> Client<C> {
                             );
                             headers
                         });
+                let rate_limit_header = Rc::new(parse_ratelimit_headers(Some(&headers)));
+                let page_header = Rc::new(parse_page_headers(Some(&headers)));
+                let flow_control_headers = FlowControlHeaders::new(page_header, rate_limit_header);
                 // log debug response headers
                 log_debug!("Response headers: {:?}", headers);
                 let body = response.into_string().unwrap_or_default();
-                let response = Response::builder()
+                let mut response = HttpResponse::builder()
                     .status(status)
                     .body(body)
                     .headers(headers)
+                    .flow_control_headers(flow_control_headers)
                     .build()
                     .unwrap();
-                self.handle_rate_limit(&response)?;
+                self.handle_rate_limit(&mut response)?;
                 Ok(response)
             }
             Err(err) => Err(GRError::HttpTransportError(err.to_string()).into()),
@@ -86,11 +98,11 @@ impl<C> Client<C> {
 }
 
 impl<C> Client<C> {
-    fn handle_rate_limit(&self, response: &Response) -> Result<()> {
-        if let Some(headers) = response.get_ratelimit_headers() {
+    fn handle_rate_limit(&self, response: &mut HttpResponse) -> Result<()> {
+        if let Some(headers) = response.get_ratelimit_headers().borrow() {
             if headers.remaining <= self.config.rate_limit_remaining_threshold() {
                 log_error!("Rate limit threshold reached");
-                return Err(error::GRError::RateLimitExceeded(headers).into());
+                return Err(error::GRError::RateLimitExceeded(*headers).into());
             }
             Ok(())
         } else {
@@ -100,6 +112,7 @@ impl<C> Client<C> {
             // limits.
             log_info!("Rate limit headers not provided by remote, using defaults");
             default_rate_limit_handler(
+                response,
                 &self.config,
                 &self.time_to_ratelimit_reset,
                 &self.remaining_requests,
@@ -110,6 +123,7 @@ impl<C> Client<C> {
 }
 
 fn default_rate_limit_handler(
+    response: &mut HttpResponse,
     config: &Arc<dyn ConfigProperties>,
     time_to_ratelimit_reset: &Mutex<Seconds>,
     remaining_requests: &Mutex<u32>,
@@ -128,6 +142,12 @@ fn default_rate_limit_handler(
                 api_defaults::DEFAULT_NUMBER_REQUESTS_MINUTE,
                 time_to_ratelimit_reset
             );
+            let rate_limit_header = RateLimitHeader::new(
+                *remaining_requests,
+                time_to_ratelimit_reset,
+                time_to_ratelimit_reset,
+            );
+            response.update_rate_limit_headers(rate_limit_header);
             return Err(error::GRError::RateLimitExceeded(RateLimitHeader::new(
                 *remaining_requests,
                 time_to_ratelimit_reset,
@@ -300,17 +320,18 @@ pub enum Method {
 }
 
 impl<C: Cache<Resource>> HttpRunner for Client<C> {
-    type Response = Response;
+    type Response = HttpResponse;
 
     fn run<T: Serialize>(&self, cmd: &mut Request<T>) -> Result<Self::Response> {
         match cmd.method {
             Method::GET => {
-                let mut default_response = Response::builder().build().unwrap();
+                let mut default_response = HttpResponse::builder().build().unwrap();
                 match self.cache.get(&cmd.resource) {
-                    Ok(CacheState::Fresh(response)) => {
+                    Ok(CacheState::Fresh(mut response)) => {
                         log_debug!("Cache fresh for {}", cmd.resource.url);
                         if !self.refresh_cache {
                             log_debug!("Returning local cached response");
+                            response.local_cache = true;
                             return Ok(response);
                         }
                         default_response = response;
@@ -353,53 +374,44 @@ impl<C: Cache<Resource>> HttpRunner for Client<C> {
 }
 
 pub struct Paginator<'a, R, T> {
-    runner: &'a Arc<R>,
     request: Request<'a, T>,
     page_url: Option<String>,
     iter: u32,
-    throttle_time: Option<Milliseconds>,
-    throttle_range: Option<(Milliseconds, Milliseconds)>,
     backoff: Backoff<'a, R>,
+    throttler: Box<dyn ThrottleStrategy>,
+    max_pages: u32,
 }
 
-impl<'a, R, T> Paginator<'a, R, T> {
+impl<'a, R: HttpRunner, T: Serialize> Paginator<'a, R, T> {
     pub fn new(
         runner: &'a Arc<R>,
         request: Request<'a, T>,
         page_url: &str,
-        throttle_time: Option<Milliseconds>,
-        throttle_range: Option<(Milliseconds, Milliseconds)>,
-        backoff_max_retries: u32,
-        backoff_default_wait_time: u64,
+        backoff: Backoff<'a, R>,
+        throttle_strategy: Box<dyn ThrottleStrategy>,
     ) -> Self {
+        let max_pages = if let Some(max_pages) = request.max_pages {
+            max_pages as u32
+        } else {
+            runner.api_max_pages(&request)
+        };
         Paginator {
-            runner,
             request,
             page_url: Some(page_url.to_string()),
             iter: 0,
-            throttle_time,
-            throttle_range,
-            backoff: Backoff::new(
-                runner,
-                backoff_max_retries,
-                backoff_default_wait_time,
-                time::now_epoch_seconds,
-                Box::new(Exponential),
-            ),
+            backoff,
+            throttler: throttle_strategy,
+            max_pages,
         }
     }
 }
 
-impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginator<'a, R, T> {
-    type Item = Result<Response>;
+impl<'a, T: Serialize, R: HttpRunner<Response = HttpResponse>> Iterator for Paginator<'a, R, T> {
+    type Item = Result<HttpResponse>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(page_url) = &self.page_url {
-            if let Some(max_pages) = self.request.max_pages {
-                if self.iter >= max_pages as u32 {
-                    return None;
-                }
-            } else if self.iter == self.runner.api_max_pages(&self.request) {
+            if self.iter >= self.max_pages {
                 return None;
             }
             if self.iter >= 1 {
@@ -407,33 +419,42 @@ impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginato
             }
             log_info!("Requesting page: {}", self.iter + 1);
             log_info!("URL: {}", self.request.url());
-            if let Some(throttle_time) = self.throttle_time {
-                log_info!("Throttling for: {} ms", throttle_time);
-                self.runner.throttle(throttle_time);
-            } else if let Some((min, max)) = self.throttle_range {
-                log_info!("Throttling between: {} ms and {} ms", min, max);
-                self.runner.throttle_range(min, max);
-            }
-            match self.backoff.retry_on_error(&mut self.request) {
+
+            let response = match self.backoff.retry_on_error(&mut self.request) {
                 Ok(response) => {
-                    if let Some(page_headers) = response.get_page_headers() {
-                        let next_page = page_headers.next;
-                        let last_page = page_headers.last;
-                        match (next_page, last_page) {
-                            (Some(next), _) => self.page_url = Some(next.url),
+                    if let Some(page_headers) = response.get_page_headers().borrow() {
+                        match (page_headers.next_page(), page_headers.last_page()) {
+                            (Some(next), _) => self.page_url = Some(next.url().to_string()),
                             (None, _) => self.page_url = None,
                         }
-                        self.iter += 1;
-                        return Some(Ok(response));
-                    }
-                    self.page_url = None;
-                    return Some(Ok(response));
+                    } else {
+                        self.page_url = None;
+                    };
+                    Ok(response)
                 }
                 Err(err) => {
                     self.page_url = None;
-                    return Some(Err(err));
+                    Err(err)
+                }
+            };
+            self.iter += 1;
+            if self.iter < self.max_pages && self.page_url.is_some() {
+                let response = response.as_ref().unwrap();
+                // Technically no need to check ok on response, as page_url is Some
+                // (response was Ok)
+                if !response.local_cache {
+                    if self.throttler.strategy() == ThrottleStrategyType::AutoRate {
+                        if self.iter >= api_defaults::ENGAGE_AUTORATE_THROTTLING_THRESHOLD {
+                            self.throttler
+                                .throttle(Some(response.get_flow_control_headers()));
+                        }
+                    } else {
+                        self.throttler
+                            .throttle(Some(response.get_flow_control_headers()));
+                    }
                 }
             }
+            return Some(response);
         }
         None
     }
@@ -441,46 +462,83 @@ impl<'a, T: Serialize, R: HttpRunner<Response = Response>> Iterator for Paginato
 
 #[cfg(test)]
 mod test {
+    use throttle::NoThrottle;
+
     use super::*;
 
     use crate::{
         api_defaults::REST_API_MAX_PAGES,
+        backoff::Exponential,
         cache,
         io::{Page, PageHeader},
-        test::utils::{init_test_logger, ConfigMock, MockRunner, LOG_BUFFER},
+        test::utils::{ConfigMock, MockRunner, MockThrottler},
     };
 
-    fn header_processor_next_page_no_last(_header: &str) -> PageHeader {
+    fn header_processor_next_page_no_last() -> Rc<Option<PageHeader>> {
         let mut page_header = PageHeader::new();
         page_header.set_next_page(Page::new("http://localhost?page=2", 1));
-        page_header
+        Rc::new(Some(page_header))
     }
 
-    fn header_processor_last_page_no_next(_header: &str) -> PageHeader {
+    fn header_processor_last_page_no_next() -> Rc<Option<PageHeader>> {
         let mut page_header = PageHeader::new();
         page_header.set_last_page(Page::new("http://localhost?page=2", 1));
-        page_header
+        Rc::new(Some(page_header))
     }
 
-    fn response_with_next_page() -> Response {
+    fn response_with_next_page() -> HttpResponse {
         let mut headers = Headers::new();
         headers.set("link".to_string(), "http://localhost?page=2".to_string());
-        let response = Response::builder()
+        let flow_control_headers =
+            FlowControlHeaders::new(header_processor_next_page_no_last(), Rc::new(None));
+        let response = HttpResponse::builder()
             .status(200)
             .headers(headers)
-            .link_header_processor(header_processor_next_page_no_last)
+            .flow_control_headers(flow_control_headers)
             .build()
             .unwrap();
         response
     }
 
-    fn response_with_last_page() -> Response {
+    fn response_with_last_page() -> HttpResponse {
         let mut headers = Headers::new();
         headers.set("link".to_string(), "http://localhost?page=2".to_string());
-        let response = Response::builder()
+        let flow_control_headers =
+            FlowControlHeaders::new(header_processor_last_page_no_next(), Rc::new(None));
+        let response = HttpResponse::builder()
             .status(200)
             .headers(headers)
-            .link_header_processor(header_processor_last_page_no_next)
+            .flow_control_headers(flow_control_headers)
+            .build()
+            .unwrap();
+        response
+    }
+
+    fn cached_response_next_page() -> HttpResponse {
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), "http://localhost?page=2".to_string());
+        let flow_control_headers =
+            FlowControlHeaders::new(header_processor_next_page_no_last(), Rc::new(None));
+        let response = HttpResponse::builder()
+            .status(200)
+            .headers(headers)
+            .flow_control_headers(flow_control_headers)
+            .local_cache(true)
+            .build()
+            .unwrap();
+        response
+    }
+
+    fn cached_response_last_page() -> HttpResponse {
+        let mut headers = Headers::new();
+        headers.set("link".to_string(), "http://localhost?page=2".to_string());
+        let flow_control_headers =
+            FlowControlHeaders::new(header_processor_last_page_no_next(), Rc::new(None));
+        let response = HttpResponse::builder()
+            .status(200)
+            .headers(headers)
+            .flow_control_headers(flow_control_headers)
+            .local_cache(true)
             .build()
             .unwrap();
         response
@@ -488,11 +546,20 @@ mod test {
 
     #[test]
     fn test_paginator_no_headers_no_next_no_last_pages() {
-        let response = Response::builder().status(200).build().unwrap();
+        let response = HttpResponse::builder().status(200).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let backoff = Backoff::new(
+            &client,
+            0,
+            60,
+            time::now_epoch_seconds,
+            Box::new(Exponential),
+            Box::new(throttle::DynamicFixed),
+        );
+        let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(1, responses.len());
         assert_eq!("http://localhost", *client.url());
     }
@@ -502,16 +569,24 @@ mod test {
         let response1 = response_with_next_page();
         let mut headers = Headers::new();
         headers.set("link".to_string(), "http://localhost?page=2".to_string());
-        let response2 = Response::builder()
+        let response2 = HttpResponse::builder()
             .status(200)
             .headers(headers)
-            .link_header_processor(|_header| PageHeader::new())
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let backoff = Backoff::new(
+            &client,
+            0,
+            60,
+            time::now_epoch_seconds,
+            Box::new(Exponential),
+            Box::new(throttle::DynamicFixed),
+        );
+        let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(2, responses.len());
     }
 
@@ -521,22 +596,40 @@ mod test {
         let response2 = response_with_last_page();
         let client = Arc::new(MockRunner::new(vec![response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let backoff = Backoff::new(
+            &client,
+            0,
+            60,
+            time::now_epoch_seconds,
+            Box::new(Exponential),
+            Box::new(throttle::DynamicFixed),
+        );
+        let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(2, responses.len());
     }
 
     #[test]
     fn test_paginator_error_response() {
-        let response = Response::builder()
+        let response = HttpResponse::builder()
             .status(500)
             .body("Internal Server Error".to_string())
             .build()
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let backoff = Backoff::new(
+            &client,
+            0,
+            60,
+            time::now_epoch_seconds,
+            Box::new(Exponential),
+            Box::new(throttle::DynamicFixed),
+        );
+        let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(1, responses.len());
         assert_eq!("http://localhost", *client.url());
     }
@@ -560,8 +653,17 @@ mod test {
             MockRunner::new(vec![response3, response2, response1]).with_config(ConfigMock::new(1)),
         );
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let backoff = Backoff::new(
+            &client,
+            0,
+            60,
+            time::now_epoch_seconds,
+            Box::new(Exponential),
+            Box::new(throttle::DynamicFixed),
+        );
+        let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(1, responses.len());
     }
 
@@ -578,8 +680,17 @@ mod test {
         responses.reverse();
         let request: Request<()> = Request::new("http://localhost", Method::GET);
         let client = Arc::new(MockRunner::new(responses));
-        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let backoff = Backoff::new(
+            &client,
+            0,
+            60,
+            time::now_epoch_seconds,
+            Box::new(Exponential),
+            Box::new(throttle::DynamicFixed),
+        );
+        let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(REST_API_MAX_PAGES, responses.len() as u32);
     }
 
@@ -587,26 +698,35 @@ mod test {
     fn test_ratelimit_remaining_threshold_reached_is_error() {
         let mut headers = Headers::new();
         headers.set("x-ratelimit-remaining".to_string(), "10".to_string());
-        let response = Response::builder()
+        let flow_control_headers = FlowControlHeaders::new(
+            Rc::new(None),
+            Rc::new(Some(RateLimitHeader::new(
+                10,
+                Seconds::new(60),
+                Seconds::new(60),
+            ))),
+        );
+        let mut response = HttpResponse::builder()
             .status(200)
             .headers(headers)
+            .flow_control_headers(flow_control_headers)
             .build()
             .unwrap();
         let client = Client::new(cache::NoCache, Arc::new(ConfigMock::new(1)), false);
-        assert!(client.handle_rate_limit(&response).is_err());
+        assert!(client.handle_rate_limit(&mut response).is_err());
     }
 
     #[test]
     fn test_ratelimit_remaining_threshold_not_reached_is_ok() {
         let mut headers = Headers::new();
         headers.set("ratelimit-remaining".to_string(), "11".to_string());
-        let response = Response::builder()
+        let mut response = HttpResponse::builder()
             .status(200)
             .headers(headers)
             .build()
             .unwrap();
         let client = Client::new(cache::NoCache, Arc::new(ConfigMock::new(1)), false);
-        assert!(client.handle_rate_limit(&response).is_ok());
+        assert!(client.handle_rate_limit(&mut response).is_ok());
     }
 
     fn epoch_seconds_now_mock(secs: u64) -> Seconds {
@@ -629,7 +749,9 @@ mod test {
             let time_to_ratelimit_reset = time_to_ratelimit_reset.clone();
             let config = config.clone();
             threads.push(std::thread::spawn(move || {
+                let mut response = HttpResponse::builder().status(200).build().unwrap();
                 let result = default_rate_limit_handler(
+                    &mut response,
                     &config,
                     &time_to_ratelimit_reset,
                     &remaining_requests,
@@ -663,7 +785,9 @@ mod test {
             let time_to_ratelimit_reset = time_to_ratelimit_reset.clone();
             let config = config.clone();
             threads.push(std::thread::spawn(move || {
+                let mut response = HttpResponse::builder().status(200).build().unwrap();
                 let result = default_rate_limit_handler(
+                    &mut response,
                     &config,
                     &time_to_ratelimit_reset,
                     &remaining_requests,
@@ -689,56 +813,86 @@ mod test {
             .max_pages(1)
             .build()
             .unwrap();
-        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let backoff = Backoff::new(
+            &client,
+            0,
+            60,
+            time::now_epoch_seconds,
+            Box::new(Exponential),
+            Box::new(throttle::DynamicFixed),
+        );
+        let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(1, responses.len());
     }
 
     #[test]
     fn test_paginator_fixed_throttle_enabled() {
-        init_test_logger();
         let response1 = response_with_next_page();
         let response2 = response_with_next_page();
         let response3 = response_with_last_page();
         let client = Arc::new(MockRunner::new(vec![response3, response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(
+        let throttler = Rc::new(MockThrottler::new(None));
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let backoff = Backoff::new(
             &client,
-            request,
-            "http://localhost",
-            Some(Milliseconds::new(1)),
-            None,
             0,
             60,
+            time::now_epoch_seconds,
+            Box::new(Exponential),
+            Box::new(throttle::DynamicFixed),
         );
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let paginator = Paginator::new(&client, request, "http://localhost", backoff, bthrottler);
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(3, responses.len());
-        let buffer = LOG_BUFFER.lock().unwrap();
-        assert!(buffer.contains("Throttling for: 1 ms"));
-        assert_eq!(Milliseconds::new(3), *client.milliseconds_throttled());
+        assert_eq!(2, *throttler.throttled());
     }
 
     #[test]
     fn test_paginator_range_throttle_enabled() {
-        init_test_logger();
         let response1 = response_with_next_page();
         let response2 = response_with_last_page();
         let client = Arc::new(MockRunner::new(vec![response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let paginator = Paginator::new(
+        let throttler = Rc::new(MockThrottler::new(None));
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let backoff = Backoff::new(
             &client,
-            request,
-            "http://localhost",
-            None,
-            Some((Milliseconds::new(1), Milliseconds::new(3))),
             0,
             60,
+            time::now_epoch_seconds,
+            Box::new(Exponential),
+            Box::new(throttle::DynamicFixed),
         );
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let paginator = Paginator::new(&client, request, "http://localhost", backoff, bthrottler);
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(2, responses.len());
-        let buffer = LOG_BUFFER.lock().unwrap();
-        assert!(buffer.contains("Throttling between: 1 ms and 3 ms"));
-        assert_eq!(2, *client.throttled());
+        assert_eq!(1, *throttler.throttled());
+    }
+
+    #[test]
+    fn test_paginator_no_throttle_if_response_is_from_local_cache() {
+        let response1 = cached_response_next_page();
+        let response2 = cached_response_next_page();
+        let response3 = cached_response_last_page();
+        let client = Arc::new(MockRunner::new(vec![response3, response2, response1]));
+        let request: Request<()> = Request::new("http://localhost", Method::GET);
+        let throttler = Rc::new(MockThrottler::new(None));
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let backoff = Backoff::new(
+            &client,
+            0,
+            60,
+            time::now_epoch_seconds,
+            Box::new(Exponential),
+            Box::new(throttle::DynamicFixed),
+        );
+        let paginator = Paginator::new(&client, request, "http://localhost", backoff, bthrottler);
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
+        assert_eq!(3, responses.len());
+        assert_eq!(0, *throttler.throttled());
     }
 
     #[test]
@@ -760,8 +914,52 @@ mod test {
             .max_pages(5)
             .build()
             .unwrap();
-        let paginator = Paginator::new(&client, request, "http://localhost", None, None, 0, 60);
-        let responses = paginator.collect::<Vec<Result<Response>>>();
+        let backoff = Backoff::new(
+            &client,
+            0,
+            60,
+            time::now_epoch_seconds,
+            Box::new(Exponential),
+            Box::new(throttle::DynamicFixed),
+        );
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(5, responses.len());
+    }
+
+    #[test]
+    fn test_paginator_auto_throttle_enabled_after_autorate_engage_threshold() {
+        let response1 = response_with_next_page();
+        let response2 = response_with_next_page();
+        let response3 = response_with_next_page();
+        // Throttles in next two requests
+        let response4 = response_with_next_page();
+        let response5 = response_with_last_page();
+        let client = Arc::new(MockRunner::new(vec![
+            response5, response4, response3, response2, response1,
+        ]));
+        let request: Request<()> = Request::builder()
+            .method(Method::GET)
+            .resource(Resource::new("http://localhost", None))
+            .max_pages(5)
+            .build()
+            .unwrap();
+        let throttler = Rc::new(MockThrottler::new(Some(
+            throttle::ThrottleStrategyType::AutoRate,
+        )));
+        let bthrottler: Box<dyn ThrottleStrategy> = Box::new(Rc::clone(&throttler));
+        let backoff = Backoff::new(
+            &client,
+            0,
+            60,
+            time::now_epoch_seconds,
+            Box::new(Exponential),
+            Box::new(throttle::DynamicFixed),
+        );
+        let paginator = Paginator::new(&client, request, "http://localhost", backoff, bthrottler);
+        let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
+        assert_eq!(5, responses.len());
+        assert_eq!(2, *throttler.throttled());
     }
 }
