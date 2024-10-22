@@ -1,7 +1,7 @@
 use crate::{
     api_traits::TrendingProjectURL,
     cmds::trending::TrendingProject,
-    io::{HttpRunner, HttpResponse},
+    io::{HttpResponse, HttpRunner},
     Result,
 };
 

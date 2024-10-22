@@ -4,7 +4,7 @@ use crate::{
     api_traits::{ApiOperation, TrendingProjectURL},
     cmds::trending::TrendingProject,
     http::Headers,
-    io::{HttpRunner, HttpResponse},
+    io::{HttpResponse, HttpRunner},
     remote::query,
     Result,
 };

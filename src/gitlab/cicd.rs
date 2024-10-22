@@ -8,7 +8,7 @@ use crate::http::{self, Body, Headers};
 use crate::remote::{query, URLQueryParamBuilder};
 use crate::{
     api_traits::Cicd,
-    io::{HttpRunner, HttpResponse},
+    io::{HttpResponse, HttpRunner},
 };
 use crate::{time, Result};
 

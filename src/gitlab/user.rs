@@ -2,7 +2,7 @@ use crate::{
     api_traits::{ApiOperation, UserInfo},
     cmds::{project::Member, user::UserCliArgs},
     error::GRError,
-    io::{HttpRunner, HttpResponse},
+    io::{HttpResponse, HttpRunner},
     remote::{self, query},
     Result,
 };

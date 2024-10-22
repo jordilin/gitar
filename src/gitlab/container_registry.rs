@@ -1,7 +1,7 @@
 use crate::{
     api_traits::{ApiOperation, ContainerRegistry},
     cmds::docker::{DockerListBodyArgs, ImageMetadata, RegistryRepository, RepositoryTag},
-    io::{HttpRunner, HttpResponse},
+    io::{HttpResponse, HttpRunner},
     remote::query,
     Result,
 };

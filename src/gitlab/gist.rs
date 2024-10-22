@@ -1,7 +1,7 @@
 use crate::{
     api_traits::CodeGist,
     cmds::gist::{Gist, GistListBodyArgs},
-    io::{HttpRunner, HttpResponse},
+    io::{HttpResponse, HttpRunner},
 };
 
 use super::Gitlab;

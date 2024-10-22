@@ -7,7 +7,7 @@ use crate::cmds::cicd::{
 use crate::remote::query;
 use crate::{
     api_traits::Cicd,
-    io::{HttpRunner, HttpResponse},
+    io::{HttpResponse, HttpRunner},
 };
 use crate::{http, time, Result};
 

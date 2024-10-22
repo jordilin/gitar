@@ -2,7 +2,7 @@ use super::Github;
 use crate::api_traits::{ApiOperation, UserInfo};
 use crate::cmds::project::Member;
 use crate::cmds::user::UserCliArgs;
-use crate::io::{HttpRunner, HttpResponse};
+use crate::io::{HttpResponse, HttpRunner};
 use crate::remote::query;
 use crate::Result;
 

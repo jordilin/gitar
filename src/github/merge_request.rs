@@ -11,7 +11,7 @@ use crate::{
         project::MrMemberType,
     },
     http::{self, Body},
-    io::{HttpRunner, HttpResponse},
+    io::{HttpResponse, HttpRunner},
     json_loads,
     remote::query,
 };

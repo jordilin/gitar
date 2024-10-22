@@ -1,7 +1,7 @@
 use crate::{
     api_traits::{ApiOperation, CodeGist, NumberDeltaErr},
     cmds::gist::{Gist, GistListBodyArgs},
-    io::{HttpRunner, HttpResponse},
+    io::{HttpResponse, HttpRunner},
     remote::{query, URLQueryParamBuilder},
     Result,
 };

@@ -12,7 +12,7 @@ use crate::remote::query;
 use crate::Result;
 use crate::{
     api_traits::MergeRequest,
-    io::{HttpRunner, HttpResponse},
+    io::{HttpResponse, HttpRunner},
 };
 
 use crate::json_loads;

@@ -3,7 +3,7 @@ use crate::cli::browse::BrowseOptions;
 use crate::cmds::project::{Member, Project, ProjectListBodyArgs, Tag};
 use crate::error::GRError;
 use crate::gitlab::encode_path;
-use crate::io::{CmdInfo, HttpRunner, HttpResponse};
+use crate::io::{CmdInfo, HttpResponse, HttpRunner};
 use crate::remote::query;
 use crate::remote::URLQueryParamBuilder;
 use crate::Result;
