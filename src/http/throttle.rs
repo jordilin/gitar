@@ -144,44 +144,41 @@ impl Default for AutoRate {
 
 impl ThrottleStrategy for AutoRate {
     fn throttle(&self, flow_control_headers: Option<&FlowControlHeaders>) {
-        match flow_control_headers {
-            Some(headers) => {
-                let rate_limit_headers = headers.get_rate_limit_header();
-                match *rate_limit_headers {
-                    Some(headers) => {
-                        // In order to avoid rate limited, we need to space the
-                        // requests evenly using: time to ratelimit-reset
-                        // (secs)/ratelimit-remaining (requests).
-                        let now = *(self.now)();
-                        log_debug!("Current epoch: {}", now);
-                        log_debug!("Rate limit reset: {}", headers.reset);
-                        let time_to_reset = headers.reset.saturating_sub(now);
-                        log_debug!("Time to reset: {}", time_to_reset);
-                        log_debug!("Remaining requests: {}", headers.remaining);
-                        let delay = time_to_reset / headers.remaining as u64;
-                        // Avoid predictability and being too fast. We could end up
-                        // being too fast when the amount of remaining requests
-                        // is high and the reset time is low. We additionally
-                        // wait in between jitter_min and jitter_max milliseconds.
-                        let additional_delay =
-                            rand::thread_rng().gen_range(*self.jitter_min..=*self.jitter_max);
-                        let total_delay = delay + additional_delay;
-                        log_info!("AutoRate throttling enabled");
-                        self.throttle_for(Milliseconds::from(total_delay));
-                    }
-                    None => {
-                        // When the response has status 304 Not Modified, we don't get
-                        // any rate limiting headers. In this case, we just throttle
-                        // randomly between the min and max jitter.
-                        let rand_delay_jitter =
-                            rand::thread_rng().gen_range(*self.jitter_min..=*self.jitter_max);
-                        log_info!("AutoRate throttling enabled");
-                        self.throttle_for(Milliseconds::from(rand_delay_jitter));
-                    }
+        if let Some(headers) = flow_control_headers {
+            let rate_limit_headers = headers.get_rate_limit_header();
+            match *rate_limit_headers {
+                Some(headers) => {
+                    // In order to avoid rate limited, we need to space the
+                    // requests evenly using: time to ratelimit-reset
+                    // (secs)/ratelimit-remaining (requests).
+                    let now = *(self.now)();
+                    log_debug!("Current epoch: {}", now);
+                    log_debug!("Rate limit reset: {}", headers.reset);
+                    let time_to_reset = headers.reset.saturating_sub(now);
+                    log_debug!("Time to reset: {}", time_to_reset);
+                    log_debug!("Remaining requests: {}", headers.remaining);
+                    let delay = time_to_reset / headers.remaining as u64;
+                    // Avoid predictability and being too fast. We could end up
+                    // being too fast when the amount of remaining requests
+                    // is high and the reset time is low. We additionally
+                    // wait in between jitter_min and jitter_max milliseconds.
+                    let additional_delay =
+                        rand::thread_rng().gen_range(*self.jitter_min..=*self.jitter_max);
+                    let total_delay = delay + additional_delay;
+                    log_info!("AutoRate throttling enabled");
+                    self.throttle_for(Milliseconds::from(total_delay));
+                }
+                None => {
+                    // When the response has status 304 Not Modified, we don't get
+                    // any rate limiting headers. In this case, we just throttle
+                    // randomly between the min and max jitter.
+                    let rand_delay_jitter =
+                        rand::thread_rng().gen_range(*self.jitter_min..=*self.jitter_max);
+                    log_info!("AutoRate throttling enabled");
+                    self.throttle_for(Milliseconds::from(rand_delay_jitter));
                 }
             }
-            None => (),
-        };
+        }
     }
     fn strategy(&self) -> ThrottleStrategyType {
         ThrottleStrategyType::AutoRate
