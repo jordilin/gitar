@@ -169,12 +169,7 @@ pub fn show_summary_merge_request(
     args: &MergeRequestBodyArgs,
     accept: bool,
 ) -> Result<()> {
-    show_input(
-        "\nSummary of outgoing changes:",
-        commit_str,
-        true,
-        Style::Bold,
-    );
+    show_outgoing_changes_summary(commit_str);
     show_input("Target branch", &args.target_branch, false, Style::Bold);
     show_input("Assignee", &args.assignee.username, false, Style::Bold);
     show_input("Reviewer", &args.reviewer.username, false, Style::Bold);
@@ -190,6 +185,15 @@ pub fn show_summary_merge_request(
     } else {
         Err(error::gen("User cancelled"))
     }
+}
+
+pub fn show_outgoing_changes_summary(commit_str: &str) {
+    show_input(
+        "\nSummary of outgoing changes:",
+        commit_str,
+        true,
+        Style::Bold,
+    );
 }
 
 pub fn prompt_args() -> String {
