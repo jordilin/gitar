@@ -93,6 +93,10 @@ struct CreateMergeRequest {
     /// provided, read from STDIN
     #[clap(long, value_name = "FILE")]
     pub description_from_file: Option<String>,
+    /// Provides a list of outgoing commit SHAs and titles, then exits. No merge
+    /// request is created.
+    #[clap(short, long)]
+    pub summary: bool,
     /// Accept the default title, description, and target branch
     #[clap(long, short)]
     pub auto: bool,
@@ -266,6 +270,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .amend(options.amend)
                 .force(options.force)
                 .dry_run(options.dry_run)
+                .summary(options.summary)
                 .build()
                 .unwrap(),
         )

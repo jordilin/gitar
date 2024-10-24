@@ -195,6 +195,8 @@ pub struct MergeRequestCliArgs {
     pub force: bool,
     pub draft: bool,
     pub dry_run: bool,
+    #[builder(default)]
+    pub summary: bool,
 }
 
 impl MergeRequestCliArgs {
@@ -375,6 +377,9 @@ pub fn execute(
                 )
             };
             let mr_body = get_repo_project_info(cmds)?;
+            if cli_args.summary {
+                return summary(mr_body, &cli_args);
+            }
             open(mr_remote, config, mr_body, &cli_args)
         }
         MergeRequestOptions::List(cli_args) => list_merge_requests(domain, path, config, cli_args),
@@ -620,6 +625,31 @@ fn open(
             open::that(merge_request_response.web_url)?;
         }
     }
+    Ok(())
+}
+
+/// Summary - list of outgoing commits
+/// Open a merge request.
+fn summary(mr_body: MergeRequestBody, cli_args: &MergeRequestCliArgs) -> Result<()> {
+    let source_branch = &mr_body.repo.current_branch();
+    let target_branch = cli_args.target_branch.clone();
+    let target_branch = target_branch.unwrap_or(mr_body.project.default_branch().to_string());
+
+    in_feature_branch(source_branch, &target_branch)?;
+
+    if cli_args.rebase.is_some() {
+        git::rebase(&BlockingCommand, cli_args.rebase.as_ref().unwrap())?;
+    }
+
+    let outgoing_commits = git::outgoing_commits(&BlockingCommand, "origin", &target_branch)?;
+
+    if outgoing_commits.is_empty() {
+        return Err(GRError::PreconditionNotMet(
+            "No outgoing commits found. Please commit your changes.".to_string(),
+        )
+        .into());
+    }
+    dialog::show_outgoing_changes_summary(&outgoing_commits);
     Ok(())
 }
 
