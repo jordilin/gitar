@@ -177,6 +177,21 @@ pub fn outgoing_commits(
     Ok(response.body)
 }
 
+pub fn patch<S: Into<String>, T: Into<String>>(
+    runner: &impl TaskRunner<Response = ShellResponse>,
+    current_branch: S,
+    target_branch: T,
+) -> Result<String> {
+    let cmd = vec![
+        "git".to_string(),
+        "diff".to_string(),
+        current_branch.into(),
+        target_branch.into(),
+    ];
+    let response = runner.run(cmd)?;
+    Ok(response.body)
+}
+
 pub fn push(runner: &impl TaskRunner, remote: &str, repo: &Repo, force: bool) -> Result<CmdInfo> {
     let force_str = if force { "+" } else { "" };
     let cmd = format!("git push {} {}{}", remote, force_str, repo.current_branch);
@@ -597,6 +612,15 @@ mod tests {
         let runner = MockRunner::new(vec![response]);
         outgoing_commits(&runner, "origin", "main").unwrap();
         let expected_cmd = "git log origin/main.. --reverse --pretty=format:%s - %h %d".to_string();
+        assert_eq!(expected_cmd, *runner.cmd());
+    }
+
+    #[test]
+    fn test_patch_cmd_is_ok() {
+        let response = ShellResponse::builder().build().unwrap();
+        let runner = MockRunner::new(vec![response]);
+        patch(&runner, "feature", "main").unwrap();
+        let expected_cmd = "git diff feature main".to_string();
         assert_eq!(expected_cmd, *runner.cmd());
     }
 
