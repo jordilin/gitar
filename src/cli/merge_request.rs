@@ -93,7 +93,7 @@ struct CreateMergeRequest {
     /// provided, read from STDIN
     #[clap(long, value_name = "FILE")]
     pub description_from_file: Option<String>,
-    /// Provides a list of outgoing commit SHAs and titles, then exits. No merge
+    /// Provides a list of outgoing commit SHAs and messages, then exits. No merge
     /// request is created.
     #[clap(short, long)]
     pub summary: bool,
