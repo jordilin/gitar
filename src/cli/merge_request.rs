@@ -4,7 +4,7 @@ use clap::{Parser, ValueEnum};
 
 use crate::cmds::merge_request::{
     CommentMergeRequestCliArgs, CommentMergeRequestListCliArgs, MergeRequestCliArgs,
-    MergeRequestGetCliArgs, MergeRequestListCliArgs, MergeRequestState,
+    MergeRequestGetCliArgs, MergeRequestListCliArgs, MergeRequestState, SummaryOptions,
 };
 
 use super::common::{validate_project_repo_path, CacheArgs, GetArgs, ListArgs};
@@ -78,6 +78,22 @@ struct ListCommentMergeRequest {
     pub list_args: ListArgs,
 }
 
+#[derive(Clone, Debug, Parser, ValueEnum)]
+enum SummaryCliOptions {
+    Short,
+    Long,
+}
+
+impl From<Option<SummaryCliOptions>> for SummaryOptions {
+    fn from(options: Option<SummaryCliOptions>) -> Self {
+        match options {
+            Some(SummaryCliOptions::Short) => SummaryOptions::Short,
+            Some(SummaryCliOptions::Long) => SummaryOptions::Long,
+            None => SummaryOptions::None,
+        }
+    }
+}
+
 #[derive(Parser)]
 struct CreateMergeRequest {
     /// Title of the merge request
@@ -93,10 +109,10 @@ struct CreateMergeRequest {
     /// provided, read from STDIN
     #[clap(long, value_name = "FILE")]
     pub description_from_file: Option<String>,
-    /// Provides a list of outgoing commit SHAs and messages to STDOUT, then
-    /// exits. No merge request is created.
-    #[clap(short, long, group = "summary_args")]
-    pub summary: bool,
+    /// Provides a list of outgoing commit SHAs and messages with subject
+    /// (short) and body (long) to STDOUT, then exits. No merge request is created.
+    #[clap(short, long, group = "summary_args", value_name = "OPTION")]
+    pub summary: Option<SummaryCliOptions>,
     /// Provides a patch/diff of the outgoing changes to STDOUT, then exits. No merge
     /// request is created.
     #[clap(short, long, group = "summary_args")]
@@ -274,7 +290,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .amend(options.amend)
                 .force(options.force)
                 .dry_run(options.dry_run)
-                .summary(options.summary)
+                .summary(options.summary.into())
                 .patch(options.patch)
                 .build()
                 .unwrap(),
