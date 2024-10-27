@@ -203,8 +203,8 @@ pub fn patch<S: Into<String>, T: Into<String>>(
     let cmd = vec![
         "git".to_string(),
         "diff".to_string(),
-        current_branch.into(),
         target_branch.into(),
+        current_branch.into(),
     ];
     let response = runner.run(cmd)?;
     Ok(response.body)
@@ -662,7 +662,7 @@ mod tests {
         let response = ShellResponse::builder().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         patch(&runner, "feature", "main").unwrap();
-        let expected_cmd = "git diff feature main".to_string();
+        let expected_cmd = "git diff main feature".to_string();
         assert_eq!(expected_cmd, *runner.cmd());
     }
 
