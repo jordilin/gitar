@@ -196,9 +196,17 @@ pub struct MergeRequestCliArgs {
     pub draft: bool,
     pub dry_run: bool,
     #[builder(default)]
-    pub summary: bool,
+    pub summary: SummaryOptions,
     #[builder(default)]
     pub patch: bool,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum SummaryOptions {
+    Short,
+    Long,
+    #[default]
+    None,
 }
 
 impl MergeRequestCliArgs {
@@ -379,7 +387,7 @@ pub fn execute(
                 )
             };
             let mr_body = get_repo_project_info(cmds)?;
-            if cli_args.summary {
+            if cli_args.summary != SummaryOptions::None {
                 return summary(mr_body, &cli_args);
             }
             if cli_args.patch {
@@ -605,7 +613,12 @@ fn open(
         git::rebase(&BlockingCommand, cli_args.rebase.as_ref().unwrap())?;
     }
 
-    let outgoing_commits = git::outgoing_commits(&BlockingCommand, "origin", &target_branch)?;
+    let outgoing_commits = git::outgoing_commits(
+        &BlockingCommand,
+        "origin",
+        &target_branch,
+        &SummaryOptions::Short,
+    )?;
 
     if outgoing_commits.is_empty() {
         return Err(GRError::PreconditionNotMet(
@@ -645,7 +658,12 @@ fn summary(mr_body: MergeRequestBody, cli_args: &MergeRequestCliArgs) -> Result<
         git::rebase(&BlockingCommand, cli_args.rebase.as_ref().unwrap())?;
     }
 
-    let outgoing_commits = git::outgoing_commits(&BlockingCommand, "origin", &target_branch)?;
+    let outgoing_commits = git::outgoing_commits(
+        &BlockingCommand,
+        "origin",
+        &target_branch,
+        &cli_args.summary,
+    )?;
 
     if outgoing_commits.is_empty() {
         return Err(GRError::PreconditionNotMet(
@@ -653,7 +671,7 @@ fn summary(mr_body: MergeRequestBody, cli_args: &MergeRequestCliArgs) -> Result<
         )
         .into());
     }
-    dialog::show_outgoing_changes_summary(&outgoing_commits);
+    println!("\n{}", outgoing_commits);
     Ok(())
 }
 

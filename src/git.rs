@@ -12,8 +12,11 @@
 
 use std::sync::Arc;
 
+use crate::cmds::merge_request;
+use crate::cmds::merge_request::SummaryOptions;
 use crate::error;
 use crate::error::AddContext;
+use crate::error::GRError;
 use crate::io::CmdInfo;
 use crate::io::ShellResponse;
 use crate::io::TaskRunner;
@@ -165,14 +168,29 @@ pub fn outgoing_commits(
     runner: &impl TaskRunner<Response = ShellResponse>,
     remote: &str,
     default_branch: &str,
+    summary_options: &merge_request::SummaryOptions,
 ) -> Result<String> {
-    let cmd = vec![
-        "git".to_string(),
-        "log".to_string(),
-        format!("{}/{}..", remote, default_branch),
-        "--reverse".to_string(),
-        "--pretty=format:%s - %h %d".to_string(),
-    ];
+    let cmd = match summary_options {
+        SummaryOptions::Short => vec![
+            "git".to_string(),
+            "log".to_string(),
+            format!("{}/{}..", remote, default_branch),
+            "--reverse".to_string(),
+            "--pretty=format:%s - %h %d".to_string(),
+        ],
+        SummaryOptions::Long => vec![
+            "git".to_string(),
+            "log".to_string(),
+            format!("{}/{}..", remote, default_branch),
+            "--reverse".to_string(),
+            "--pretty=format:%s - %h %d%n%b".to_string(),
+        ],
+        // If None, that's an application error. This is checked in the CLI
+        // interface.
+        SummaryOptions::None => Err(GRError::ApplicationError(
+            "Invalid summary. It needs to be Short or Long, but never None".to_string(),
+        ))?,
+    };
     let response = runner.run(cmd)?;
     Ok(response.body)
 }
@@ -185,8 +203,8 @@ pub fn patch<S: Into<String>, T: Into<String>>(
     let cmd = vec![
         "git".to_string(),
         "diff".to_string(),
-        current_branch.into(),
         target_branch.into(),
+        current_branch.into(),
     ];
     let response = runner.run(cmd)?;
     Ok(response.body)
@@ -607,12 +625,36 @@ mod tests {
     }
 
     #[test]
-    fn test_outgoing_commits_cmd_is_ok() {
+    fn test_outgoing_commits_cmd_is_ok_short_summary() {
         let response = ShellResponse::builder().build().unwrap();
         let runner = MockRunner::new(vec![response]);
-        outgoing_commits(&runner, "origin", "main").unwrap();
+        outgoing_commits(&runner, "origin", "main", &SummaryOptions::Short).unwrap();
         let expected_cmd = "git log origin/main.. --reverse --pretty=format:%s - %h %d".to_string();
         assert_eq!(expected_cmd, *runner.cmd());
+    }
+
+    #[test]
+    fn test_outgoing_commits_cmd_is_ok_long_summary() {
+        let response = ShellResponse::builder().build().unwrap();
+        let runner = MockRunner::new(vec![response]);
+        outgoing_commits(&runner, "origin", "main", &SummaryOptions::Long).unwrap();
+        let expected_cmd =
+            "git log origin/main.. --reverse --pretty=format:%s - %h %d%n%b".to_string();
+        assert_eq!(expected_cmd, *runner.cmd());
+    }
+
+    #[test]
+    fn test_outgoing_commits_cmd_error_no_summary_option() {
+        let response = ShellResponse::builder().build().unwrap();
+        let runner = MockRunner::new(vec![response]);
+        let result = outgoing_commits(&runner, "origin", "main", &SummaryOptions::None);
+        match result {
+            Err(err) => match err.downcast_ref::<GRError>() {
+                Some(GRError::ApplicationError(_)) => (),
+                _ => panic!("Expected ApplicationError"),
+            },
+            _ => panic!("Expected ApplicationError"),
+        }
     }
 
     #[test]
@@ -620,7 +662,7 @@ mod tests {
         let response = ShellResponse::builder().build().unwrap();
         let runner = MockRunner::new(vec![response]);
         patch(&runner, "feature", "main").unwrap();
-        let expected_cmd = "git diff feature main".to_string();
+        let expected_cmd = "git diff main feature".to_string();
         assert_eq!(expected_cmd, *runner.cmd());
     }
 
