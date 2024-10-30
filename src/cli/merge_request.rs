@@ -120,6 +120,11 @@ struct CreateMergeRequest {
     /// Accept the default title, description, and target branch
     #[clap(long, short)]
     pub auto: bool,
+    /// Provide a GPT prompt with the summary of the outgoing changes. This can
+    /// be used to automatically create a title and a description for the
+    /// outgoing merge request. Requires `--summary short` or `--summary long`.
+    #[clap(long, short, requires = "summary")]
+    pub gpt_prompt: bool,
     /// Automatically fetch the latest changes from the remote repository
     #[clap(long, value_name = "REMOTE_ALIAS")]
     pub fetch: Option<String>,
@@ -292,6 +297,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .dry_run(options.dry_run)
                 .summary(options.summary.into())
                 .patch(options.patch)
+                .gpt_prompt(options.gpt_prompt)
                 .build()
                 .unwrap(),
         )

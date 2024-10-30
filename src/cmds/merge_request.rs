@@ -18,6 +18,27 @@ use std::{
 use super::common::{self, get_user};
 use super::project::{Member, Project};
 
+/// GPT_PROMPT is a template for the GPT prompt to generate a merge request
+/// description given a list of commit messages.
+const GPT_PROMPT: &str = r#"
+Act like a professional software engineer. You have finished a new feature and
+want to create a new pull request for someone else to review your changes. You
+will be provided by a list of commit messages with the following format:
+
+- Newest commit is at the very bottom.
+- The subject of the commit message is followed by a dash `-` and its short SHA.
+- If there is a body, it will be immediately below the subject `-` short SHA line.
+
+You will provide a description of these changes. The description must not
+mention commit SHAs and it must not mention the number of commits included. Be
+concise and provide at most two paragraphs describing the changes. Use
+imperative mode, be short and to the point. The description for the pull
+request will begin with the sentence `This merge request`.
+
+Once you have finished, then provide a title for it.
+
+Below are the changes:"#;
+
 #[derive(Builder, Clone, Debug, Default)]
 #[builder(default)]
 pub struct MergeRequestResponse {
@@ -199,6 +220,8 @@ pub struct MergeRequestCliArgs {
     pub summary: SummaryOptions,
     #[builder(default)]
     pub patch: bool,
+    #[builder(default)]
+    pub gpt_prompt: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -670,6 +693,9 @@ fn summary(mr_body: MergeRequestBody, cli_args: &MergeRequestCliArgs) -> Result<
             "No outgoing commits found. Please commit your changes.".to_string(),
         )
         .into());
+    }
+    if cli_args.gpt_prompt {
+        println!("{}", GPT_PROMPT);
     }
     println!("\n{}", outgoing_commits);
     Ok(())
