@@ -197,7 +197,7 @@ impl MergeRequestListBodyArgs {
 #[derive(Builder, Clone)]
 pub struct MergeRequestCliArgs {
     pub title: Option<String>,
-    pub title_from_commit: Option<String>,
+    pub body_from_commit: Option<String>,
     pub description: Option<String>,
     pub description_from_file: Option<String>,
     pub target_branch: Option<String>,
@@ -732,15 +732,15 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
     let git_status_cmd = || -> Result<CmdInfo> { git::status(status_runner) };
     let title = cli_args.title.clone();
     let title = title.unwrap_or("".to_string());
-    let title_from_commit = cli_args.title_from_commit.clone();
+    let body_from_commit = cli_args.body_from_commit.clone();
     // if we are required to gather the title from specific commit, gather also
     // its description. The description will be pulled from the same commit as
     // the title.
-    let description_commit = cli_args.title_from_commit.clone();
+    let description_commit = cli_args.body_from_commit.clone();
     let commit_summary_runner = task_runner.clone();
     let git_title_cmd = move || -> Result<CmdInfo> {
         if title.is_empty() {
-            git::commit_summary(commit_summary_runner, &title_from_commit)
+            git::commit_summary(commit_summary_runner, &body_from_commit)
         } else {
             Ok(CmdInfo::CommitSummary(title.clone()))
         }
@@ -1424,7 +1424,7 @@ mod tests {
         let remote = Arc::new(MockRemoteProject::default());
         let cli_args = MergeRequestCliArgs::builder()
             .title(Some("title cli".to_string()))
-            .title_from_commit(None)
+            .body_from_commit(None)
             .description(None)
             .description_from_file(None)
             .target_branch(Some("target-branch".to_string()))
@@ -1463,7 +1463,7 @@ mod tests {
         let remote = Arc::new(MockRemoteProject::default());
         let cli_args = MergeRequestCliArgs::builder()
             .title(None)
-            .title_from_commit(None)
+            .body_from_commit(None)
             .description(None)
             .description_from_file(None)
             .target_branch(Some("target-branch".to_string()))
@@ -1500,7 +1500,7 @@ mod tests {
         let remote = Arc::new(MockRemoteProject::default());
         let cli_args = MergeRequestCliArgs::builder()
             .title(None)
-            .title_from_commit(None)
+            .body_from_commit(None)
             .description(None)
             .description_from_file(Some("description_file.txt".to_string()))
             .target_branch(Some("target-branch".to_string()))
@@ -1671,7 +1671,7 @@ mod tests {
         let remote = Arc::new(MockRemoteProject::default());
         let cli_args = MergeRequestCliArgs::builder()
             .title(Some("title cli".to_string()))
-            .title_from_commit(None)
+            .body_from_commit(None)
             .description(None)
             .description_from_file(None)
             .target_branch(Some("target-branch".to_string()))

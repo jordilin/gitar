@@ -101,7 +101,7 @@ struct CreateMergeRequest {
     pub title: Option<String>,
     /// Gather title and description from the specified commit message
     #[clap(long, group = "title_msg", value_name = "SHA")]
-    pub title_from_commit: Option<String>,
+    pub body_from_commit: Option<String>,
     /// Description of the merge request
     #[clap(long)]
     pub description: Option<String>,
@@ -279,7 +279,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
         MergeRequestOptions::Create(
             MergeRequestCliArgs::builder()
                 .title(options.title)
-                .title_from_commit(options.title_from_commit)
+                .body_from_commit(options.body_from_commit)
                 .description(options.description)
                 .description_from_file(options.description_from_file)
                 .target_branch(options.target_branch)
