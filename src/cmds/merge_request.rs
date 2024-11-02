@@ -198,6 +198,8 @@ impl MergeRequestListBodyArgs {
 pub struct MergeRequestCliArgs {
     pub title: Option<String>,
     pub body_from_commit: Option<String>,
+    #[builder(default)]
+    pub body_from_file: Option<String>,
     pub description: Option<String>,
     pub description_from_file: Option<String>,
     pub target_branch: Option<String>,
