@@ -35,7 +35,11 @@ concise and provide at most two paragraphs describing the changes. Use
 imperative mode, be short and to the point. The description for the pull
 request will begin with the sentence `This merge request`.
 
-Once you have finished, then provide a title for it.
+The formatted output that you will provide is as follows:
+
+- First line will be the title. Keep it within 80 characters width
+- Next line is blank
+- The following lines will be the description of the pull request
 
 Below are the changes:"#;
 
