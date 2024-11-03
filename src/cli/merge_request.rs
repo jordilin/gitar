@@ -294,6 +294,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
             MergeRequestCliArgs::builder()
                 .title(options.title)
                 .body_from_commit(options.body_from_commit)
+                .body_from_file(options.body_from_file)
                 .description(options.description)
                 .description_from_file(options.description_from_file)
                 .target_branch(options.target_branch)

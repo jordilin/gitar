@@ -403,6 +403,14 @@ pub fn execute(
                     Arc::new(BlockingCommand),
                     Some(reader),
                 )
+            } else if let Some(body_from_file) = &cli_args.body_from_file {
+                let reader = get_reader_file_cli(body_from_file)?;
+                cmds(
+                    project_remote,
+                    &cli_args,
+                    Arc::new(BlockingCommand),
+                    Some(reader),
+                )
             } else {
                 cmds(
                     project_remote,
@@ -732,50 +740,70 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
     let remote_project_cmd = move || -> Result<CmdInfo> { remote_cl.get_project_data(None, None) };
     let status_runner = task_runner.clone();
     let git_status_cmd = || -> Result<CmdInfo> { git::status(status_runner) };
-    let title = cli_args.title.clone();
-    let title = title.unwrap_or("".to_string());
-    let body_from_commit = cli_args.body_from_commit.clone();
-    // if we are required to gather the title from specific commit, gather also
-    // its description. The description will be pulled from the same commit as
-    // the title.
-    let description_commit = cli_args.body_from_commit.clone();
-    let commit_summary_runner = task_runner.clone();
-    let git_title_cmd = move || -> Result<CmdInfo> {
-        if title.is_empty() {
-            git::commit_summary(commit_summary_runner, &body_from_commit)
-        } else {
-            Ok(CmdInfo::CommitSummary(title.clone()))
-        }
-    };
     let current_branch_runner = task_runner.clone();
     let git_current_branch = || -> Result<CmdInfo> { git::current_branch(current_branch_runner) };
-    let description = cli_args.description.clone();
-    let description = description.unwrap_or("".to_string());
-    let commit_msg_runner = task_runner.clone();
-    let git_last_commit_message = move || -> Result<CmdInfo> {
-        if description.is_empty() {
-            if let Some(reader) = reader {
-                let mut description = String::new();
-                for line in reader.lines() {
-                    let line = line?;
-                    description.push_str(&line);
-                    description.push('\n');
-                }
-                Ok(CmdInfo::CommitMessage(description))
-            } else {
-                git::commit_message(commit_msg_runner, &description_commit)
-            }
-        } else {
-            Ok(CmdInfo::CommitMessage(description.clone()))
-        }
-    };
     let mut cmds: Vec<Cmd<CmdInfo>> = vec![
         Box::new(remote_project_cmd),
         Box::new(git_status_cmd),
-        Box::new(git_title_cmd),
         Box::new(git_current_branch),
-        Box::new(git_last_commit_message),
     ];
+
+    if cli_args.body_from_file.is_some() {
+        let reader = reader.unwrap();
+        let body_from_file_cmd = move || -> Result<CmdInfo> {
+            let mut description = String::new();
+            let mut lines = reader.lines();
+            let title = lines.next().unwrap_or_else(|| Ok("".to_string()))?;
+            // skip blank line separator
+            lines.next();
+            for line in lines {
+                let line = line?;
+                description.push_str(&line);
+                description.push('\n');
+            }
+            Ok(CmdInfo::CommitBody(title, description))
+        };
+        cmds.push(Box::new(body_from_file_cmd));
+    } else {
+        // Title and description retrieval cmds
+        let title = cli_args.title.clone();
+        let title = title.unwrap_or("".to_string());
+        let body_from_commit = cli_args.body_from_commit.clone();
+        // if we are required to gather the title from specific commit, gather also
+        // its description. The description will be pulled from the same commit as
+        // the title.
+        let description_commit = cli_args.body_from_commit.clone();
+        let commit_summary_runner = task_runner.clone();
+        let git_title_cmd = move || -> Result<CmdInfo> {
+            if title.is_empty() {
+                git::commit_summary(commit_summary_runner, &body_from_commit)
+            } else {
+                Ok(CmdInfo::CommitSummary(title.clone()))
+            }
+        };
+        let description = cli_args.description.clone();
+        let description = description.unwrap_or("".to_string());
+        let commit_msg_runner = task_runner.clone();
+        let git_last_commit_message = move || -> Result<CmdInfo> {
+            if description.is_empty() {
+                if let Some(reader) = reader {
+                    let mut description = String::new();
+                    for line in reader.lines() {
+                        let line = line?;
+                        description.push_str(&line);
+                        description.push('\n');
+                    }
+                    Ok(CmdInfo::CommitMessage(description))
+                } else {
+                    git::commit_message(commit_msg_runner, &description_commit)
+                }
+            } else {
+                Ok(CmdInfo::CommitMessage(description.clone()))
+            }
+        };
+        cmds.push(Box::new(git_title_cmd));
+        cmds.push(Box::new(git_last_commit_message));
+    }
     if cli_args.fetch.is_some() {
         let fetch_runner = task_runner.clone();
         let remote_alias = cli_args.fetch.as_ref().unwrap().clone();
@@ -824,6 +852,10 @@ fn get_repo_project_info(cmds: Vec<Cmd<CmdInfo>>) -> Result<MergeRequestBody> {
             Ok(CmdInfo::Branch(branch)) => repo.with_branch(&branch),
             Ok(CmdInfo::CommitSummary(title)) => repo.with_title(&title),
             Ok(CmdInfo::CommitMessage(message)) => repo.with_last_commit_message(&message),
+            Ok(CmdInfo::CommitBody(title, description)) => {
+                repo.with_title(&title);
+                repo.with_last_commit_message(&description);
+            }
             // bail on first error found
             Err(e) => return Err(e),
             _ => {}
@@ -1406,11 +1438,11 @@ mod tests {
                 .build()
                 .unwrap(),
             ShellResponse::builder()
-                .body("current branch cmd".to_string())
+                .body("title git cmd".to_string())
                 .build()
                 .unwrap(),
             ShellResponse::builder()
-                .body("title git cmd".to_string())
+                .body("current branch cmd".to_string())
                 .build()
                 .unwrap(),
             ShellResponse::builder()
@@ -1452,7 +1484,7 @@ mod tests {
             .map(|cmd| cmd())
             .collect::<Result<Vec<CmdInfo>>>()
             .unwrap();
-        let title_result = cmds[2].clone();
+        let title_result = cmds[3].clone();
         let title = match title_result {
             CmdInfo::CommitSummary(title) => title,
             _ => "".to_string(),
@@ -1489,7 +1521,7 @@ mod tests {
             .map(|cmd| cmd())
             .collect::<Result<Vec<CmdInfo>>>()
             .unwrap();
-        let title_result = results[2].clone();
+        let title_result = results[3].clone();
         let title = match title_result {
             CmdInfo::CommitSummary(title) => title,
             _ => "".to_string(),
