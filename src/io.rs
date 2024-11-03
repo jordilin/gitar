@@ -41,6 +41,9 @@ pub trait HttpRunner {
     fn api_max_pages<T: Serialize>(&self, cmd: &Request<T>) -> u32;
 }
 
+type Title = String;
+type Description = String;
+
 #[derive(Clone, Debug)]
 pub enum CmdInfo {
     StatusModified(bool),
@@ -48,6 +51,7 @@ pub enum CmdInfo {
     Branch(String),
     CommitSummary(String),
     CommitMessage(String),
+    CommitBody(Title, Description),
     Project(Project),
     Members(Vec<Member>),
     MergeRequest(MergeRequestResponse),

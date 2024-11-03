@@ -97,17 +97,31 @@ impl From<Option<SummaryCliOptions>> for SummaryOptions {
 #[derive(Parser)]
 struct CreateMergeRequest {
     /// Title of the merge request
-    #[clap(long, group = "title_msg")]
+    #[clap(long, group = "title_input")]
     pub title: Option<String>,
     /// Gather title and description from the specified commit message
-    #[clap(long, group = "title_msg", value_name = "SHA")]
-    pub title_from_commit: Option<String>,
+    #[clap(
+        long,
+        group = "title_input",
+        group = "description_input",
+        value_name = "SHA"
+    )]
+    pub body_from_commit: Option<String>,
+    /// Gather merge request title and description from the specified file. If "-" is
+    /// provided, read from STDIN. Title and description are separated by a blank line.
+    #[clap(
+        long,
+        group = "title_input",
+        group = "description_input",
+        value_name = "FILE"
+    )]
+    pub body_from_file: Option<String>,
     /// Description of the merge request
-    #[clap(long)]
+    #[clap(long, group = "description_input")]
     pub description: Option<String>,
     /// Gather merge request description from the specified file. If "-" is
     /// provided, read from STDIN
-    #[clap(long, value_name = "FILE")]
+    #[clap(long, group = "description_input", value_name = "FILE")]
     pub description_from_file: Option<String>,
     /// Provides a list of outgoing commit SHAs and messages with subject
     /// (short) and body (long) to STDOUT, then exits. No merge request is created.
@@ -279,7 +293,8 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
         MergeRequestOptions::Create(
             MergeRequestCliArgs::builder()
                 .title(options.title)
-                .title_from_commit(options.title_from_commit)
+                .body_from_commit(options.body_from_commit)
+                .body_from_file(options.body_from_file)
                 .description(options.description)
                 .description_from_file(options.description_from_file)
                 .target_branch(options.target_branch)
@@ -568,5 +583,116 @@ mod test {
             }
             _ => panic!("Expected MergeRequestOptions::Create"),
         }
+    }
+
+    #[test]
+    fn test_title_description_cli_combinations() {
+        // Valid combinations
+        assert!(Args::try_parse_from(["gr", "mr", "create", "--title", "test"]).is_ok());
+        assert!(Args::try_parse_from(["gr", "mr", "create", "--description", "test"]).is_ok());
+        assert!(Args::try_parse_from([
+            "gr",
+            "mr",
+            "create",
+            "--title",
+            "test",
+            "--description",
+            "test"
+        ])
+        .is_ok());
+        assert!(Args::try_parse_from([
+            "gr",
+            "mr",
+            "create",
+            "--title",
+            "test",
+            "--description-from-file",
+            "file.txt"
+        ])
+        .is_ok());
+        assert!(
+            Args::try_parse_from(["gr", "mr", "create", "--body-from-commit", "abc123"]).is_ok()
+        );
+        assert!(
+            Args::try_parse_from(["gr", "mr", "create", "--body-from-file", "file.txt"]).is_ok()
+        );
+
+        // Invalid combinations
+        assert!(Args::try_parse_from([
+            "gr",
+            "mr",
+            "create",
+            "--body-from-commit",
+            "abc123",
+            "--body-from-file",
+            "file.txt"
+        ])
+        .is_err());
+
+        assert!(Args::try_parse_from([
+            "gr",
+            "mr",
+            "create",
+            "--body-from-commit",
+            "abc123",
+            "--title",
+            "test"
+        ])
+        .is_err());
+
+        assert!(Args::try_parse_from([
+            "gr",
+            "mr",
+            "create",
+            "--body-from-file",
+            "/tmp/file.txt",
+            "--title",
+            "test"
+        ])
+        .is_err());
+
+        assert!(Args::try_parse_from([
+            "gr",
+            "mr",
+            "create",
+            "--body-from-file",
+            "file.txt",
+            "--description",
+            "test"
+        ])
+        .is_err());
+
+        assert!(Args::try_parse_from([
+            "gr",
+            "mr",
+            "create",
+            "--body-from-commit",
+            "file.txt",
+            "--description",
+            "test"
+        ])
+        .is_err());
+
+        assert!(Args::try_parse_from([
+            "gr",
+            "mr",
+            "create",
+            "--description",
+            "test",
+            "--description-from-file",
+            "file.txt"
+        ])
+        .is_err());
+
+        assert!(Args::try_parse_from([
+            "gr",
+            "mr",
+            "create",
+            "--body-from-file",
+            "file.txt",
+            "--description-from-file",
+            "file.txt"
+        ])
+        .is_err());
     }
 }
