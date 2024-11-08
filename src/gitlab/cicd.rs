@@ -107,8 +107,11 @@ impl<R: HttpRunner<Response = HttpResponse>> CicdRunner for Gitlab<R> {
         if args.description.is_some() {
             body.add("description", args.description.unwrap());
         }
-        if args.run_untagged {
-            body.add("run_untagged", args.run_untagged.to_string());
+        // Run untagged is the default, so if no run_untagged field is set in
+        // the HTTP body, it is understood runner can run untagged jobs. If user
+        // does not provide the --run-untagged, then we need to set it to false.
+        if !args.run_untagged {
+            body.add("run_untagged", "false".to_string());
         }
         if args.tags.is_some() && !args.run_untagged {
             body.add("tag_list", args.tags.unwrap());
@@ -924,7 +927,7 @@ mod test {
         gitlab.create(args).unwrap();
         let body = client.request_body();
         assert!(!body.contains("tag_list"));
-        assert!(body.contains("run_untagged"));
+        assert!(!body.contains("run_untagged"));
     }
 
     #[test]
