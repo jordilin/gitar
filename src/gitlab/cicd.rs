@@ -107,10 +107,14 @@ impl<R: HttpRunner<Response = HttpResponse>> CicdRunner for Gitlab<R> {
         if args.description.is_some() {
             body.add("description", args.description.unwrap());
         }
-        if args.run_untagged {
-            body.add("run_untagged", args.run_untagged.to_string());
+        // Run untagged is the default (optional), so if no run_untagged field
+        // is set in the HTTP body, it is understood runner can run untagged
+        // jobs. If user does not provide the --run-untagged, then we need to
+        // set it to false.
+        if !args.run_untagged {
+            body.add("run_untagged", "false".to_string());
         }
-        if args.tags.is_some() && !args.run_untagged {
+        if args.tags.is_some() {
             body.add("tag_list", args.tags.unwrap());
         }
         if args.project_id.is_some() {
@@ -907,7 +911,7 @@ mod test {
     }
 
     #[test]
-    fn test_create_new_runner_untagged_does_not_use_tag_list_in_body() {
+    fn test_create_new_runner_tag_list_and_untagged() {
         let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
             201,
             "create_auth_runner_response.json",
@@ -923,8 +927,53 @@ mod test {
             .unwrap();
         gitlab.create(args).unwrap();
         let body = client.request_body();
+        assert!(body.contains("tag_list"));
+        // If not set, can run untagged jobs (default optional)
+        assert!(!body.contains("run_untagged"));
+    }
+
+    #[test]
+    fn test_create_new_runner_untagged_only() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            201,
+            "create_auth_runner_response.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
+        let args = RunnerPostDataCliArgs::builder()
+            .description(Some("My runner".to_string()))
+            .kind(RunnerType::Instance)
+            .tags(None)
+            .run_untagged(true)
+            .build()
+            .unwrap();
+        gitlab.create(args).unwrap();
+        let body = client.request_body();
         assert!(!body.contains("tag_list"));
-        assert!(body.contains("run_untagged"));
+        // We do not set it in HTTP body, because it is the default
+        assert!(!body.contains("run_untagged"));
+    }
+
+    #[test]
+    fn test_create_new_runner_tag_list_only() {
+        let contracts = ResponseContracts::new(ContractType::Gitlab).add_contract(
+            201,
+            "create_auth_runner_response.json",
+            None,
+        );
+        let (client, gitlab) = setup_client!(contracts, default_gitlab(), dyn CicdRunner);
+        let args = RunnerPostDataCliArgs::builder()
+            .description(Some("My runner".to_string()))
+            .tags(Some("tag1,tag2".to_string()))
+            .kind(RunnerType::Instance)
+            .run_untagged(false)
+            .build()
+            .unwrap();
+        gitlab.create(args).unwrap();
+        let body = client.request_body();
+        assert!(body.contains("tag_list"));
+        // Run untagged is set in HTTP Body as false
+        assert!(body.contains("\"run_untagged\":\"false\""));
     }
 
     #[test]
