@@ -126,6 +126,9 @@ struct CreateMergeRequest {
     /// Assignee username
     #[clap(long, value_name = "USERNAME")]
     pub assignee: Option<String>,
+    /// Reviewer username
+    #[clap(long, value_name = "USERNAME")]
+    pub reviewer: Option<String>,
     /// Provides a list of outgoing commit SHAs and messages with subject
     /// (short) and body (long) to STDOUT, then exits. No merge request is created.
     #[clap(short, long, group = "summary_args", value_name = "OPTION")]
@@ -301,6 +304,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .description(options.description)
                 .description_from_file(options.description_from_file)
                 .assignee(options.assignee)
+                .reviewer(options.reviewer)
                 .target_branch(options.target_branch)
                 .target_repo(options.target_repo)
                 .fetch(options.fetch)
