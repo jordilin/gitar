@@ -124,10 +124,10 @@ struct CreateMergeRequest {
     #[clap(long, group = "description_input", value_name = "FILE")]
     pub description_from_file: Option<String>,
     /// Assignee username
-    #[clap(long, value_name = "USERNAME")]
+    #[clap(long, short = 'A', value_name = "USERNAME")]
     pub assignee: Option<String>,
     /// Reviewer username
-    #[clap(long, value_name = "USERNAME")]
+    #[clap(long, short = 'R', value_name = "USERNAME")]
     pub reviewer: Option<String>,
     /// Provides a list of outgoing commit SHAs and messages with subject
     /// (short) and body (long) to STDOUT, then exits. No merge request is created.
