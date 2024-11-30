@@ -406,7 +406,7 @@ impl<'a, R: HttpRunner, T: Serialize> Paginator<'a, R, T> {
     }
 }
 
-impl<'a, T: Serialize, R: HttpRunner<Response = HttpResponse>> Iterator for Paginator<'a, R, T> {
+impl<T: Serialize, R: HttpRunner<Response = HttpResponse>> Iterator for Paginator<'_, R, T> {
     type Item = Result<HttpResponse>;
 
     fn next(&mut self) -> Option<Self::Item> {

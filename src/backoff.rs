@@ -48,7 +48,7 @@ impl<'a, R> Backoff<'a, R> {
     }
 }
 
-impl<'a, R: HttpRunner<Response = HttpResponse>> Backoff<'a, R> {
+impl<R: HttpRunner<Response = HttpResponse>> Backoff<'_, R> {
     pub fn retry_on_error<T: Serialize>(
         &mut self,
         request: &mut Request<T>,

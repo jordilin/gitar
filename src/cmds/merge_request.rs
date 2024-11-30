@@ -206,6 +206,10 @@ pub struct MergeRequestCliArgs {
     pub body_from_file: Option<String>,
     pub description: Option<String>,
     pub description_from_file: Option<String>,
+    #[builder(default)]
+    pub assignee: Option<String>,
+    #[builder(default)]
+    pub reviewer: Option<String>,
     pub target_branch: Option<String>,
     #[builder(default)]
     pub target_repo: Option<String>,
@@ -598,16 +602,46 @@ fn user_prompt_confirmation(
     if cli_args.draft {
         title = format!("DRAFT: {}", title);
     }
+    let assignee = if cli_args.assignee.is_some() {
+        Some(
+            Member::builder()
+                .username(cli_args.assignee.clone().unwrap())
+                .build()
+                .unwrap(),
+        )
+    } else {
+        None
+    };
+
+    let reviewer = if cli_args.reviewer.is_some() {
+        Some(
+            Member::builder()
+                .username(cli_args.reviewer.clone().unwrap())
+                .build()
+                .unwrap(),
+        )
+    } else {
+        None
+    };
+
     let user_input = if cli_args.auto {
-        let preferred_assignee_members = [config.preferred_assignee_username().unwrap_or_default()];
+        let preferred_assignee_members =
+            [assignee.unwrap_or(config.preferred_assignee_username().unwrap_or_default())];
         dialog::MergeRequestUserInput::builder()
             .title(title)
             .description(description)
             .assignee(preferred_assignee_members[0].clone())
+            .reviewer(reviewer.unwrap_or_default())
             .build()
             .unwrap()
     } else {
-        dialog::prompt_user_merge_request_info(&title, &description, &config)?
+        dialog::prompt_user_merge_request_info(
+            &title,
+            &description,
+            assignee.as_ref(),
+            reviewer.as_ref(),
+            &config,
+        )?
     };
 
     Ok(MergeRequestBodyArgs::builder()

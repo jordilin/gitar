@@ -92,7 +92,7 @@ impl<'a, A, R> Amp<'a, A, R> {
     }
 }
 
-impl<'a, A: Fn() -> String, R: TaskRunner<Response = ShellResponse>> Amp<'a, A, R> {
+impl<A: Fn() -> String, R: TaskRunner<Response = ShellResponse>> Amp<'_, A, R> {
     fn exec_amps(&self, amp: String, base_path: &Path) -> Result<()> {
         let mut args = (self.args_prompter_fn)();
         loop {

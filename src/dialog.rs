@@ -42,43 +42,98 @@ impl MergeRequestUserInput {
     }
 }
 
+struct MemberSelector {
+    members: Vec<Member>,
+}
+
+impl MemberSelector {
+    pub fn new(members: Vec<Member>) -> Self {
+        Self { members }
+    }
+
+    /// Determines the assignee based on priority:
+    /// 1. CLI provided assignee (if present)
+    /// 2. Config preferred assignee (if present)
+    /// 3. Empty list with default unassigned member
+    pub fn prepare_assignee_list(
+        &self,
+        cli_assignee: Option<&Member>,
+        config_assignee: Option<Member>,
+    ) -> Vec<Member> {
+        // Start with the original members list
+        let mut selection_list = self.members.clone();
+
+        match (cli_assignee, config_assignee) {
+            (Some(cli), _) => {
+                // CLI assignee takes precedence
+                selection_list.insert(0, cli.clone());
+                selection_list.insert(1, Member::default()); // Allow unassigning
+            }
+            (None, Some(config)) => {
+                // Config assignee is secondary
+                selection_list.insert(0, config);
+                selection_list.insert(1, Member::default()); // Allow unassigning
+            }
+            (None, None) => {
+                // No defaults - start with unassigned
+                selection_list.insert(0, Member::default());
+            }
+        }
+
+        selection_list
+    }
+
+    /// Prepares reviewer list by excluding the selected assignee
+    pub fn prepare_reviewer_list(
+        &self,
+        default_cli_reviewer: Option<&Member>,
+        assigned_member: &Member,
+    ) -> Vec<Member> {
+        let mut selection_list = if default_cli_reviewer.is_some() {
+            vec![default_cli_reviewer.unwrap().clone()]
+        } else {
+            vec![Member::default()]
+        };
+        selection_list.extend(
+            self.members
+                .iter()
+                .filter(|m| m != &assigned_member)
+                .cloned(),
+        );
+        selection_list
+    }
+}
+
 /// Given a new merge request, prompt user for assignee, title and description.
 pub fn prompt_user_merge_request_info(
     default_title: &str,
     default_description: &str,
+    default_cli_assignee: Option<&Member>,
+    default_cli_reviewer: Option<&Member>,
     config: &Arc<dyn ConfigProperties>,
 ) -> Result<MergeRequestUserInput> {
     let (title, description) = prompt_user_title_description(default_title, default_description);
 
-    let mut members = config.merge_request_members();
-    let default_assignee = config.preferred_assignee_username();
-    let mut default_assigned = false;
-    if let Some(assignee) = default_assignee {
-        members.insert(0, assignee);
-        default_assigned = true;
-        // Allow client to unselect the default assignee, leaving it blank.
-        members.insert(1, Member::default());
-    } else {
-        // Default to blank - not assigned
-        members.insert(0, Member::default());
-    }
+    // Initialize member selector with available members
+    let selector = MemberSelector::new(config.merge_request_members());
 
-    let assignee_members_index = gather_member(&members, "Assignee:");
-    let assigned_member = members[assignee_members_index].clone();
+    // Prepare assignee selection list with priorities
+    let assignee_list =
+        selector.prepare_assignee_list(default_cli_assignee, config.preferred_assignee_username());
 
-    // Reviewer selection:
-    // Remove the default assignee from the list of reviewers, leaving it blank
-    // as default in first position.
-    if default_assigned {
-        members.remove(0);
-    }
-    let reviewer_members_index = gather_member(&members, "Reviewer:");
+    // Get assignee selection
+    let assignee_index = gather_member(&assignee_list, "Assignee:");
+    let assigned_member = assignee_list[assignee_index].clone();
+
+    // Prepare reviewer list excluding the selected assignee
+    let reviewer_list = selector.prepare_reviewer_list(default_cli_reviewer, &assigned_member);
+    let reviewer_index = gather_member(&reviewer_list, "Reviewer:");
 
     Ok(MergeRequestUserInput::builder()
         .title(title)
         .description(description)
         .assignee(assigned_member)
-        .reviewer(members[reviewer_members_index].clone())
+        .reviewer(reviewer_list[reviewer_index].clone())
         .build()
         .unwrap())
 }
@@ -212,4 +267,120 @@ pub fn fuzzy_select(amps: Vec<String>) -> Result<String> {
         .interact()
         .unwrap();
     Ok(amps[selection].to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::cmds::project::Member;
+
+    fn create_test_member(id: i64, username: &str) -> Member {
+        Member::builder()
+            .id(id)
+            .username(username.to_string())
+            .build()
+            .unwrap()
+    }
+
+    fn create_test_members() -> Vec<Member> {
+        vec![
+            create_test_member(1, "alice"),
+            create_test_member(2, "bob"),
+            create_test_member(3, "charlie"),
+        ]
+    }
+
+    #[test]
+    fn test_prepare_assignee_list_with_cli_assignee() {
+        let members = create_test_members();
+        let original_members = members.clone();
+        let selector = MemberSelector::new(members);
+        let cli_assignee = create_test_member(4, "david");
+
+        let result = selector.prepare_assignee_list(
+            Some(&cli_assignee),
+            Some(create_test_member(5, "eve")), // Should be ignored when CLI assignee is present
+        );
+
+        // Verify the exact ordering
+        assert_eq!(result[0], cli_assignee); // CLI assignee first
+        assert_eq!(result[1], Member::default()); // Unassigned option second
+        assert_eq!(&result[2..], &original_members[..]); // Original list preserved after
+        assert_eq!(result.len(), original_members.len() + 2); // Original + 2 inserted items
+    }
+
+    #[test]
+    fn test_prepare_assignee_list_with_config_assignee() {
+        let members = create_test_members();
+        let original_members = members.clone();
+        let selector = MemberSelector::new(members);
+        let config_assignee = create_test_member(4, "eve");
+
+        let result = selector.prepare_assignee_list(None, Some(config_assignee.clone()));
+
+        // Verify the exact ordering
+        assert_eq!(result[0], config_assignee); // Config assignee first
+        assert_eq!(result[1], Member::default()); // Unassigned option second
+        assert_eq!(&result[2..], &original_members[..]); // Original list preserved after
+        assert_eq!(result.len(), original_members.len() + 2); // Original + 2 inserted items
+    }
+
+    #[test]
+    fn test_prepare_assignee_list_with_no_defaults() {
+        let members = create_test_members();
+        let original_members = members.clone();
+        let selector = MemberSelector::new(members);
+
+        let result = selector.prepare_assignee_list(None, None);
+
+        // Verify the exact ordering
+        assert_eq!(result[0], Member::default()); // Unassigned option first
+        assert_eq!(&result[1..], &original_members[..]); // Original list preserved after
+        assert_eq!(result.len(), original_members.len() + 1); // Original + 1 inserted item
+    }
+
+    #[test]
+    fn test_prepare_assignee_list_with_existing_member() {
+        let members = create_test_members();
+        let original_members = members.clone();
+        let selector = MemberSelector::new(members);
+
+        // Use the first member from the list as CLI assignee
+        let cli_assignee = &original_members[0];
+        let result = selector.prepare_assignee_list(Some(cli_assignee), None);
+
+        // Verify the exact ordering
+        assert_eq!(result[0], cli_assignee.clone()); // CLI assignee first
+        assert_eq!(result[1], Member::default()); // Unassigned option second
+        assert_eq!(&result[2..], &original_members[..]); // Original list preserved after
+        assert_eq!(result.len(), original_members.len() + 2); // Original + 2 inserted items
+    }
+
+    #[test]
+    fn test_prepare_reviewer_list_with_cli_reviewer_provided() {
+        let members = create_test_members();
+        let selector = MemberSelector::new(members);
+        let assignee = create_test_member(1, "alice");
+        let reviewer = create_test_member(2, "charlie");
+
+        let result = selector.prepare_reviewer_list(Some(&reviewer), &assignee);
+
+        assert_eq!(result[0], reviewer);
+        assert!(!result.contains(&assignee));
+        assert_eq!(result.len(), 3);
+    }
+
+    #[test]
+    fn test_prepare_reviewer_list_no_cli_reviewer_provided() {
+        let members = create_test_members();
+        let selector = MemberSelector::new(members);
+        let assignee = create_test_member(1, "alice");
+
+        let result = selector.prepare_reviewer_list(None::<&Member>, &assignee);
+
+        assert_eq!(result[0], Member::default());
+        assert!(!result.contains(&assignee));
+        assert_eq!(result.len(), 3); // Unassigned + 2 remaining members
+    }
 }
