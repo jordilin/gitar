@@ -217,7 +217,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                         .unwrap(),
                 ));
             }
-            return Ok(Some(
+            Ok(Some(
                 ListBodyArgs::builder()
                     .created_after(Some(created_after.to_string()))
                     .created_before(Some(created_before.to_string()))
@@ -228,7 +228,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
-            ));
+            ))
         }
         (Some(created_after), None) => {
             if let Some(body_args) = &body_args {
@@ -246,7 +246,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                         .unwrap(),
                 ));
             }
-            return Ok(Some(
+            Ok(Some(
                 ListBodyArgs::builder()
                     .created_after(Some(created_after.to_string()))
                     .sort_mode(remote_cli_args.sort.clone())
@@ -256,7 +256,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
-            ));
+            ))
         }
         (None, Some(created_before)) => {
             if let Some(body_args) = &body_args {
@@ -274,7 +274,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                         .unwrap(),
                 ));
             }
-            return Ok(Some(
+            Ok(Some(
                 ListBodyArgs::builder()
                     .created_before(Some(created_before.to_string()))
                     .sort_mode(remote_cli_args.sort.clone())
@@ -284,7 +284,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
-            ));
+            ))
         }
         (None, None) => {
             if let Some(body_args) = &body_args {
@@ -301,7 +301,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                         .unwrap(),
                 ));
             }
-            return Ok(Some(
+            Ok(Some(
                 ListBodyArgs::builder()
                     .sort_mode(remote_cli_args.sort.clone())
                     .flush(remote_cli_args.flush)
@@ -310,7 +310,7 @@ pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Opti
                     .get_args(remote_cli_args.get_args.clone())
                     .build()
                     .unwrap(),
-            ));
+            ))
         }
     }
 }
