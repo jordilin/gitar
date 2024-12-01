@@ -90,7 +90,7 @@ impl MemberSelector {
         assigned_member: &Member,
     ) -> Vec<Member> {
         let mut selection_list = if default_cli_reviewer.is_some() {
-            vec![default_cli_reviewer.unwrap().clone()]
+            vec![default_cli_reviewer.unwrap().clone(), Member::default()]
         } else {
             vec![Member::default()]
         };
@@ -368,7 +368,8 @@ mod tests {
 
         assert_eq!(result[0], reviewer);
         assert!(!result.contains(&assignee));
-        assert_eq!(result.len(), 3);
+        // Reviewer (id = 2), unassigned, bob (id = 2) and charlie (id = 3)
+        assert_eq!(result.len(), 4);
     }
 
     #[test]
