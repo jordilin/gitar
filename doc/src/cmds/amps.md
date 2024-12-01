@@ -48,7 +48,7 @@ This command will prompt you to select an amp from the list of available amps.
 After selecting the amp name, it will prompt you to enter the arguments for the
 amp. Upon pressing enter, the amp will be executed.
 
-The prompt undertands the following prompt queries once an amp has been
+The prompt understands the following prompt queries once an amp has been
 selected:
 
 - `h` or `help` - Show help message for the selected amp.

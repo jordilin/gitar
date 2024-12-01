@@ -30,8 +30,8 @@ pub trait TaskRunner {
         T::Item: AsRef<OsStr>;
 }
 
-/// A trait for the HTTP protocol. Implementors need to conform with the HTTP
-/// constraints and requirements. Implementors accept a `Request` that wraps
+/// A trait for the HTTP protocol. Implementers need to conform with the HTTP
+/// constraints and requirements. Implementers accept a `Request` that wraps
 /// headers, payloads and HTTP methods. Clients can potentially do HTTP calls
 /// against a remote server or mock the responses for testing purposes.
 pub trait HttpRunner {

@@ -40,7 +40,7 @@ Some benefits:
 * Written in Rust. Fast and Parallelizes operations to gather data locally and
   remotely.
 * Common defaults. For example, the title of a pull requests is automatically
-  set to the last commit. Defaults can be overriden when prompted.
+  set to the last commit. Defaults can be overridden when prompted.
 * Caches API read calls. Common remote calls like gather project data that does
   not change often (project id, namespace, members), so subsequent calls are
   very fast.

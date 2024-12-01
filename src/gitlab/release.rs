@@ -56,11 +56,11 @@ impl<R: HttpRunner<Response = HttpResponse>> Gitlab<R> {
 impl<R: HttpRunner<Response = HttpResponse>> DeployAsset for Gitlab<R> {
     fn list(&self, args: ReleaseAssetListBodyArgs) -> Result<Vec<ReleaseAssetMetadata>> {
         let release = self.get_release(args)?;
-        let mut asset_metatadata = Vec::new();
-        build_release_assets(&release, &mut asset_metatadata, AssetType::Sources);
+        let mut asset_metadata = Vec::new();
+        build_release_assets(&release, &mut asset_metadata, AssetType::Sources);
         // _links is considered an asset in the Gitlab API, include those too.
-        build_release_assets(&release, &mut asset_metatadata, AssetType::Links);
-        Ok(asset_metatadata)
+        build_release_assets(&release, &mut asset_metadata, AssetType::Links);
+        Ok(asset_metadata)
     }
 
     fn num_pages(&self, args: ReleaseAssetListBodyArgs) -> Result<Option<u32>> {
@@ -98,7 +98,7 @@ impl AsRef<str> for AssetType {
 
 fn build_release_assets(
     release: &serde_json::Value,
-    asset_metatadata: &mut Vec<ReleaseAssetMetadata>,
+    asset_metadata: &mut Vec<ReleaseAssetMetadata>,
     asset_type: AssetType,
 ) {
     let assets = release["assets"][asset_type.as_ref()].as_array().unwrap();
@@ -114,7 +114,7 @@ fn build_release_assets(
             .updated_at(release["released_at"].as_str().unwrap().to_string())
             .build()
             .unwrap();
-        asset_metatadata.push(asset_data);
+        asset_metadata.push(asset_data);
     }
 }
 

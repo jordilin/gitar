@@ -45,7 +45,7 @@ fn handle_cli_options(
         CliOptions::MergeRequest(options) => {
             let url = if let MergeRequestOptions::Create(opts) = &options {
                 // This is a create merge request operation. The remote URL that
-                // we are targetting is either our own or the remote of our
+                // we are targeting is either our own or the remote of our
                 // fork specified with --target-repo
                 let reqs = vec![CliDomainRequirements::CdInLocalRepo];
                 remote::url(
