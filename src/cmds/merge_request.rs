@@ -622,6 +622,16 @@ fn user_prompt_confirmation(
                 .build()
                 .unwrap(),
         )
+    } else if cli_args.rand_reviewer {
+        let members = config.merge_request_members();
+        let num_members = members.len();
+        if num_members == 0 {
+            None
+        } else {
+            let rand_index = rand::random::<usize>();
+            let rand_user = members[rand_index % num_members].clone();
+            Some(rand_user)
+        }
     } else {
         None
     };
