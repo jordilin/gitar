@@ -127,8 +127,12 @@ struct CreateMergeRequest {
     #[clap(long, short = 'A', value_name = "USERNAME")]
     pub assignee: Option<String>,
     /// Reviewer username
-    #[clap(long, short = 'R', value_name = "USERNAME")]
+    #[clap(long, short = 'R', value_name = "USERNAME", group = "reviewer_args")]
     pub reviewer: Option<String>,
+    /// Randomly assigns a reviewer from the list of members defined in the merge requests
+    /// configuration section.
+    #[clap(long, group = "reviewer_args")]
+    pub rand_reviewer: bool,
     /// Provides a list of outgoing commit SHAs and messages with subject
     /// (short) and body (long) to STDOUT, then exits. No merge request is created.
     #[clap(short, long, group = "summary_args", value_name = "OPTION")]
@@ -305,6 +309,7 @@ impl From<CreateMergeRequest> for MergeRequestOptions {
                 .description_from_file(options.description_from_file)
                 .assignee(options.assignee)
                 .reviewer(options.reviewer)
+                .rand_reviewer(options.rand_reviewer)
                 .target_branch(options.target_branch)
                 .target_repo(options.target_repo)
                 .fetch(options.fetch)
@@ -702,5 +707,91 @@ mod test {
             "file.txt"
         ])
         .is_err());
+    }
+
+    #[test]
+    fn test_reviewer_flag() {
+        let args = Args::parse_from(vec!["gr", "mr", "create", "--reviewer", "john_doe"]);
+
+        match args.command {
+            Command::MergeRequest(MergeRequestCommand {
+                subcommand: MergeRequestSubcommand::Create(options),
+            }) => {
+                assert_eq!(options.reviewer, Some("john_doe".to_string()));
+                assert!(!options.rand_reviewer);
+
+                let mr_options: MergeRequestOptions = options.into();
+                match mr_options {
+                    MergeRequestOptions::Create(args) => {
+                        assert_eq!(args.reviewer, Some("john_doe".to_string()));
+                        assert!(!args.rand_reviewer);
+                    }
+                    _ => panic!("Expected MergeRequestOptions::Create"),
+                }
+            }
+            _ => panic!("Expected MergeRequestCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_random_reviewer_flag() {
+        let args = Args::parse_from(vec!["gr", "mr", "create", "--rand-reviewer"]);
+
+        match args.command {
+            Command::MergeRequest(MergeRequestCommand {
+                subcommand: MergeRequestSubcommand::Create(options),
+            }) => {
+                assert!(options.rand_reviewer);
+                assert_eq!(options.reviewer, None);
+
+                let mr_options: MergeRequestOptions = options.into();
+                match mr_options {
+                    MergeRequestOptions::Create(args) => {
+                        assert!(args.rand_reviewer);
+                        assert_eq!(args.reviewer, None);
+                    }
+                    _ => panic!("Expected MergeRequestOptions::Create"),
+                }
+            }
+            _ => panic!("Expected MergeRequestCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_mutually_exclusive_reviewer_flags() {
+        let result = Args::try_parse_from(vec![
+            "gr",
+            "mr",
+            "create",
+            "--reviewer",
+            "john_doe",
+            "--rand-reviewer",
+        ]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_reviewer_short_flag() {
+        let args = Args::parse_from(vec!["gr", "mr", "create", "-R", "jane_doe"]);
+
+        match args.command {
+            Command::MergeRequest(MergeRequestCommand {
+                subcommand: MergeRequestSubcommand::Create(options),
+            }) => {
+                assert_eq!(options.reviewer, Some("jane_doe".to_string()));
+                assert!(!options.rand_reviewer);
+
+                let mr_options: MergeRequestOptions = options.into();
+                match mr_options {
+                    MergeRequestOptions::Create(args) => {
+                        assert_eq!(args.reviewer, Some("jane_doe".to_string()));
+                        assert!(!args.rand_reviewer);
+                    }
+                    _ => panic!("Expected MergeRequestOptions::Create"),
+                }
+            }
+            _ => panic!("Expected MergeRequestCommand::Create"),
+        }
     }
 }

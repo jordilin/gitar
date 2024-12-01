@@ -210,6 +210,8 @@ pub struct MergeRequestCliArgs {
     pub assignee: Option<String>,
     #[builder(default)]
     pub reviewer: Option<String>,
+    #[builder(default)]
+    pub rand_reviewer: bool,
     pub target_branch: Option<String>,
     #[builder(default)]
     pub target_repo: Option<String>,
@@ -620,6 +622,16 @@ fn user_prompt_confirmation(
                 .build()
                 .unwrap(),
         )
+    } else if cli_args.rand_reviewer {
+        let members = config.merge_request_members();
+        let num_members = members.len();
+        if num_members == 0 {
+            None
+        } else {
+            let rand_index = rand::random::<usize>();
+            let rand_user = members[rand_index % num_members].clone();
+            Some(rand_user)
+        }
     } else {
         None
     };
