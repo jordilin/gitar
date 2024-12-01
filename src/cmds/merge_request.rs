@@ -210,6 +210,8 @@ pub struct MergeRequestCliArgs {
     pub assignee: Option<String>,
     #[builder(default)]
     pub reviewer: Option<String>,
+    #[builder(default)]
+    pub rand_reviewer: bool,
     pub target_branch: Option<String>,
     #[builder(default)]
     pub target_repo: Option<String>,
