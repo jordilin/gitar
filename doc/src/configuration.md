@@ -26,7 +26,7 @@ API token and the optional sections.
 ## TOML domain sections
 
 The configuration file is divided into sections. Each section is named after the
-domain you are targetting. The formatting of the sections is as follows. Dots in
+domain you are targeting. The formatting of the sections is as follows. Dots in
 the domain name are replaced by underscores.
 
 ```toml

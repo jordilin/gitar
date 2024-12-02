@@ -39,7 +39,7 @@ pub trait MergeRequest {
 }
 
 pub trait RemoteProject {
-    /// Get the project data from the remote API. Implementors will need to pass
+    /// Get the project data from the remote API. Implementers will need to pass
     /// either an `id` or a `path`. The `path` should be in the format
     /// `OWNER/PROJECT_NAME`
     fn get_project_data(&self, id: Option<i64>, path: Option<&str>) -> Result<CmdInfo>;

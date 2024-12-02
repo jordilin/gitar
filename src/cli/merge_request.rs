@@ -160,7 +160,7 @@ struct CreateMergeRequest {
     #[clap(long, value_name = "OWNER/PROJECT_NAME", value_parser=validate_project_repo_path, requires = "target_branch")]
     pub target_repo: Option<String>,
     /// Target branch of the merge request instead of default project's upstream
-    /// branch. If targetting another repository, target branch is required.
+    /// branch. If targeting another repository, target branch is required.
     #[clap(long)]
     pub target_branch: Option<String>,
     /// Automatically open the browser after creating the merge request

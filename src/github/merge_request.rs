@@ -254,7 +254,7 @@ impl<R: HttpRunner<Response = HttpResponse>> MergeRequest for Github<R> {
         );
         if args.assignee.is_some() || args.author.is_some() {
             // Pull requests for the current authenticated user.
-            // Filter those reponses that have pull_request not empty See ref:
+            // Filter those responses that have pull_request not empty See ref:
             // https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28#list-issues-assigned-to-the-authenticated-user
             // Quoting Github's docs: Note: GitHub's REST API considers every
             // pull request an issue, but not every issue is a pull request. For
@@ -697,7 +697,7 @@ mod test {
         let responses = ResponseContracts::new(ContractType::Github)
             .add_contract(200, "merge_request.json", None)
             .add_contract(201, "merge_request.json", None);
-        // current repo, targetting jordilin/gitar
+        // current repo, targeting jordilin/gitar
         let client_type = ClientType::Github(
             Domain("github.com".to_string()),
             BasePath("jdoe/gitar".to_string()),

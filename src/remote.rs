@@ -584,7 +584,7 @@ pub fn url<R: TaskRunner<Response = ShellResponse>>(
 /// Reads configuration from TOML file. The config_file is the main default
 /// config file and it holds global configuration. Additionally, this function
 /// will attempt to gather configurations named after the domain and the project
-/// we are targetting. This is so the main config does not become unnecessarily
+/// we are targeting. This is so the main config does not become unnecessarily
 /// large when providing merge request configuration for a specific project. The
 /// total configuration is as if we concatenated them all into one, so headers
 /// cannot be named the same across different configuration files. The

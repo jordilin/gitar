@@ -15,7 +15,7 @@ use crate::{
 /// Throttle strategy
 pub trait ThrottleStrategy {
     /// Throttle the request based on optional flow control headers.
-    /// Implementors might use the headers to adjust the throttling or ignore
+    /// Implementers might use the headers to adjust the throttling or ignore
     /// them altogether. Ex. strategies could be a fixed delay, random, or based
     /// on rate limiting headers.
     fn throttle(&self, flow_control_headers: Option<&FlowControlHeaders>);

@@ -4,7 +4,7 @@
 //! Git commands are just public functions that return a [`Result<CmdInfo>`].
 //! The [`CmdInfo`] is an enum that defines the different types of information
 //! returned by git operations. These operations can execute in parallel and the
-//! result can be combined at the end to make a decission before opening a merge
+//! result can be combined at the end to make a decision before opening a merge
 //! request.
 //!
 //! All public functions take a [`Runner`] as a parameter and return a

@@ -582,7 +582,7 @@ mod test {
 
     #[test]
     fn test_open_merge_request_target_repo() {
-        // current repo, targetting jordilin/gitar
+        // current repo, targeting jordilin/gitar
         let client_type = ClientType::Gitlab(
             Domain("gitlab.com".to_string()),
             BasePath("jdoe/gitar".to_string()),
