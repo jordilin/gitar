@@ -593,6 +593,13 @@ pub fn list_merge_requests(
     list(remote, body_args, cli_args, std::io::stdout())
 }
 
+fn get_member(members: &[Member], username: &str) -> Option<Member> {
+    members
+        .iter()
+        .find(|member| member.username == username)
+        .cloned()
+}
+
 fn user_prompt_confirmation(
     mr_body: &MergeRequestBody,
     config: Arc<dyn ConfigProperties>,
@@ -604,24 +611,17 @@ fn user_prompt_confirmation(
     if cli_args.draft {
         title = format!("DRAFT: {}", title);
     }
+    // In Gitlab it is required to gather the user ID for the assignee and
+    // reviewer.
+    let members = config.merge_request_members();
     let assignee = if cli_args.assignee.is_some() {
-        Some(
-            Member::builder()
-                .username(cli_args.assignee.clone().unwrap())
-                .build()
-                .unwrap(),
-        )
+        get_member(&members, &cli_args.assignee.clone().unwrap())
     } else {
         None
     };
 
     let reviewer = if cli_args.reviewer.is_some() {
-        Some(
-            Member::builder()
-                .username(cli_args.reviewer.clone().unwrap())
-                .build()
-                .unwrap(),
-        )
+        get_member(&members, &cli_args.reviewer.clone().unwrap())
     } else if cli_args.rand_reviewer {
         let members = config.merge_request_members();
         let num_members = members.len();
@@ -1826,5 +1826,27 @@ mod tests {
              2|Keep it up!|user2|2021-01-02\n",
             String::from_utf8(buf).unwrap(),
         );
+    }
+
+    #[test]
+    fn test_gather_member_from_members_list() {
+        let members = vec![
+            Member::builder()
+                .id(1)
+                .username("user1".to_string())
+                .name("User 1".to_string())
+                .build()
+                .unwrap(),
+            Member::builder()
+                .id(2)
+                .username("user2".to_string())
+                .name("User 2".to_string())
+                .build()
+                .unwrap(),
+        ];
+        let assignee_username = "user2";
+        let member = get_member(&members, assignee_username).unwrap();
+        assert_eq!(member.username, assignee_username);
+        assert_eq!(member.id, 2);
     }
 }
