@@ -149,14 +149,14 @@ members = [
 ### Per project merge request configurations
 
 If you want to have different members in different projects, you can do so by
-adding the following section `[<domain>.merge_requests.<group>_<project_name>]`.
+adding the following section `[<domain>.<group>_<project_name>.merge_requests]`.
 Basically the path `/` is replaced by `_`. Ex. `jordilin/gitar` becomes
 `jordilin_gitar`. Same for subgroups: `group_subgroup_projectname`.
 
 Example:
 
 ```toml
-[ github_com.merge_requests.jordilin_gitar ]
+[ github_com.jordilin_gitar.merge_requests ]
 members = []
 ```
 
