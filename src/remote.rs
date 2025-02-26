@@ -628,7 +628,6 @@ pub fn read_config(
 
     let mut extra_configs = [domain_config_file, domain_project_file]
         .into_iter()
-        .map(PathBuf::from)
         .collect::<Vec<PathBuf>>();
 
     fn open_files(file_paths: &[PathBuf]) -> Vec<File> {
