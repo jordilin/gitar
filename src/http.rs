@@ -19,7 +19,6 @@ use std::iter::Iterator;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use throttle::{ThrottleStrategy, ThrottleStrategyType};
-use ureq::Error;
 
 pub struct Client<C> {
     cache: C,
@@ -44,35 +43,46 @@ impl<C> Client<C> {
     }
 
     fn submit<T: Serialize>(&self, request: &Request<T>) -> Result<HttpResponse> {
-        let ureq_req = match request.method {
-            Method::GET => ureq::get(request.url()),
-            Method::HEAD => ureq::head(request.url()),
-            Method::POST => ureq::post(request.url()),
-            Method::PATCH => ureq::patch(request.url()),
-            Method::PUT => ureq::put(request.url()),
-        };
-        let ureq_req = request
-            .headers()
-            .iter()
-            .fold(ureq_req, |req, (key, value)| req.set(key, value));
-        let call = || -> std::result::Result<ureq::Response, ureq::Error> {
-            match request.method {
-                Method::GET | Method::HEAD => ureq_req.call(),
-                _ => ureq_req.send_json(serde_json::to_value(request.body).unwrap()),
+        let response = match request.method {
+            Method::GET => {
+                let req = ureq::get(request.url());
+                let req = Self::add_headers(req, request.headers());
+                req.call()
+            }
+            Method::HEAD => {
+                let req = ureq::head(request.url());
+                let req = Self::add_headers(req, request.headers());
+                req.call()
+            }
+            Method::POST => {
+                let req = ureq::post(request.url());
+                let req = Self::add_headers(req, request.headers());
+                req.send_json(serde_json::to_value(request.body).unwrap())
+            }
+            Method::PATCH => {
+                let req = ureq::patch(request.url());
+                let req = Self::add_headers(req, request.headers());
+                req.send_json(serde_json::to_value(request.body).unwrap())
+            }
+            Method::PUT => {
+                let req = ureq::put(request.url());
+                let req = Self::add_headers(req, request.headers());
+                req.send_json(serde_json::to_value(request.body).unwrap())
             }
         };
-        match call() {
-            Ok(response) | Err(Error::Status(_, response)) => {
-                let status = response.status().into();
+
+        match response {
+            Ok(response) => {
+                let status = response.status();
                 // Grab headers for pagination and cache.
                 let headers =
                     response
-                        .headers_names()
+                        .headers()
                         .iter()
-                        .fold(Headers::new(), |mut headers, name| {
-                            headers.set(
-                                name.to_lowercase(),
-                                response.header(name.as_str()).unwrap().to_string(),
+                        .fold(Headers::new(), |mut headers, (name, value)| {
+                            headers.set::<String, String>(
+                                name.to_string(),
+                                value.to_str().unwrap().to_string(),
                             );
                             headers
                         });
@@ -81,19 +91,30 @@ impl<C> Client<C> {
                 let flow_control_headers = FlowControlHeaders::new(page_header, rate_limit_header);
                 // log debug response headers
                 log_debug!("Response headers: {:?}", headers);
-                let body = response.into_string().unwrap_or_default();
+                let mut body = response.into_body();
                 let mut response = HttpResponse::builder()
-                    .status(status)
-                    .body(body)
+                    .status(status.as_u16() as i32)
                     .headers(headers)
+                    .body(body.read_to_string()?)
                     .flow_control_headers(flow_control_headers)
                     .build()
                     .unwrap();
+
                 self.handle_rate_limit(&mut response)?;
                 Ok(response)
             }
             Err(err) => Err(GRError::HttpTransportError(err.to_string()).into()),
         }
+    }
+
+    fn add_headers<B>(
+        mut builder: ureq::RequestBuilder<B>,
+        headers: &Headers,
+    ) -> ureq::RequestBuilder<B> {
+        for (key, value) in headers.iter() {
+            builder = builder.header(key, value);
+        }
+        builder
     }
 }
 

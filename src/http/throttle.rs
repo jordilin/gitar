@@ -91,8 +91,8 @@ impl ThrottleStrategy for Random {
             self.delay_min,
             self.delay_max
         );
-        let mut rng = rand::thread_rng();
-        let wait_time = rng.gen_range(*self.delay_min..=*self.delay_max);
+        let mut rng = rand::rng();
+        let wait_time = rng.random_range(*self.delay_min..=*self.delay_max);
         log_info!("Sleeping for {} milliseconds", wait_time);
         thread::sleep(std::time::Duration::from_millis(wait_time));
     }
@@ -163,7 +163,7 @@ impl ThrottleStrategy for AutoRate {
                     // is high and the reset time is low. We additionally
                     // wait in between jitter_min and jitter_max milliseconds.
                     let additional_delay =
-                        rand::thread_rng().gen_range(*self.jitter_min..=*self.jitter_max);
+                        rand::rng().random_range(*self.jitter_min..=*self.jitter_max);
                     let total_delay = delay + additional_delay;
                     log_info!("AutoRate throttling enabled");
                     self.throttle_for(Milliseconds::from(total_delay));
@@ -173,7 +173,7 @@ impl ThrottleStrategy for AutoRate {
                     // any rate limiting headers. In this case, we just throttle
                     // randomly between the min and max jitter.
                     let rand_delay_jitter =
-                        rand::thread_rng().gen_range(*self.jitter_min..=*self.jitter_max);
+                        rand::rng().random_range(*self.jitter_min..=*self.jitter_max);
                     log_info!("AutoRate throttling enabled");
                     self.throttle_for(Milliseconds::from(rand_delay_jitter));
                 }
