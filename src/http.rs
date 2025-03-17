@@ -95,7 +95,7 @@ impl<C> Client<C> {
                 let mut response = HttpResponse::builder()
                     .status(status.as_u16() as i32)
                     .headers(headers)
-                    .body(body.read_to_string()?)
+                    .body(body.read_to_string().unwrap_or_default())
                     .flow_control_headers(flow_control_headers)
                     .build()
                     .unwrap();
