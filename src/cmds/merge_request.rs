@@ -1,3 +1,5 @@
+use rand::Rng;
+
 use crate::api_traits::{CommentMergeRequest, MergeRequest, RemoteProject, Timestamp};
 use crate::cli::merge_request::MergeRequestOptions;
 use crate::config::ConfigProperties;
@@ -628,7 +630,7 @@ fn user_prompt_confirmation(
         if num_members == 0 {
             None
         } else {
-            let rand_index = rand::random::<usize>();
+            let rand_index = rand::rng().random_range(0..num_members);
             let rand_user = members[rand_index % num_members].clone();
             Some(rand_user)
         }
