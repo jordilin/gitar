@@ -26,6 +26,7 @@ pub struct Client<C> {
     refresh_cache: bool,
     time_to_ratelimit_reset: Mutex<Seconds>,
     remaining_requests: Mutex<u32>,
+    http_agent: ureq::Agent,
 }
 
 // TODO: provide builder pattern for Client.
@@ -33,39 +34,46 @@ impl<C> Client<C> {
     pub fn new(cache: C, config: Arc<dyn ConfigProperties>, refresh_cache: bool) -> Self {
         let remaining_requests = Mutex::new(api_defaults::DEFAULT_NUMBER_REQUESTS_MINUTE);
         let time_to_ratelimit_reset = Mutex::new(now_epoch_seconds() + Seconds::new(60));
+        let http_config = ureq::Agent::config_builder()
+            // Keeps same functionality as the ureq 2.x default.
+            // that is we handle the response as normal when error codes such as
+            // 4xx, 5xx are returned.
+            .http_status_as_error(false)
+            .build();
         Client {
             cache,
             refresh_cache,
             config,
             time_to_ratelimit_reset,
             remaining_requests,
+            http_agent: http_config.into(),
         }
     }
 
     fn submit<T: Serialize>(&self, request: &Request<T>) -> Result<HttpResponse> {
         let response = match request.method {
             Method::GET => {
-                let req = ureq::get(request.url());
+                let req = self.http_agent.get(request.url());
                 let req = Self::add_headers(req, request.headers());
                 req.call()
             }
             Method::HEAD => {
-                let req = ureq::head(request.url());
+                let req = self.http_agent.head(request.url());
                 let req = Self::add_headers(req, request.headers());
                 req.call()
             }
             Method::POST => {
-                let req = ureq::post(request.url());
+                let req = self.http_agent.post(request.url());
                 let req = Self::add_headers(req, request.headers());
                 req.send_json(serde_json::to_value(request.body).unwrap())
             }
             Method::PATCH => {
-                let req = ureq::patch(request.url());
+                let req = self.http_agent.patch(request.url());
                 let req = Self::add_headers(req, request.headers());
                 req.send_json(serde_json::to_value(request.body).unwrap())
             }
             Method::PUT => {
-                let req = ureq::put(request.url());
+                let req = self.http_agent.put(request.url());
                 let req = Self::add_headers(req, request.headers());
                 req.send_json(serde_json::to_value(request.body).unwrap())
             }
