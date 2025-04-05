@@ -169,6 +169,7 @@ fn test_http_gathers_from_inmemory_stale_cache_server_304() {
                 .path("/repos/jordilin/mr/members");
             then.status(304)
                 .header("content-type", "application/json")
+                .header("content-encoding", "gzip")
                 .body("");
         }
     });
