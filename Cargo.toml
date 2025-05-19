@@ -21,33 +21,33 @@ authors = ["Jordi Carrillo <jordilin@gmail.com>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ureq = { version = "3.0.9", features = ["json"] }
+ureq = { version = "3.0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
 lazy_static = "1.5"
 regex = "1.11.1"
-sha2 = "0.10.8"
+sha2 = "0.10.9"
 dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
 console = "0.15.11"
-clap = { version = "4.5.32", features = ["derive", "wrap_help"] }
+clap = { version = "4.5.38", features = ["derive", "wrap_help"] }
 open = "5.3.2"
 thiserror = "2.0.12"
-anyhow = "1.0.97"
-flate2 = "1.1.0"
+anyhow = "1.0.98"
+flate2 = "1.1.1"
 derive_builder = "0.20.2"
-chrono = "0.4.40"
+chrono = "0.4.41"
 csv = "1.3.1"
-log = "0.4.26"
-env_logger = "0.11.7"
-yaml-rust2 = "0.10.0"
-rand = "0.9.0"
+log = "0.4.27"
+env_logger = "0.11.8"
+yaml-rust2 = "0.10.1"
+rand = "0.9.1"
 paste = "1.0"
-toml = "0.8.20"
+toml = "0.8.22"
 
 [dev-dependencies]
 # disable basic-cookies from httpmock - not needed
 httpmock = { version = "0.7.0", default-features = false }
-tempfile = "3.19.0"
+tempfile = "3.20.0"
 filetime = "0.2"
 
 [[bin]]
