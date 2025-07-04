@@ -37,7 +37,7 @@ pub fn execute(options: AmpsOptions, config_file: ConfigFilePath) -> Result<()> 
             let runner = shell::BlockingCommand;
             let amps = list_amps(runner, amps_scripts.to_str().unwrap())?;
             for amp in amps {
-                println!("{}", amp);
+                println!("{amp}");
             }
             Ok(())
         }
@@ -52,9 +52,8 @@ fn list_amps(
     let response = runner.run(cmd)?;
     if response.body.is_empty() {
         return Err(GRError::PreconditionNotMet(format!(
-            "No amps are available in {}. Please check \
-            https://github.com/jordilin/gitar-amps for installation instructions",
-            amps_path
+            "No amps are available in {amps_path}. Please check \
+            https://github.com/jordilin/gitar-amps for installation instructions"
         ))
         .into());
     }

@@ -360,10 +360,10 @@ mod test {
 
     impl RemoteProject for ProjectDataProvider {
         fn get_project_data(&self, id: Option<i64>, path: Option<&str>) -> crate::Result<CmdInfo> {
-            if let Some(_) = id {
+            if id.is_some() {
                 *self.project_data_with_id_called.borrow_mut() = true;
             }
-            if let Some(_) = path {
+            if path.is_some() {
                 *self.project_data_with_path_called.borrow_mut() = true;
             }
             if self.error {
@@ -437,7 +437,7 @@ mod test {
             .build()
             .unwrap();
         project_info(remote.clone(), &mut writer, cli_args).unwrap();
-        assert!(writer.len() > 0);
+        assert!(!writer.is_empty());
         assert!(*remote.project_data_with_id_called.borrow());
     }
 
@@ -457,7 +457,7 @@ mod test {
             .build()
             .unwrap();
         project_info(remote.clone(), &mut writer, cli_args).unwrap();
-        assert!(writer.len() > 0);
+        assert!(!writer.is_empty());
         assert!(*remote.project_data_with_path_called.borrow());
     }
 
@@ -477,7 +477,7 @@ mod test {
             .build()
             .unwrap();
         project_info(remote, &mut writer, cli_args).unwrap_err();
-        assert!(writer.len() == 0);
+        assert!(writer.is_empty());
     }
 
     #[test]

@@ -304,7 +304,7 @@ mod tests {
         fn get_image_metadata(&self, _repository_id: i64, tag: &str) -> Result<ImageMetadata> {
             let metadata = ImageMetadata::builder()
                 .name(tag.to_string())
-                .location(format!("registry.gitlab.com/namespace/project:{}", tag))
+                .location(format!("registry.gitlab.com/namespace/project:{tag}"))
                 .short_sha("12345678".to_string())
                 .size(100)
                 .created_at("2021-01-01T00:00:00Z".to_string())

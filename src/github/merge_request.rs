@@ -145,7 +145,7 @@ impl<R: HttpRunner<Response = HttpResponse>> MergeRequest for Github<R> {
                                 let reviewers = vec![args.reviewer.username.as_str()];
                                 body.add("reviewers", &reviewers);
                                 let requested_reviewers_url =
-                                    format!("{}/{}/requested_reviewers", mr_url, id);
+                                    format!("{mr_url}/{id}/requested_reviewers");
 
                                 let response = query::send_raw(
                                     &self.runner,
@@ -185,7 +185,7 @@ impl<R: HttpRunner<Response = HttpResponse>> MergeRequest for Github<R> {
                             .into());
                         }
                         let remote_pr_branch = format!("{}:{}", owner_path[0], args.source_branch);
-                        let existing_mr_url = format!("{}?head={}", mr_url, remote_pr_branch);
+                        let existing_mr_url = format!("{mr_url}?head={remote_pr_branch}");
                         let response = query::get_raw::<_, ()>(
                             &self.runner,
                             &existing_mr_url,
@@ -483,7 +483,7 @@ impl From<&serde_json::Value> for GithubMergeRequestFields {
                 .pipeline_url(
                     merge_request_data["html_url"]
                         .as_str()
-                        .map(|url| format!("{}/checks", url)),
+                        .map(|url| format!("{url}/checks")),
                 )
                 .build()
                 .unwrap(),

@@ -826,7 +826,7 @@ mod test {
         assert!(result.is_ok());
         let response = result.unwrap();
         assert!(!response.valid);
-        assert!(response.errors.len() > 0);
+        assert!(!response.errors.is_empty());
     }
 
     #[test]

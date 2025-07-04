@@ -144,7 +144,7 @@ mod test {
         let mut writer = Vec::new();
         let result = generate_and_persist(options, &mut writer);
         assert!(result.is_ok());
-        assert!(writer.len() > 0);
+        assert!(!writer.is_empty());
         let content = String::from_utf8(writer).unwrap();
         assert!(content.contains("gitweb_com"));
     }

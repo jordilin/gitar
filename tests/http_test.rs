@@ -73,7 +73,7 @@ fn test_http_runner_server_down_get_request() {
     let err = runner.run(&mut request).unwrap_err();
     match err.downcast_ref::<GRError>() {
         Some(GRError::HttpTransportError(_)) => (),
-        _ => panic!("Expected GRError::HttpTransportError, but got {:?}", err),
+        _ => panic!("Expected GRError::HttpTransportError, but got {err:?}"),
     }
 }
 
@@ -84,7 +84,7 @@ fn test_http_runner_server_down_post_request() {
     let err = runner.run(&mut request).unwrap_err();
     match err.downcast_ref::<GRError>() {
         Some(GRError::HttpTransportError(_)) => (),
-        _ => panic!("Expected GRError::HttpTransportError, but got {:?}", err),
+        _ => panic!("Expected GRError::HttpTransportError, but got {err:?}"),
     }
 }
 

@@ -267,7 +267,7 @@ impl From<RunnerMetadata> for RunnerOptions {
 impl From<RunnerPostData> for RunnerOptions {
     fn from(options: RunnerPostData) -> Self {
         if let Err(e) = options.validate_runner_type_id() {
-            eprintln!("{}", e);
+            eprintln!("{e}");
             std::process::exit(2);
         };
         RunnerOptions::Create(
@@ -393,7 +393,7 @@ mod test {
                     options.tags,
                     Some(vec!["tag1".to_string(), "tag2".to_string()])
                 );
-                assert_eq!(options.all, true);
+                assert!(options.all);
                 assert_eq!(options.list_args.from_page, Some(1));
                 assert_eq!(options.list_args.to_page, Some(2));
                 options
@@ -405,7 +405,7 @@ mod test {
             RunnerOptions::List(args) => {
                 assert_eq!(args.status, RunnerStatus::Online);
                 assert_eq!(args.tags, Some("tag1,tag2".to_string()));
-                assert_eq!(args.all, true);
+                assert!(args.all);
                 assert_eq!(args.list_args.from_page, Some(1));
                 assert_eq!(args.list_args.to_page, Some(2));
             }

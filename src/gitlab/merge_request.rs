@@ -861,8 +861,7 @@ mod test {
             }
             Err(e) => {
                 panic!(
-                    "Expected Ok merge request approval but got: {:?} instead",
-                    e
+                    "Expected Ok merge request approval but got: {e:?} instead"
                 );
             }
         }

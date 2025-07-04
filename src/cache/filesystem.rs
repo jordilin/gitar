@@ -41,16 +41,14 @@ impl FileCache {
 
         if !path.exists() {
             return Err(GRError::CacheLocationDoesNotExist(format!(
-                "Cache directory does not exist: {}",
-                cache_location
+                "Cache directory does not exist: {cache_location}"
             ))
             .into());
         }
 
         if !path.is_dir() {
             return Err(GRError::CacheLocationIsNotADirectory(format!(
-                "Cache location is not a directory: {}",
-                cache_location
+                "Cache location is not a directory: {cache_location}"
             ))
             .into());
         }
@@ -71,8 +69,7 @@ impl FileCache {
             }
             Err(e) => {
                 return Err(GRError::CacheLocationIsNotWriteable(format!(
-                    "No write permission for cache directory {}: {}",
-                    cache_location, e
+                    "No write permission for cache directory {cache_location}: {e}"
                 ))
                 .into());
             }
@@ -86,7 +83,7 @@ impl FileCache {
         let hash = hasher.finalize();
         let cache_location = self.config.cache_location().unwrap();
         let location = cache_location.strip_suffix('/').unwrap_or(cache_location);
-        format!("{}/{:x}", location, hash)
+        format!("{location}/{hash:x}")
     }
 
     fn get_cache_data(&self, mut reader: impl BufRead) -> Result<HttpResponse> {
@@ -104,8 +101,7 @@ impl FileCache {
                 // error trace over to the client.
                 // TODO should we just treat it as a cache miss?
                 let trace = format!(
-                    "Could not parse the response status code from cache {}",
-                    err
+                    "Could not parse the response status code from cache {err}"
                 );
                 return Err(error::gen(trace));
             }

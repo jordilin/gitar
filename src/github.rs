@@ -29,7 +29,7 @@ impl<R> Github<R> {
     ) -> Self {
         let api_token = config.api_token().to_string();
         let domain = domain.to_string();
-        let rest_api_basepath = format!("https://api.{}", domain);
+        let rest_api_basepath = format!("https://api.{domain}");
 
         Github {
             api_token,

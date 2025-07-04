@@ -86,11 +86,10 @@ pub fn process_num_metadata<W: Write, T: Display>(
     mut writer: W,
 ) -> Result<()> {
     let none_msg_info = format!(
-        "Number of {resource_name} not available.\n",
-        resource_name = resource_name
+        "Number of {resource_name} not available.\n"
     );
     match num_metadata {
-        Ok(Some(count)) => writer.write_all(format!("{total}\n", total = count).as_bytes())?,
+        Ok(Some(count)) => writer.write_all(format!("{count}\n").as_bytes())?,
         Ok(None) => {
             writer.write_all(none_msg_info.as_bytes())?;
         }

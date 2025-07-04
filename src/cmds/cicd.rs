@@ -107,7 +107,7 @@ impl YamlBytes<'_> {
 impl Display for YamlBytes<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = String::from_utf8_lossy(self.0);
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -262,7 +262,7 @@ fn create_runner<W: Write>(
     mut writer: W,
 ) -> Result<()> {
     let response = remote.create(cli_args)?;
-    writeln!(writer, "{}", response)?;
+    writeln!(writer, "{response}")?;
     Ok(())
 }
 
@@ -430,7 +430,7 @@ pub fn execute(
             let body = read_ci_file(file)?;
             let parser = YamlParser::new(load_yaml(&String::from_utf8_lossy(&body)));
             let chart = generate_mermaid_stages_diagram(parser, args)?;
-            println!("{}", chart);
+            println!("{chart}");
             Ok(())
         }
         PipelineOptions::List(cli_args) => {
@@ -572,14 +572,14 @@ fn lint_ci_file<W: Write>(
                 if line.is_empty() {
                     continue;
                 }
-                writeln!(writer, "{}", line)?;
+                writeln!(writer, "{line}")?;
             }
             return Ok(());
         }
         writeln!(writer, "File is valid.")?;
     } else {
         for error in response.errors {
-            writeln!(writer, "{}", error)?;
+            writeln!(writer, "{error}")?;
         }
         return Err(error::gen("Linting failed."));
     }
@@ -629,7 +629,7 @@ mod test {
             if self.error {
                 return Err(error::gen("Error"));
             }
-            return Ok(self.num_pages);
+            Ok(self.num_pages)
         }
 
         fn num_resources(&self) -> Result<Option<crate::api_traits::NumberDeltaErr>> {
@@ -737,7 +737,7 @@ mod test {
 
     #[test]
     fn test_list_number_of_pipelines_pages() {
-        let pp_remote = PipelineMock::builder().num_pages(3 as u32).build().unwrap();
+        let pp_remote = PipelineMock::builder().num_pages(3_u32).build().unwrap();
         let mut buf = Vec::new();
         num_cicd_pages(Arc::new(pp_remote), &mut buf).unwrap();
         assert_eq!("3\n", String::from_utf8(buf).unwrap(),)

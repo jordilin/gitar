@@ -16,7 +16,7 @@ pub fn execute(
         BrowseOptions::Repo => {
             // No need to contact the remote object, domain and path already
             // computed.
-            let remote_url = format!("https://{}/{}", domain, path);
+            let remote_url = format!("https://{domain}/{path}");
             Ok(open::that(remote_url)?)
         }
         BrowseOptions::MergeRequests => {

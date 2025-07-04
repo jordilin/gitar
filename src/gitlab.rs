@@ -38,13 +38,13 @@ impl<R> Gitlab<R> {
         let encoded_path = encode_path(path);
         let api_path = "api/v4";
         let protocol = "https";
-        let base_api_path = format!("{}://{}/{}", protocol, domain, api_path);
-        let base_user_url = format!("{}/user", base_api_path);
-        let base_users_url = format!("{}/users", base_api_path);
-        let base_runner_url = format!("{}/runners", base_api_path);
-        let merge_requests_url = format!("{}/merge_requests", base_api_path);
-        let base_project_url = format!("{}/projects", base_api_path);
-        let projects_base_url = format!("{}/{}", base_project_url, encoded_path);
+        let base_api_path = format!("{protocol}://{domain}/{api_path}");
+        let base_user_url = format!("{base_api_path}/user");
+        let base_users_url = format!("{base_api_path}/users");
+        let base_runner_url = format!("{base_api_path}/runners");
+        let merge_requests_url = format!("{base_api_path}/merge_requests");
+        let base_project_url = format!("{base_api_path}/projects");
+        let projects_base_url = format!("{base_project_url}/{encoded_path}");
         Gitlab {
             api_token,
             domain,

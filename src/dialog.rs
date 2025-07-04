@@ -199,11 +199,11 @@ pub fn show_input(prompt: &str, data: &str, new_line: bool, font_style: Style) {
         prompt_style = prompt_style.bold()
     }
     if new_line {
-        println!("{}", prompt_style);
-        println!("\n{}\n", data);
+        println!("{prompt_style}");
+        println!("\n{data}\n");
     } else {
-        print!("{}: ", prompt_style);
-        println!("{}", data)
+        print!("{prompt_style}: ");
+        println!("{data}")
     }
 }
 
