@@ -166,8 +166,7 @@ pub mod utils {
 
         fn api_max_pages<T: Serialize>(&self, _cmd: &Request<T>) -> u32 {
             self.config.get_max_pages(
-                self
-                    .api_operation
+                self.api_operation
                     .borrow()
                     .as_ref()
                     // We set it to Project by default in cases where it does

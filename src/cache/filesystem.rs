@@ -100,9 +100,7 @@ impl FileCache {
                 // parse error in here could be hard to find/debug. Send a clear
                 // error trace over to the client.
                 // TODO should we just treat it as a cache miss?
-                let trace = format!(
-                    "Could not parse the response status code from cache {err}"
-                );
+                let trace = format!("Could not parse the response status code from cache {err}");
                 return Err(error::gen(trace));
             }
         };

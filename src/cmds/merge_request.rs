@@ -1659,17 +1659,13 @@ mod tests {
 
     impl Read for ErrorReader {
         fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
-            Err(std::io::Error::other(
-                "Error reading from reader",
-            ))
+            Err(std::io::Error::other("Error reading from reader"))
         }
     }
 
     impl BufRead for ErrorReader {
         fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
-            Err(std::io::Error::other(
-                "Error reading from reader",
-            ))
+            Err(std::io::Error::other("Error reading from reader"))
         }
         fn consume(&mut self, _amt: usize) {}
     }

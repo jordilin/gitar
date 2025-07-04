@@ -860,9 +860,7 @@ mod test {
                 );
             }
             Err(e) => {
-                panic!(
-                    "Expected Ok merge request approval but got: {e:?} instead"
-                );
+                panic!("Expected Ok merge request approval but got: {e:?} instead");
             }
         }
         assert_eq!(
