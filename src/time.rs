@@ -41,8 +41,7 @@ impl TryFrom<char> for Time {
             'h' => Ok(Time::Hour),
             'd' => Ok(Time::Day),
             _ => Err(error::gen(format!(
-                "Unknown char time format: {} - valid types are s, m, h, d",
-                time
+                "Unknown char time format: {time} - valid types are s, m, h, d"
             ))),
         }
     }
@@ -85,8 +84,7 @@ impl FromStr for Seconds {
         match s.parse::<u64>() {
             Ok(seconds) => Ok(Seconds(seconds)),
             Err(err) => Err(GRError::TimeConversionError(format!(
-                "Could not convert {} to time format: {}",
-                s, err,
+                "Could not convert {s} to time format: {err}",
             ))),
         }
     }
@@ -222,8 +220,7 @@ impl TryFrom<&str> for Seconds {
         match string_to_seconds(str_fmt) {
             Ok(seconds) => Ok(seconds),
             Err(err) => Err(GRError::TimeConversionError(format!(
-                "Could not convert {} to time format: {}",
-                str_fmt, err,
+                "Could not convert {str_fmt} to time format: {err}",
             ))),
         }
     }
@@ -239,14 +236,12 @@ pub fn sort_filter_by_date<T: Timestamp>(
             (Some(created_after), Some(created_before)) => {
                 let created_after = created_after.parse::<DateTime<Local>>().map_err(|err| {
                     GRError::TimeConversionError(format!(
-                        "Could not convert {} to date format: {}",
-                        created_after, err,
+                        "Could not convert {created_after} to date format: {err}",
                     ))
                 })?;
                 let created_before = created_before.parse::<DateTime<Local>>().map_err(|err| {
                     GRError::TimeConversionError(format!(
-                        "Could not convert {} to date format: {}",
-                        created_before, err,
+                        "Could not convert {created_before} to date format: {err}",
                     ))
                 })?;
                 return Ok(sort_by_date(
@@ -259,8 +254,7 @@ pub fn sort_filter_by_date<T: Timestamp>(
             (Some(created_after), None) => {
                 let created_after = created_after.parse::<DateTime<Local>>().map_err(|err| {
                     GRError::TimeConversionError(format!(
-                        "Could not convert {} to date format: {}",
-                        created_after, err,
+                        "Could not convert {created_after} to date format: {err}",
                     ))
                 })?;
                 return Ok(sort_by_date(
@@ -273,8 +267,7 @@ pub fn sort_filter_by_date<T: Timestamp>(
             (None, Some(created_before)) => {
                 let created_before = created_before.parse::<DateTime<Local>>().map_err(|err| {
                     GRError::TimeConversionError(format!(
-                        "Could not convert {} to date format: {}",
-                        created_before, err,
+                        "Could not convert {created_before} to date format: {err}",
                     ))
                 })?;
                 return Ok(sort_by_date(

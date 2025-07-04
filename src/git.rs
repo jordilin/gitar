@@ -219,7 +219,7 @@ pub fn push(runner: &impl TaskRunner, remote: &str, repo: &Repo, force: bool) ->
 }
 
 pub fn rebase(runner: &impl TaskRunner, remote_alias: &str) -> Result<CmdInfo> {
-    let cmd = format!("git rebase {}", remote_alias);
+    let cmd = format!("git rebase {remote_alias}");
     let cmd_params = cmd.split(' ').collect::<Vec<&str>>();
     runner.run(cmd_params)?;
     Ok(CmdInfo::Ignore)
@@ -238,7 +238,7 @@ pub fn commit_message(
 }
 
 pub fn checkout(runner: &impl TaskRunner<Response = ShellResponse>, branch: &str) -> Result<()> {
-    let git_cmd = format!("git checkout origin/{} -b {}", branch, branch);
+    let git_cmd = format!("git checkout origin/{branch} -b {branch}");
     let cmd_params = ["/bin/sh", "-c", &git_cmd];
     runner.run(cmd_params).err_context(format!(
         "Failed to git checkout remote branch. Command: {}",
@@ -316,7 +316,7 @@ mod tests {
         let runner = Arc::new(MockRunner::new(vec![response]));
         let cmd_info = status(runner).unwrap();
         if let CmdInfo::StatusModified(dirty) = cmd_info {
-            assert_eq!(true, dirty);
+            assert!(dirty);
         } else {
             panic!("Expected CmdInfo::StatusModified");
         }
@@ -334,7 +334,7 @@ mod tests {
         let runner = Arc::new(MockRunner::new(vec![response]));
         let cmd_info = status(runner).unwrap();
         if let CmdInfo::StatusModified(dirty) = cmd_info {
-            assert_eq!(true, dirty);
+            assert!(dirty);
         } else {
             panic!("Expected CmdInfo::StatusModified");
         }
@@ -358,7 +358,7 @@ mod tests {
         let runner = Arc::new(MockRunner::new(vec![response]));
         let cmd_info = status(runner).unwrap();
         if let CmdInfo::StatusModified(dirty) = cmd_info {
-            assert_eq!(false, dirty);
+            assert!(!dirty);
         } else {
             panic!("Expected CmdInfo::StatusModified");
         }
@@ -376,7 +376,7 @@ mod tests {
         let runner = Arc::new(MockRunner::new(vec![response]));
         let cmd_info = status(runner).unwrap();
         if let CmdInfo::StatusModified(dirty) = cmd_info {
-            assert_eq!(false, dirty);
+            assert!(!dirty);
         } else {
             panic!("Expected CmdInfo::StatusModified");
         }

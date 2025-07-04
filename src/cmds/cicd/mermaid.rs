@@ -277,7 +277,7 @@ impl<T: ToCicdEntity> CicdParser for YamlParser<T> {
                     for val_matrix in all_values {
                         for val in val_matrix {
                             parallel_jobs
-                                .push(Job::new(&format!("{}-{}", job_name, val), rules.clone()))
+                                .push(Job::new(&format!("{job_name}-{val}"), rules.clone()))
                         }
                     }
                 }
@@ -347,7 +347,7 @@ impl Mermaid {
 impl Display for Mermaid {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         for line in self.buf.iter() {
-            writeln!(f, "{}", line)?;
+            writeln!(f, "{line}")?;
         }
         Ok(())
     }
@@ -396,9 +396,9 @@ pub fn generate_mermaid_stages_diagram(
 
         if chart_type == ChartType::StagesWithJobs {
             mermaid.push(format!("    state {}{}", stage_name, "{"));
-            let anchor_name = format!("anchorT{}", i);
+            let anchor_name = format!("anchorT{i}");
             mermaid.push("        direction LR".to_string());
-            mermaid.push(format!("        state \"jobs\" as {}", anchor_name));
+            mermaid.push(format!("        state \"jobs\" as {anchor_name}"));
             for job in jobs.iter() {
                 mermaid.push(format!("        state \"{}\" as {}", job.name, anchor_name));
             }
@@ -435,7 +435,7 @@ pub fn generate_mermaid_stages_diagram(
                     if rules_compatible(&job.rules, &next_job.rules) {
                         match chart_type {
                             ChartType::StagesWithJobs | ChartType::Stages => {
-                                mermaid.push(format!("    {} --> {}", stage_name, next_stage_name));
+                                mermaid.push(format!("    {stage_name} --> {next_stage_name}"));
                                 // break as we know this stage is compatible
                                 break 'stages;
                             }

@@ -29,7 +29,7 @@ fn main() -> Result<()> {
     }
     match handle_cli_options(cli_options, config_file_path, cli_args) {
         Err(err) => {
-            eprintln!("{}", err);
+            eprintln!("{err}");
             std::process::exit(1);
         }
         Ok(_) => Ok(()),

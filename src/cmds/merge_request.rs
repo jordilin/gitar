@@ -137,7 +137,7 @@ impl TryFrom<&str> for MergeRequestState {
             "opened" => Ok(MergeRequestState::Opened),
             "closed" => Ok(MergeRequestState::Closed),
             "merged" => Ok(MergeRequestState::Merged),
-            _ => Err(format!("Invalid merge request state: {}", s)),
+            _ => Err(format!("Invalid merge request state: {s}")),
         }
     }
 }
@@ -514,8 +514,7 @@ pub fn get_reader_file_cli(file_path: &str) -> Result<Box<dyn BufRead + Send + S
         Ok(Box::new(BufReader::new(std::io::stdin())))
     } else {
         let file = File::open(file_path).err_context(GRError::PreconditionNotMet(format!(
-            "Cannot open file {}",
-            file_path
+            "Cannot open file {file_path}"
         )))?;
         Ok(Box::new(BufReader::new(file)))
     }
@@ -611,7 +610,7 @@ fn user_prompt_confirmation(
 ) -> Result<MergeRequestBodyArgs> {
     let mut title = mr_body.repo.title().to_string();
     if cli_args.draft {
-        title = format!("DRAFT: {}", title);
+        title = format!("DRAFT: {title}");
     }
     // In Gitlab it is required to gather the user ID for the assignee and
     // reviewer.
@@ -757,9 +756,9 @@ fn summary(mr_body: MergeRequestBody, cli_args: &MergeRequestCliArgs) -> Result<
         .into());
     }
     if cli_args.gpt_prompt {
-        println!("{}", GPT_PROMPT);
+        println!("{GPT_PROMPT}");
     }
-    println!("\n{}", outgoing_commits);
+    println!("\n{outgoing_commits}");
     Ok(())
 }
 
@@ -876,7 +875,7 @@ fn build_description(description: &str, signature: &str) -> String {
     if signature.is_empty() {
         return description.to_string();
     }
-    format!("{}\n\n{}", description, signature)
+    format!("{description}\n\n{signature}")
 }
 
 #[derive(Builder)]
@@ -923,9 +922,8 @@ fn get_repo_project_info(cmds: Vec<Cmd<CmdInfo>>) -> Result<MergeRequestBody> {
 fn in_feature_branch(current_branch: &str, upstream_branch: &str) -> Result<()> {
     if current_branch == upstream_branch {
         let trace = format!(
-            "Current branch {} is the same as the upstream \
-        remote {}. Please use a feature branch",
-            current_branch, upstream_branch
+            "Current branch {current_branch} is the same as the upstream \
+        remote {upstream_branch}. Please use a feature branch"
         );
         return Err(GRError::PreconditionNotMet(trace).into());
     }
@@ -934,9 +932,8 @@ fn in_feature_branch(current_branch: &str, upstream_branch: &str) -> Result<()> 
     match current_branch {
         "master" | "main" | "develop" => {
             let trace = format!(
-                "Current branch is {}, which could be a release upstream branch. \
-                Please use a different feature branch name",
-                current_branch
+                "Current branch is {current_branch}, which could be a release upstream branch. \
+                Please use a different feature branch name"
             );
             Err(GRError::PreconditionNotMet(trace).into())
         }
@@ -1633,7 +1630,7 @@ mod tests {
             .unwrap();
         let reader = Cursor::new("comment");
         assert!(create_comment(remote.clone(), cli_args, Some(reader)).is_ok());
-        assert!(remote.comment_called.lock().unwrap().clone());
+        assert!(*remote.comment_called.lock().unwrap());
         assert_eq!(
             "All features complete, ship it",
             remote.comment_argument.lock().unwrap().clone(),
@@ -1651,7 +1648,7 @@ mod tests {
             .unwrap();
         let reader = Cursor::new("Just a long, long comment from a file");
         assert!(create_comment(remote.clone(), cli_args, Some(reader)).is_ok());
-        assert!(remote.comment_called.lock().unwrap().clone());
+        assert!(*remote.comment_called.lock().unwrap());
         assert_eq!(
             "Just a long, long comment from a file",
             remote.comment_argument.lock().unwrap().clone(),
@@ -1662,19 +1659,13 @@ mod tests {
 
     impl Read for ErrorReader {
         fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Error reading from reader",
-            ))
+            Err(std::io::Error::other("Error reading from reader"))
         }
     }
 
     impl BufRead for ErrorReader {
         fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Error reading from reader",
-            ))
+            Err(std::io::Error::other("Error reading from reader"))
         }
         fn consume(&mut self, _amt: usize) {}
     }

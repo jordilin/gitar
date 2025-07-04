@@ -57,7 +57,7 @@ mod tests {
 
     #[test]
     fn test_user_command() {
-        let args = Args::parse_from(&["gr", "us", "get", "octocat"]);
+        let args = Args::parse_from(["gr", "us", "get", "octocat"]);
         let user_command = match args.command {
             Command::User(cmd) => cmd,
             _ => panic!("Expected user command"),

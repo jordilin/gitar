@@ -164,7 +164,7 @@ impl NumberDeltaErr {
 impl Display for NumberDeltaErr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (start, end) = self.compute_interval();
-        write!(f, "({}, {})", start, end)
+        write!(f, "({start}, {end})")
     }
 }
 
@@ -227,7 +227,7 @@ impl FromStr for ApiOperation {
             "single_page" => Ok(ApiOperation::SinglePage),
             "gist" => Ok(ApiOperation::Gist),
             "repository_tag" => Ok(ApiOperation::RepositoryTag),
-            _ => Err(format!("Unknown ApiOperation: {}", s)),
+            _ => Err(format!("Unknown ApiOperation: {s}")),
         }
     }
 }

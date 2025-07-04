@@ -55,11 +55,11 @@ impl<R: HttpRunner<Response = HttpResponse>> RemoteProject for Gitlab<R> {
         let base_url = format!("https://{}/{}", self.domain, self.path);
         match option {
             BrowseOptions::Repo => base_url,
-            BrowseOptions::MergeRequests => format!("{}/merge_requests", base_url),
-            BrowseOptions::MergeRequestId(id) => format!("{}/-/merge_requests/{}", base_url, id),
-            BrowseOptions::Pipelines => format!("{}/pipelines", base_url),
-            BrowseOptions::PipelineId(id) => format!("{}/-/pipelines/{}", base_url, id),
-            BrowseOptions::Releases => format!("{}/-/releases", base_url),
+            BrowseOptions::MergeRequests => format!("{base_url}/merge_requests"),
+            BrowseOptions::MergeRequestId(id) => format!("{base_url}/-/merge_requests/{id}"),
+            BrowseOptions::Pipelines => format!("{base_url}/pipelines"),
+            BrowseOptions::PipelineId(id) => format!("{base_url}/-/pipelines/{id}"),
+            BrowseOptions::Releases => format!("{base_url}/-/releases"),
             // Manual is only one URL and it's the user guide. Handled in the
             // browser command.
             BrowseOptions::Manual => unreachable!(),

@@ -129,8 +129,8 @@ pub mod utils {
             let response = self.responses.borrow_mut().pop().unwrap();
             *self.run_count.borrow_mut() += 1;
             match response.status {
-                0 => return Ok(response),
-                _ => return Err(error::gen(&response.body)),
+                0 => Ok(response),
+                _ => Err(error::gen(&response.body)),
             }
         }
     }
@@ -149,25 +149,24 @@ pub mod utils {
             match response.status {
                 // 409 Conflict - Merge request already exists. - Gitlab
                 // 422 Conflict - Merge request already exists. - Github
-                200 | 201 | 302 | 409 | 422 => return Ok(response),
+                200 | 201 | 302 | 409 | 422 => Ok(response),
                 // RateLimit error code. 403 secondary rate limit, 429 primary
                 // rate limit.
                 403 | 429 => {
                     let headers = response.get_ratelimit_headers().unwrap_or_default();
-                    return Err(error::GRError::RateLimitExceeded(headers).into());
+                    Err(error::GRError::RateLimitExceeded(headers).into())
                 }
-                500..=599 => return Err(error::GRError::RemoteServerError(response.body).into()),
+                500..=599 => Err(error::GRError::RemoteServerError(response.body).into()),
                 // Just for testing purposes, if the test client sets a status
                 // code of -1 we return a HTTP transport error.
-                -1 => return Err(error::GRError::HttpTransportError(response.body).into()),
-                _ => return Err(error::gen(&response.body)),
+                -1 => Err(error::GRError::HttpTransportError(response.body).into()),
+                _ => Err(error::gen(&response.body)),
             }
         }
 
         fn api_max_pages<T: Serialize>(&self, _cmd: &Request<T>) -> u32 {
             self.config.get_max_pages(
-                &self
-                    .api_operation
+                self.api_operation
                     .borrow()
                     .as_ref()
                     // We set it to Project by default in cases where it does
@@ -292,7 +291,7 @@ pub mod utils {
     #[macro_export]
     macro_rules! setup_client {
         ($response_contracts:expr, $client_type:expr, $trait_type:ty) => {{
-            let config = crate::test::utils::config();
+            let config = $crate::test::utils::config();
             let responses: Vec<_> = $response_contracts
                 .into_iter()
                 .map(|(status_code, get_contract_fn, headers)| {
@@ -367,7 +366,7 @@ pub mod utils {
                 status_code,
                 Box::new(move || {
                     Some(get_contract(
-                        self.contract_type.clone(),
+                        self.contract_type,
                         &contract_file.clone().into(),
                     ))
                 }),

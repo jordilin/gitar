@@ -328,9 +328,9 @@ impl URLQueryParamBuilder {
 
     pub fn add_param(&mut self, key: &str, value: &str) -> &mut Self {
         if self.url.contains('?') {
-            self.url.push_str(&format!("&{}={}", key, value));
+            self.url.push_str(&format!("&{key}={value}"));
         } else {
-            self.url.push_str(&format!("?{}={}", key, value));
+            self.url.push_str(&format!("?{key}={value}"));
         }
         self
     }
@@ -506,7 +506,7 @@ impl CliDomainRequirements {
                         Ok(url)
                     }
                 }
-                Err(err) => Err(GRError::GitRemoteUrlNotFound(format!("{}", err)).into()),
+                Err(err) => Err(GRError::GitRemoteUrlNotFound(format!("{err}")).into()),
                 _ => Err(GRError::ApplicationError(
                     "Could not get remote url during startup. \
                         main::get_config_domain_path - Please open a bug to \
@@ -564,19 +564,18 @@ pub fn url<R: TaskRunner<Response = ShellResponse>>(
     }
     let trace = errors
         .iter()
-        .map(|e| format!("{}", e))
+        .map(|e| format!("{e}"))
         .collect::<Vec<String>>()
         .join("\n");
 
     let expectations_missed_trace = requirements
         .iter()
-        .map(|r| format!("{}", r))
+        .map(|r| format!("{r}"))
         .collect::<Vec<String>>()
         .join(" OR ");
 
     Err(GRError::PreconditionNotMet(format!(
-        "\n\nMissed requirements: {}\n\n Errors:\n\n {}",
-        expectations_missed_trace, trace
+        "\n\nMissed requirements: {expectations_missed_trace}\n\n Errors:\n\n {trace}"
     ))
     .into())
 }
@@ -615,7 +614,7 @@ pub fn read_config(
 ) -> Result<Arc<dyn ConfigProperties>> {
     let enc_domain = url.config_encoded_domain();
 
-    let domain_config_file = config_path.directory.join(format!("{}.toml", enc_domain));
+    let domain_config_file = config_path.directory.join(format!("{enc_domain}.toml"));
     let domain_project_file = config_path.directory.join(format!(
         "{}_{}.toml",
         enc_domain,

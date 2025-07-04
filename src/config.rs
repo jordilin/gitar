@@ -138,7 +138,7 @@ pub struct ConfigFile {
 
 pub fn env_token(domain: &str) -> Result<String> {
     let env_domain = env_var(domain);
-    Ok(std::env::var(format!("{}_API_TOKEN", env_domain))?)
+    Ok(std::env::var(format!("{env_domain}_API_TOKEN"))?)
 }
 
 fn env_var(domain: &str) -> String {
@@ -185,8 +185,7 @@ impl ConfigFile {
             if domain_config.api_token.is_none() {
                 domain_config.api_token = Some(env(domain).map_err(|_| {
                     GRError::PreconditionNotMet(format!(
-                        "No api_token found for domain {} in config or environment variable",
-                        domain
+                        "No api_token found for domain {domain} in config or environment variable"
                     ))
                 })?);
             }
@@ -197,8 +196,7 @@ impl ConfigFile {
             })
         } else {
             Err(error::gen(format!(
-                "No config data found for domain {}",
-                domain
+                "No config data found for domain {domain}"
             )))
         }
     }

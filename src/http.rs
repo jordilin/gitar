@@ -578,7 +578,7 @@ mod test {
         let response = HttpResponse::builder().status(200).build().unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle);
         let backoff = Backoff::new(
             &client,
             0,
@@ -605,7 +605,7 @@ mod test {
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle);
         let backoff = Backoff::new(
             &client,
             0,
@@ -625,7 +625,7 @@ mod test {
         let response2 = response_with_last_page();
         let client = Arc::new(MockRunner::new(vec![response2, response1]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle);
         let backoff = Backoff::new(
             &client,
             0,
@@ -648,7 +648,7 @@ mod test {
             .unwrap();
         let client = Arc::new(MockRunner::new(vec![response]));
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle);
         let backoff = Backoff::new(
             &client,
             0,
@@ -682,7 +682,7 @@ mod test {
             MockRunner::new(vec![response3, response2, response1]).with_config(ConfigMock::new(1)),
         );
         let request: Request<()> = Request::new("http://localhost", Method::GET);
-        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle);
         let backoff = Backoff::new(
             &client,
             0,
@@ -709,7 +709,7 @@ mod test {
         responses.reverse();
         let request: Request<()> = Request::new("http://localhost", Method::GET);
         let client = Arc::new(MockRunner::new(responses));
-        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle);
         let backoff = Backoff::new(
             &client,
             0,
@@ -842,7 +842,7 @@ mod test {
             .max_pages(1)
             .build()
             .unwrap();
-        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle);
         let backoff = Backoff::new(
             &client,
             0,
@@ -951,7 +951,7 @@ mod test {
             Box::new(Exponential),
             Box::new(throttle::DynamicFixed),
         );
-        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle::default());
+        let throttler: Box<dyn ThrottleStrategy> = Box::new(NoThrottle);
         let paginator = Paginator::new(&client, request, "http://localhost", backoff, throttler);
         let responses = paginator.collect::<Vec<Result<HttpResponse>>>();
         assert_eq!(5, responses.len());
