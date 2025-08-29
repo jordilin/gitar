@@ -241,18 +241,18 @@ impl<T: ToCicdEntity> CicdParser for YamlParser<T> {
                 let job_name = job_name.split_whitespace().collect::<Vec<&str>>().join("-");
                 // if rules is empty, check only rules
                 let only = job_details["only"].as_vec();
-                if only.is_some() {
+                if let Some(items) = only {
                     rules = vec![];
-                    for rule in only.unwrap() {
+                    for rule in items {
                         let mut rule_map = HashMap::new();
                         rule_map.insert("only".to_string(), rule.clone());
                         rules.push(rule_map);
                     }
                 } else {
                     let refs = job_details["only"]["refs"].as_vec();
-                    if refs.is_some() {
+                    if let Some(items) = refs {
                         rules = vec![];
-                        for rule in refs.unwrap() {
+                        for rule in items {
                             let mut rule_map = HashMap::new();
                             rule_map.insert("only".to_string(), rule.clone());
                             rules.push(rule_map);
