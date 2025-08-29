@@ -221,7 +221,7 @@ pub fn validate_domain_project_repo_path(path: &str) -> Result<String, String> {
     }
 }
 
-fn fields(path: &str) -> (std::str::Split<char>, usize) {
+fn fields(path: &str) -> (std::str::Split<'_, char>, usize) {
     let fields = path.split('/');
     let empty_fields = fields.clone().filter(|f| f.is_empty()).count();
     (fields, empty_fields)

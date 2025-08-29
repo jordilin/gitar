@@ -87,27 +87,27 @@ pub mod utils {
             Self { config, ..self }
         }
 
-        pub fn cmd(&self) -> Ref<String> {
+        pub fn cmd(&self) -> Ref<'_, String> {
             self.cmd.borrow()
         }
 
-        pub fn url(&self) -> Ref<String> {
+        pub fn url(&self) -> Ref<'_, String> {
             self.url.borrow()
         }
 
-        pub fn headers(&self) -> Ref<Headers> {
+        pub fn headers(&self) -> Ref<'_, Headers> {
             self.headers.borrow()
         }
 
-        pub fn throttled(&self) -> Ref<u32> {
+        pub fn throttled(&self) -> Ref<'_, u32> {
             self.throttled.borrow()
         }
 
-        pub fn milliseconds_throttled(&self) -> Ref<Milliseconds> {
+        pub fn milliseconds_throttled(&self) -> Ref<'_, Milliseconds> {
             self.milliseconds_throttled.borrow()
         }
 
-        pub fn request_body(&self) -> Ref<String> {
+        pub fn request_body(&self) -> Ref<'_, String> {
             self.request_body.borrow()
         }
     }
@@ -400,11 +400,11 @@ pub mod utils {
             }
         }
 
-        pub fn throttled(&self) -> Ref<u32> {
+        pub fn throttled(&self) -> Ref<'_, u32> {
             self.throttled.borrow()
         }
 
-        pub fn milliseconds_throttled(&self) -> Ref<Milliseconds> {
+        pub fn milliseconds_throttled(&self) -> Ref<'_, Milliseconds> {
             self.milliseconds_throttled.borrow()
         }
     }

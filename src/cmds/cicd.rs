@@ -99,7 +99,7 @@ impl LintResponse {
 pub struct YamlBytes<'a>(&'a [u8]);
 
 impl YamlBytes<'_> {
-    pub fn new(data: &[u8]) -> YamlBytes {
+    pub fn new(data: &[u8]) -> YamlBytes<'_> {
         YamlBytes(data)
     }
 }
