@@ -153,7 +153,7 @@ fn test_http_gathers_from_inmemory_fresh_cache() {
     assert!(response.local_cache);
 
     // Mock was never called. We used the cache
-    server_mock.assert_hits(0);
+    server_mock.assert_calls(0);
 }
 
 #[test]
@@ -205,7 +205,7 @@ fn test_http_gathers_from_inmemory_stale_cache_server_304() {
     // While do we have a cache, the cache was expired, hence we expect the
     // server to be hit with a 304 status and a If-None-Match header set in the
     // request.
-    server_mock.assert_hits(1);
+    server_mock.assert_calls(1);
     // 304 - cache has been updated with the new upstream headers
     assert!(*cache.updated.borrow());
     assert_eq!(ResponseField::Headers, *cache.updated_field.borrow(),);
@@ -245,7 +245,7 @@ fn test_http_get_hits_endpoint_use_cache_on_second_call() {
     assert!(response.body.contains("id"));
 
     // Verify the endpoint was hit
-    server_mock.assert_hits(1);
+    server_mock.assert_calls(1);
 
     // Call is cached now
     // Do a second request and verify that the mock was not called
@@ -257,7 +257,7 @@ fn test_http_get_hits_endpoint_use_cache_on_second_call() {
     assert!(response.body.contains("id"));
 
     // Number of calls received is still 1 from the previous call
-    server_mock.assert_hits(1);
+    server_mock.assert_calls(1);
 }
 
 #[test]
@@ -294,7 +294,7 @@ fn test_http_post_hits_endpoint_two_times_does_not_use_cache() {
     assert!(response.body.contains("id"));
 
     // Verify the endpoint was hit
-    server_mock.assert_hits(1);
+    server_mock.assert_calls(1);
 
     // Call is cached now
     // Do a second request and verify that the mock was not called
@@ -306,7 +306,7 @@ fn test_http_post_hits_endpoint_two_times_does_not_use_cache() {
     assert!(response.body.contains("id"));
 
     // Number of calls received is still 1 from the previous call
-    server_mock.assert_hits(2);
+    server_mock.assert_calls(2);
 }
 
 #[test]
@@ -365,7 +365,7 @@ fn test_http_get_hits_endpoint_dont_use_cache_if_refresh_cache_is_set() {
     assert!(response.body.contains("id"));
 
     // Verify the endpoint was hit
-    server_mock.assert_hits(1);
+    server_mock.assert_calls(1);
 
     // Call is cached now
     // Do a second request and verify that the mock was not called
@@ -378,7 +378,7 @@ fn test_http_get_hits_endpoint_dont_use_cache_if_refresh_cache_is_set() {
 
     // We enforce cache refreshment, so the number of calls received by the HTTP
     // server is 2.
-    server_mock.assert_hits(2);
+    server_mock.assert_calls(2);
 }
 
 #[test]
@@ -413,7 +413,7 @@ fn test_ratelimit_remaining_below_threshold_is_err() {
             _ => panic!("Expected RateLimitExceeded error"),
         },
     }
-    server_mock.assert_hits(1);
+    server_mock.assert_calls(1);
 }
 
 #[test]
@@ -442,5 +442,5 @@ fn test_ratelimit_remaining_above_threshold_is_ok() {
     let mut request = Request::<()>::new(&url, Method::GET);
 
     assert!(runner.run(&mut request).is_ok());
-    server_mock.assert_hits(1);
+    server_mock.assert_calls(1);
 }
