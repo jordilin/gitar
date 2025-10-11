@@ -91,8 +91,10 @@
             cargo-nextest
             sccache
             just
-            python311Packages.requests
-            python311Packages.black
+            (python3.withPackages (ps: with ps; [
+              requests
+              black
+            ]))
             # Github actions locally for fast iteration
             act
             # Github actions linter
