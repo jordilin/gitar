@@ -266,15 +266,14 @@ where
             if !response.is_ok(&http::Method::GET) {
                 return Err(query_error(url, &response).into());
             }
-            if iter_over_sub_array.is_some() {
+            if let Some(iter_item) = iter_over_sub_array {
                 let body = json_loads(&response.body)?;
-                let paged_data = body[iter_over_sub_array.unwrap()]
+                let paged_data = body[iter_item]
                     .as_array()
                     .ok_or_else(|| {
                         error::GRError::RemoteUnexpectedResponseContract(format!(
                             "Expected an array of {} but got: {}",
-                            iter_over_sub_array.unwrap(),
-                            response.body
+                            iter_item, response.body
                         ))
                     })?
                     .iter()

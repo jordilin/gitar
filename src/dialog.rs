@@ -89,8 +89,8 @@ impl MemberSelector {
         default_cli_reviewer: Option<&Member>,
         assigned_member: &Member,
     ) -> Vec<Member> {
-        let mut selection_list = if default_cli_reviewer.is_some() {
-            vec![default_cli_reviewer.unwrap().clone(), Member::default()]
+        let mut selection_list = if let Some(cli_reviewer) = default_cli_reviewer {
+            vec![cli_reviewer.clone(), Member::default()]
         } else {
             vec![Member::default()]
         };
