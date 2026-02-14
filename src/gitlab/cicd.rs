@@ -104,8 +104,8 @@ impl<R: HttpRunner<Response = HttpResponse>> CicdRunner for Gitlab<R> {
     fn create(&self, args: RunnerPostDataCliArgs) -> Result<RunnerRegistrationResponse> {
         let url = format!("{}/runners", self.base_current_user_url);
         let mut body = Body::new();
-        if args.description.is_some() {
-            body.add("description", args.description.unwrap());
+        if let Some(description) = args.description {
+            body.add("description", description);
         }
         // Run untagged is the default (optional), so if no run_untagged field
         // is set in the HTTP body, it is understood runner can run untagged
@@ -114,14 +114,14 @@ impl<R: HttpRunner<Response = HttpResponse>> CicdRunner for Gitlab<R> {
         if !args.run_untagged {
             body.add("run_untagged", "false".to_string());
         }
-        if args.tags.is_some() {
-            body.add("tag_list", args.tags.unwrap());
+        if let Some(tags) = args.tags {
+            body.add("tag_list", tags);
         }
-        if args.project_id.is_some() {
-            body.add("project_id", args.project_id.unwrap().to_string());
+        if let Some(project_id) = args.project_id {
+            body.add("project_id", project_id.to_string());
         }
-        if args.group_id.is_some() {
-            body.add("group_id", args.group_id.unwrap().to_string());
+        if let Some(group_id) = args.group_id {
+            body.add("group_id", group_id.to_string());
         }
         body.add("runner_type", args.kind.to_string());
 

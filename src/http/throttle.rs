@@ -3,7 +3,7 @@
 
 use std::thread;
 
-use rand::Rng;
+use rand::RngExt;
 
 use crate::{
     api_defaults::{DEFAULT_JITTER_MAX_MILLISECONDS, DEFAULT_JITTER_MIN_MILLISECONDS},
