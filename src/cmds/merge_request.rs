@@ -693,8 +693,8 @@ fn open(
     // confirm title, description and assignee
     let args = user_prompt_confirmation(&mr_body, config, description, &target_branch, cli_args)?;
 
-    if cli_args.rebase.is_some() {
-        git::rebase(&BlockingCommand, cli_args.rebase.as_ref().unwrap())?;
+    if let Some(remote_alias) = &cli_args.rebase {
+        git::rebase(&BlockingCommand, remote_alias)?;
     }
 
     let outgoing_commits = git::outgoing_commits(
@@ -738,8 +738,8 @@ fn summary(mr_body: MergeRequestBody, cli_args: &MergeRequestCliArgs) -> Result<
 
     in_feature_branch(source_branch, &target_branch)?;
 
-    if cli_args.rebase.is_some() {
-        git::rebase(&BlockingCommand, cli_args.rebase.as_ref().unwrap())?;
+    if let Some(remote_alias) = &cli_args.rebase {
+        git::rebase(&BlockingCommand, remote_alias)?;
     }
 
     let outgoing_commits = git::outgoing_commits(
@@ -770,8 +770,8 @@ fn patch(mr_body: MergeRequestBody, cli_args: &MergeRequestCliArgs) -> Result<()
 
     in_feature_branch(source_branch, &target_branch)?;
 
-    if cli_args.rebase.is_some() {
-        git::rebase(&BlockingCommand, cli_args.rebase.as_ref().unwrap())?;
+    if let Some(remote_alias) = &cli_args.rebase {
+        git::rebase(&BlockingCommand, remote_alias)?;
     }
     println!(
         "{}",
@@ -855,9 +855,9 @@ fn cmds<R: BufRead + Send + Sync + 'static>(
         cmds.push(Box::new(git_title_cmd));
         cmds.push(Box::new(git_last_commit_message));
     }
-    if cli_args.fetch.is_some() {
+    if let Some(remote_alias) = &cli_args.fetch {
         let fetch_runner = task_runner.clone();
-        let remote_alias = cli_args.fetch.as_ref().unwrap().clone();
+        let remote_alias = remote_alias.clone();
         let git_fetch_cmd = || -> Result<CmdInfo> { git::fetch(fetch_runner, remote_alias) };
         cmds.push(Box::new(git_fetch_cmd));
     }

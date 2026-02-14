@@ -127,10 +127,10 @@ impl ListBodyArgs {
 }
 
 pub fn validate_from_to_page(remote_cli_args: &ListRemoteCliArgs) -> Result<Option<ListBodyArgs>> {
-    if remote_cli_args.page_number.is_some() {
+    if let Some(page_number) = remote_cli_args.page_number {
         return Ok(Some(
             ListBodyArgs::builder()
-                .page(remote_cli_args.page_number.unwrap())
+                .page(page_number)
                 .max_pages(1)
                 .sort_mode(remote_cli_args.sort.clone())
                 .created_after(remote_cli_args.created_after.clone())
@@ -516,18 +516,15 @@ impl CliDomainRequirements {
                 .into()),
             },
             CliDomainRequirements::DomainArgs => {
-                if cli_args.domain.is_some() {
-                    Ok(RemoteURL::new(
-                        cli_args.domain.as_ref().unwrap().to_string(),
-                        "".to_string(),
-                    ))
+                if let Some(domain) = &cli_args.domain {
+                    Ok(RemoteURL::new(domain.to_string(), "".to_string()))
                 } else {
                     Err(GRError::DomainExpected("Missing domain information".to_string()).into())
                 }
             }
             CliDomainRequirements::RepoArgs => {
-                if cli_args.repo.is_some() {
-                    let (domain, path) = extract_domain_path(cli_args.repo.as_ref().unwrap());
+                if let Some(repo) = &cli_args.repo {
+                    let (domain, path) = extract_domain_path(repo);
                     Ok(RemoteURL::new(domain, path))
                 } else {
                     Err(GRError::RepoExpected("Missing repository information".to_string()).into())
