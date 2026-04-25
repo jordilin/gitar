@@ -332,8 +332,8 @@ fn sort_by_date<T: Timestamp>(
     };
     if let Some(sort_mode) = sort_mode {
         match sort_mode {
-            ListSortMode::Asc => data_dates.sort_by(|a, b| a.1.cmp(&b.1)),
-            ListSortMode::Desc => data_dates.sort_by(|a, b| b.1.cmp(&a.1)),
+            ListSortMode::Asc => data_dates.sort_by_key(|a| a.1),
+            ListSortMode::Desc => data_dates.sort_by_key(|b| std::cmp::Reverse(b.1)),
         }
     }
     data_dates.into_iter().map(|(item, _)| item).collect()
