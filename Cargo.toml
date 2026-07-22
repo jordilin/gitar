@@ -23,26 +23,26 @@ authors = ["Jordi Carrillo <jordilin@gmail.com>"]
 [dependencies]
 ureq = { version = "3.3.0", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.149"
+serde_json = "1.0.151"
 lazy_static = "1.5"
-regex = "1.12.3"
-sha2 = "0.10.9"
+regex = "1.13.1"
+sha2 = "0.11.0"
 dialoguer = { version = "0.12.0", features = ["fuzzy-select"] }
-console = "0.16.3"
-clap = { version = "4.6.1", features = ["derive", "wrap_help"] }
-open = "5.3.4"
-thiserror = "2.0.18"
-anyhow = "1.0.102"
+console = "0.16.4"
+clap = { version = "4.6.6", features = ["derive", "wrap_help"] }
+open = "5.4.1"
+thiserror = "2.0.20"
+anyhow = "1.0.104"
 flate2 = "1.1.9"
 derive_builder = "0.20.2"
-chrono = "0.4.44"
+chrono = "0.4.45"
 csv = "1.4.0"
-log = "0.4.29"
-env_logger = "0.11.10"
+log = "0.4.33"
+env_logger = "0.11.11"
 yaml-rust2 = "0.11.0"
-rand = "0.10.1"
+rand = "0.10.2"
 paste = "1.0"
-toml = "1.1.2"
+toml = "1.1.4"
 
 [dev-dependencies]
 # disable basic-cookies from httpmock - not needed
