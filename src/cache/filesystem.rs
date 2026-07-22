@@ -153,7 +153,7 @@ impl FileCache {
                 "Cannot retrieve cache expiration time. \
                  Check your configuration file and make sure the key \
                  <domain>.cache_api_{}_expiration has a valid time format.",
-                &key.api_operation.as_ref().unwrap()
+                key.api_operation.as_ref().unwrap()
             )))?;
         expired(
             || get_file_mtime_elapsed(path.as_str()),

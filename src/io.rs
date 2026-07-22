@@ -228,10 +228,8 @@ impl PageHeader {
 
 pub fn parse_page_headers(headers: Option<&Headers>) -> Option<PageHeader> {
     if let Some(headers) = headers {
-        match headers.get(LINK_HEADER) {
-            Some(link) => return Some(parse_link_headers(link)),
-            None => return None,
-        }
+        let link = headers.get(LINK_HEADER)?;
+        return Some(parse_link_headers(link));
     }
     None
 }
