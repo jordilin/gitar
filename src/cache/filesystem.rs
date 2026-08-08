@@ -78,12 +78,18 @@ impl FileCache {
     }
 
     pub fn get_cache_file(&self, url: &str) -> String {
+        use std::fmt::Write as _;
+
         let mut hasher = Sha256::new();
         hasher.update(url);
         let hash = hasher.finalize();
+        let mut hash_hex = String::with_capacity(hash.len() * 2);
+        for byte in hash {
+            write!(&mut hash_hex, "{byte:02x}").expect("writing to a String cannot fail");
+        }
         let cache_location = self.config.cache_location().unwrap();
         let location = cache_location.strip_suffix('/').unwrap_or(cache_location);
-        format!("{location}/{hash:x}")
+        format!("{location}/{hash_hex}")
     }
 
     fn get_cache_data(&self, mut reader: impl BufRead) -> Result<HttpResponse> {
@@ -147,7 +153,7 @@ impl FileCache {
                 "Cannot retrieve cache expiration time. \
                  Check your configuration file and make sure the key \
                  <domain>.cache_api_{}_expiration has a valid time format.",
-                &key.api_operation.as_ref().unwrap()
+                key.api_operation.as_ref().unwrap()
             )))?;
         expired(
             || get_file_mtime_elapsed(path.as_str()),

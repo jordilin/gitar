@@ -334,9 +334,9 @@ fn build_list_request<'a>(
     if let Some(list_args) = list_args {
         if let Some(from_page) = list_args.page {
             let url = if url.contains('?') {
-                format!("{}&page={}", url, &from_page)
+                format!("{}&page={}", url, from_page)
             } else {
-                format!("{}?page={}", url, &from_page)
+                format!("{}?page={}", url, from_page)
             };
             request.set_max_pages(list_args.max_pages.unwrap());
             request.set_url(&url);
